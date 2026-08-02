@@ -1,0 +1,45 @@
+id: M5-011
+title: "go-cli: load generation mode (virtual users, ramp profile)"
+status: done
+priority: 3
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+  go test ./internal/loadgen/...
+  # Expected: ok  internal/loadgen  (>=8 tests passing)
+  ./apitest perf testdata/perf/sample-request.yaml \
+    --vus 10 --duration 5s --ramp-up 2s
+  # Expected stdout:
+  #   "Load test: 10 virtual users, 5s duration, 2s ramp-up"
+  #   "VUs: 1 ... 10 (ramped in 2s)"
+  #   "Running..."
+  #   "Requests sent: N; successes: N; failures: 0"
+  # exit 0
+behaviors:
+  - "Given apitest perf <request> --vus 10 --duration 5s, when invoked, then 10 virtual users execute the request repeatedly for 5 seconds and exit 0 on success"
+  - "Given --ramp-up 2s, when the perf run starts, then the VU count increases linearly from 1 to --vus over the ramp-up window before steady-state begins"
+  - "Given --vus 0, when invoked, then the CLI prints 'error: --vus must be >= 1' and exits with code 2"
+  - "Given --duration 0s, when invoked, then the CLI prints 'error: --duration must be > 0' and exits with code 2"
+  - "Given the target server returns 500 for every request, when the perf run completes, then the CLI reports 'failures: N' and exits 1"
+  - "Given SIGINT is received mid-run, when caught, then in-flight VUs finish their current request, a partial report is emitted, and the CLI exits with code 130"
+  - "Given --help is passed, when the binary runs, then the help text documents --vus, --duration, --ramp-up, --rps, and --output"
+  - "Given --rps 100 (throughput mode), when invoked, then requests are paced to target 100 req/s and the stdout header reports the requested rate"
+scope: |
+  New internal/loadgen package implementing a simple worker-pool load generator
+  inspired by k6/Vegeta. New subcommand apitest perf in cmd/apitest/perf.go.
+  Request execution reuses internal/httpexec. Concurrency via goroutines,
+  pacing via time.Ticker. Spec is thin — concrete design: VU model (goroutine
+  per VU) with optional constant-RPS throughput mode (token bucket). No
+  scripting, no scenarios; one request per invocation. Flagged in ambiguities.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text documents the perf subcommand and flags"
+  - "Smoke test exercises apitest perf on a local httptest server"
+complexity: high
+estimated_effort: "8-12 hours"

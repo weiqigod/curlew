@@ -1,0 +1,9 @@
+name: Data Driven JSON
+requests:
+  - name: Test Users
+    data_driven:
+      source: ./users.json
+      format: json
+    request:
+      method: GET
+      url: https://example.com

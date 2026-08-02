@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/collection-v1.json",
+  "title": "ApiTest Collection v1",
+  "description": "Schema for apitest collection YAML files",
+  "type": "object",
+  "required": ["name", "requests"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Collection name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional collection description"
+    },
+    "variables": {
+      "$ref": "#/$defs/variables",
+      "description": "Collection-level variables. Each value may be a plain string or an object form {from_command|value, sensitive, cache}."
+    },
+    "setup": {
+      "$ref": "#/$defs/section",
+      "description": "Requests to execute before the main requests. Array form: a list of request items. Object form: { retry, items } to apply a shared retry override to every item in this phase."
+    },
+    "requests": {
+      "$ref": "#/$defs/section",
+      "description": "Main requests to execute. Array form: a list of request items. Object form: { retry, items }."
+    },
+    "teardown": {
+      "$ref": "#/$defs/section",
+      "description": "Requests to execute after the main requests. Same array-or-object forms as setup."
+    },
+    "options": {
+      "type": "object",
+      "description": "Collection-level execution options",
+      "properties": {
+        "stop_on_failure": {
+          "type": "boolean",
+          "description": "Stop execution on first failure",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "rate_limit_rps": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Global token-bucket rate limit in requests per second (Professional tier). 0 = unlimited."
+    },
+    "include": {
+      "type": "array",
+      "description": "Other collection files to include (Professional tier). Items are spliced into setup/requests/teardown in order. Variables in this collection form a snapshot the included children inherit; child variable changes never leak back to this collection.",
+      "items": { "type": "string" }
+    },
+    "retry": {
+      "$ref": "#/$defs/retry",
+      "description": "Collection-level retry defaults. Overridden by section-level and request-level retry configuration."
+    },
+    "output": {
+      "$ref": "#/$defs/output",
+      "description": "Per-collection output configuration. Overrides project-level output; overridden by CLI flags (precedence: CLI > collection > project > built-in)."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "output": {
+      "type": "object",
+      "description": "Default output configuration. Overridden by collection-level output and CLI flags (precedence: CLI > collection > project > built-in).",
+      "properties": {
+        "format":    { "type": "string", "enum": ["terminal", "json", "tap", "junit", "html", "markdown"] },
+        "report":    { "type": "string", "minLength": 1 },
+        "events":    { "type": "string", "minLength": 1 },
+        "verbosity": { "type": "string", "enum": ["quiet", "normal", "verbose", "debug"] }
+      },
+      "additionalProperties": false
+    },
+    "section": {
+      "description": "A phase (setup, teardown, or requests) — either an array of requestItems or an object { retry, items }.",
+      "oneOf": [
+        { "type": "array", "items": { "$ref": "#/$defs/requestItem" } },
+        {
+          "type": "object",
+          "properties": {
+            "retry": { "$ref": "#/$defs/retry" },
+            "items": { "type": "array", "items": { "$ref": "#/$defs/requestItem" } }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "requestItem": {
+      "type": "object",
+      "description": "A single request entry in the collection",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Request display name"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to an external request YAML file"
+        },
+        "auth": {
+          "type": "string",
+          "description": "Name of an auth profile declared in apitest.yaml (auth_profiles block) to apply to this request."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this request is required (stops execution on failure)",
+          "default": false
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "variables": {
+          "$ref": "#/$defs/variables",
+          "description": "Request-level variables. Each value may be a plain string or an object form {from_command|value, sensitive, cache}."
+        },
+        "assertions": {
+          "$ref": "#/$defs/assertions"
+        },
+        "extract": {
+          "type": "object",
+          "description": "Extract values from the response using JSONPath",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "retry": {
+          "$ref": "#/$defs/retry",
+          "description": "Request-level retry override. Takes precedence over section and collection retry configuration."
+        },
+        "data_driven": {
+          "$ref": "#/$defs/dataDriven",
+          "description": "Data-driven configuration: run this request once per row in the source dataset."
+        }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "description": "HTTP request definition",
+      "required": ["method", "url"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "description": "HTTP method (GET, POST, PUT, DELETE, PATCH, etc.)"
+        },
+        "url": {
+          "type": "string",
+          "description": "Request URL (supports variable interpolation)"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Request headers",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "body": {
+          "description": "Request body (string or object). Mutually exclusive with body_file and body_binary_file."
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Path to a text file whose contents are sent as the request body. Variable placeholders ({{var}}) are interpolated at request time. Content-Type is auto-detected from the file extension; an explicit Content-Type header always wins. Paths are resolved relative to the collection file. Mutually exclusive with body and body_binary_file."
+        },
+        "body_binary_file": {
+          "type": "string",
+          "description": "Path to a file whose raw bytes are sent as the request body. No interpolation. Content-Type is auto-detected from the extension (falling back to application/octet-stream); an explicit Content-Type header always wins. Paths are resolved relative to the collection file. Mutually exclusive with body and body_file."
+        },
+        "query": {
+          "type": "object",
+          "description": "Query parameters appended to the URL",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "assertions": {
+      "type": "object",
+      "description": "Response assertions",
+      "properties": {
+        "status": {
+          "description": "Expected HTTP status code(s) — integer or array of integers.",
+          "oneOf": [
+            { "type": "integer", "minimum": 100, "maximum": 599 },
+            { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 }, "minItems": 1 }
+          ]
+        },
+        "headers": {
+          "type": "object",
+          "description": "Header assertions (name to operator-value map)",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "Body assertions (JSONPath to operator-value map)",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "timing": {
+          "type": "object",
+          "description": "Timing assertions",
+          "properties": {
+            "max_duration_ms": {
+              "type": "integer",
+              "description": "Maximum allowed response time in milliseconds"
+            }
+          },
+          "additionalProperties": false
+        },
+        "schema": {
+          "type": "string",
+          "description": "Path to a JSON Schema file (Professional tier). Path is relative to the collection file directory. The schema is compiled at parse time and validated against the response body."
+        }
+      },
+      "additionalProperties": false
+    },
+    "retry": {
+      "type": "object",
+      "description": "Retry configuration. All fields are optional and inherit from lower-precedence scopes. Precedence: request > section > collection > built-in defaults.",
+      "properties": {
+        "enabled":             { "type": "boolean" },
+        "max_attempts":        { "type": "integer", "minimum": 1 },
+        "backoff_strategy":    { "type": "string", "enum": ["exponential", "linear", "constant"] },
+        "initial_delay_ms":    { "type": "integer", "minimum": 0 },
+        "max_delay_ms":        { "type": "integer", "minimum": 0 },
+        "jitter":              { "type": "boolean" },
+        "jitter_factor":       { "type": "number",  "minimum": 0, "maximum": 1 },
+        "respect_retry_after": { "type": "boolean" },
+        "retry_on":        { "$ref": "#/$defs/retryOn" },
+        "do_not_retry_on": { "$ref": "#/$defs/doNotRetryOn" }
+      },
+      "additionalProperties": false
+    },
+    "retryOn": {
+      "type": "object",
+      "description": "Conditions that trigger a retry attempt.",
+      "properties": {
+        "status_codes":   { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 } },
+        "status_ranges":  { "type": "array", "items": { "type": "string" } },
+        "network_errors": { "type": "boolean" },
+        "timeouts":       { "type": "boolean" },
+        "methods":        { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "doNotRetryOn": {
+      "type": "object",
+      "description": "Conditions that prevent a retry attempt.",
+      "properties": {
+        "status_codes":  { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 } },
+        "status_ranges": { "type": "array", "items": { "type": "string" } },
+        "methods":       { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "variables": {
+      "type": "object",
+      "description": "Variable map. Each value may be a scalar string OR an object form declaring a command-sourced variable.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "#/$defs/variableEntry" }
+        ]
+      }
+    },
+    "variableEntry": {
+      "type": "object",
+      "description": "Object-form variable entry. 'from_command' and 'value' are mutually exclusive.",
+      "properties": {
+        "from_command": { "type": "string", "description": "Shell command whose stdout becomes the variable value. Mutually exclusive with 'value'." },
+        "value":        { "type": "string", "description": "Literal value. Mutually exclusive with 'from_command'." },
+        "sensitive":    { "type": "boolean", "description": "When true, the resolved value is tracked as a secret and redacted from output streams." },
+        "cache":        { "type": "integer", "minimum": 0, "description": "TTL in seconds for cached command output; 0 disables caching." }
+      },
+      "additionalProperties": false,
+      "not": {
+        "required": ["from_command", "value"]
+      }
+    },
+    "dataDriven": {
+      "type": "object",
+      "description": "Data-driven testing configuration: run this request once per row in the source dataset.",
+      "required": ["source"],
+      "properties": {
+        "source":         { "type": "string", "description": "Path to the data file (CSV/JSON/YAML), relative to the collection file." },
+        "format":         { "type": "string", "enum": ["csv", "json", "yaml", "yml"], "description": "Source format; auto-detected from extension when omitted." },
+        "filter":         { "type": "string", "description": "Row-filter expression, e.g. \"{{age}} >= 18\"." },
+        "limit":          { "type": "integer", "minimum": 1 },
+        "start_row":      { "type": "integer", "minimum": 0 },
+        "end_row":        { "type": "integer", "minimum": 0 },
+        "fail_fast":      { "type": "boolean" },
+        "parallel":       { "type": "boolean" },
+        "rate_limit_rps": { "type": "integer", "minimum": 1 },
+        "store_results":  { "type": "string", "enum": ["all", "summary", "failed_only"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

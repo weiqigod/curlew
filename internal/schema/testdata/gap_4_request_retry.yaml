@@ -1,0 +1,11 @@
+name: request-retry
+requests:
+  - name: Req
+    retry:
+      enabled: true
+      max_attempts: 5
+      jitter: true
+      jitter_factor: 0.25
+      do_not_retry_on:
+        methods: [POST]
+    request: { method: POST, url: "https://example.com/" }

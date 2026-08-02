@@ -1,0 +1,7 @@
+name: Bad Signing
+requests:
+  - name: scalar
+    request:
+      method: GET
+      url: https://example.com
+    signing: "not-a-mapping"

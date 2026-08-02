@@ -1,0 +1,22 @@
+<!-- placeholder copy; product/design polish in a later non-M14 commit -->
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="20px" font-weight="bold">
+          Your ApiTool subscription has been canceled
+        </mj-text>
+        <mj-text>
+          Hi {{first_name}}, your {{tier}} subscription has been canceled and will remain
+          active until {{effective_date}}.
+          After that date your account will revert to the free tier.
+        </mj-text>
+        <mj-divider border-color="#eeeeee" />
+        <mj-text font-size="12px" color="#999999">
+          We will keep your data per the retention policy. If you change your mind, you can
+          resubscribe at any time from your account dashboard.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

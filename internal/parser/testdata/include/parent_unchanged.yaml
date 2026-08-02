@@ -1,0 +1,11 @@
+name: Parent Unchanged
+variables:
+  a: "1"
+  b: "2"
+include:
+  - ./child_override.yaml
+requests:
+  - name: Parent Unchanged Request
+    request:
+      method: GET
+      url: https://api.example.com/parent-unchanged

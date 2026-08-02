@@ -1,0 +1,9 @@
+name: Variables Test
+variables:
+  base_url: "https://example.com"
+  api_version: "v1"
+requests:
+  - name: Get Example
+    request:
+      method: GET
+      url: "{{base_url}}/{{api_version}}/resource"

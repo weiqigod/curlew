@@ -1,0 +1,6 @@
+name: Draft Test (should be ignored)
+requests:
+  - name: GetDraft
+    request:
+      method: GET
+      url: "https://httpbin.org/get"

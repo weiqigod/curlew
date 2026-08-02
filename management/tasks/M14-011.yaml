@@ -1,0 +1,66 @@
+id: M14-011
+title: "Backend: Stripe webhook signature verification + stripe_webhook_events table + idempotency middleware"
+status: done
+priority: 2
+created: 2026-05-03
+planned_date: 2026-05-05
+branch: feature/M14-011-stripe-webhook-ingest
+phase: "M14: Revenue plumbing"
+dependencies: []
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet ef database update --project src/ApiTool.Backend
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~StripeWebhookIngest"
+  # Expected: Passed: >=10, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing \
+    APITOOL__STRIPE__WEBHOOK_SECRETS=whsec_test \
+    dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  BODY='{"id":"evt_test_1","type":"customer.subscription.created","data":{}}'
+  SIG=$(./scripts/sign-stripe-webhook.sh whsec_test "$BODY")
+  curl -sS -i -X POST http://localhost:5000/webhooks/stripe \
+    -H "Stripe-Signature: $SIG" \
+    -H "Content-Type: application/json" \
+    -d "$BODY"
+  # Expected first call: HTTP/1.1 200 (row inserted, status=pending or processed)
+  # Expected duplicate: HTTP/1.1 200 (no new row; immediate return)
+behaviors:
+  - "Given a request with a valid Stripe-Signature header, when /webhooks/stripe is called, then EventUtility.ConstructEvent verifies HMAC-SHA256 with default 5-minute tolerance and a row is inserted into stripe_webhook_events with status='pending'"
+  - "Given STRIPE__WEBHOOK_SECRETS contains 'whsec_old,whsec_new', when a request signed with either secret arrives, then verification succeeds (multi-secret rotation)"
+  - "Given a request with an invalid signature, when /webhooks/stripe is called, then the response is 400 and no row is inserted"
+  - "Given a duplicate event_id, when the second request arrives, then the INSERT ... ON CONFLICT DO NOTHING RETURNING received_at returns no row and the handler returns 200 immediately without re-processing"
+  - "Given a handler exception is raised, when processing the row, then attempt_count is incremented, last_error/last_error_at are set, and the response is 500 (so Stripe retries)"
+  - "Given attempt_count reaches 5, when the next failure occurs, then status is updated to 'quarantined', the handler returns 200 (breaking the retry storm), and a high-priority alert is logged"
+  - "Given a tolerance value, when configuration is parsed, then setting tolerance to 0 is rejected at boot (footgun guard per docs/SPECIFICATION.md:6854)"
+  - "Given a daily cleanup hosted service, when 91 days pass, then rows with status='processed' are deleted; quarantined rows are retained"
+scope: |
+  New endpoint POST /webhooks/stripe in
+  src/ApiTool.Backend/Webhooks/StripeWebhookEndpoint.cs. Uses
+  Stripe.Net.EventUtility.ConstructEvent per docs/SPECIFICATION.md:6818.
+  Multi-secret list parsed from APITOOL__STRIPE__WEBHOOK_SECRETS per :6850.
+  Default 5-minute tolerance; tolerance=0 explicitly rejected per :6854.
+  Adds the stripe_webhook_events table per the Database Schema appendix at
+  :9268+ (event_id PRIMARY KEY, event_type, received_at, processed_at,
+  status pending|processed|quarantined, payload JSONB, attempt_count,
+  last_error, last_error_at; indexes on (status, received_at desc) and
+  (event_type, received_at desc)). Idempotency pattern via INSERT ... ON
+  CONFLICT (event_id) DO NOTHING RETURNING per :6821. 5-failure quarantine
+  budget per :6843. Daily cleanup hosted service deletes processed rows
+  older than 90 days per :6852. This slice does NOT register any handlers
+  yet — M14-012 and M14-013 add handlers; this slice's "process pending row"
+  pipeline is a no-op that marks status='processed' so the integration test
+  exercises end-to-end ingest.
+definition_of_done:
+  - "All behavior tests pass (>=10)"
+  - "Live HTTP probe with valid signature returns 200; duplicate returns 200 with no second row"
+  - "EF Core migration 0015_stripe_webhook_events committed"
+  - "Migration 0015_stripe_webhook_events applied to staging DB and rolled back cleanly"
+  - "Multi-secret rotation covered by a test (old + new both accepted)"
+  - "Quarantine budget covered by a test (5 failures → status='quarantined')"
+  - "scripts/sign-stripe-webhook.sh helper checked in for the observable"
+  - "docs/SPECIFICATION.md:6818–6854 cited in StripeWebhookEndpoint.cs header"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend
+completed_date: 2026-05-05
+verified_by: ai

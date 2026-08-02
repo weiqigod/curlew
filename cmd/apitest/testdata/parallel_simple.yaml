@@ -1,0 +1,24 @@
+# parallel_simple.yaml — three-request collection with one extract-driven
+# dependency edge that produces two waves under --parallel. (M11-003)
+name: Parallel Simple
+requests:
+  - name: Get One
+    request:
+      method: GET
+      url: "https://httpbin.org/get?q=one"
+    extract:
+      one_url: "$.url"
+    assertions:
+      status: 200
+  - name: Get Two
+    request:
+      method: GET
+      url: "https://httpbin.org/get?q=two"
+    assertions:
+      status: 200
+  - name: Get Third
+    request:
+      method: GET
+      url: "https://httpbin.org/get?q=third&prev={{one_url}}"
+    assertions:
+      status: 200

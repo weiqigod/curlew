@@ -1,0 +1,10 @@
+name: Body Map Test
+
+requests:
+  - name: Post With JSON Body
+    request:
+      method: POST
+      url: "https://example.com"
+      body:
+        email: "test@example.com"
+        name: "Test"

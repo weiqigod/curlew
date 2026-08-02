@@ -1,0 +1,8 @@
+name: Status Assert Test
+requests:
+  - name: Check Status
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      status: 200

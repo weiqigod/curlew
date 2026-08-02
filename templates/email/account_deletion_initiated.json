@@ -1,0 +1,14 @@
+{
+  "slug": "account_deletion_initiated",
+  "subject": "Your ApiTool account is scheduled for deletion",
+  "variables": {
+    "user_email":         "string",
+    "cancel_url":         "string (HTTPS URL)",
+    "finalizes_at_local": "string (e.g. '2026-06-17 12:00 UTC')"
+  },
+  "test_data": {
+    "user_email": "alex@example.com",
+    "cancel_url": "https://app.apitool.dev/account/data/cancel-deletion",
+    "finalizes_at_local": "2026-06-17 12:00 UTC"
+  }
+}

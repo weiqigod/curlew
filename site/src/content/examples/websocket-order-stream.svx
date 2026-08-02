@@ -1,0 +1,103 @@
+---
+title: Scripted WebSocket order stream
+intent: Drive a real-time subscription as a sequence of steps — subscribe, expect N events, extract a value, then close cleanly — with heartbeats and reconnect.
+group: resilience
+features: [websocket, chaining]
+command: apitest run collections/orders-ws.yaml
+order: 80
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+WebSocket testing isn't a single request/response — it's a conversation. ApiTool
+models it as an ordered list of steps: `send` a message, `expect` one or more
+replies (with JSONPath assertions and extraction), `wait`, and `close`. Heartbeats
+and transparent reconnect keep long-lived subscriptions alive.
+
+## The collection
+
+```yaml
+# collections/orders-ws.yaml
+name: Order updates
+requests:
+  - name: Subscribe to orders
+    request:
+      protocol: websocket
+      url: "wss://{{ws_host}}/stream"
+      headers:
+        Authorization: "Bearer {{auth_token}}"
+    websocket:
+      heartbeat:
+        enabled: true
+        interval_ms: 30000
+        message: { type: "ping" }
+      reconnect:
+        enabled: true
+        max_attempts: 3
+        initial_delay_ms: 1000
+      steps:
+        - action: send
+          message:
+            type: "subscribe"
+            channel: "orders"
+
+        - action: expect
+          timeout_ms: 5000
+          message:
+            "$.type":
+              equals: "subscribed"
+
+        - action: expect
+          timeout_ms: 10000
+          count: 3                  # wait for 3 matching messages
+          message:
+            "$.event":
+              equals: "order_placed"
+          extract:
+            last_order_id: "$.order_id"
+
+        - action: wait
+          duration_ms: 500
+
+        - action: close
+          code: 1000                # normal closure
+          reason: "done"
+    assertions:
+      status: 200
+```
+
+The `expect` step with `count: 3` blocks until three messages match (or the timeout
+trips), and `extract` captures a value from the last match — `last_order_id` is then
+available to any request that runs afterwards.
+
+## Run it
+
+```bash
+apitest run collections/orders-ws.yaml --var ws_host=stream.example.com
+```
+
+```
+Collection: Order updates
+  ✓ Subscribe to orders  2148ms
+      → subscribe (orders)
+      ✓ expect type == "subscribed" (42ms)
+      ✓ expect 3× event == "order_placed" (1.6s)
+      → close 1000 "done"
+
+────────────────────────────────
+  1 request(s): 1 passed, 0 failed (2151ms)
+```
+
+<Callout type="output">
+	Representative step trace — the timing of incoming events depends on the server.
+</Callout>
+
+<Callout type="note">
+	Other step shapes: <code>message_raw</code> sends a literal string,
+	<code>message_template</code> sends a file with <code>{'{{vars}}'}</code> interpolated,
+	and <code>any_of</code> lets one <code>expect</code> accept several alternative
+	message shapes.
+</Callout>

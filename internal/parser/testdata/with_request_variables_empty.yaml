@@ -1,0 +1,7 @@
+name: Empty Variables Test
+requests:
+  - name: Empty Variables
+    variables: {}
+    request:
+      method: GET
+      url: "https://example.com"

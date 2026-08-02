@@ -1,0 +1,56 @@
+id: M14-001
+title: "Backend: signing_keys table + IKeyProvider with File and GoogleKMS providers"
+status: done
+priority: 1
+created: 2026-05-03
+planned_date: 2026-05-04
+branch: feature/M14-001-signing-keys-key-provider
+phase: "M14: Revenue plumbing"
+dependencies: []
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet ef database update --project src/ApiTool.Backend
+  dotnet test src/ApiTool.Backend.Tests --filter "Category=KeyProvider|FullyQualifiedName~SigningKeys"
+  # Expected: Passed: >=10, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing \
+    APITOOL__KEYPROVIDER__MODE=file \
+    APITOOL__KEYPROVIDER__FILE__DIR=./Keys/signing \
+    dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  curl -sS http://localhost:5000/internal/keys/active | jq .kid
+  # Expected: a string matching ^[a-z0-9-]{1,64}$ such as "dev-es256-202605-a3f4d2"
+  # Confirms FileKeyProvider mints a current key on boot and exposes its kid.
+behaviors:
+  - "Given an empty signing_keys table and FileKeyProvider mode, when the backend boots, then a current ES256 key is generated, persisted to Keys/signing/<kid>.pem mode 0600, and inserted as status='current' in signing_keys"
+  - "Given a current signing key exists, when IKeyProvider.SignAsync is invoked, then the returned signature verifies against the active public key with ES256"
+  - "Given GoogleKmsKeyProvider is configured with a kms_key_id, when SignAsync is invoked, then signing dispatches to the KMS asymmetricSign API and the signing_keys row records the kms_key_id with public_key_jwk cached"
+  - "Given a kid header value containing path-traversal characters, when IKeyProvider.GetKeyAsync(kid) is called, then the regex allowlist (^[a-z0-9-]{1,64}$) rejects with InvalidKidFormat and no DB lookup occurs"
+  - "Given two rows attempt status='current' simultaneously, when committed, then the partial unique index idx_signing_keys_current rejects the second with a 23505 constraint violation"
+  - "Given GetVerificationJwksAsync is called with one current and one verifying key, when invoked, then both keys are returned in the JWKS response with use=sig and the correct kid/alg fields"
+  - "Given an emergency rotation is requested via apitest-backend keys rotate --emergency, when executed, then the next key is promoted to current, the old current is marked revoked with revoke_reason set, and JWKS reflects the change within one cache cycle"
+scope: |
+  New backend infrastructure under src/ApiTool.Backend/Licensing/Keys/. Adds the
+  signing_keys table per docs/SPECIFICATION.md:9268+ Database Schema appendix
+  (kid PRIMARY KEY, algorithm, status, kms_key_id, public_key_jwk JSONB,
+  promoted_at, retiring_at, revoked_at, revoke_reason; partial unique indexes on
+  status='current' and status='next'). Defines IKeyProvider with SignAsync,
+  GetActiveKidAsync, GetVerificationJwksAsync per
+  docs/SPECIFICATION.md:7990–8090. Ships FileKeyProvider (deploy/self-hosted/,
+  Keys/signing/<kid>.pem mode 0600) and GoogleKmsKeyProvider (SaaS,
+  EC_SIGN_P256_SHA256 HSM tier). Also lands the v4.2 refresh_tokens schema
+  replacement (DROP TABLE + CREATE per Open Decision #5 default — no rows to
+  preserve since refresh issuance has not yet shipped to users). Algorithm pinned
+  to ES256 per Decision #1; rotation cadence 90/60 per Decision #3. RFC 6979
+  deterministic signing required (vetted wrapper or KMS path). Adds
+  apitest-backend keys rotate --emergency CLI runbook entry.
+definition_of_done:
+  - "All behavior tests pass (>=10) under dotnet test"
+  - "Live HTTP probe of /internal/keys/active returns a kid matching the documented format"
+  - "EF Core migration 0014_signing_keys_and_refresh_tokens committed; ALTER/DROP order safe under both clean-slate and reapply"
+  - "Migration 0014_signing_keys_and_refresh_tokens applied to staging DB and rolled back cleanly"
+  - "deploy/self-hosted/README.md gains the FileKeyProvider key-generation procedure"
+  - "docs/SPECIFICATION.md:7990–8090 cited in the implementation file headers"
+  - "Smoke test smoke/run.sh verifies the backend boots with FileKeyProvider in CI"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

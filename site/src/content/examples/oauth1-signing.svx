@@ -1,0 +1,86 @@
+---
+title: OAuth 1.0a signed requests
+intent: Sign requests with OAuth 1.0a (HMAC-SHA1 or HMAC-SHA256) using the built-in signer — credentials kept out of the file and out of the logs.
+group: security
+features: [signing, redaction]
+command: apitest run collections/oauth1.yaml
+order: 100
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+Plenty of APIs still speak OAuth 1.0a — and getting the signature base string right
+by hand is miserable. ApiTool's built-in `oauth1` signer handles the nonce,
+timestamp, parameter normalization, and HMAC for you.
+
+## The collection
+
+Keep the secrets in `.env` (marked sensitive) and reference them as variables, so the
+signer can redact them.
+
+```yaml
+# .env
+consumer_secret=!sensitive "shhh-consumer"
+access_token_secret=!sensitive "shhh-token"
+```
+
+```yaml
+# collections/oauth1.yaml
+name: OAuth1 API
+variables:
+  consumer_key: "demo-consumer-key"
+  access_token: "demo-access-token"
+
+requests:
+  - name: Post a status
+    request:
+      method: POST
+      url: "https://api.example.com/1.1/statuses/update.json"
+      query:
+        status: "hello from apitest"
+    signing:
+      type: oauth1
+      params:
+        consumer_key: "{{consumer_key}}"
+        consumer_secret: "{{consumer_secret}}"        # sensitive → redacted
+        token: "{{access_token}}"
+        token_secret: "{{access_token_secret}}"       # sensitive → redacted
+        method: HMAC-SHA256                            # default is HMAC-SHA1
+    assertions:
+      status: 200
+      body:
+        "$.id":
+          exists: true
+```
+
+ApiTool folds the query parameters into the OAuth signature base string, builds the
+`Authorization: OAuth ...` header, and dispatches — RSA-SHA1 and PLAINTEXT are
+deliberately not supported.
+
+## Run it
+
+```bash
+apitest run collections/oauth1.yaml
+```
+
+```
+Collection: OAuth1 API
+  ✓ Post a status  200  267ms
+
+────────────────────────────────
+  1 request(s): 1 passed, 0 failed (267ms)
+```
+
+<Callout type="output">
+	Representative output — point it at any OAuth 1.0a endpoint with your own
+	credentials.
+</Callout>
+
+<Callout type="note">
+	The same <code>signing:</code> block can sit at the collection level as a default
+	for every request, or per-request to override it — exactly like the
+	<a href="/examples/aws-sigv4-signing">SigV4 example</a>.
+</Callout>

@@ -1,0 +1,7 @@
+name: Lowercase Method Test
+
+requests:
+  - name: Post Lowercase
+    request:
+      method: post
+      url: "https://example.com"

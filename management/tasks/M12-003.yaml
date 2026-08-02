@@ -1,0 +1,65 @@
+id: M12-003
+title: "$urlEncode and $jsonEncode dynamic functions"
+status: done
+priority: 2
+created: 2026-04-28
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_UrlEncode' -v ./internal/variable/...
+  # Expected: PASS — $urlEncode('hello world') returns 'hello+world'
+  # (matches net/url.QueryEscape exactly).
+
+  go test -run 'TestRegistry_JsonEncode' -v ./internal/variable/...
+  # Expected: PASS — $jsonEncode('he said "hi"') returns the literal
+  # 14-char string `"he said \"hi\""` (with surrounding quotes,
+  # quote and backslash escapes).
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a request: url "{{base_url}}/search?q={{$urlEncode('hello world & co')}}"
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: rendered URL has q=hello+world+%26+co.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$urlEncode` is invoked with a string, then it returns net/url.QueryEscape(s) verbatim (spaces -> '+', '&' -> '%26', '/' -> '%2F', unicode UTF-8 percent-encoded)."
+  - "Given the registry, when `$jsonEncode` is invoked with a string, then it returns the JSON-string representation of that string, surrounding double quotes included, using encoding/json.Marshal."
+  - "Given a string containing a quote and a backslash, when `$jsonEncode` is invoked, then those characters are escaped per RFC 8259 (`\\\"` and `\\\\`)."
+  - "Given a string containing a literal newline byte, when `$jsonEncode` is invoked, then the result contains `\\n` (escaped) and is valid JSON."
+  - "Given `$urlEncode` or `$jsonEncode` is invoked with zero or two arguments, when evaluated, then an arity-mismatch error is returned naming the function and the expected arity of 1."
+  - "Given a nested template `{{$urlEncode('{{query}}')}}` with query='a b', when interpolated, then the result is `a+b`."
+  - "Given an empty input `{{$jsonEncode('')}}`, when evaluated, then the result is the literal three characters `\"\"` (a JSON empty string)."
+scope: |
+  Add two registrations to internal/variable/dynamic.go:
+  - `$urlEncode(s)` — net/url.QueryEscape(s)
+  - `$jsonEncode(s)` — encoding/json.Marshal of the input string.
+    Document explicitly that it operates on the resolved string value;
+    composite types are not yet supported (M12 intentionally keeps the
+    arg type simple). The output includes the surrounding double quotes
+    so the result is a valid JSON string literal that can be inlined
+    into a JSON body without further escaping.
+
+  Files touched:
+  - internal/variable/dynamic.go (two registrations)
+  - internal/variable/dynamic_test.go (new TestRegistry_UrlEncode and
+    TestRegistry_JsonEncode tests, table-driven)
+  - docs/MANUAL.md §3.7 (two table rows + a short note that
+    $urlEncode mirrors net/url.QueryEscape — '+' for space — and that
+    $jsonEncode includes the surrounding quotes)
+
+  Not in scope: $pathEncode (path-segment vs query-component) — out of
+  scope for M12; revisit if a real test exposes the need.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md dynamic-functions table updated with $urlEncode and $jsonEncode rows"
+complexity: low

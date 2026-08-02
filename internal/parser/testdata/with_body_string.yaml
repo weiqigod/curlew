@@ -1,0 +1,8 @@
+name: Body String Test
+
+requests:
+  - name: Post With String Body
+    request:
+      method: POST
+      url: "https://example.com"
+      body: "raw string body"

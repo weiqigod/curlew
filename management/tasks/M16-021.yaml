@@ -1,0 +1,45 @@
+id: M16-021
+title: "End-to-end happy-path workflow scenario across all M16 capabilities"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-004
+  - M16-008
+  - M16-011
+  - M16-014
+  - M16-018
+  - M16-020
+
+track: e2e
+
+observable: |
+  Run `./scripts/ci-local.sh --full` to bring up the full stack, then `./scripts/m16-e2e.sh` (a new shell script wrapping a Playwright + bash composite scenario). The script exits 0 on success and produces a single-line summary `M16 e2e PASS in <duration>s`. The scenario covers, in order: (1) register a new user with an Argon2id password via the web `/auth/register` page; (2) verify email via the confirmation link; (3) observe the 14-day full-trial JWT issued (the License JWT decoded shows `trial_state=active`); (4) create a Team-tier subscription via stripe-mock; (5) create a schedule via `/org/<slug>/schedules`; (6) start `apitest worker --schedule-pull` in the background; (7) the worker claims and executes the run; (8) result is ingested with `scheduled_runs.result_id` populated; (9) `/org/<slug>/dashboard` shows the new run reflected in totals; (10) seed a near-expiry trial row, force the `TrialExpiryNotifier` cron tick, observe a queued `trial_expiring` email; (11) on-demand activate one feature via `apitest license trial start <feature>`; (12) request password reset via `/auth/password-reset/request`, click the email link, complete reset; (13) confirm all refresh-token families revoked.
+
+behaviors:
+  - "Given a fresh stack from ./scripts/ci-local.sh --full, when the e2e scenario runs registration → verification → trial → schedule → run → vault → dashboard → trial-expiry → on-demand trial → password-reset → token-revocation, then every step succeeds and the final exit code is 0"
+  - "Given the user registers via the web, when the registration handler runs, then a row per feature appears in trials with kind = full_initial and the License JWT cached on disk carries trial_state=active"
+  - "Given the verification email is followed, when the user lands on /auth/email-verification/confirm, then users.email_verified becomes true and the dashboard navigates to /org/<slug>"
+  - "Given a schedule is created via the web with a `file:` collection_ref, when the worker picks up the run, then a scheduled_runs row transitions queued → running → completed with result_id populated and the dashboard reflects the run within 30 seconds"
+  - "Given a near-expiry trial row is seeded, when TrialExpiryNotifier ticks (forced via test-config flag), then a trial_expiring email is queued and notified_3day_at is set"
+  - "Given `apitest license trial start <feature>` is run, when the backend returns 200, then the cached License JWT now carries the feature in features[] and the next `apitest run` for that feature succeeds"
+  - "Given the password-reset flow completes, when the user attempts to use a previously cached refresh token, then the next access-token refresh fails with invalid_credentials and the user is forced to re-login (RFC 9700 §4.14 confirmation)"
+  - "Given any individual cluster's failure modes (covered in their own slices' tests), when the e2e scenario runs the happy path only (per Open Decision 9), then the scenario does not assert on those — it only proves the parts wire together end-to-end"
+  - "Given the scenario asserts on cross-cluster invariants, when /results/stats is queried after the schedule run, then the new run appears in totals.runs and trend[<today's date>].runs increments by exactly 1"
+
+scope: |
+  New script `scripts/m16-e2e.sh` and a Playwright spec `web/tests/e2e/m16-happy-path.spec.ts` (the spec drives web steps; the shell script orchestrates CLI steps and asserts on backend state via `psql` and `curl`). The scenario is happy-path only (per Open Decision 9) — failure modes are covered in each cluster's own tests. Reuses the existing `./scripts/ci-local.sh --full` to bring up Postgres, the backend, the web portal, stripe-mock, and a sendgrid-fake. The new e2e adds three test fixtures: a sample collection YAML for the schedule run, a stripe-mock seed for Team-tier checkout, and a sendgrid-fake assertion harness that confirms the `password_reset` and `trial_expiring` emails arrive. Mirrors M14-021's role and shape.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code (e2e harness code)"
+  - "No build warnings or lint errors"
+  - "Full happy-path scenario passes against `./scripts/ci-local.sh --full`"
+  - "Playwright spec runs headlessly under CI"
+  - "Scenario completes in under 5 minutes wall time on a developer laptop"
+
+complexity: high
+estimated_effort: "6-12 hours"

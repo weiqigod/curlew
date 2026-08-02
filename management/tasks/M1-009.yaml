@@ -1,0 +1,31 @@
+id: M1-009
+title: "Collection-level variables with interpolation"
+status: done
+priority: 9
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-003]
+observable: |
+  Create collection with `variables: { base_url: "https://httpbin.org" }` and
+  URL `{{base_url}}/get`. Run and see request to correct URL.
+behaviors:
+  - "Given a collection with `variables:` block and `{{base_url}}` in URL, when executed, then the variable is interpolated"
+  - "Given `{{var}}` in headers, body, and query params, when executed, then all occurrences are interpolated"
+  - "Given a variable referencing another variable `a: \"{{b}}\"`, when resolved, then chain is followed"
+  - "Given circular variable references `a: \"{{b}}\", b: \"{{a}}\"`, when resolved, then error with exit code 5"
+  - "Given variable chain deeper than 10 levels, when resolved, then depth limit error with exit code 5"
+  - "Given `{{undefined_var}}` with no matching variable, when resolved, then error with exit code 5 and message listing available variables"
+  - "Given a variable value containing special characters, when interpolated, then it is used verbatim"
+scope: |
+  Create `internal/variable/` package with interpolation engine, circular
+  reference detection, depth limiting. Parse `variables:` block in collections.
+  Integrate interpolation into request building pipeline.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

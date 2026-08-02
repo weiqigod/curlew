@@ -1,0 +1,10 @@
+name: Parent Base URL
+variables:
+  base_url: https://api.example.com
+include:
+  - ./child_base_url.yaml
+requests:
+  - name: Parent Base URL Request
+    request:
+      method: GET
+      url: https://api.example.com/parent

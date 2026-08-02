@@ -1,0 +1,125 @@
+id: M17-004
+title: "Webhook-signature dynamic functions: $webhookSign.stripe / .github / .slack"
+status: done
+priority: 2
+created: 2026-04-28
+completed_date: 2026-04-29
+verified_by: ai
+phase: "M17: First-party signers and signing helpers"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_WebhookSign_Stripe' -v ./internal/variable/...
+  # Expected: PASS — $webhookSign.stripe(body, secret, '1492774577') returns
+  # the literal string `t=1492774577,v1=<hex>` where <hex> is the lowercase
+  # hex of HMAC-SHA256("1492774577.<body>", secret) (per Stripe's published
+  # signature spec). Two-arg form $webhookSign.stripe(body, secret) uses
+  # the registry's clock seam (defaulting to time.Now().Unix()) for the
+  # timestamp.
+
+  go test -run 'TestRegistry_WebhookSign_GitHub' -v ./internal/variable/...
+  # Expected: PASS — $webhookSign.github(body, secret) returns
+  # `sha256=<hex>` where <hex> is the lowercase hex of HMAC-SHA256(body, secret)
+  # (per GitHub's published x-hub-signature-256 spec). Always two-arg.
+
+  go test -run 'TestRegistry_WebhookSign_Slack' -v ./internal/variable/...
+  # Expected: PASS — $webhookSign.slack(body, secret, '1531420618') returns
+  # `v0=<hex>` where <hex> is the lowercase hex of
+  # HMAC-SHA256("v0:1531420618:<body>", secret) (per Slack's published
+  # signature spec). Two-arg form uses the clock seam.
+
+  go test -run 'TestRegistry_WebhookSign_DottedNamespaceRequired' -v ./internal/variable/...
+  # Expected: PASS — the three function names use the dotted-namespace
+  # syntax foundation from M13-001; calling $webhookSignStripe (no dot)
+  # returns the standard unknown-function error.
+
+  go test -run 'TestRegistry_WebhookSign_SecretSensitivePropagation' -v ./internal/variable/...
+  # Expected: PASS — when the secret argument resolves from a sensitive
+  # variable, the resolved secret string is added to the run's
+  # SensitiveSet via AddValue (mirrors the M12-005 $hmacSha256 pattern via
+  # the Registry.sensitiveArgIdx mechanism in internal/variable/dynamic.go).
+
+  go test -run 'TestRegistry_WebhookSign_ArityErrors' -v ./internal/variable/...
+  # Expected: PASS — github with 1 or 3 args, stripe with 0 or 4 args,
+  # slack with 0 or 4 args, all return the canonical arity error
+  # (DYNFN_ARITY) naming the expected arity range.
+
+  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  # Add a header: X-Stripe-Signature: "{{$webhookSign.stripe('{{payload}}', '{{stripe_secret}}', '{{stripe_ts}}')}}"
+  # stripe_secret in env file (auto-sensitive: name contains 'secret').
+  ./apitest run collections/sample.yaml --dry-run --format json | grep -F 't=' | grep -F ',v1='
+  # Expected: success — the rendered header has the t=...,v1=... shape and
+  # the secret is never visible in serialised output.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when $webhookSign.stripe(body, secret, timestamp) is invoked with three string args, then it returns `t=<timestamp>,v1=<hex>` where <hex> is the lowercase hex of HMAC-SHA256(\"<timestamp>.<body>\", secret) (Stripe's signed_payload construction)."
+  - "Given $webhookSign.stripe(body, secret) is invoked with two args (no timestamp), when evaluated, then the registry's clock seam (defaulting to time.Now().Unix()) supplies the timestamp; tests pin the clock and assert the rendered string."
+  - "Given the registry, when $webhookSign.github(body, secret) is invoked with two string args, then it returns `sha256=<hex>` where <hex> is the lowercase hex of HMAC-SHA256(body, secret) (GitHub's x-hub-signature-256)."
+  - "Given the registry, when $webhookSign.slack(body, secret, timestamp) is invoked, then it returns `v0=<hex>` where <hex> is the lowercase hex of HMAC-SHA256(\"v0:<timestamp>:<body>\", secret); two-arg form uses the clock seam."
+  - "Given any of the three functions is called with the wrong arity (github with 1 or 3 args; stripe with 0 or 4 args; slack with 0 or 4 args), when evaluated, then a structured CategoryInput error with code DYNFN_ARITY is returned naming the supported arity (mirrors the existing twoArgs arity-helper in internal/variable/dynamic.go)."
+  - "Given the secret argument resolves from a sensitive variable, when evaluated, then the resolved secret string is added to the run's SensitiveSet via AddValue, leveraging the Registry.sensitiveArgIdx mechanism that M12-005 introduced in internal/variable/dynamic.go (each of the three functions registers arg index 1 — the secret — as the sensitive position)."
+  - "Given a literal secret (no variable reference, e.g. '{{$webhookSign.github('payload', 'literal-secret')}}'), when evaluated, then no SensitiveSet mutation occurs (literal secrets cannot be back-traced; documented as a footgun in MANUAL.md, mirroring $hmacSha256)."
+  - "Given a function name without a dot (e.g. $webhookSignStripe), when matched by dynPattern, then the M13-001 dotted-namespace regex still matches as a single segment and the registry returns the unknown-function error — proving that the dot is a meaningful registration-key character, not a parser artifact."
+scope: |
+  Three new dynamic-function registrations in internal/variable/dynamic.go,
+  using the dotted-namespace syntax foundation from M13-001 (Open
+  Decision #4).
+
+  Registered names:
+    - webhookSign.stripe   (arity 2 or 3: body, secret, [timestamp])
+    - webhookSign.github   (arity 2: body, secret)
+    - webhookSign.slack    (arity 2 or 3: body, secret, [timestamp])
+
+  Each function:
+    1. Resolves args (already-interpolated strings; the dynamic-function
+       arg parser parseDynArgs in internal/variable/variable.go handles
+       single-quoted literals with embedded {{var}} references).
+    2. Computes HMAC-SHA256 (reuses crypto/hmac + crypto/sha256, same
+       primitives as M12-005's $hmacSha256 — but shaped per provider).
+    3. Returns the provider-specific header value verbatim.
+
+  Sensitive-secret propagation: each registration adds itself to the
+  Registry.sensitiveArgIdx map at index 1 (the secret position), so the
+  M12-005 plumbing in internal/variable/variable.go (Pass-1 dynamic
+  resolution path inside Resolve) auto-marks the resolved secret value via
+  SensitiveSet.AddValue when it originates from a sensitive variable.
+  No new plumbing is needed in this slice.
+
+  Clock seam: stripe and slack two-arg forms default the timestamp via
+  Registry.now (already a clock seam introduced in earlier M11/M12 work
+  — see Registry.now in internal/variable/dynamic.go). Tests pin the clock via the
+  existing now field.
+
+  Files touched:
+    - internal/variable/dynamic.go              (three new registrations using twoArgs / a new threeArgs helper or a per-function DynFunc body)
+    - internal/variable/dynamic_test.go         (per-function correctness tests + sensitive-propagation test + arity-error tests)
+    - internal/variable/dynamic_helpers.go      (new — per-provider HMAC-SHA256 string-builders extracted for testability and reuse)
+    - docs/MANUAL.md §3.7                       (three new rows in the dynamic-functions table; one example block per provider; a footgun callout on literal secrets mirroring $hmacSha256)
+
+  Files explicitly NOT touched:
+    - internal/variable/variable.go             (the Pass-1 sensitive-arg plumbing from M12-005 is reused as-is; no changes expected)
+    - internal/signer/                          (this slice is dynamic-functions-only; it does not extend the M17-001 signer registry)
+    - internal/auth/profile.go                  (unchanged across all of M17)
+
+  Not in scope: signature-verification helpers (this slice is sign-only;
+  if a verify equivalent is needed, defer to a future slice with named
+  customer demand); GitHub's legacy SHA-1 x-hub-signature header (only
+  the v2 SHA-256 form is shipped — the v1 form is deprecated by GitHub);
+  generic $webhookSign(provider, ...) variadic form (rejected per Open
+  Decision #4); SPECIFICATION.md v4.2 update (separate follow-up).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80% (no regression from current baseline)"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "Each of the three providers has a published-spec test vector: Stripe (HMAC-SHA256 over `<timestamp>.<body>`), GitHub (HMAC-SHA256 over body), Slack (HMAC-SHA256 over `v0:<timestamp>:<body>`); each vector passes byte-exactly"
+  - "docs/MANUAL.md §3.7 dynamic-functions table contains rows for $webhookSign.stripe / .github / .slack with one example per provider and a footgun callout on literal secrets"
+  - "A smoke fixture under smoke/ proves that a request can produce the Stripe-style t=...,v1=... header end-to-end with the secret never appearing in --dry-run / --format json output"
+complexity: medium

@@ -1,0 +1,47 @@
+id: M14-013
+title: "Backend: Stripe invoice + payment-method event handlers"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-011
+  - M14-014
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres stripe-mock
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~StripeInvoiceHandler|FullyQualifiedName~StripePaymentMethodHandler"
+  # Expected: Passed: >=10, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  ./scripts/replay-stripe-event.sh invoice.payment_succeeded in_test_1
+  curl -sS -H "Authorization: Bearer $(./scripts/test-token.sh owner@example.com)" \
+    http://localhost:5000/api/v1/me | jq '.last_invoice.status'
+  # Expected: "paid"; an EmailMessage with slug=billing_receipt is in the queue
+  ./scripts/replay-stripe-event.sh invoice.payment_failed in_test_2
+  # Expected: subscriptions.status=past_due; billing_payment_failed email enqueued
+behaviors:
+  - "Given invoice.payment_succeeded, when the handler runs, then it re-fetches the Invoice from Stripe, sets subscription.status=active, records the invoice_url + amount_paid, and enqueues an EmailMessage with slug=billing_receipt and variables {first_name, billing_period, amount_total, invoice_url}"
+  - "Given invoice.payment_failed, when the handler runs, then subscription.status=past_due, the dunning grace timer starts, and an EmailMessage with slug=billing_payment_failed is enqueued with {first_name, amount_total, update_payment_url, attempt_count}"
+  - "Given invoice.finalized, when the handler runs, then the invoice_url is persisted on the invoices table for user access"
+  - "Given payment_method.attached, when the handler runs, then the payment method row is upserted onto the payment_methods table with the four-digit card last4 and brand"
+  - "Given payment_method.detached, when the handler runs, then the matching row is removed (or soft-deleted with detached_at)"
+  - "Given the SendGridSmtpSender (M14-014) rejects a variable not in the manifest, when the handler attempts to enqueue an email with an extra variable, then the handler fails its unit test (manifest contract enforced at compose time)"
+  - "Given an idempotency replay of invoice.payment_succeeded, when M14-011's middleware dedupes, then no second receipt email is queued"
+scope: |
+  Adds handlers in src/ApiTool.Backend/Webhooks/Handlers/InvoiceAndPaymentHandlers.cs
+  for invoice.{payment_succeeded,payment_failed,finalized} and
+  payment_method.{attached,detached} per docs/SPECIFICATION.md:6801–6806. Each
+  handler re-fetches its Stripe object before writing per the order-defense
+  rule. EmailMessages composed against the M14-015 manifests for
+  billing_receipt and billing_payment_failed (variable names and types match
+  the manifest declarations exactly; SendGridSmtpSender enforces this at send
+  time per :8941). Soft-coupling to M14-014 same as M14-012.
+definition_of_done:
+  - "All behavior tests pass (>=10)"
+  - "Live event-replay shows status changes and email-queue rows"
+  - "Manifest-contract test for billing_receipt + billing_payment_failed (every variable name in the handler's payload appears in the manifest)"
+  - "Idempotency replay covered (no double email)"
+  - "docs/SPECIFICATION.md:6801–6806 + :8941 cited in handler file header"
+complexity: high
+estimated_effort: "6-12 hours"
+track: backend

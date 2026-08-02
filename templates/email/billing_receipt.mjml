@@ -1,0 +1,23 @@
+<!-- placeholder copy; product/design polish in a later non-M14 commit -->
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="20px" font-weight="bold">
+          Thank you, {{first_name}}!
+        </mj-text>
+        <mj-text>
+          Your payment of {{amount_total}} for the {{billing_period}} billing period has been received.
+          We appreciate your continued use of ApiTool.
+        </mj-text>
+        <mj-button href="{{invoice_url}}" background-color="#0066cc" font-size="16px">
+          View invoice
+        </mj-button>
+        <mj-divider border-color="#eeeeee" />
+        <mj-text font-size="12px" color="#999999">
+          If you have any questions about this charge, please contact support@apitool.dev.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -1,0 +1,95 @@
+---
+title: Retry & backoff for flaky APIs
+intent: Survive transient 5xx, 429 throttling, and dropped connections with exponential backoff, jitter, and Retry-After — without retrying the things you mustn't.
+group: resilience
+features: [retry, rate-limit]
+command: apitest run collections/resilient.yaml
+order: 60
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+Networks and rate limiters fail in predictable, retryable ways. ApiTool's retry logic
+targets exactly those — transient 5xx, 429 throttling, connection resets, timeouts —
+while letting you fence off the requests that must *never* be retried. Pair it with a
+collection-wide rate limit and your suite stops being flaky.
+
+## The collection
+
+```yaml
+# collections/resilient.yaml
+name: Resilient calls
+rate_limit_rps: 10                  # token bucket across the whole collection
+
+requests:
+  - name: Fetch report
+    request:
+      method: GET
+      url: "{{base_url}}/reports/{{report_id}}"
+    retry:
+      enabled: true
+      max_attempts: 5               # 1 initial + 4 retries
+      initial_delay_ms: 500
+      max_delay_ms: 30000
+      backoff_strategy: exponential # exponential | linear | constant
+      jitter: true
+      jitter_factor: 0.2            # spread retries to avoid thundering herds
+      respect_retry_after: true     # honor the server's Retry-After header
+      retry_on:
+        status_codes: [429, 502, 503, 504]
+        status_ranges: ["5xx"]
+        network_errors: true        # connection refused, DNS failure, reset
+        timeouts: true
+      do_not_retry_on:
+        status_codes: [401, 403]    # config errors — retrying won't help
+    assertions:
+      status: 200
+      timing:
+        max_duration_ms: 10000
+```
+
+## The delay sequence
+
+With `exponential`, `initial_delay_ms: 500`, capped at `30000`:
+
+| Retry | Delay (no jitter) |
+|---|---|
+| 1 | 500 ms |
+| 2 | 1000 ms |
+| 3 | 2000 ms |
+| 4 | 4000 ms |
+
+Jitter at `0.2` multiplies each delay by `1 + 0.2 × random(-1, 1)`, so retry 3 lands
+anywhere in `[1600, 2400]` ms. When the server sends `Retry-After`, that value wins
+(up to a 30s cap).
+
+## Run it
+
+```bash
+apitest run collections/resilient.yaml --var report_id=R-2026-001
+```
+
+```
+Collection: Resilient calls
+  ✓ Fetch report  200  1844ms
+
+────────────────────────────────
+  1 request(s): 1 passed, 0 failed (1844ms)
+```
+
+<Callout type="output">
+	Representative output — the request needed two retries (503 → 503 → 200), absorbed
+	silently before the assertions ran. Add <code>-v</code> to see each attempt and its
+	computed backoff delay.
+</Callout>
+
+<Callout type="warn">
+	<code>POST</code> and <code>PATCH</code> aren't idempotent — retrying one that
+	already succeeded server-side can create duplicates. ApiTool warns when you enable
+	retry for non-idempotent methods. Restrict it with <code>retry_on.methods</code>,
+	add the verb to <code>do_not_retry_on.methods</code>, or send an idempotency key
+	(as the <a href="/examples/checkout-flow">checkout flow</a> does).
+</Callout>

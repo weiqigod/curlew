@@ -1,0 +1,6 @@
+name: out-verbose
+output:
+  verbosity: verbose
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

@@ -1,0 +1,22 @@
+<!-- placeholder copy; product/design polish in a later non-M14 commit -->
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="20px" font-weight="bold">
+          Your ApiTool account has been deleted
+        </mj-text>
+        <mj-text>
+          The account for {{user_email}} was permanently deleted on
+          {{deleted_at_local}}. All personal data associated with your account
+          has been removed in accordance with your GDPR data deletion request.
+        </mj-text>
+        <mj-divider border-color="#eeeeee" />
+        <mj-text font-size="12px" color="#999999">
+          If you have questions about this deletion, please contact our privacy
+          team. This email was sent to the address on record before deletion.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

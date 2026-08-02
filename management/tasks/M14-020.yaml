@@ -1,0 +1,43 @@
+id: M14-020
+title: "Web: Connect GitHub install entry point + install-state view"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-017
+observable: |
+  cd web && npm install
+  npm run e2e -- tests/e2e/github-connect.spec.ts
+  # Expected: Playwright >=4 passing:
+  #   - admin sees "Connect GitHub" button on /integrations
+  #   - clicking it navigates to /api/v1/integrations/github/install-url and follows the redirect
+  #   - after callback simulation, the page renders "GitHub connected — apitool-checks-test, 3 repos covered"
+  #   - non-admin users see the integration as read-only with no Connect button
+behaviors:
+  - "Given an admin/owner user on /integrations, when the page loads, then a 'Connect GitHub' button is rendered linking through /api/v1/integrations/github/install-url"
+  - "Given a member-role user on /integrations, when the page loads, then the GitHub integration card is visible but read-only — no Connect button — with a tooltip explaining admin-only"
+  - "Given the org has a claimed (linked) installation with 3 repos in repo_set, when the page renders, then it shows 'GitHub connected — <slug>, 3 repos covered'"
+  - "Given the install row is suspended, when the page renders, then it shows a yellow warning badge 'Suspended on GitHub — unsuspend to resume PR checks'"
+  - "Given a webhook-first install with org_id=NULL is pending the user's claim, when the user is the admin of the GitHub account named in the install, when the page renders, then a 'Claim this install' button appears"
+  - "Given the GitHub callback returns ?installed=true, when the page is loaded after the redirect, then a one-time success toast 'GitHub connected' is shown"
+  - "Given Open Decision #10's bounded scope, when this slice is reviewed, then the touched files are constrained to web/src/routes/integrations/* and web/tests/e2e/github-connect.spec.ts — no billing UI, no license display, no account settings"
+scope: |
+  New web route web/src/routes/integrations/+page.svelte (or
+  framework-equivalent) that renders the install card and consumes
+  /api/v1/integrations/github/install-url + the github_installations state
+  view. Per Open Decision #10 default, this slice is BOUNDED to the GitHub
+  install entry-point and install-state view ONLY — no billing UI, no SSO,
+  no dashboards beyond M4-005's existing results dashboard. RBAC: only
+  admin/owner can initiate a Connect; members see read-only state. References
+  the M4-005 / M5-003 Playwright spec patterns for test shape.
+definition_of_done:
+  - "Playwright spec passes with >=4 assertions"
+  - "Admin/member RBAC distinction covered by a Playwright test"
+  - "svelte-check (or framework lint) clean on the touched files"
+  - "Help/onboarding text in the dashboard explains the difference between dashboard-initiated and webhook-first install paths"
+  - "No new files outside web/src/routes/integrations/ and web/tests/e2e/"
+  - "docs/SPECIFICATION.md:8413–8417 cited in +page.server.ts (or equivalent) header"
+complexity: medium
+estimated_effort: "5-8 hours"
+track: web

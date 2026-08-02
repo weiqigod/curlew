@@ -1,0 +1,49 @@
+id: M3-001
+title: "Global rate_limit_rps throttle across all requests"
+status: done
+priority: 2
+created: 2026-04-10
+phase: "M3: Professional Tier"
+
+dependencies:
+  - M2-013
+
+observable: |
+  Create a collection with top-level `rate_limit_rps: 5` and 10 requests against a
+  local test server. Run `go build ./cmd/apitest && ./apitest run collection.yaml`
+  at Professional tier and verify wall-clock duration is >= ~1.8s (10 requests
+  throttled at 5 rps). Run the same collection at Free tier and verify exit code 6
+  with a "rate_limit_global requires Professional tier" gate message.
+  Run `go test ./internal/runner/... ./internal/parser/...` and verify all tests pass.
+
+behaviors:
+  - "Given a collection with top-level `rate_limit_rps: 10`, when parsed at Professional tier, then `Collection.RateLimitRPS` is set to 10"
+  - "Given a collection with `rate_limit_rps: 0` or unset, when executed, then no throttling is applied (all requests fire as fast as possible)"
+  - "Given a collection with `rate_limit_rps: 5` and 10 sequential requests, when executed, then the total wall-clock duration is >= 1.8s (9 intervals of ~200ms)"
+  - "Given `rate_limit_rps: 5` combined with `--parallel`, when executed, then concurrent workers share the same global token bucket and total throughput stays <= 5 rps"
+  - "Given `rate_limit_rps: -1`, when parsed, then a structured validation error with line number is returned"
+  - "Given `rate_limit_rps: 100` at Free or Solo tier, when the collection is parsed, then exit code 6 and a feature gate error identifying `rate_limit_global` is returned"
+  - "Given a collection with BOTH top-level `rate_limit_rps: 5` and a data_driven iteration with `rate_limit_rps: 20`, when executed, then the global limit applies across all requests AND the data_driven limit applies within that iteration (both throttles stack)"
+  - "Given context cancellation (SIGINT) while the rate limiter is sleeping, when triggered, then the runner returns promptly without waiting for the next token"
+
+scope: |
+  Add `RateLimitRPS int` (top-level) to `parser.Collection` with YAML tag
+  `rate_limit_rps`. Promote the existing `datadriven.rateLimiter` (or extract a
+  shared `internal/ratelimit` package) so a single token-bucket instance can be
+  shared across all requests in a collection, including `--parallel` workers.
+  Wire it into `internal/runner/runner.go` so every HTTP dispatch (setup,
+  requests, teardown, data-driven iterations) acquires a token before sending.
+  Register `rate_limit_global` as a Professional-tier feature in
+  `internal/auth/registry.go`. Gate at parse time when the field is > 0. Update
+  `internal/schema/collection.json` to add the top-level property.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text updated (if user-facing)"
+  - "Smoke test updated (if new capability)"
+
+complexity: medium
+estimated_effort: "4-5 hours"

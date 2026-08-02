@@ -1,0 +1,52 @@
+id: M18-010
+title: "Compliance artefacts (1/2): COMPLIANCE.md umbrella + policy templates + data-classification matrix"
+status: done
+priority: 3
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies:
+  - M18-003
+  - M18-002
+  - M18-009
+
+observable: |
+  Run this check from repo root and observe exit 0:
+  `for f in docs/COMPLIANCE.md docs/security/info-sec-policy.md docs/security/access-review-policy.md docs/security/incident-response-runbook.md docs/security/data-classification-matrix.md; do test -f "$f" || { echo "MISSING $f"; exit 1; }; done`
+  Then assert content acceptance via grep:
+  `grep -q "Information Security Policy" docs/security/info-sec-policy.md`
+  `grep -q "Quarterly access review" docs/security/access-review-policy.md`
+  `grep -q "Severity 1\|SEV-1" docs/security/incident-response-runbook.md`
+  `grep -q "Public\|Internal\|Confidential\|Restricted" docs/security/data-classification-matrix.md`
+  `grep -q "data-inventory.md" docs/COMPLIANCE.md` (cross-link present)
+  `grep -q "audit_log.view\|Security Auditor" docs/security/access-review-policy.md` (M18-002 RBAC framing referenced)
+  `grep -q "team_vaults\|schedules.env_vars\|envelope" docs/security/data-classification-matrix.md` (M18-009 encryption posture referenced)
+  Run the docs-lint:
+  `npx markdownlint-cli docs/COMPLIANCE.md docs/security/*.md` exits 0.
+
+behaviors:
+  - "Given the docs/COMPLIANCE.md umbrella file is read, when its TOC is parsed, then it links to each of: info-sec-policy.md, access-review-policy.md, incident-response-runbook.md, data-classification-matrix.md, data-inventory.md, vendor-inventory.md (vendor inventory cross-link forward-references M18-011)"
+  - "Given docs/security/info-sec-policy.md is read, when its sections are inspected, then it covers: scope, acceptable use, access control, change management, vendor management, incident response (overview, with detail deferred to the runbook), business continuity, and review cadence"
+  - "Given docs/security/access-review-policy.md is read, when its content is inspected, then it specifies a quarterly cadence (per v4-15-adjacent), the reviewer role (Owner/Admin), the reviewed surface (all OrganizationMember rows + all CustomRole assignments + the Security Auditor role population), and the evidence artefact (signed-off CSV committed under docs/security/access-reviews/YYYY-Q.csv)"
+  - "Given docs/security/incident-response-runbook.md is read, when its content is inspected, then it defines severity taxonomy (SEV-1/2/3/4), on-call rota expectation, comms templates (customer-facing + internal), post-incident review cadence (within 5 business days), and a sample incident timeline"
+  - "Given docs/security/data-classification-matrix.md is read, when its tables are inspected, then it carries the four-tier classification (Public/Internal/Confidential/Restricted) and maps every DB table from the schema appendix to one classification with rationale and the storage encryption posture (M18-009 envelope encryption referenced for team_vaults and schedules.env_vars)"
+  - "Given the data-classification matrix is consistent with docs/security/data-inventory.md (from M18-003), when both are read together, then no table appears in one without the other (a docs-cross-link consistency test enforces this)"
+  - "Given markdownlint runs across all five new docs, when invoked, then no errors are emitted (Vanta/Drata-compatible structure assumes parseable Markdown)"
+  - "Given the access-review-policy references the Security Auditor custom role from M18-002, when the policy is read by an auditor, then the separation-of-duties story is coherent (an auditor with audit_log.view only can perform reviews without holding write or export permissions)"
+
+scope: |
+  Five new Markdown files: docs/COMPLIANCE.md (umbrella + TOC + cross-links), docs/security/info-sec-policy.md (Vanta/Drata-compatible template), docs/security/access-review-policy.md (quarterly cadence, Security Auditor role usage), docs/security/incident-response-runbook.md (severity taxonomy, on-call expectation, comms templates), docs/security/data-classification-matrix.md (Public/Internal/Confidential/Restricted per-table mapping). All under the compliance track per v4-14 — these are policy artefacts produced as inputs to a future SOC 2 / ISO 27001 audit engagement; the audit itself is out of scope per v4-14. Cross-links: COMPLIANCE.md ↔ all five; data-classification-matrix.md ↔ docs/security/data-inventory.md (M18-003); access-review-policy.md ↔ M18-002 Security Auditor role; data-classification-matrix.md ↔ M18-009 envelope encryption posture. Vendor inventory, DFDs, and pen-test artefacts split to M18-011.
+
+definition_of_done:
+  - "All five files exist at the documented paths"
+  - "Observable test -f / grep checks pass"
+  - "markdownlint passes against all five files"
+  - "All forward and backward cross-links resolve (no broken relative links — npx markdown-link-check --config .markdown-link-check.json)"
+  - "CHANGELOG.md entry references v4-14"
+  - "docs/COMPLIANCE.md linked from README.md and top-level docs index"
+  - "Each policy includes a 'Review cadence' section naming the next review date (informs future M19+ cadence work)"
+  - "A docs-consistency test (run as part of CI) asserts every table named in docs/security/data-classification-matrix.md also appears in docs/security/data-inventory.md (and vice versa)"
+
+complexity: medium
+estimated_effort: "medium slice"
+track: compliance

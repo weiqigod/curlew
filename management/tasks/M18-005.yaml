@@ -1,0 +1,43 @@
+id: M18-005
+title: "GDPR deletion state machine: PendingDeletionAt + AnonymisedAt columns, re-auth, UserDeletionFinalizerHost, emails"
+status: done
+priority: 2
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies: []
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~UserDeletion"` and see >= 14 tests pass. Apply the migration with `dotnet ef database update --project src/ApiTool.Backend`. Verify:
+  `psql -d apitool -c "\d users"` shows `pending_deletion_at timestamp with time zone NULL` and `anonymised_at timestamp with time zone NULL`. Authenticate as a fresh user, obtain a password re-entry token via the existing re-auth flow, then:
+  `curl -i -X POST -H "Authorization: Bearer <jwt>" -H "X-Reauth-Token: <token>" http://localhost:5000/api/v1/users/me/deletion-requests`
+  expect `HTTP/1.1 202` with body `{"finalizes_at":"<now+30d>","cancellable_until":"<now+30d>","cancel_url":"/account/data/cancel-deletion"}`. Confirm `users.pending_deletion_at` is set. Re-issue without the X-Reauth-Token and expect `HTTP/1.1 401` with problem-code `reauth_required`. Re-issue with a token older than 5 minutes and expect `HTTP/1.1 401` with problem-code `reauth_expired`. Confirm the sendgrid-fake captures an `account_deletion_initiated` email. Move the clock 30 days forward, run `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/run-deletion-finalizer` (test hook gated APITEST_INTERNAL=1). Confirm finalizer logs the deletion attempt — the actual anonymisation/last-admin extension lives in M18-006; this slice asserts only that the state machine transitions and the host invokes a (stub) IUserAnonymiser when the cooldown is past. Confirm `account_deletion_completed` email is queued by the host upon successful finalization.
+
+behaviors:
+  - "Given a fresh password re-entry token (issued within last 5 minutes, single-use), when POST /api/v1/users/me/deletion-requests is called, then the user's pending_deletion_at is set to now() and the response carries finalizes_at = now() + 30 days"
+  - "Given no X-Reauth-Token header, when POST is called, then 401 reauth_required is returned and no state mutation occurs"
+  - "Given an X-Reauth-Token older than 5 minutes, when POST is called, then 401 reauth_expired is returned"
+  - "Given an X-Reauth-Token that has already been consumed (single-use), when POST is called again with the same token, then 401 reauth_consumed is returned"
+  - "Given a user with pending_deletion_at set, when POST /api/v1/users/me/deletion-requests/cancel is called, then pending_deletion_at is cleared and a `account_deletion_cancelled` audit event is emitted"
+  - "Given a user with pending_deletion_at set 31 days ago, when UserDeletionFinalizerHost ticks daily at 03:00 UTC, then it invokes IUserAnonymiser (stub in this slice; concrete implementation in M18-006) and sets anonymised_at"
+  - "Given a user with pending_deletion_at set 5 days ago, when the finalizer ticks, then the user is left untouched (cooldown not elapsed)"
+  - "Given deletion is initiated, when the request returns, then SendGrid is invoked with the new `account_deletion_initiated` template carrying the cancel URL"
+  - "Given deletion is finalized, when the finalizer completes, then SendGrid is invoked with the new `account_deletion_completed` template"
+
+scope: |
+  EF migration adds users.pending_deletion_at + users.anonymised_at (both TIMESTAMPTZ NULL). New src/ApiTool.Backend/Compliance/Gdpr/UserDeletionEndpoints.cs registers POST /api/v1/users/me/deletion-requests + POST .../cancel + GET .../status. Re-auth check via existing re-auth-token issuing/consuming subsystem (lifted from password-reset patterns); 5-minute freshness window; single-use semantics. New src/ApiTool.Backend/Compliance/Gdpr/UserDeletionFinalizerHost.cs : BackgroundService runs daily at 03:00 UTC; iterates users where pending_deletion_at <= now() - 30d AND anonymised_at IS NULL; for each, invokes IUserAnonymiser (interface only in this slice; M18-006 ships the concrete implementation behind the same interface). Two new SendGrid templates: account_deletion_initiated (with cancel URL + finalizes_at), account_deletion_completed (post-anonymisation confirmation). Test-only hook /api/v1/internal/test-hooks/run-deletion-finalizer. Anonymisation/last-admin/web UX live in M18-006.
+
+definition_of_done:
+  - "All behavior tests pass (>=14 tests)"
+  - "Observable psql + curl commands behave as documented against the running stack"
+  - "Test coverage >= 80% on UserDeletionEndpoints.cs and UserDeletionFinalizerHost.cs"
+  - "EF migration reversible"
+  - "No build warnings or lint errors"
+  - "OpenAPI documents all three endpoints"
+  - "CHANGELOG.md entry references v4-5"
+  - "Two SendGrid templates added to the MJML manifest with allowlisted variables (no template injection surface)"
+  - "sendgrid-fake harness asserts both emails are queued in the integration tests"
+
+complexity: high
+estimated_effort: "large slice"
+track: backend

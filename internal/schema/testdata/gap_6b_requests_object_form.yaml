@@ -1,0 +1,10 @@
+name: requests-object-form
+requests:
+  retry:
+    enabled: true
+    max_attempts: 3
+  items:
+    - name: Main
+      request:
+        method: GET
+        url: "https://example.com/"

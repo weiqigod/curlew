@@ -1,0 +1,6 @@
+name: Child Simple
+requests:
+  - name: Child Request
+    request:
+      method: GET
+      url: https://api.example.com/child

@@ -1,0 +1,76 @@
+id: M6-001
+title: "Error taxonomy extension and sentinel hint registry"
+status: done
+priority: 3
+created: 2026-04-21
+phase: "M6: AI Agent Integration"
+track: go-cli
+dependencies: []
+observable: |
+  # Every exported Err* sentinel in internal/ is classified; registry tests
+  # enforce the quality bar (category + code + non-empty hint for classified
+  # entries, unique codes, full source coverage).
+  go test ./internal/errors/...
+  # Expected tail:
+  #   ok  github.com/peterlindqvist/apitest/internal/errors (~0.4s)
+  # With coverage:
+  go test -cover ./internal/errors/...
+  # Expected coverage >= 80%
+  # Classifier works end-to-end on a wrapped sentinel:
+  cat <<'GO' | go run -
+  package main
+  import (
+      "fmt"
+      apierrors "github.com/peterlindqvist/apitest/internal/errors"
+      "github.com/peterlindqvist/apitest/internal/parser"
+      _ "github.com/peterlindqvist/apitest/internal/parser"
+  )
+  func main() {
+      s := apierrors.ClassifyError(fmt.Errorf("outer: %w", parser.ErrInvalidYAML))
+      fmt.Printf("%+v\n", s)
+  }
+  GO
+  # Expected: Category:parse Code:PARSE_INVALID_YAML with a concrete-action Hint.
+behaviors:
+  - "Given a registered sentinel (e.g. parser.ErrInvalidYAML), when ClassifyError is called with a wrapped form (fmt.Errorf(%w)), then it returns a *Structured with Category=parse, Code=PARSE_INVALID_YAML, and a non-empty Hint."
+  - "Given a network error (DNS/timeout/TLS/refused) identified by ClassifyNetworkError, when ClassifyError is called, then it returns Category=network with a stable Code (NETWORK_DNS/TIMEOUT/TLS/CONNECTION_REFUSED/OTHER)."
+  - "Given an error chain that already contains a *Structured with FilePath/Line set, when ClassifyError is called, then those location fields are preserved; missing Code/Hint are enriched from the registry if a sentinel matches."
+  - "Given an unregistered error, when ClassifyError is called, then it returns Category=internal with empty Code and Hint and the original message."
+  - "Given the coverage_test runs, when it walks internal/ source, then every Err* var in a non-test .go file is registered under its package in the sentinel registry."
+  - "Given any registered sentinel, when the registry is introspected, then it has a non-empty Category and Code; entries with Category != internal must additionally have a non-empty concrete-action Hint."
+  - "Given all registered sentinels, when their Codes are enumerated, then every Code is unique across the registry."
+scope: |
+  Adds the classification plumbing that the agent event stream (M6-004) will
+  consume. No behavioural change in cmd/apitest yet — this is foundation.
+
+  Changes to internal/errors:
+    - Extend Category enum with assertion, auth, input, internal (additive).
+    - Add Structured.Code field (additive).
+    - New classify.go: ClassifiedHint, RegisteredError, RegisterPackage,
+      LookupHint, IsRegistered, RegisteredPackages, PackageRegistrations,
+      RegisteredNames, ClassifyError.
+    - New coverage_test.go: source-parses internal/ for Err* declarations and
+      cross-references against the registry; enforces category/code/hint
+      quality bar and code uniqueness.
+
+  New hints_init.go in every owning package (28 packages):
+    - parser, variable, assertion, auth, vault, vault/teamtemplate, config,
+      httpbody, httpexec, datadriven, discovery, graphql, graphql/files,
+      openapi, websocket, websocket/templates, runner, runner/distributed,
+      plugin, plugin/hooks, scaffold, jsonpath, loadgen, loadgen/report,
+      worker, prcheck, license, license/export, license/jwks.
+
+  Each init() registers its package's Err* sentinels with a ClassifiedHint.
+  Uses distributed registration to avoid import cycles (internal/errors
+  cannot import packages that already import it).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./internal/errors/... passes"
+  - "go test ./... passes (no regressions)"
+  - "golangci-lint run passes with 0 issues"
+  - "Test coverage >= 80% for internal/errors"
+  - "Every exported Err* sentinel in internal/ is registered (coverage_test enforces)"
+  - "Every registered sentinel has Category + Code; classified (non-internal) entries have a concrete-action Hint"
+  - "All Codes are unique across the registry"
+complexity: medium
+estimated_effort: "4-6 hours"

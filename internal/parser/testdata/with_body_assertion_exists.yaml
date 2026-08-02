@@ -1,0 +1,10 @@
+name: Body Exists Test
+requests:
+  - name: Check Body
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      body:
+        $.token:
+          exists: true

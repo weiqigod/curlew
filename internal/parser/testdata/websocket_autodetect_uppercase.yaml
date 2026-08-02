@@ -1,0 +1,10 @@
+name: WebSocket Auto-detect Uppercase WSS
+requests:
+  - name: Echo WSS Upper
+    request:
+      url: "WSS://localhost:9999/echo"
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: ping

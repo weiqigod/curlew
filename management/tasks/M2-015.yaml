@@ -1,0 +1,44 @@
+id: M2-015
+title: "Dependency analysis algorithm (variable analysis and graph building)"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Parallel Execution"
+
+dependencies:
+  - M1-010
+  - M1-009
+  - M1-015
+  - M1-028
+
+observable: |
+  Run `apitest run --show-dependencies tests.yaml` to see the dependency graph.
+  Run `apitest run --show-dependencies --dry-run tests.yaml` to see execution waves.
+  Run `go test ./internal/parallel/...` to verify dependency analysis.
+
+behaviors:
+  - "Given a collection where Request B uses `{{user_id}}` extracted by Request A, when dependency analysis runs, then B depends on A"
+  - "Given a collection with three independent requests (no shared variables), when analyzed, then all three are in wave 0 (fully parallel)"
+  - "Given a collection with a circular dependency (A -> B -> A), when analyzed, then a validation error identifies the cycle"
+  - "Given two parallel requests that both extract variable `user`, when analyzed, then a variable collision error is produced"
+  - "Given dynamic functions like `{{$timestamp}}`, when referenced variables are scanned, then dynamic functions do NOT create dependencies"
+  - "Given pre-execution variables (collection vars, env vars, CLI args), when scanned, then they do NOT create inter-request dependencies"
+  - "Given `--show-dependencies`, when run, then a DOT-format dependency graph is printed to stdout"
+  - "Given `--dry-run --show-dependencies`, when run, then execution waves are shown without making HTTP requests"
+
+scope: |
+  Create `internal/parallel/` package implementing the 6-phase dependency analysis algorithm
+  from the spec: parse/load, variable analysis, build dependencies, cycle detection (Kahn's),
+  collision detection, wave computation. Implement `--show-dependencies` and DOT graph export
+  flags on the run command. Register parallel execution as Professional-tier feature gate.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "8-12 hours"

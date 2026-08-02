@@ -1,0 +1,130 @@
+id: M8-004
+title: "run --only \"<name>\" for single-request execution with duplicate-name rejection"
+status: done
+priority: 1
+created: 2026-04-24
+phase: "M8: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M8-003]
+observable: |
+  # --only runs exactly one named main request; setup + teardown still run.
+  ./apitest run collections/multi.yaml --only "Get user"
+  # Expected: exit 0; stdout shows setup items, then only "Get user",
+  # then teardown items.
+
+  # Repeatable --only unions the selection.
+  ./apitest run collections/multi.yaml --only "Get user" --only "Update user"
+  # Expected: exit 0; both requests run; selection preserved in events.
+
+  # Unknown name: exit 3 before any HTTP runs.
+  ./apitest run collections/multi.yaml --only "Nope"
+  # Expected: exit 3; stderr: 'no request named "Nope"; available: "Get user", "Update user", ...'.
+
+  # Variable-cliff diagnostic: a filtered-out producer surfaces in the error.
+  ./apitest run collections/multi.yaml --only "Update user"
+  # (where {{user_id}} is extracted by "Create user" in main, not in setup)
+  # Expected: exit 1; stderr: 'variable {{user_id}} is not defined; normally
+  # extracted from "Create user" which was not included by --only'.
+
+  # Duplicate request names are rejected unconditionally at load time.
+  ./apitest run collections/dupes.yaml
+  # Expected: exit 3; stderr: 'duplicate request name "Get user" at
+  # collections/dupes.yaml:12 and collections/dupes.yaml:27'.
+  ./apitest validate collections/dupes.yaml
+  # Expected: exit 3; same duplicate-name error.
+
+  # Events stream records the filter so agents distinguish filtered runs.
+  ./apitest run collections/multi.yaml --only "Get user" --events run.ndjson
+  jq -c 'select(.kind == "run.start") | {schema_version, selection}' run.ndjson
+  # Expected: {"schema_version":"1.1","selection":["Get user"]}.
+
+  # Watch mode propagates --only through CLI args; no plumbing required.
+  ./apitest watch collections/multi.yaml --only "Get user"
+  # Expected: on every save, only "Get user" re-runs; setup and teardown
+  # still execute in full around it.
+
+  # Full unit + integration suite.
+  go test -run 'TestParser_DuplicateNameRejection|TestRunner_OnlyFilter|TestRun_OnlyNoMatch|TestRun_OnlyVariableCliff|TestEvents_v11_Selection|TestSchema_v11_validates' ./...
+  # Expected: PASS.
+behaviors:
+  - "The parser rejects any collection whose main requests contain two or more items with the same name at load time, before any HTTP, with exit code 3 and a line-numbered stderr error that names both occurrences and their source files."
+  - "Duplicate-name rejection applies unconditionally across every output format and every subcommand that loads a collection (run, watch, validate)."
+  - "apitest run accepts a repeatable --only <name> flag; multiple occurrences form a union; values are exact, case-sensitive matches against main request names; surrounding whitespace is trimmed."
+  - "When --only is non-empty, runner.Run filters the main-phase items to the selected set; the setup phase runs in full; the teardown phase runs in full (matches the unconditional teardown behaviour of runPhases today)."
+  - "When --only selects zero main requests (no name matches), exit code is 3, no HTTP runs, and stderr lists the available main request names."
+  - "--only does not target setup or teardown items; naming a setup or teardown item via --only matches zero main requests and triggers the exit-3 no-match error."
+  - "Data-driven requests selected by --only run all of their declared iterations; per-iteration filtering is V2 scope."
+  - "Parallel execution on a filtered subset re-runs parallel.Analyze() so waves are recomputed for the selection; the analyzer already operates on any []RequestItem and requires no changes."
+  - "When a selected request fails with an undefined-variable error AND the variable's producer is a main item not in the selection, the error message names the producer in the form: variable {{X}} is not defined; normally extracted from \"<name>\" which was not included by --only."
+  - "Events schema bumps to v1.1: run.start gains an additive optional selection field (array of strings) carrying the --only values; the field is omitted when --only is not set."
+  - "internal/output/events/events.go SchemaVersion constant is bumped from \"1.0\" to \"1.1\"; docs/events-schema/v1.1.json is published; docs/events-schema/v1.0.json is retained unchanged as a historical anchor (matching the v0.1 precedent documented in events.go)."
+  - "Watch mode requires no plumbing changes: --only flows through RunFunc's CLI args on every rebuild."
+  - "apitest validate surfaces duplicate-name rejection as a static error (exit 3), matching the run-time behaviour."
+  - "docs/SPECIFICATION.md run command section documents --only; docs/MANUAL.md run section references it; CHANGELOG.md [Unreleased] has an Added entry for --only and a Changed entry for the events schema v1.0 → v1.1 bump."
+scope: |
+  Implement four linked behaviours plus a documentation pass.
+
+  1. Parser: duplicate-name rejection. Extend the parser's validator pass
+     (internal/parser/collection.go) to unconditionally reject duplicate main
+     request names using the source-location plumbing from M6-002 for
+     line-numbered errors. Rejection happens at collection load, so every
+     subcommand inherits it (run, watch, validate).
+
+  2. CLI: --only flag and runner selection. Add a repeatable --only flag to
+     runCmdInner (cmd/apitest/main.go), following the --var flag pattern in
+     parseRunArgs (hand-rolled, slice-accumulated). Thread the selection as
+     an optional []string through runner.Run (internal/runner/runner.go) and
+     apply the filter at the main-phase branch of runPhases only; the setup
+     and teardown branches are not touched. When the parallel executor runs
+     on a filtered subset, let the existing parallel.Analyze re-run on the
+     subset — the analyzer is sequential-runner-blind by construction.
+
+  3. Variable-cliff diagnostic. In the variable-resolution error path, when
+     --only is non-empty and a selected request references an undefined
+     variable, look up the producer via ExtractProducedVars over the full
+     main items list (internal/parallel/analyze.go). If the producer is
+     found and is not in the selection, enrich the error message naming it.
+     If not found, fall back to the existing error.
+
+  4. Events schema v1.1. Add an optional Selection []string field to RunStart
+     (internal/output/events/events.go), bump SchemaVersion from "1.0" to
+     "1.1", publish docs/events-schema/v1.1.json, retain v1.0.json as a
+     historical anchor (matching the v0.1 retention pattern documented in
+     the events package comment). Thread the selection from runCmdInner
+     through the emitter.
+
+  5. Docs. Document --only in docs/SPECIFICATION.md run command section and
+     docs/MANUAL.md run section. CHANGELOG.md [Unreleased] gets an Added
+     bullet for --only and a Changed bullet for the events schema version
+     bump.
+
+  Not in scope. --no-setup / bypass mode (confirmed out of scope). V2
+  minimal-setup — running only setup items whose extracts the selection
+  references — is filed as an M8-004-followup and reuses the same
+  parallel.Analyze producer graph; it is a full-task-sized change. Per-
+  iteration filtering of data-driven requests (e.g. --only "foo[3]").
+  Glob / regex / prefix matching for --only values. Filtering setup or
+  teardown items directly via --only. A short flag for --only.
+  Schemastore.org publication of the v1.1 events schema (deferred to a
+  tagged release per the W1 precedent).
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestParser_DuplicateNameRejection passes: same-section and cross-section duplicate fixtures both reject with line-numbered errors"
+  - "TestRunner_OnlyFilter passes: single match, union of two, no-match exit 3, exact case-sensitive match"
+  - "TestRun_OnlyVariableCliff passes: the diagnostic names the producer when the producer is a filtered-out main item; falls back to the existing error otherwise"
+  - "TestEvents_v11_Selection passes: run.start carries selection when --only is set and omits the field otherwise; SchemaVersion is \"1.1\""
+  - "docs/events-schema/v1.1.json exists and validates representative events (TestSchema_v11_validates)"
+  - "docs/events-schema/v1.0.json retained unchanged as a historical anchor"
+  - "Watch-mode integration test asserts --only propagates across rebuilds without plumbing changes"
+  - "apitest validate surfaces duplicate-name rejection as exit 3"
+  - "apitest run --only \"Nope\" exits 3 with stderr listing available names"
+  - "docs/SPECIFICATION.md run command section documents --only"
+  - "docs/MANUAL.md references --only in the run section"
+  - "CHANGELOG.md updated with M8-004 entries (Added: --only flag; Changed: events schema v1.0 → v1.1)"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/parser/... ./internal/runner/... ./internal/output/events/... ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: medium
+estimated_effort: "2-3 days"

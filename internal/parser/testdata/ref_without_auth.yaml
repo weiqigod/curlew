@@ -1,0 +1,3 @@
+name: ref-without-auth-test
+requests:
+  - path: requests/get-user.yaml

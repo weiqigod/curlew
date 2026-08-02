@@ -1,0 +1,9 @@
+name: Mutually Exclusive
+requests:
+  - name: Both
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query: "{ me { id } }"
+        query_file: graphql/queries/get_user.graphql

@@ -1,0 +1,8 @@
+name: stream-discipline-happy
+requests:
+  - name: ping
+    request:
+      method: GET
+      url: "{{BASE_URL}}/ok"
+    assertions:
+      status: 200

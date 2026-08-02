@@ -1,0 +1,7 @@
+name: WebSocket Auto-detect Missing Steps
+requests:
+  - name: Echo No Steps
+    request:
+      url: "ws://localhost:9999/echo"
+      websocket:
+        steps: []

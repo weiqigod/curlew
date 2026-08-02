@@ -1,0 +1,140 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: src/ApiTool.Backend/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      ASPNETCORE_ENVIRONMENT: Development
+      APITOOL__APP__WEBAPPURL: http://localhost:3000
+      # Keep the private half of the development signing key beside the SQLite
+      # database so container recreation cannot leave a current DB key without
+      # its corresponding PEM file.
+      APITOOL__KEYPROVIDER__FILE__DIR: /app/data/keys/signing
+      SCHEDULES__KEY_PROVIDER: file
+      SCHEDULES__KEK_PATH: /app/data/schedule-kek.bin
+      TEAMVAULT__KEY_PROVIDER: file
+      TEAMVAULT__KEK_PATH: /app/data/team-vault-kek.bin
+      # Override cookie name and redirect URL for E2E SSO testing.
+      # The web reads the 'access_token' cookie; this makes the backend ACS
+      # set that cookie name instead of the production default 'apitool_session'.
+      # Override only here — never copy these into production appsettings.
+      Saml__SessionCookieName: access_token
+      Saml__WebPortalUrl: http://localhost:3000/org/acme
+      # M14-018: point backend at the github-mock sidecar for docker-compose runs.
+      # Set to https://api.github.com for production; override here for test stack.
+      GitHub__ApiBase: http://github-mock:8443
+      # M18-004: MinIO object store (S3-compatible) for GDPR export bundles.
+      OBJECTSTORE__PROVIDER: s3
+      OBJECTSTORE__S3__ENDPOINT: http://minio:9000
+      OBJECTSTORE__S3__BUCKET: apitool-exports
+      OBJECTSTORE__S3__ACCESSKEY: minioadmin
+      OBJECTSTORE__S3__SECRETKEY: minioadmin
+      OBJECTSTORE__S3__USEPATHSTYLE: "true"
+    ports:
+      - "${APITOOL_BACKEND_PORT:-5000}:5000"
+    volumes:
+      - backend_data:/app/data
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        umask 077
+        test -f /app/data/schedule-kek.bin || printf '0123456789abcdef0123456789abcdef' > /app/data/schedule-kek.bin
+        test -f /app/data/team-vault-kek.bin || printf 'abcdef0123456789abcdef0123456789' > /app/data/team-vault-kek.bin
+        exec dotnet ApiTool.Backend.dll
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/swagger/v1/swagger.json"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    environment:
+      PUBLIC_API_URL: http://backend:5000
+      ORIGIN: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # M18-004: MinIO — S3-compatible object store for GDPR export bundles.
+  # Credentials: minioadmin / minioadmin (test-only; never used in production).
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  # Fake SAML 2.0 IdP sidecar — test-only; signs assertions using the keypair
+  # mounted from testdata/enterprise/. Used by M5-020 E2E enterprise-full spec.
+  fake-idp:
+    build:
+      context: ./scripts/fake-idp
+      dockerfile: Dockerfile
+    ports:
+      - "8088:8088"
+    environment:
+      # Host-reachable ACS base: the browser running on the CI host posts
+      # the SAMLResponse here, and the assertion's Destination/Audience/Recipient
+      # must match the configured acs_url (see scripts/seed-enterprise.sh).
+      FAKE_IDP_ACS_BASE: "http://localhost:${APITOOL_BACKEND_PORT:-5000}/api/v1/sso/saml"
+    volumes:
+      - ./testdata/enterprise/fake-idp-cert.pem:/certs/cert.pem:ro
+      - ./testdata/enterprise/fake-idp-key.pem:/certs/key.pem:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8088/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  # github-mock — tiny Go HTTP stub simulating GitHub App API endpoints.
+  # Used by M14-018 observable smoke test (POST /api/v1/pr-checks) and the
+  # docker-compose backend service when ASPNETCORE_ENVIRONMENT=Development.
+  github-mock:
+    build:
+      context: ./testdata/m14/github-mock
+      dockerfile: Dockerfile
+    ports:
+      - "18443:8443"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8443/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  # stripe-mock — Stripe-maintained API simulator regenerated from the Stripe OpenAPI spec.
+  # Used by [Trait("Category", "stripe-integration")] tests; ~30s container startup.
+  # Spec ref: docs/SPECIFICATION.md:6856–6876 (three-layer Stripe test strategy).
+  stripe-mock:
+    image: stripe/stripe-mock:v0.187.0
+    ports:
+      - "12111:12111"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider --tries=1 --header='Authorization: Bearer sk_test' http://localhost:12111/v1/customers 2>&1; exit 0"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  backend_data:

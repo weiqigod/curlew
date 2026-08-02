@@ -1,0 +1,4 @@
+name: Name Override Test
+requests:
+  - name: Custom Name
+    path: requests/get-user.yaml

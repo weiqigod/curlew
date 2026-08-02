@@ -1,0 +1,39 @@
+id: M2-031
+title: "GraphQL error handling and partial success configuration"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: GraphQL"
+
+dependencies:
+  - M2-029
+
+observable: |
+  Configure `graphql.error_handling: warn` globally and per-request.
+  Run with partial success response and confirm warning vs failure behavior.
+  Run `go test ./internal/graphql/...` for error handling tests.
+
+behaviors:
+  - "Given global config `graphql.error_handling.partial_success: warn`, when a partial success (data + errors) occurs, then a warning is logged and exit code is 0"
+  - "Given per-request `error_handling: fail` override on global `warn`, when partial success occurs, then the request fails (per-request wins)"
+  - "Given full failure (errors only, data null), when any error_handling mode, then the test always fails (exit code 1)"
+  - "Given assertions on `$.errors[0].extensions.code`, when a GraphQL error occurs, then the error code can be asserted"
+  - "Given assertions on `$.errors[0].message`, when a GraphQL error occurs, then the error message can be asserted"
+  - "Given error_handling: ignore, when errors exist in response, then they are silently ignored"
+
+scope: |
+  Extend `internal/graphql/` with comprehensive error handling per spec: three modes
+  (fail, warn, ignore), global configuration via apitest.yaml, per-request override,
+  partial success detection, and clear terminal/JSON output showing GraphQL error details.
+  Support assertions on the `$.errors` array and its nested fields.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

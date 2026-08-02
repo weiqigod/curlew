@@ -1,0 +1,28 @@
+id: M1-027
+title: "AI introspection commands (info, schema)"
+status: done
+priority: 27
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-025]
+observable: |
+  Run `./apitest info --format json | jq .` in a project directory. Run
+  `./apitest schema --format json | jq .` and verify valid JSON Schema.
+behaviors:
+  - "Given apitest info --format json in a project directory, when executed, then JSON output lists collections, environments, and project root"
+  - "Given apitest info with no --format, when executed, then human-readable summary is shown"
+  - "Given apitest schema --format json, when executed, then valid JSON Schema for collection format is output"
+  - "Given apitest info outside a project directory (no apitest.yaml), when executed, then error indicates no project found"
+  - "Given apitest schema, when output is used to validate a collection, then valid collections pass validation"
+scope: |
+  Add `info` and `schema` commands to CLI. Implement project discovery for
+  info. Embed or generate JSON Schema for collection format.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "1-3 hours"

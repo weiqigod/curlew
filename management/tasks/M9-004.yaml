@@ -1,0 +1,133 @@
+id: M9-004
+title: "markdown parallel + data-driven integration: wave grouping, per-iteration files"
+status: done
+priority: 1
+created: 2026-04-24
+phase: "M9: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M9-003]
+observable: |
+  # Parallel: Timing section has wave_index for every parallel request.
+  ./apitest run collections/parallel.yaml --format markdown --report /tmp/resp
+  grep '^wave_index: ' /tmp/resp/*.md | awk -F': ' '{print $NF}' | sort -u
+  # Expected: multiple distinct wave values (e.g., 0, 1, 2).
+
+  # Sequential requests still render `wave_index: sequential`.
+  ./apitest run collections/sequential.yaml --format markdown --report /tmp/resp
+  grep '^wave_index: sequential' /tmp/resp/*.md
+  # Expected: at least one match.
+
+  # run.md groups entries by wave header.
+  grep -c '^## Wave ' /tmp/resp/run.md
+  # Expected: number equal to distinct wave count for the collection.
+
+  # Data-driven: one .md per iteration in a slug subdirectory + index.md.
+  ./apitest run collections/datadriven.yaml --format markdown --report /tmp/resp
+  ls /tmp/resp/seed-users/
+  # Expected: index.md iter-0.md iter-1.md iter-2.md iter-3.md iter-4.md
+
+  # Iteration index summarizes counts and links to iter files.
+  grep -c '\(iter-[0-9]*\.md\)' /tmp/resp/seed-users/index.md
+  # Expected: 5 links (one per iteration).
+
+  # Iteration correlation: request_id req-N-iter-M in sentinel.
+  grep -Eo 'id=req-[0-9]+-iter-[0-9]+ slug=seed-users' /tmp/resp/seed-users/iter-0.md
+  # Expected: one match with iter-0.
+
+  # run.md entry for data-driven request shows aggregate counts.
+  grep 'seed-users' /tmp/resp/run.md
+  # Expected: bullet link like "- [seed-users](seed-users/index.md) (5 iterations, 4 passed, 1 failed)"
+
+  # Splice preserves agent notes in iter files across re-runs.
+  printf '\nAGENT ANALYSIS of iter-3\n' >> /tmp/resp/seed-users/iter-3.md
+  ./apitest run collections/datadriven.yaml --format markdown --report /tmp/resp
+  grep 'AGENT ANALYSIS' /tmp/resp/seed-users/iter-3.md
+  # Expected: present.
+
+  # Iteration cap: source exceeding runner row cap truncates index table.
+  ./apitest run collections/datadriven-huge.yaml --format markdown --report /tmp/resp
+  grep 'truncated' /tmp/resp/seed-users-huge/index.md
+  # Expected: truncation marker present; iter files beyond cap not written.
+
+  # Full unit + integration suite.
+  go test -run 'TestMarkdown_ParallelWaves|TestMarkdown_RunMD_WaveGrouping|TestMarkdown_DataDriven_PerIteration|TestMarkdown_DataDriven_IndexSummary|TestMarkdown_DataDriven_CorrelationIDs|TestMarkdown_DataDriven_Splice|TestMarkdown_DataDriven_IterCap|TestMarkdown_DataDriven_FailedIteration' ./...
+  # Expected: PASS.
+behaviors:
+  - "When a request executes under parallelism (RequestResult.WaveIndex >= 0), the Timing subsection's wave_index line shows the wave number (e.g., `wave_index: 2`); when sequential (WaveIndex == -1), the line shows `wave_index: sequential` to keep the Timing shape stable across execution modes."
+  - "run.md renders parallel collections with `## Wave <N>` section headers in ascending wave order; each wave section lists the requests executed in that wave as bullet-link entries. Sequential collections keep the flat list (no wave headers)."
+  - "Data-driven main requests produce one `.md` per iteration at `<report>/<slug>/iter-<n>.md`; n is the zero-based iteration index matching the data-source row index."
+  - "`<report>/<slug>/index.md` is a request-level manifest with the standard sentinel region; body contains: run_id, summary counts (total, passed, failed), and a table of iterations with columns iter-index, status, duration_ms, link."
+  - "Each iteration file has its own BEGIN/END sentinel triple; correlation IDs: `request_id=req-N-iter-M`, `slug=<stable slug>`, `run=<run_id>`. Slug stays stable across iterations (matches the directory name); request_id encodes the iteration suffix."
+  - "run.md entries for data-driven requests collapse to a single bullet link with aggregate counts appended: `- [seed-users](seed-users/index.md) (5 iterations, 4 passed, 1 failed)`. Non-data-driven entries continue to link directly to the per-request .md (no change from M9-002)."
+  - "Iteration cap: if the data-driven source has more rows than the existing runner data-driven cap (read the constant from internal/runner/ directly, do not re-declare), index.md renders the table up to the cap and adds a truncation marker row; iter files beyond the cap are not written."
+  - "Splice determinism extends to iteration files and to the request-level index.md: re-running the same collection rewrites only each sentinel region; agent-authored content outside sentinels survives in every iter file and in the index."
+  - "A failed iteration renders with the same 10-section structure as a passed iteration; the Assertions subsection shows `- [ ]` markers for failures and `- [x]` for passes; the file is still splice-safe."
+  - "ensureReportDir from M9-002 is called with the slug subpath (e.g., ensureReportDir(report, slug)) to create `<report>/<slug>/` without requiring a signature change; the helper's multi-arg form is exercised for the first time here."
+  - "Integration test with a real 3-wave parallel collection verifies: three distinct wave_index values appear across .md files, run.md has three `## Wave <N>` headers, wave ordering is ascending."
+  - "Integration test with a real 5-iteration data-driven collection verifies: 5 iter-*.md files + 1 index.md exist; run.md references the index with correct aggregate counts; re-run preserves agent edits outside sentinels."
+scope: |
+  Extends the M9-002 foundation and M9-003 content-type matrix to cover
+  the two execution modes that change markdown layout: parallel (wave
+  grouping) and data-driven (per-iteration files).
+
+  1. Parallel wave grouping. Markdown builder reads
+     RequestResult.WaveIndex (already in place per runner.go:200) and
+     emits `wave_index: <N>` on its own Timing-section line. run.md
+     builder groups entries by WaveIndex and renders `## Wave <N>`
+     section headers in ascending wave order; sequential collections
+     keep the flat list.
+
+  2. Data-driven per-iteration layout. When a request has iterations
+     (RequestResult.Iterations populated), the builder creates
+     `<report>/<slug>/` via ensureReportDir(path, slug) and writes one
+     `<report>/<slug>/iter-<n>.md` per iteration using the same
+     sentinel discipline as single-iteration requests.
+
+  3. Per-iteration correlation IDs. request_id encoded as
+     req-N-iter-M in the sentinel opening tag. slug stays stable
+     across iterations (matches the directory name). run_id stays
+     stable across the whole run.
+
+  4. Per-request index.md. Written to `<report>/<slug>/index.md` with
+     its own sentinel region. Body: request name, summary counts,
+     run_id, iteration table (columns: iter index, status, duration_ms,
+     link to iter file).
+
+  5. run.md integration. Entries for data-driven requests collapse to
+     a single bullet link to the per-request index with aggregate
+     counts; non-data-driven entries continue to link directly to the
+     per-request .md (M9-002 behavior preserved).
+
+  6. Iteration cap. If the collection has more iterations than the
+     existing data-driven row cap in runner, truncate the index.md
+     table and emit a truncation marker row; skip writing iter files
+     beyond the cap. Cap value is read from the runner package, not
+     re-declared in the markdown package.
+
+  Not in scope.
+  - Nested data-driven (data-driven within data-driven): not supported
+    by the runner today.
+  - Custom iteration file naming: the `iter-<n>.md` scheme is fixed.
+  - Parallel+data-driven interaction beyond what the runner emits; the
+    markdown layer mirrors runner behavior.
+  - init, docs, CHANGELOG (M9-005).
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestMarkdown_ParallelWaves passes: 3-wave collection produces correct wave_index values in every Timing section"
+  - "TestMarkdown_SequentialWaveIndex passes: sequential request renders `wave_index: sequential`"
+  - "TestMarkdown_RunMD_WaveGrouping passes: run.md has `## Wave <N>` headers in ascending order for parallel collections; flat list for sequential"
+  - "TestMarkdown_DataDriven_PerIteration passes: 5-iteration collection produces 5 iter-*.md files under <slug>/"
+  - "TestMarkdown_DataDriven_IndexSummary passes: index.md summary counts and iteration table match runner outcomes"
+  - "TestMarkdown_DataDriven_CorrelationIDs passes: request_id req-N-iter-M and stable slug in every iteration sentinel"
+  - "TestMarkdown_DataDriven_Splice passes: re-run preserves agent edits outside sentinels in iter files and index.md"
+  - "TestMarkdown_DataDriven_IterCap passes: exceeding runner row cap renders truncation marker in index.md; iter files beyond cap not written"
+  - "TestMarkdown_DataDriven_FailedIteration passes: failed iteration renders full section structure with fail markers and remains splice-safe"
+  - "TestMarkdown_RunMD_DataDrivenEntry passes: run.md entry for data-driven requests collapses to single bullet with aggregate counts"
+  - "Regression: all M9-001, M9-002, and M9-003 tests pass unmodified"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/output/markdown/... ./internal/runner/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: medium
+estimated_effort: "1 day"

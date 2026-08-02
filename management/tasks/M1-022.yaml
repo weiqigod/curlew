@@ -1,0 +1,31 @@
+id: M1-022
+title: "Verbosity levels (-v, -vv, -q)"
+status: done
+completed_date: 2026-03-17
+verified_by: ai
+priority: 22
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-019]
+observable: |
+  Run same collection with no flag, `-v`, `-vv`, and `-q`. Verify
+  increasing/decreasing detail levels.
+behaviors:
+  - "Given no verbosity flag (default), when executed, then request name, status, and assertion results are shown"
+  - "Given -v flag, when executed, then request/response headers and status are additionally shown"
+  - "Given -vv flag, when executed, then full HTTP request and response dump is shown (headers + body)"
+  - "Given -q (quiet) flag, when executed, then only the summary line is shown"
+  - "Given -q with all tests passing, when executed, then output is a single summary line"
+  - "Given -v combined with --format json, when executed, then verbosity affects the detail level in JSON output"
+scope: |
+  Add verbosity level tracking to `internal/output/`. Implement detail levels.
+  Add `-v`, `-vv`, `-q` flags to CLI. Integrate with all output formatters.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "1-3 hours"

@@ -1,0 +1,8 @@
+name: Parent Simple
+include:
+  - ./child_simple.yaml
+requests:
+  - name: Parent Request
+    request:
+      method: GET
+      url: https://api.example.com/parent

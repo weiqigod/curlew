@@ -1,0 +1,42 @@
+id: M2-020
+title: "Data-driven YAML support, filtering, and row control"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Data-Driven Testing"
+
+dependencies:
+  - M2-019
+
+observable: |
+  Create a YAML data file and confirm data-driven execution.
+  Use `filter: "{{age}} >= 18"` and confirm only matching rows execute.
+  Use `limit: 5` and confirm only first 5 rows execute.
+  Run `go test ./internal/datadriven/...` for filtering and control tests.
+
+behaviors:
+  - "Given a YAML data source, when used with data_driven, then each YAML list item provides variables for one iteration"
+  - "Given `filter: '{{age}} >= 18'`, when applied, then only rows where age >= 18 are executed"
+  - "Given `limit: 10`, when a data source has 1000 rows, then only the first 10 rows execute"
+  - "Given `start_row: 100, end_row: 199`, when executed, then only rows 100-199 inclusive execute"
+  - "Given `fail_fast: true`, when an iteration fails, then subsequent iterations are skipped"
+  - "Given `fail_fast: false` (default), when an iteration fails, then remaining iterations continue"
+  - "Given filter operators `contains`, `starts_with`, `ends_with`, `AND`, `OR`, `NOT`, when used in filter expressions, then they evaluate correctly"
+  - "Given CSV type conversion filters `|int`, `|float`, `|bool`, when applied, then CSV string values are converted to the correct types"
+
+scope: |
+  Extend `internal/datadriven/` with YAML data source support, conditional filtering
+  with expression evaluation (comparison operators, boolean logic, string operators),
+  row limiting and ranges (limit, start_row, end_row), fail-fast vs continue-on-error
+  modes, and CSV type conversion filters.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

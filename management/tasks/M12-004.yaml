@@ -1,0 +1,62 @@
+id: M12-004
+title: "$sha256 and $md5 dynamic functions"
+status: done
+priority: 2
+created: 2026-04-28
+planned_date: 2026-04-28
+branch: feature/M12-004-sha256-md5-dynamic-functions
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_Sha256' -v ./internal/variable/...
+  # Expected: PASS — $sha256('hello') returns
+  # '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
+  # (lowercase 64-char hex).
+
+  go test -run 'TestRegistry_Md5' -v ./internal/variable/...
+  # Expected: PASS — $md5('hello') returns
+  # '5d41402abc4b2a76b9719d911017c592' (lowercase 32-char hex).
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a header X-Body-Hash: "{{$sha256('{{body}}')}}"
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: rendered header value is the hex SHA-256 of the resolved body.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$sha256` is invoked with one string, then it returns the lowercase hex of crypto/sha256.Sum256(s) (64 chars)."
+  - "Given the registry, when `$md5` is invoked with one string, then it returns the lowercase hex of crypto/md5.Sum(s) (32 chars)."
+  - "Given the empty string, when `$sha256('')` is evaluated, then it returns the SHA-256 of empty (`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`)."
+  - "Given a UTF-8 multibyte input `{{$sha256('héllo')}}`, when evaluated, then the hash is over the UTF-8 byte sequence (deterministic, golden value asserted)."
+  - "Given `$sha256` or `$md5` is invoked with zero or two arguments, when evaluated, then an arity-mismatch error is returned."
+  - "Given two requests in the same run, when `{{$sha256('x')}}` is referenced once per request, then the values are equal (function is pure; cache scope is per request but the value is deterministic regardless)."
+scope: |
+  Add two registrations to internal/variable/dynamic.go:
+  - `$sha256(s)` — fmt.Sprintf("%x", sha256.Sum256([]byte(s)))
+  - `$md5(s)` — fmt.Sprintf("%x", md5.Sum([]byte(s)))
+
+  Document explicitly in MANUAL.md that MD5 is provided for parity with
+  legacy webhook signature schemes only; use $sha256 (or HMAC-SHA-256)
+  for new integrations.
+
+  Files touched:
+  - internal/variable/dynamic.go (two registrations, new imports
+    crypto/sha256 and crypto/md5)
+  - internal/variable/dynamic_test.go (golden tests with known vectors)
+  - docs/MANUAL.md §3.7 (two table rows + the MD5 caveat note)
+
+  Not in scope: $sha1, $sha512 — add only if a real test demands them.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md dynamic-functions table updated with $sha256 and $md5 rows plus MD5 deprecation caveat"
+complexity: low

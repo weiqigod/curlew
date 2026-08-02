@@ -1,0 +1,27 @@
+id: M1-011
+title: "CLI --var flag for variable overrides"
+status: done
+priority: 11
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-009]
+observable: |
+  Run `./apitest run collection.yaml --var base_url=http://localhost:8080`.
+  Verify the CLI variable overrides collection-level variable.
+behaviors:
+  - "Given --var base_url=http://localhost:8080, when collection uses {{base_url}}, then CLI value is used"
+  - "Given --var overriding a collection-level variable, when resolved, then CLI flag wins (precedence 10)"
+  - "Given multiple --var flags, when resolved, then all are applied"
+  - "Given --var with no = sign, when parsed, then error message explains correct format"
+  - "Given --var name=value=with=equals, when parsed, then value is value=with=equals (split on first =)"
+scope: |
+  Add --var flag to CLI run command. Wire into variable resolution at precedence level 10.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "1-3 hours"

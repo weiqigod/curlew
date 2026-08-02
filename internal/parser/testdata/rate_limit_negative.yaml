@@ -1,0 +1,7 @@
+name: Bad
+rate_limit_rps: -1
+requests:
+  - name: A
+    request:
+      method: GET
+      url: https://example.com

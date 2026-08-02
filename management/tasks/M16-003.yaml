@@ -1,0 +1,42 @@
+id: M16-003
+title: "Password reset and email verification endpoints with rate limits and [RequireVerifiedEmail] filter"
+status: done
+priority: 2
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-002
+
+track: backend
+
+observable: |
+  Start the backend (`docker-compose -f docker-compose.test.yml up -d` then `dotnet run --project src/ApiTool.Backend`) and run:
+  `curl -s -X POST -H "Content-Type: application/json" -d '{"email":"unknown@example.com"}' http://localhost:5000/api/v1/auth/password-reset/request` → expect `HTTP 200` and body `{"ok":true,"message":"If an account exists for that email, a reset link has been sent."}`. Repeat with a real registered email and observe a row inserted in `password_reset_tokens` and a queued `password_reset` email in `email_outbox` (or equivalent). Then `curl -i -X POST -H "Authorization: Bearer <unverified_user_jwt>" -H "Content-Type: application/json" -d '{"price_id":"price_xxx"}' http://localhost:5000/api/v1/subscriptions/checkout` → expect `HTTP 403` with problem-detail `type: ".../email-not-verified"`. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~PasswordReset|EmailVerification|RequireVerifiedEmail"` and confirm all pass.
+
+behaviors:
+  - "Given an unknown email, when POST /api/v1/auth/password-reset/request is called, then the response is 200 with the same body as for a known email (enumeration defense)"
+  - "Given a known email, when POST /api/v1/auth/password-reset/request is called, then a row is inserted into password_reset_tokens with token_hash (SHA-256 of a 32-byte random token formatted as prst_<base64url>), expires_at = issued_at + 30 minutes, requester_ip and requester_ua populated, and a password_reset email is queued"
+  - "Given the same email submits 4 reset requests within 24 hours, when the 4th request is made, then it is rate-limited but still returns 200 with the standard message and no email is sent"
+  - "Given a valid prst_ token and a password with zxcvbn score >= 3, when POST /api/v1/auth/password-reset/confirm is called, then users.password_hash is updated, the token row's consumed_at is set, ALL of the user's refresh-token families are revoked (RFC 9700 §4.14), and the response is 200"
+  - "Given a password with zxcvbn score < 3, when POST /api/v1/auth/password-reset/confirm is called, then the response is 422 with type .../password-too-weak and a score field in the problem detail"
+  - "Given an expired or already-consumed prst_ token, when POST /api/v1/auth/password-reset/confirm is called, then the response is 400 with type .../password-reset-token-invalid"
+  - "Given a verified user, when POST /api/v1/auth/email-verification/resend is called, then all of their non-consumed verification tokens are revoked and a new evtk_ token is issued (24-hour lifetime)"
+  - "Given a valid evtk_ token, when POST /api/v1/auth/email-verification/confirm is called, then users.email_verified = true and the token's consumed_at is set"
+  - "Given an unverified user calls POST /api/v1/subscriptions/checkout, when the [RequireVerifiedEmail] filter runs, then the response is 403 with problem-detail type .../email-not-verified"
+  - "Given the AuthTokenCleanupService IHostedService runs and finds password_reset_tokens or email_verification_tokens older than 7 days, when the cleanup tick fires, then those rows are deleted"
+
+scope: |
+  New files in `src/ApiTool.Backend/Auth/`: `PasswordResetEndpoints.cs`, `EmailVerificationEndpoints.cs`, services `IPasswordResetService` / `PasswordResetService`, `IEmailVerificationService` / `EmailVerificationService`, and a `RequireVerifiedEmailAttribute` ASP.NET Core filter. Wire the four endpoints (`POST /api/v1/auth/password-reset/{request,confirm}`, `POST /api/v1/auth/email-verification/{resend,confirm}`) and apply `[RequireVerifiedEmail]` to `POST /api/v1/subscriptions/checkout` (existing `SubscriptionsEndpoints.cs`) and to org-invite-acceptance endpoint only. Hook into existing `Internal/RateLimit` infrastructure for per-email and per-IP windows: 3 reset/24h and 5 verify-resend/24h per email; 10/24h per IP. Use Argon2id verification on lookup-miss paths (constant-time). Confirm flow revokes ALL refresh-token families via existing `RefreshTokenService`. Add `AuthTokenCleanupService : IHostedService` (per Open Decision 8) that prunes consumed/expired/revoked rows older than 7 days on a 1h tick from both token tables.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc updated with the four new endpoints and the RequireVerifiedEmail filter contract"
+  - "AuthTokenCleanupService is registered in Program.cs and visible in the hosted-services list"
+
+complexity: medium
+estimated_effort: "6-12 hours"

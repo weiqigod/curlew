@@ -1,0 +1,71 @@
+id: M6-003
+title: "Redact sensitive values from request and response bodies"
+status: done
+priority: 3
+created: 2026-04-21
+phase: "M6: AI Agent Integration"
+track: go-cli
+dependencies:
+  - M6-001
+observable: |
+  # Given a collection that sends a request body and a response body both
+  # carrying a secret, when run without --allow-sensitive, then no secret
+  # value appears in any output.
+  cat > /tmp/redact-demo.yaml <<'YAML'
+  name: redact demo
+  variables:
+    TOKEN:
+      value: hunter2
+      sensitive: true
+  requests:
+    - name: echo
+      method: POST
+      url: http://127.0.0.1:NNNN/echo
+      body: "token={{TOKEN}}"
+  YAML
+  # Start a test echo server that returns the received body; run the test
+  # with -vv (shows bodies). Assert "hunter2" does NOT appear anywhere in
+  # the terminal output or in the JSON/jsonl output.
+  go test -run TestRedact_BodyAcrossFormats ./cmd/apitest/
+  # Expected: PASS (the test drives the above with an httptest.Server and
+  # greps every format's output for the literal secret value).
+behaviors:
+  - "Given a request body referencing a sensitive variable via {{TOKEN}}, when the run completes without --allow-sensitive, then the interpolated secret value is replaced with a fixed redaction marker in RequestResult.RequestBody before any formatter consumes it."
+  - "Given a response body that echoes or includes a sensitive value (e.g. {\"token\": \"hunter2\"}), when the run completes without --allow-sensitive, then the secret value is replaced with a fixed redaction marker before any formatter consumes it."
+  - "Given --allow-sensitive is set, when the run completes, then redaction is skipped (opt-out preserved from current headers-only behaviour)."
+  - "Given a response body that is valid JSON, when redaction runs, then JSON structure is preserved and only matching string values are rewritten (no structural corruption)."
+  - "Given a response body that is non-JSON text, when redaction runs, then matching substrings (exact match of sensitive values) are rewritten; partial-token matches are not rewritten."
+  - "Given existing header-redaction behaviour, when this slice lands, then existing tests that assert header redaction continue to pass unchanged."
+scope: |
+  Extend the redaction pass in cmd/apitest/main.go to cover bodies. Today the
+  pass at ~main.go:858-861 calls variable.RedactHeaders; after this slice it
+  also calls a new variable.RedactBody on every RequestBody and on the
+  response body field inside RequestResult.Result (httpexec.Result).
+
+  internal/variable/redact.go (new file or extension of existing):
+    - RedactBody(body any, sensitive *SensitiveSet, allowSensitive bool) any
+    - For JSON-like input (string body containing JSON, or any with JSON
+      marshalability), walks structure and rewrites string leaves that match
+      any sensitive value.
+    - For plain-text string bodies, performs exact-value replacement.
+    - Unit tests cover: JSON object, JSON array, nested, empty set, empty body,
+      partial-match non-replacement, binary-ish byte slice (skipped with a
+      note), allow-sensitive pass-through.
+
+  cmd/apitest/main.go:
+    - Extend the existing redaction block around line 858-861 to also call
+      variable.RedactBody for RequestBody and for the response body on
+      RequestResult.Result (already exists on httpexec.Result).
+    - Existing header redaction and -allow-sensitive behaviour unchanged.
+
+  This slice must land before M6-005 (wiring --events). Without it, the new
+  NDJSON stream would leak secrets to an append-only file.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes (existing test goldens may need re-recording only where bodies now show redaction; changes are limited to that)"
+  - "golangci-lint run passes with 0 issues"
+  - "Test coverage for internal/variable remains >= 80%"
+  - "End-to-end test under cmd/apitest greps every existing format's output for a known secret and asserts it is absent"
+  - "Smoke test passes"
+complexity: medium
+estimated_effort: "1 day"

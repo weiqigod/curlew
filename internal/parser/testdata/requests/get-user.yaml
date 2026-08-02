@@ -1,0 +1,4 @@
+name: Get User
+request:
+  method: GET
+  url: https://example.com/users/1

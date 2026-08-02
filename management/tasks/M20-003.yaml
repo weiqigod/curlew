@@ -1,0 +1,79 @@
+id: M20-003
+title: "CJK + Cyrillic locale pools (ja-JP, zh-CN, ko-KR, ru-RU)"
+status: done
+priority: 3
+created: 2026-06-12
+completed_date: 2026-06-12
+verified_by: ai
+phase: "M20: Faker locale completion"
+track: go-cli
+
+dependencies:
+  - M20-001
+
+observable: |
+  go build ./cmd/apitest
+
+  # 1. Each non-Latin locale produces region-appropriate names in the correct script.
+  printf '{{$faker.fullName}} | {{$faker.phone}}\n' | ./apitest exec --stdin --seed 42 --locale ja-JP --format json
+  # Expected: a Japanese name in kanji with the family-name-first ordering (e.g. "山田 太郎")
+  # and a +81-shaped phone per SPEC:980.
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale zh-CN --format json
+  # Expected: a Han-script name (e.g. "张伟").
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale ko-KR --format json
+  # Expected: a Hangul name (e.g. "김민준").
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale ru-RU --format json
+  # Expected: a Cyrillic name (e.g. "Иван Иванов").
+
+  # 2. Multibyte output survives JSON encoding intact (no mojibake, valid UTF-8).
+  printf '{"n":"{{$faker.fullName}}"}\n' | ./apitest exec --stdin --seed 42 --locale ja-JP --format json \
+    | python3 -c 'import sys,json; json.load(sys.stdin); print("valid-json-utf8")'
+  # Expected: "valid-json-utf8".
+
+  # 3. Name ordering: ja-JP/zh-CN/ko-KR render family-name-first; ru-RU given-name-first.
+  go test -run 'TestLocalePools_NameOrdering' -v ./internal/variable/...
+  # Expected: PASS.
+
+  # 4. Seed/locale independence across the four non-Latin locales.
+  go test -run 'TestRegistry_Locale_SeedPositionInvariant' -v ./internal/variable/...
+  # Expected: PASS.
+
+  go test ./internal/variable/... ./cmd/apitest/...
+  # Expected: PASS.
+
+behaviors:
+  - "Given `--locale ja-JP --seed 42`, when `$faker.fullName` runs, then a kanji name with family-name-first ordering is returned (e.g. \"山田 太郎\") and the bytes are valid UTF-8."
+  - "Given `--locale zh-CN`, when `$faker.fullName` runs, then a Han-script Chinese name is returned (e.g. \"张伟\"), not a romanized or en-US value."
+  - "Given `--locale ko-KR`, when `$faker.fullName` runs, then a Hangul Korean name with family-name-first ordering is returned (e.g. \"김민준\")."
+  - "Given `--locale ru-RU`, when `$faker.fullName` runs, then a Cyrillic Russian name with given-name-first ordering is returned (e.g. \"Иван Иванов\")."
+  - "Given a multibyte faker value embedded in a JSON body, when output with `--format json`, then the result is valid UTF-8 JSON with no escaping corruption or mojibake."
+  - "Given `--locale ja-JP`, when `$faker.phone` runs, then the number matches the Japanese format from SPEC:980 (e.g. \"+81 3-1234-5678\"-shaped)."
+  - "Given the same `--seed N`, when `$faker.firstName` is run across all four non-Latin locales, then each selects the same pool index (seed/locale independence per SPEC:1023-1026)."
+  - "Given any of the four locale codes, when its table is first accessed, then it loads lazily behind sync.Once (SPEC:1110), and repeated access reuses the initialised table."
+
+scope: |
+  Adds four non-Latin-script locale data tables to the `localeData`
+  lookup from M20-001 (internal/variable/dynamic.go): ja-JP, zh-CN, ko-KR
+  (CJK) and ru-RU (Cyrillic). Each provides per-locale name pools in the
+  native script, locale-appropriate name ordering (family-name-first for
+  ja-JP/zh-CN/ko-KR; given-name-first for ru-RU) wired into the
+  `$faker.fullName` composition, phone-format rendering (SPEC:980-985),
+  and culturally-bound location pools (city). Pools are in-source Go
+  tables behind sync.Once per settled decision 4. Particular attention to
+  UTF-8 correctness through JSON encoding and to the name-ordering seam in
+  the fullName closure (dynamic.go:461), which currently hard-codes
+  `first + " " + last`. Mutually independent of M20-002.
+  Not in scope: the nine Latin-script locales (M20-002); MANUAL.md table
+  (M20-004); any telemetry work.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "A UTF-8 round-trip test confirms every entry in all four pools is valid UTF-8 and survives JSON marshalling unchanged"
+  - "Name-ordering test confirms family-name-first for ja-JP/zh-CN/ko-KR and given-name-first for ru-RU"
+  - "./smoke/run.sh passes"
+
+complexity: high
+estimated_effort: "8-12 hours"

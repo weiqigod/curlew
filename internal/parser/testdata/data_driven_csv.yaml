@@ -1,0 +1,8 @@
+name: Data Driven Test
+requests:
+  - name: Test Users
+    data_driven:
+      source: ./users.csv
+    request:
+      method: POST
+      url: https://example.com/users

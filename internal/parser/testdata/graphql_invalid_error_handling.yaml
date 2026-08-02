@@ -1,0 +1,9 @@
+name: GraphQL Invalid Error Handling
+requests:
+  - name: Bad Mode
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query: "query { users { id } }"
+        error_handling: banana

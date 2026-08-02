@@ -1,0 +1,16 @@
+{
+  "slug": "billing_receipt",
+  "subject": "Your ApiTool receipt for {{billing_period}}",
+  "variables": {
+    "first_name":     "string",
+    "billing_period": "string (e.g. 'May 2026')",
+    "amount_total":   "string (e.g. '$49.00')",
+    "invoice_url":    "string (HTTPS URL)"
+  },
+  "test_data": {
+    "first_name": "Alex",
+    "billing_period": "May 2026",
+    "amount_total": "$49.00",
+    "invoice_url": "https://app.apitool.dev/billing/invoice/inv_test123"
+  }
+}

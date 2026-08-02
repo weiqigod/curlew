@@ -1,0 +1,10 @@
+name: Header Assertion Exists
+requests:
+  - name: Check Header
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      headers:
+        X-Request-Id:
+          exists: true

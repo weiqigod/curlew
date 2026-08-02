@@ -1,0 +1,87 @@
+id: M12-001
+title: "Argument-parsing foundation for dynamic functions"
+status: done
+priority: 1
+created: 2026-04-28
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestDynPattern_ParensSyntax' -v ./internal/variable/...
+  # Expected: PASS — regex matches `{{$fn(arg1, 'literal', {{var}})}}`
+  # and rejects malformed input.
+
+  go test -run 'TestRegistry_Evaluate_AcceptsArgs' -v ./internal/variable/...
+  # Expected: PASS — Evaluate(name, args, cache) signature; existing 16
+  # no-arg functions return non-empty values when called with empty args
+  # and return a structured error when called with unexpected args.
+
+  go test -run 'TestInterpolate_DynamicArgs_NestedVarSubstitution' -v ./internal/variable/...
+  # Expected: PASS — `{{$echo('{{user}}-{{$timestamp}}')}}` (using a
+  # test-only echo registration) resolves nested {{var}} and inner
+  # dynamic refs inside the literal before being passed to the function.
+
+  go test -run 'TestInterpolate_BackwardCompatNoArgs' -v ./internal/variable/...
+  # Expected: PASS — `{{$timestamp}}`, `{{$uuid}}`, `{{$randomInt}}`
+  # still resolve as before (no parens required).
+
+  go test ./...
+  # Expected: PASS — full suite green, no regressions.
+behaviors:
+  - "Given an input string `{{$base64('hello')}}`, when matched by dynPattern, then the regex captures funcName=base64 and the raw arg list `'hello'`."
+  - "Given an input string `{{$hmacSha256('payload', '{{secret}}')}}`, when interpolated, then the inner `{{secret}}` is resolved against the scope before the literal is passed as the second argument."
+  - "Given an input string `{{$jsonEncode('it\\'s ok')}}`, when the arg list is parsed, then the parser produces a single string argument with literal value `it's ok` (escape sequences `\\'` and `\\\\` honoured inside single quotes)."
+  - "Given an input string `{{$timestamp}}` (no parens), when interpolated against the existing registry, then the result is unchanged from M11 behaviour — backward compatibility is preserved."
+  - "Given an input string `{{$timestamp('extra')}}`, when interpolated, then Evaluate returns a structured error reporting that $timestamp accepts no arguments."
+  - "Given an input string `{{$fn(arg1, arg2, arg3)}}` with a function expecting two args, when interpolated, then Evaluate returns a structured error naming the arity mismatch (`expected 2 arguments, got 3`)."
+  - "Given an input string with a malformed arg list (unterminated quote, e.g. `{{$base64('oops)}}`), when scanned, then Interpolate returns a structured CategoryInput error pointing at the offending token."
+  - "Given the migrated DynFunc signature `func(rng *rand.Rand, args []string) (string, error)`, when each of the 16 pre-existing functions is invoked with an empty args slice, then it returns the same value shape as before; no caller in the codebase still uses the old zero-arg signature."
+  - "Given the per-request memoization cache, when `{{$base64('a')}}` and `{{$base64('b')}}` both appear in one request, then they are cached under distinct cache keys (cache key = funcName + canonicalised args), so they return distinct values."
+scope: |
+  Cross-cutting parser change. Update internal/variable/variable.go to
+  replace the existing `dynPattern` (line 82) with a regex (or a small
+  hand-written scanner — the regex form may be cleaner via two-stage
+  parsing) that matches `{{$funcName(args?)}}` where args is a
+  comma-separated list of single-quoted string literals with `\'` and
+  `\\` escapes, optional whitespace around commas, and arbitrary
+  characters between quotes (including nested `{{var}}` placeholders
+  that are interpolated before the literal is passed in).
+
+  Update internal/variable/dynamic.go: change DynFunc to
+  `func(rng *rand.Rand, args []string) (string, error)`. Update
+  Registry.Evaluate to accept the args slice and return any per-function
+  error verbatim (wrapped with the function name for context). Migrate
+  all 16 existing functions to the new signature; each returns an
+  arity-mismatch error if args is non-empty. Each function declares its
+  expected arity via a small wrapper helper (e.g. `noArgs(fn DynFuncNoArgs)`
+  to keep the existing code terse).
+
+  Per-request cache key changes from funcName to funcName plus a
+  canonical join of the resolved args (so `$base64('a')` and `$base64('b')`
+  do not collide). Backward compatibility: a no-arg invocation
+  `{{$timestamp}}` is matched as funcName with empty args.
+
+  Files touched:
+  - internal/variable/variable.go (regex / scanner, Pass 1 rewrite)
+  - internal/variable/dynamic.go (DynFunc signature, Evaluate, registrations)
+  - internal/variable/dynamic_test.go (expand existing tests for new signature)
+  - internal/variable/variable_test.go (new tests for arg parsing, escapes,
+    nested interpolation, backward compat)
+
+  Not in scope: implementing any of the 13 new helpers — those land in
+  M12-002 through M12-008. This task ships only the parser, signature,
+  migration of existing functions, and a test-only echo helper used by
+  the parser tests.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "All 16 existing dynamic functions pass their pre-existing tests with the new signature"
+  - "Backward-compatible: any collection that uses {{$fn}} (no parens) still parses and resolves identically"
+  - "docs/MANUAL.md §3.7 gains a short subsection (1-2 paragraphs) introducing the parenthesized-arg syntax, with an example of nested {{var}} inside a literal"
+complexity: medium

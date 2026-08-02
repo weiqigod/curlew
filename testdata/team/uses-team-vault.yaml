@@ -1,0 +1,12 @@
+name: Uses team vault
+variables:
+  base_url: "http://127.0.0.1:8099"
+requests:
+  - name: Ping with shared secret
+    request:
+      method: GET
+      url: "{{base_url}}/"
+      headers:
+        Authorization: "Bearer {{secrets.api_key}}"
+    assertions:
+      status: 200

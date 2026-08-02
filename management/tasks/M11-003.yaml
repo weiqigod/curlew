@@ -1,0 +1,89 @@
+id: M11-003
+title: "TAP output completeness: per-iteration data-driven test points + parallel speedup diagnostic"
+status: done
+completed_date: 2026-04-26
+verified_by: ai
+priority: 1
+created: 2026-04-25
+phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+  TMP=$(mktemp -d); cd "$TMP"
+  apitest init demo && cd demo
+  REPO=$(git -C "$OLDPWD" rev-parse --show-toplevel 2>/dev/null || pwd)
+
+  # Per-iteration TAP test points.
+  apitest run "$REPO/cmd/apitest/testdata/datadriven_simple.yaml" --format tap > dd.tap
+  ITER_LINES=$(grep -cE '^(ok|not ok) [0-9]+ - .+ \[[0-9]+/[0-9]+\]' dd.tap)
+  test "$ITER_LINES" -gt 0
+  # Expected: exit 0; at least one test-point line carries an [i/N] iteration suffix.
+
+  # TAP plan count matches actual test points.
+  PLAN=$(grep -E '^1\.\.[0-9]+' dd.tap | head -1 | sed 's/^1\.\.//')
+  POINTS=$(grep -cE '^(ok|not ok) [0-9]+ ' dd.tap)
+  test "$PLAN" = "$POINTS"
+  # Expected: exit 0; plan number equals actual test-point count.
+
+  # Parallel speedup YAML diagnostic.
+  apitest run "$REPO/cmd/apitest/testdata/parallel_simple.yaml" --format tap > p.tap
+  awk '/^# Parallel execution:/{flag=1} flag{print} /^  ---$/{if(flag>1) exit; flag++}' p.tap | grep -E 'speedup_factor:'
+  # Expected: at least 1 match (YAML diagnostic block carries speedup_factor).
+
+  go test -run 'TestTAPOutput_DataDrivenIterations|TestTAPOutput_ParallelSpeedup' -v ./cmd/apitest/...
+  # Expected: PASS.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "TAP formatter emits one test point per data-driven iteration: 'ok N - BaseName [i/N]' or 'not ok N - BaseName [i/N]'. The existing group marker comment ('# Data-Driven: BaseName (M iterations)') stays as a section header above the per-iteration test points."
+  - "TAP plan count (1..N) reflects the new total including per-iteration test points: a data-driven request with M iterations contributes M test points to the plan, not 1."
+  - "TAP formatter emits a YAML diagnostic block at the run footer when summary.IsParallel and summary.WaveCount > 1. Form: '# Parallel execution:' header line followed by a TAP YAML diagnostic block with speedup_factor, wave_count, and max_parallelism."
+  - "TestTAPOutput_DataDrivenIterations asserts per-iteration test points appear and the plan count is correct."
+  - "TestTAPOutput_ParallelSpeedup asserts the YAML diagnostic block is present with speedup_factor matching the JSON formatter's value (parity with internal/output/json.go ParallelExecutionJSON.SpeedupFactor)."
+  - "docs/SPECIFICATION.md TAP section documents per-iteration test points and the parallel YAML diagnostic."
+  - "docs/MANUAL.md TAP-format section gains a data-driven TAP example and a parallel-run TAP example."
+  - "CHANGELOG.md [Unreleased] gains an Added entry: TAP output now emits per-iteration data-driven test points and a parallel-execution speedup diagnostic."
+  - "IMPROVEMENT.md §2.4 bullets 1 (TAP half) + 2 are annotated with 'Shipped (M11-003)'."
+scope: |
+  Two additive changes to the TAP formatter:
+
+  1. Per-iteration test points. Replace the single TAP test point that
+     currently represents an entire data-driven request with one test
+     point per iteration. The section header comment stays above the
+     iteration block. Iteration name uses the same '[i/N]' suffix the
+     events stream and terminal output use.
+
+  2. Parallel speedup YAML diagnostic. After the test points and before
+     the plan count footer (or wherever the existing TAP layout puts
+     end-of-run material), emit a TAP YAML diagnostic block carrying
+     speedup_factor, wave_count, max_parallelism. Mirrors the existing
+     JSON ParallelExecutionJSON.
+
+  TAP plan count adjusts: previously a data-driven request that runs
+  M iterations counts as 1 in the plan; now it counts as M. Update the
+  plan emitter accordingly.
+
+  Files:
+  - internal/output/tap.go (per-iteration emission + speedup block)
+  - internal/output/tap_test.go and cmd/apitest/main_test.go (new + updated tests)
+  - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
+
+  Not in scope:
+  - Per-iteration assertion-level YAML diagnostics (TAP would balloon).
+  - Per-iteration retry-attempt detail.
+  - Restructuring the TAP comment layout for non-data-driven groups.
+  - Changes to other formatters (separate tasks).
+definition_of_done:
+  - "All behavior tests pass"
+  - "TAP plan count matches actual test-point count for data-driven runs"
+  - "speedup_factor in TAP YAML diagnostic equals the JSON formatter's value for the same run (parity test)"
+  - "go test ./... passes"
+  - "go test -cover ./internal/output/... ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "IMPROVEMENT.md §2.4 bullets 1 (TAP half) + 2 marked Shipped"
+complexity: low
+estimated_effort: "1 day"

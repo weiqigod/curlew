@@ -1,0 +1,73 @@
+id: M15-003
+title: "Retier from_command from Solo to Free across registry, tests, and MANUAL.md"
+status: done
+priority: 1
+created: 2026-05-06
+phase: "M15: Tier-matrix corrections"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  go build -o ./apitest ./cmd/apitest
+  go test ./internal/auth/... ./internal/variable/... -count=1
+  # Expected: registry_test.go's tier matrix asserts from_command at TierFree.
+
+  # Free-tier license runs a collection that uses a from_command variable:
+  cat > /tmp/m15-003.yaml <<'EOF'
+  name: m15-003-from-command
+  variables:
+    GREETING: { from_command: "echo hello" }
+  requests:
+    - name: echo-back
+      request: { method: GET, url: "https://httpbin.org/get?msg={{GREETING}}" }
+  EOF
+  ./apitest --license ./testdata/m15/license-free.jwt run /tmp/m15-003.yaml
+  echo "exit=$?"
+  # Expected: request runs, status code printed, no gate error; exit 0.
+
+  # Doc verification — no remaining `[Solo]` next to from_command in MANUAL.md:
+  grep -n "from_command.*\[Solo\]\|from_command.*Solo tier\|| \`from_command\` | Solo" \
+    docs/MANUAL.md
+  # Expected: no matches.
+
+behaviors:
+  - "Given the default registry, when looked up, then the `from_command` entry has RequiredTier=TierFree with Description and Workaround strings reflecting free-tier availability"
+  - "Given a Free-tier license, when a collection with a `from_command` variable is run, then the command shells out, the variable resolves, and no GateError is raised"
+  - "Given a Solo, Professional, Team, or Enterprise license, when a collection with a `from_command` variable is run, then behavior is unchanged from before (still allowed)"
+  - "Given internal/variable/command.go (the from_command execution path), when M15-003 lands, then no implementation changes are required because the variable system already supports from_command at any tier"
+  - "Given docs/MANUAL.md, when scanned after M15-003 lands, then every `[Solo]` and 'Solo tier' reference attached to from_command is updated to reflect Free-tier availability (badge removed, table row updated, prose wording corrected)"
+  - "Given the table-of-contents anchor for the from_command section, when updated, then the slugified link target stays consistent with the corresponding section heading"
+  - "Given the registry_test.go tier-matrix tests, when run after the change, then they assert from_command is allowed at all five tiers (Free through Enterprise)"
+  - "Given backwards compatibility, when an existing Solo+ collection that uses from_command runs after M15-003, then it continues to work unchanged"
+
+scope: |
+  In internal/auth/registry.go change the `from_command` FeatureDefinition
+  from RequiredTier: TierSolo to RequiredTier: TierFree, and rewrite
+  Description and Workaround to reflect free-tier availability (no
+  "$9/month" pricing, no "requires Solo tier"). Update
+  internal/auth/registry_test.go's tier-matrix expectations for
+  from_command. Update every docs/MANUAL.md site marking from_command as
+  `[Solo]` or "Solo tier": the TOC entry, bootstrapping table row, the
+  variables-precedence list entry, the section heading, the section body
+  sentence asserting Solo gating, and the tier table row. Anchor numbers
+  named in `.claude/skills/backlog/milestone-mapping.md` (65, 817, 2701,
+  2724, 2756, 3581, 3688) should be re-verified at edit time in case of
+  drift; the goal is zero remaining `[Solo]` references for from_command
+  after the sweep, verified by the grep observable above. The variable
+  execution path in internal/variable/command.go is unchanged.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/auth/... ./internal/variable/... >= 80% (no regression from current baseline)"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "internal/auth/registry.go from_command entry has RequiredTier=TierFree with refreshed Description and Workaround strings"
+  - "internal/auth/registry_test.go tier-matrix updated for from_command (allowed at all five tiers)"
+  - "docs/MANUAL.md updated at every from_command tier-badge site; verified by `grep -n 'from_command' docs/MANUAL.md` showing no `[Solo]` adjacencies and no 'Solo tier' prose for from_command"
+  - "TOC slug stays consistent with the corresponding section heading"
+  - "smoke/run.sh extended with one Free-tier from_command case if not already covered"
+
+complexity: low

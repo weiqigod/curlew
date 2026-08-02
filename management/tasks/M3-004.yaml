@@ -1,0 +1,52 @@
+id: M3-004
+title: "JSON Schema response body validation assertion"
+status: done
+priority: 3
+created: 2026-04-10
+phase: "M3: Professional Tier"
+
+dependencies: []
+
+observable: |
+  Create `schemas/user.json` (a Draft 2020-12 JSON Schema requiring `id:int` and
+  `email:string`). Create a collection with a request asserting
+  `assertions: { schema: schemas/user.json }`. Point it at a test server that
+  returns a valid user JSON and verify
+  `./apitest run collection.yaml` at Professional tier passes. Change the
+  server to return `{"id":"not-an-int"}` and verify the run fails with a
+  structured error listing the failing JSONPath, the expected type, and the
+  actual value. Run at Free tier and verify exit code 6 with
+  `schema_validation` gate. Run `go test ./internal/assertion/...` and verify
+  all pass.
+
+behaviors:
+  - "Given an assertion `schema: schemas/user.json` referencing a valid JSON Schema file, when the response body matches, then the assertion passes"
+  - "Given a response that violates a `required` field in the schema, when validated, then the assertion fails with an error message naming the missing property"
+  - "Given a response with a type mismatch (e.g. string where integer expected), when validated, then the failure message includes the JSONPath, expected type, and actual value"
+  - "Given a schema file path that does not exist, when the collection is parsed, then a structured parse error with the missing path is returned (fail-fast at parse, not runtime)"
+  - "Given a schema file containing invalid JSON Schema syntax, when parsed, then a structured error pointing to the schema file is returned"
+  - "Given a response body that is not valid JSON (e.g. HTML), when schema validation is attempted, then the assertion fails with 'response body is not JSON'"
+  - "Given a schema path relative to the collection file, when loaded, then the path is resolved against the collection directory (not CWD)"
+  - "Given `assertions.schema` at Free or Solo tier, when parsed, then exit code 6 and a feature gate for `schema_validation` is returned"
+
+scope: |
+  Add `Schema string` to `parser.Assertions` (yaml tag `schema`). In
+  `internal/assertion/assertion.go`, add a `validateSchema` evaluator that
+  loads the schema file (cached per-collection), compiles it with a JSON
+  Schema library (e.g. `github.com/santhosh-tekuri/jsonschema/v6`), and runs
+  validation. Collect all validation errors (not just first) into the assertion
+  results. Resolve schema paths relative to the collection file during parse.
+  Register `schema_validation` as a Professional-tier feature in
+  `internal/auth/registry.go`. Add the new jsonschema dependency to `go.mod`.
+  Update `internal/schema/collection.json` to allow `schema:` under assertions.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text updated (if user-facing)"
+  - "Smoke test updated (if new capability)"
+
+complexity: medium
+estimated_effort: "5-7 hours"

@@ -1,0 +1,46 @@
+id: M5-009
+title: "go-cli: worker agent protocol"
+status: done
+priority: 3
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: go-cli
+dependencies:
+  - M5-008
+observable: |
+  go build ./cmd/apitest
+  go test ./internal/worker/...
+  # Expected: ok  internal/worker  (>=8 tests passing)
+  # Start a fake coordinator fixture, then:
+  APITEST_COORDINATOR_URL=http://127.0.0.1:9000 \
+  APITEST_BACKEND_TOKEN=svc_token_dev \
+    ./apitest worker --job job_abc --org acme
+  # Expected stdout (tail):
+  # "Claimed shard shd_1 (3 requests)"
+  # "Completed shd_1: pass=3 fail=0 duration=142ms"
+  # "No more shards; exiting"
+  # exit 0
+behaviors:
+  - "Given a running coordinator at APITEST_COORDINATOR_URL, when apitest worker --job <id> --org <slug> is invoked with a valid service token, then the worker polls POST /coordinator/jobs/{job_id}/claim and prints 'Claimed shard <shard_id>' on success"
+  - "Given a claimed shard with 3 HTTP requests, when the worker executes them, then each request is run and a per-request outcome (status, duration, error) is collected"
+  - "Given the worker completes a shard, when it POSTs to /coordinator/jobs/{job_id}/shards/{shard_id}/result, then the response is 202 and stdout prints 'Completed <shard_id>: pass=N fail=M'"
+  - "Given the coordinator returns 204 no_shards_available, when the worker receives it, then stdout prints 'No more shards; exiting' and the worker exits 0"
+  - "Given the worker loses connectivity mid-shard, when the request to submit results fails, then it retries 3 times with exponential backoff and logs a warning on each retry"
+  - "Given a running shard, when the worker is idle, then it sends POST /heartbeat every 15 seconds with worker_id and shard_id"
+  - "Given an invalid service token, when the worker starts, then it prints 'error: unauthorized' and exits with code 10"
+  - "Given --help is passed, when the binary runs, then the help text documents --job, --org, --coordinator-url, --token, and --concurrency flags"
+scope: |
+  New internal/worker package implementing the client protocol against the
+  M5-008 coordinator. Subcommand in cmd/apitest/worker.go wired through the
+  existing cobra root. Reuses internal/httpexec for request execution and
+  internal/runner for result shaping. Testdata fixture under
+  testdata/worker/coordinator-fake.json for a tabletop coordinator fake.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text for apitest worker updated"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: high
+estimated_effort: "8-12 hours"

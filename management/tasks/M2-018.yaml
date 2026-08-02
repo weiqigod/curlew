@@ -1,0 +1,41 @@
+id: M2-018
+title: "Parallel execution output formatting (terminal, JSON, TAP)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Parallel Execution"
+
+dependencies:
+  - M2-016
+  - M1-020
+  - M1-021
+
+observable: |
+  Run `apitest run --parallel tests.yaml --format json` and confirm parallel results in JSON.
+  Run `apitest run --parallel tests.yaml --format tap` and confirm TAP output with wave info.
+  Run `apitest run --parallel tests.yaml` and confirm terminal output shows wave grouping.
+  Run `go test ./internal/output/...` for parallel output tests.
+
+behaviors:
+  - "Given parallel execution with terminal output, when results are displayed, then requests are grouped by wave with wave headers"
+  - "Given parallel execution with JSON output, when the JSON is generated, then it includes wave information and parallel execution metadata"
+  - "Given parallel execution with TAP output, when generated, then test results include wave annotations"
+  - "Given parallel execution summary, when displayed, then it shows total waves, maximum parallelism, and speedup factor"
+  - "Given parallel execution with `--dry-run`, when results are shown, then the execution plan (waves) is displayed without HTTP requests"
+
+scope: |
+  Extend `internal/output/` formatters (terminal, JSON, TAP) to support parallel execution
+  metadata: wave grouping, parallelism metrics, speedup calculations, skip reasons.
+  Update terminal output with wave headers and concurrent execution indicators.
+  Update JSON schema with wave_index and parallel_execution fields.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

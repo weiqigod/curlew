@@ -1,0 +1,44 @@
+id: M2-019
+title: "Data-driven testing with CSV and JSON data sources"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Data-Driven Testing"
+
+dependencies:
+  - M1-009
+  - M1-010
+  - M1-028
+
+observable: |
+  Create a CSV file with test data and a collection with `data_driven: { source: ./data.csv }`.
+  Run `apitest run tests.yaml` and confirm the request executes once per row.
+  Run `go test ./internal/datadriven/...` to verify data-driven execution.
+
+behaviors:
+  - "Given a request with `data_driven: { source: ./users.csv }`, when executed, then the request runs once per CSV row"
+  - "Given a CSV data source, when variables like `{{email}}` are referenced, then they resolve to column values for each iteration"
+  - "Given a JSON array data source, when used, then each array element provides variables for one iteration"
+  - "Given special iteration variables `{{_index}}`, `{{_iteration}}`, `{{_total}}`, when referenced, then they resolve correctly (0-based, 1-based, total count)"
+  - "Given data-driven with extract, when `user_id` is extracted across iterations, then values accumulate as an array"
+  - "Given data-driven at Free tier, when the collection is parsed, then exit code 6 with feature gate message"
+  - "Given a missing data file, when the collection runs, then a clear error shows checked paths and suggestions"
+  - "Given an empty data file, when the collection runs, then the request is skipped with a warning (exit code 0)"
+
+scope: |
+  Create `internal/datadriven/` package with data source loading (CSV, JSON), iteration
+  execution, special variable injection, and array accumulation for extractions.
+  Parse `data_driven:` block in `internal/parser/collection.go`. Integrate into
+  `internal/runner/runner.go` to execute data-driven requests sequentially.
+  Register as Professional-tier feature gate. Each iteration counts toward guard rail.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "8-12 hours"

@@ -1,0 +1,6 @@
+name: unreachable-host
+requests:
+  - name: connect-to-refused-port
+    request:
+      method: GET
+      url: http://127.0.0.1:1/fail

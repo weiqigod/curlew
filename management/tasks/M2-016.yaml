@@ -1,0 +1,42 @@
+id: M2-016
+title: "Parallel request execution with wave-based scheduling"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Parallel Execution"
+
+dependencies:
+  - M2-015
+
+observable: |
+  Run `apitest run --parallel tests.yaml` with independent requests and confirm parallel execution.
+  Run `apitest run --parallel tests.yaml` with dependent requests and confirm wave ordering.
+  Measure execution time and confirm speedup vs sequential.
+  Run `go test ./internal/parallel/...` for parallel execution tests.
+
+behaviors:
+  - "Given a collection with 3 independent requests using `--parallel`, when executed, then all 3 run concurrently and total time approximates max(individual times)"
+  - "Given a collection with wave 0 (2 requests) and wave 1 (1 request), when executed in parallel, then wave 0 completes before wave 1 starts"
+  - "Given parallel execution, when a request in wave 0 fails, then dependent requests in wave 1 are skipped with clear reason"
+  - "Given parallel execution, when variables are extracted in wave 0, then they are available to wave 1 requests"
+  - "Given setup/teardown sections, when `--parallel` is used, then setup runs sequentially, main requests run in parallel, teardown runs sequentially"
+  - "Given `--parallel` at Free tier, when the run command is invoked, then exit code 6 with feature gate message"
+  - "Given parallel execution, when the guard rail limit is reached, then remaining requests are skipped"
+
+scope: |
+  Implement wave-based parallel execution in `internal/parallel/executor.go` using goroutines.
+  Each wave executes its requests concurrently; waves execute sequentially. Setup and teardown
+  use synthetic barrier nodes. Integrate with the runner for variable extraction propagation
+  between waves. Add `--parallel` flag to run command. Use context.Context for cancellation.
+  Wire into `cmd/apitest/main.go`.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "8-12 hours"

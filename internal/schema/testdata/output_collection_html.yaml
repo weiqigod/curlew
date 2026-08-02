@@ -1,0 +1,6 @@
+name: out-html
+output:
+  format: html
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

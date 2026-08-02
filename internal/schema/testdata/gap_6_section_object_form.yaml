@@ -1,0 +1,12 @@
+name: section-object-form
+setup:
+  items:
+    - name: Warm cache
+      request: { method: GET, url: "https://example.com/warm" }
+requests:
+  - name: Main
+    request: { method: GET, url: "https://example.com/" }
+teardown:
+  items:
+    - name: Cleanup
+      request: { method: POST, url: "https://example.com/cleanup" }

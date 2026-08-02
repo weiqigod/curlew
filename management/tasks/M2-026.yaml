@@ -1,0 +1,41 @@
+id: M2-026
+title: "JUnit XML output format"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Reporting"
+
+dependencies:
+  - M1-020
+  - M1-028
+
+observable: |
+  Run `apitest run tests.yaml --format junit` and confirm valid JUnit XML output.
+  Import the XML into a CI tool (or xmllint) and confirm it parses correctly.
+  Run `go test ./internal/output/...` for JUnit output tests.
+
+behaviors:
+  - "Given `--format junit`, when a collection runs successfully, then valid JUnit XML is output with testsuites/testsuite/testcase elements"
+  - "Given a failed assertion, when JUnit XML is generated, then the testcase includes a `<failure>` element with the assertion message"
+  - "Given a network error, when JUnit XML is generated, then the testcase includes an `<error>` element with the error message"
+  - "Given a skipped request, when JUnit XML is generated, then the testcase includes a `<skipped>` element"
+  - "Given timing information, when JUnit XML is generated, then the `time` attribute on each testcase reflects duration in seconds"
+  - "Given `--format junit --report results.xml`, when run, then the XML is written to the specified file (and NOT to stdout)"
+  - "Given `--format junit` at Free tier, when the run command is invoked, then exit code 6 with feature gate message (Professional tier required)"
+
+scope: |
+  Create `internal/output/junit.go` implementing JUnit XML output following the standard
+  schema (testsuites, testsuite, testcase with failure/error/skipped elements). Add `junit`
+  format option to run command. Support `--report <file>` flag for file output.
+  Register as Professional-tier feature gate.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

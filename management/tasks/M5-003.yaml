@@ -1,0 +1,45 @@
+id: M5-003
+title: "Web: SSO configuration UI (SAML + OIDC)"
+status: done
+priority: 2
+created: 2026-04-18
+completed_date: 2026-04-18
+verified_by: ai
+phase: "M5: Enterprise Tier"
+track: web
+dependencies:
+  - M5-001
+  - M5-002
+observable: |
+  cd web && npm install && npm run build
+  npm run test:e2e -- tests/e2e/org-sso.spec.ts
+  # Expected: Playwright run OK, >=6 passing. The spec:
+  #   1. logs in as owner via seeded session
+  #   2. navigates to /org/acme/settings/sso
+  #   3. picks SAML tab, fills idp_metadata_url + acs_url, saves -> toast "SSO enabled"
+  #   4. picks OIDC tab on a different org, fills issuer_url, client_id, client_secret, saves
+  #   5. asserts "Test SSO login" button returns a redirect to the IdP
+  #   6. asserts non-owner sees 403 page
+behaviors:
+  - "Given an authenticated owner, when they navigate to /org/[slug]/settings/sso, then the page renders two tabs (SAML, OIDC) and the current sso_provider badge"
+  - "Given the SAML tab is selected, when the owner submits valid idp_metadata_url, acs_url, and entity_id, then PUT /organizations/{id}/sso/saml is called and a success toast 'SSO enabled' is shown"
+  - "Given the OIDC tab is selected, when the owner submits valid issuer_url, client_id, and client_secret, then PUT /organizations/{id}/sso/oidc is called and a success toast is shown"
+  - "Given the backend returns 400 invalid_sso_config, when the owner submits a bad config, then inline form errors are shown with the offending field highlighted"
+  - "Given sso_enabled=true, when the user clicks the 'Test SSO login' button, then a new tab opens to /api/v1/sso/{provider}/{org_id}/login and follows the IdP redirect"
+  - "Given a non-owner, when navigating to /org/[slug]/settings/sso, then the user is redirected to /org/[slug] and a 'Owner access required' toast is shown"
+  - "Given the route file exists, when running svelte-check, then there are no type errors in +page.svelte or +page.server.ts"
+scope: |
+  New SvelteKit route web/src/routes/(app)/org/[slug]/settings/sso/+page.svelte
+  with +page.server.ts loader and form actions. Add web/src/lib/api/sso.ts typed
+  client for PUT/GET sso endpoints. Tabs component reused from components/ui.
+  Tests in web/tests/e2e/org-sso.spec.ts using Playwright and the existing
+  scripts/test-stack.sh stack.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80% (svelte-check clean, npm run lint clean)"
+  - "No build warnings or lint errors"
+  - "Route appears under org settings sub-navigation only for owners of enterprise-tier orgs"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: medium
+estimated_effort: "4-6 hours"

@@ -1,0 +1,26 @@
+name: Section Retry Test
+retry:
+  enabled: true
+  max_attempts: 3
+setup:
+  retry:
+    enabled: true
+    max_attempts: 5
+  items:
+    - name: Auth setup
+      request:
+        method: GET
+        url: https://example.com/auth
+requests:
+  - name: Main request
+    request:
+      method: GET
+      url: https://example.com/api
+teardown:
+  retry:
+    enabled: false
+  items:
+    - name: Cleanup
+      request:
+        method: DELETE
+        url: https://example.com/cleanup

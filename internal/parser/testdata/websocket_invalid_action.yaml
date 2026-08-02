@@ -1,0 +1,10 @@
+name: WebSocket Invalid Action
+requests:
+  - name: Bad Action
+    request:
+      protocol: websocket
+      url: "ws://localhost/ws"
+      websocket:
+        steps:
+          - action: transmute
+            message: { x: 1 }

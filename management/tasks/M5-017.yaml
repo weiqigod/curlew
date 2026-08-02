@@ -1,0 +1,49 @@
+id: M5-017
+title: "go-cli: plugin interface + loader (external-process model)"
+status: done
+priority: 3
+created: 2026-04-18
+completed_date: 2026-04-21
+verified_by: ai
+phase: "M5: Enterprise Tier"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+  go test ./internal/plugin/...
+  # Expected: ok  internal/plugin  (>=10 tests passing)
+  # Build the sample plugin fixture:
+  go build -o /tmp/apitest-hello-plugin ./testdata/plugins/hello-plugin
+  APITEST_PLUGINS=/tmp/apitest-hello-plugin ./apitest plugins list
+  # Expected stdout:
+  #   "NAME         VERSION   HOOKS"
+  #   "hello-plugin 0.1.0     on_request,on_response"
+  # exit 0
+behaviors:
+  - "Given APITEST_PLUGINS points to one executable, when apitest plugins list is invoked, then the plugin is spawned, a handshake JSON-RPC request is sent, and the response (name, version, hooks) is printed as a table"
+  - "Given a plugin executable does not implement the handshake within 5 seconds, when loaded, then the CLI prints 'error: plugin <path> handshake timeout' and skips it (exit 0 for the list command)"
+  - "Given APITEST_PLUGINS is a directory, when plugins list is invoked, then every executable file in that directory is loaded and shown"
+  - "Given a plugin declares an unknown hook in its handshake, when loaded, then a warning 'unknown hook <name> ignored' is printed and loading continues"
+  - "Given two plugins declare the same name, when loaded, then the CLI prints 'error: duplicate plugin name <name>' and exits 2"
+  - "Given a plugin's binary is not executable, when loading is attempted, then the CLI prints 'error: plugin <path> is not executable' and exits 2"
+  - "Given --help is passed, when the binary runs, then the help text documents APITEST_PLUGINS and the apitest plugins list command"
+  - "Given the handshake JSON schema is documented at docs/plugins.md, when a developer reads the doc, then they see the request/response shape and the minimum Go example"
+scope: |
+  New internal/plugin package. Design decision (spec is thin — flagged in
+  ambiguities): use an EXTERNAL-PROCESS model with JSON-RPC 2.0 over stdin/stdout.
+  Rationale: Go's `plugin` package is Linux/Mac only and ABI-brittle; WASM
+  adds a large runtime dep (wazero); external-process keeps plugins portable,
+  language-agnostic, and sandboxable via OS. PluginHost in internal/plugin/host
+  spawns the plugin, exchanges a Hello handshake, and tracks capabilities.
+  Sample plugin fixture under testdata/plugins/hello-plugin/main.go is a
+  minimal Go program that responds to the handshake. Spec-level docs in
+  docs/plugins.md.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "docs/plugins.md documents the handshake and APITEST_PLUGINS env var"
+  - "Smoke test exercises apitest plugins list with the testdata plugin"
+complexity: high
+estimated_effort: "8-12 hours"

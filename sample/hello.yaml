@@ -1,0 +1,29 @@
+name: Hello API
+description: A simple example collection
+
+requests:
+  - name: Get httpbin
+    request:
+      method: GET
+      url: "https://httpbin.org/get"
+    assertions:
+      status: 200
+      headers:
+        Content-Type:
+          matches: "^application/json"
+      timing:
+        max_duration_ms: 30000
+
+  - name: Post with JSON body
+    request:
+      method: POST
+      url: "https://httpbin.org/post"
+      headers:
+        Accept: application/json
+      query:
+        source: apitest
+      body:
+        message: "Hello from ApiTool"
+        timestamp: "2026-01-01T00:00:00Z"
+    assertions:
+      status: 200

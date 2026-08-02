@@ -1,0 +1,8 @@
+name: WebSocket No Steps
+requests:
+  - name: Empty Steps
+    request:
+      protocol: websocket
+      url: "ws://localhost/ws"
+      websocket:
+        steps: []

@@ -1,0 +1,114 @@
+id: M13-002
+title: "$faker personal data — 10 functions including auto-sensitive $faker.ssn"
+status: done
+priority: 1
+created: 2026-04-28
+phase: "M13: Faker depth"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FakerPersonal' -v ./internal/variable/...
+  # Expected: PASS — all 10 personal-data functions registered and
+  # producing values of the documented shapes (e.g. $faker.firstName
+  # returns a non-empty string from the firstNames pool; $faker.email
+  # matches /^[a-z0-9._]+@example\.com$/; $faker.ssn matches
+  # /^\d{3}-\d{2}-\d{4}$/).
+
+  go test -run 'TestRegistry_FakerPersonal_Seeded' -v ./internal/variable/...
+  # Expected: PASS — given --seed=42, two consecutive Evaluate calls of
+  # `$faker.fullName` produce byte-equal output across runs.
+
+  go test -run 'TestRegistry_FakerPersonal_Unseeded' -v ./internal/variable/...
+  # Expected: PASS — without --seed, two consecutive runs of
+  # `$faker.fullName` produce different output (no implicit seeding).
+
+  go test -run 'TestRegistry_FakerSSN_Sensitive' -v ./internal/variable/...
+  # Expected: PASS — generating `$faker.ssn` calls SensitiveSet.AddValue
+  # with the produced SSN; the value is then redacted as `[REDACTED]`
+  # in JSON output and in the markdown report.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a request body: {"name":"{{$faker.fullName}}","ssn":"{{$faker.ssn}}"}
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: name resolves to "First Last"; ssn appears in the rendered
+  # body as a 9-digit hyphenated string but appears as "[REDACTED]"
+  # in the captured request-body field of the JSON output.
+  apitest run collections/sample.yaml --dry-run --format markdown
+  # Expected: ssn is "[REDACTED]" in the markdown report's request-body section.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$faker.firstName` is evaluated with no args, then it returns a non-empty string drawn from the firstNames pool (existing pool from internal/variable/dynamic.go:625 reused)."
+  - "Given the registry, when `$faker.lastName` is evaluated, then it returns a non-empty string drawn from the lastNames pool."
+  - "Given the registry, when `$faker.fullName` is evaluated, then it returns `<firstName> <lastName>` with a single ASCII space separator."
+  - "Given the registry, when `$faker.username` is evaluated, then the result matches `^[a-z0-9._]+$` (lowercase alphanumeric plus dot and underscore — per SPECIFICATION.md:766)."
+  - "Given the registry, when `$faker.email` is evaluated, then the result matches `^[^@\\s]+@example\\.com$` (per SPECIFICATION.md:767)."
+  - "Given the registry, when `$faker.phone` is evaluated, then the result matches `^\\(\\d{3}\\) \\d{3}-\\d{4}$` (US format, per SPECIFICATION.md:768)."
+  - "Given the registry, when `$faker.phoneInternational` is evaluated, then the result matches `^\\+1-\\d{3}-\\d{3}-\\d{4}$` (E.164-shape per SPECIFICATION.md:769; en-US locale only — see scope)."
+  - "Given the registry, when `$faker.namePrefix` is evaluated, then the result is one of `Mr.`, `Mrs.`, `Ms.`, `Dr.`, `Prof.` (per SPECIFICATION.md:771)."
+  - "Given the registry, when `$faker.nameSuffix` is evaluated, then the result is one of `Jr.`, `Sr.`, `II`, `III`, `IV`, `PhD`, `MD`, `Esq.` (per SPECIFICATION.md:772)."
+  - "Given the registry, when `$faker.ssn` is evaluated, then (a) the returned string matches `^\\d{3}-\\d{2}-\\d{4}$`, (b) the registry has called SensitiveSet.AddValue on the produced string at generation time so it is registered as a redaction-trigger value (mirrors the M12-005 propagation pattern; see internal/variable/sensitive.go:67), and (c) the value subsequently appears as `[REDACTED]` in JSON-formatted request body output and in the markdown report."
+  - "Given `--seed 42`, when `$faker.fullName` is evaluated twice across two independent process invocations, then the two outputs are byte-equal (deterministic via the seeded PCG in NewRegistry)."
+  - "Given no `--seed`, when `$faker.fullName` is evaluated twice across two independent process invocations, then the two outputs differ (crypto/rand-backed entropy when r.rng is nil)."
+  - "Given `--locale de-DE` is passed on the CLI, when any of the 10 personal-data functions are evaluated, then the result still uses the en-US data set; the runner emits a warning that locale support is not yet implemented (locale is deferred — see M13 Open Decision #1)."
+scope: |
+  Add 10 registrations to internal/variable/dynamic.go for the personal-data
+  family in SPECIFICATION.md:759–772:
+  `$faker.firstName`, `$faker.lastName`, `$faker.fullName`, `$faker.username`,
+  `$faker.email`, `$faker.phone`, `$faker.phoneInternational`, `$faker.ssn`,
+  `$faker.namePrefix`, `$faker.nameSuffix`. Reuse the existing `firstNames`
+  and `lastNames` pools at internal/variable/dynamic.go:625–643 for name
+  generation. Add small package-scope slices for prefix/suffix vocabularies
+  alongside the existing pools.
+
+  Auto-sensitive: `$faker.ssn`'s registration body must call
+  r.runtimeSensitive.AddValue(generated) at generation time before
+  returning, mirroring the runtime-sensitive plumbing established in
+  M12-005 (internal/variable/dynamic.go and internal/variable/variable.go
+  Scope.runtimeSensitive). Per SPECIFICATION.md:849–857, $faker.ssn is
+  the only auto-sensitive function in the personal-data category. The
+  three remaining auto-sensitive functions (creditCard, creditCardCVV,
+  iban) live in M13-007.
+
+  Locale: en-US only. Per M13 Open Decision #1, the `--locale` flag is
+  recognised-but-warns-and-ignores in M13. No locale-specific tables ship
+  in this slice. Spec citation: SPECIFICATION.md:859–904 (deferred).
+
+  Legacy non-namespaced helpers retained: `$randomEmail`, `$randomName`,
+  `$randomFirstName`, `$randomLastName` continue to work alongside the
+  new dotted forms — no aliasing, no deprecation. See M13 Open Decision #3.
+
+  Files touched:
+  - internal/variable/dynamic.go (10 new noArgs registrations + small
+    package-level prefix/suffix slices; $faker.ssn closure also calls
+    SensitiveSet.AddValue at generation time)
+  - internal/variable/variable.go (only if the runtime-sensitive plumbing
+    needs an additional Scope hook for SSN auto-redaction; expected: no
+    change beyond what M12-005 already wired up)
+  - internal/variable/dynamic_test.go (new TestRegistry_FakerPersonal*
+    tests including seeded-reproducibility, no-seed-entropy, and
+    SSN-sensitive-propagation cases)
+  - docs/MANUAL.md §3.7 (10 new rows in the dynamic-functions table)
+  - smoke fixtures (one fixture proving --dry-run --format json shows
+    [REDACTED] for an $faker.ssn-bearing body)
+
+  Not in scope: locale support (deferred to a post-M13 milestone);
+  any non-personal $faker.* function (those are M13-003..M13-008);
+  any change to dynPattern (M13-001 ships that).
+  Spec citations: SPECIFICATION.md:759–772, SPECIFICATION.md:849–857.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 dynamic-functions table includes 10 new rows for the personal-data family with example values matching SPECIFICATION.md:761–772"
+  - "A smoke fixture demonstrates [REDACTED] redaction of $faker.ssn in JSON and markdown output"
+  - "Seeded-reproducibility test (same --seed produces byte-equal output) and no-seed-entropy test (no --seed produces different output) both pass"
+complexity: medium
+estimated_effort: "4-6 hours"

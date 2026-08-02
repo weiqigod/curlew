@@ -1,0 +1,16 @@
+name: Child With Setup Teardown
+setup:
+  - name: Child Setup Step
+    request:
+      method: GET
+      url: https://api.example.com/child-setup
+requests:
+  - name: Child Main Request
+    request:
+      method: GET
+      url: https://api.example.com/child-main
+teardown:
+  - name: Child Teardown Step
+    request:
+      method: GET
+      url: https://api.example.com/child-teardown

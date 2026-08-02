@@ -1,0 +1,32 @@
+id: M1-016
+title: "Setup and teardown sections"
+status: done
+completed_date: 2026-03-14
+verified_by: ai
+priority: 16
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-015]
+observable: |
+  Create collection with setup (create resource), main requests (use resource),
+  teardown (delete resource). Run and verify execution order.
+behaviors:
+  - "Given a collection with setup: section, when executed, then setup requests run before main requests"
+  - "Given a collection with teardown: section, when executed, then teardown runs after main requests"
+  - "Given a main request failure, when teardown exists, then teardown still executes"
+  - "Given required: true on a setup request, when setup fails, then main requests are skipped but teardown runs"
+  - "Given required: false (default) on a setup request, when setup fails, then main requests still execute"
+  - "Given setup requests with extract:, when variables are extracted, then they are available in main requests and teardown"
+  - "Given teardown failure, when reported, then it is included in output but does not change main pass/fail status"
+scope: |
+  Add setup: and teardown: parsing to internal/parser/. Implement execution ordering
+  in runner. Ensure teardown runs unconditionally (defer pattern).
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

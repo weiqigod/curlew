@@ -1,0 +1,41 @@
+id: M14-003
+title: "Backend: GET /api/v1/.well-known/jwks.json"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-001
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~JwksEndpoint"
+  # Expected: Passed: >=6, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  curl -sS -i http://localhost:5000/api/v1/.well-known/jwks.json | head -20
+  # Expected: HTTP/1.1 200, Cache-Control: public, max-age=3600,
+  # body shape: {"keys":[{"kty":"EC","crv":"P-256","kid":"...","use":"sig","alg":"ES256","x":"...","y":"..."}]}
+behaviors:
+  - "Given one current and zero verifying keys, when GET /.well-known/jwks.json is called, then the response 200 returns a JWKS with one key whose alg=ES256, kty=EC, crv=P-256, use=sig"
+  - "Given one current key plus one verifying key (recently rotated, still in 60-day window), when the endpoint is called, then both kids appear in the keys array"
+  - "Given a revoked key, when the endpoint is called, then the revoked key is NOT in the keys array"
+  - "Given the response, when inspected, then Cache-Control: public, max-age=3600 is set per RFC 8615 conventions"
+  - "Given no auth header, when the endpoint is called, then it responds 200 (the endpoint is unauthenticated by design)"
+  - "Given the spec mandates the well-known URI, when the endpoint route is registered, then the previous v4.1 path /api/v1/public-key is NOT registered as an alias"
+scope: |
+  New endpoint registration in src/ApiTool.Backend/Auth/JwksEndpoint.cs.
+  Returns the JWKS document materialized from signing_keys.public_key_jwk for
+  rows with status in ('current', 'verifying') per
+  docs/SPECIFICATION.md:7806 and :8237. RFC 8615 well-known URI replaces v4.1's
+  bespoke /api/v1/public-key (no alias). Cache-Control: public, max-age=3600.
+  Endpoint is unauthenticated. Unit tests use the in-memory IKeyProvider; a
+  contract test exercises the endpoint via WebApplicationFactory.
+definition_of_done:
+  - "All behavior tests pass (>=6) under dotnet test"
+  - "Live HTTP probe returns the documented JWKS shape with the documented Cache-Control header"
+  - "OpenAPI surface lists the endpoint as unauthenticated and JSON-typed"
+  - "docs/SPECIFICATION.md:7806 + :8237 cited in the endpoint file header"
+  - "deploy/self-hosted/README.md updated to mention the well-known URL operators must allow through their reverse proxy"
+complexity: low
+estimated_effort: "2-3 hours"
+track: backend

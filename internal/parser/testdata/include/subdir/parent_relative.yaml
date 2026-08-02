@@ -1,0 +1,8 @@
+name: Parent Relative
+include:
+  - ./../child_simple.yaml
+requests:
+  - name: Subdir Parent Request
+    request:
+      method: GET
+      url: https://api.example.com/subdir-parent

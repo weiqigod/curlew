@@ -1,0 +1,14 @@
+{
+  "slug": "billing_subscription_canceled",
+  "subject": "Your ApiTool subscription has been canceled",
+  "variables": {
+    "first_name":     "string",
+    "tier":           "string (e.g. 'Pro')",
+    "effective_date": "string (e.g. '2026-05-15')"
+  },
+  "test_data": {
+    "first_name": "Alex",
+    "tier": "Pro",
+    "effective_date": "2026-05-15"
+  }
+}

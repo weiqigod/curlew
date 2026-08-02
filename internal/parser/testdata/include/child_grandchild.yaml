@@ -1,0 +1,11 @@
+name: Child Grandchild
+variables:
+  b: "99"
+  c: "3"
+include:
+  - ./grandchild.yaml
+requests:
+  - name: Child Grandchild Request
+    request:
+      method: GET
+      url: https://api.example.com/child-grandchild

@@ -1,0 +1,62 @@
+id: M6-004
+title: "Events emitter package with NDJSON event types"
+status: done
+priority: 3
+created: 2026-04-21
+completed_date: 2026-04-21
+verified_by: ai
+phase: "M6: AI Agent Integration"
+track: go-cli
+dependencies:
+  - M6-001
+  - M6-002
+observable: |
+  # Unit-level: the emitter serializes each event kind deterministically,
+  # respects the atomic id counter, is safe under concurrent emit, and
+  # produces NDJSON that validates against the v0.1 JSON Schema.
+  go test ./internal/output/events/...
+  # Expected: PASS, including TestEmitter_ConcurrentEmitMonotonicIDs
+  # and TestEmitter_GoldenSchemaValidates (validates generated events
+  # against docs/events-schema/v0.1.json).
+  # Coverage:
+  go test -cover ./internal/output/events/...
+  # Expected coverage >= 80%.
+behaviors:
+  - "Given a freshly constructed Emitter, when RunStart is called, then exactly one NDJSON line is written containing kind=run.start, schema_version=0.1, a non-empty run_id, id=1, at_ms=0, started_at, apitest_version, and cli_args."
+  - "Given an Emitter mid-run, when RequestStart followed by RequestEnd are called, then two lines are emitted with monotonically increasing ids, the same run_id, both referencing the same request_id, and at_ms values that are non-decreasing."
+  - "Given a failed request whose chain contains a registered sentinel, when RequestEnd is called, then the emitted error object carries category, code, and hint sourced from the ClassifyError result (verified against the M6-001 registry)."
+  - "Given a request whose chain contains a *NetworkError, when RequestEnd is called, then the emitted error carries category=network and a Code in {NETWORK_DNS, NETWORK_TIMEOUT, NETWORK_TLS, NETWORK_CONNECTION_REFUSED, NETWORK_OTHER}."
+  - "Given multiple goroutines calling RequestEnd concurrently, when output is collected, then all lines are valid NDJSON (no interleaved partial writes) and ids are strictly monotonic."
+  - "Given a body larger than the default 2048-byte threshold, when emitted, then the event records truncated content, body_size equal to the original size, and body_truncated=true."
+  - "Given Emit is called after RunEnd, when the Emitter is inspected, then the RunEnd event carries event_count equal to the total number of events emitted (including RunStart and itself)."
+  - "Given every event kind in the schema, when serialized, then the generated JSON validates against docs/events-schema/v0.1.json."
+scope: |
+  New package internal/output/events with:
+    - events.go: exported event struct per kind (RunStart, RunError, RequestStart,
+      RequestEnd, AssertionResult, RunEnd) embedding a common header
+      (SchemaVersion, RunID, ID, AtMs, Kind).
+    - emitter.go: Emitter struct with an atomic id counter, mutex-guarded
+      io.Writer, run_id generated at construction, startTime for at_ms offset,
+      JSON encoding via encoding/json with stable field order. Methods map 1:1
+      onto event kinds. RequestEnd and RunError internally call
+      apierrors.ClassifyError on the incoming error.
+    - body truncation helper (internal): applies the 2048-byte default,
+      populates BodySize and BodyTruncated.
+    - No runner integration yet (that lands in M6-005).
+
+  docs/events-schema/v0.1.json: checked-in JSON Schema covering every kind.
+  Generated or hand-written; validated by a unit test against goldens.
+
+  testdata/events/ (golden NDJSON files): one per scenario built by the
+  package tests (no real runner involvement at this slice — the tests
+  construct fabricated inputs and feed the Emitter directly).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./internal/output/events/... passes, including concurrent-emit and schema-validator tests"
+  - "go test ./... passes (no regressions; new package is isolated)"
+  - "golangci-lint run passes with 0 issues"
+  - "Test coverage for internal/output/events >= 80%"
+  - "docs/events-schema/v0.1.json checked in and validated by tests"
+  - "Smoke test passes"
+complexity: medium
+estimated_effort: "1-2 days"

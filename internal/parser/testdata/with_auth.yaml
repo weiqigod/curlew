@@ -1,0 +1,9 @@
+name: auth-test
+requests:
+  - name: Get User
+    auth: admin_token
+    request:
+      method: GET
+      url: https://example.com/user
+    assertions:
+      status: [200]

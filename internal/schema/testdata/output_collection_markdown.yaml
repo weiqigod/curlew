@@ -1,0 +1,7 @@
+name: out-markdown
+output:
+  format: markdown
+  report: responses/
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

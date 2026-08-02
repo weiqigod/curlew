@@ -1,0 +1,15 @@
+{
+  "collection_name": "smoke-tests",
+  "run_at": "2026-04-16T10:00:00Z",
+  "duration_ms": 980,
+  "pass_count": 2,
+  "fail_count": 1,
+  "skipped_count": 0,
+  "triggered_by": "pr-check",
+  "git_sha": "abc1234",
+  "items": [
+    {"name": "GET /health", "status": "passed", "duration_ms": 120, "message": null},
+    {"name": "POST /users", "status": "passed", "duration_ms": 250, "message": null},
+    {"name": "DELETE /users/1", "status": "failed", "duration_ms": 610, "message": "expected 204 got 403"}
+  ]
+}

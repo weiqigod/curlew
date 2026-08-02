@@ -1,0 +1,36 @@
+{
+  "name": "apitool-site",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "ApiTool examples cookbook — a static showcase of sophisticated end-to-end API tests.",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview --host --port 4173",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@tailwindcss/typography": "^0.5.10",
+    "@types/node": "^22.0.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-svelte": "^2.46.0",
+    "globals": "^15.0.0",
+    "mdsvex": "^0.12.3",
+    "postcss": "^8.4.0",
+    "shiki": "^1.22.0",
+    "svelte": "^4.2.0",
+    "svelte-check": "^3.8.0",
+    "tailwindcss": "^3.4.0",
+    "tslib": "^2.0.0",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.0.0",
+    "vite": "^5.0.0"
+  }
+}

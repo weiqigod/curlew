@@ -1,0 +1,147 @@
+id: M10-002
+title: "agent skill shipment: SKILL.md content, executable-spec playbook test, docs, CHANGELOG, IMPROVEMENT.md W5 status"
+status: done
+priority: 1
+created: 2026-04-25
+phase: "M10: Default agent skill template (IMPROVEMENT W5)"
+track: go-cli
+dependencies: [M10-001]
+observable: |
+  # SKILL.md has the real content (frontmatter + sections), not the placeholder.
+  TMP=$(mktemp -d); cd "$TMP"
+  apitest init --skill claude
+  awk '/^---$/{c++} c==2{exit} {print}' .claude/skills/apitest/SKILL.md | grep -E '^description: '
+  # Expected: one match (description present in frontmatter).
+  grep -cE '^## (When invoked|Invocation|Where results land|How to narrate|Failure playbook|What to edit|Notes)$' .claude/skills/apitest/SKILL.md
+  # Expected: 7.
+
+  # Failure playbook documents every implemented exit code.
+  grep -E '^\| [0-9] ' .claude/skills/apitest/SKILL.md | wc -l | tr -d ' '
+  # Expected: 8 (codes 0, 1, 2, 3, 4, 5, 6, 9).
+
+  # Mock-agent-loop test passes for every documented exit code.
+  go test -run 'TestSkillClaude_PlaybookMatchesBinary' -v ./cmd/apitest/...
+  # Expected: PASS for sub-tests covering exit codes 0, 1, 2, 3-parse,
+  # 3-config, 3-no-match, 4, 5, 6, 9.
+
+  # SPECIFICATION.md documents the init --skill flag.
+  grep -c 'init --skill' docs/SPECIFICATION.md
+  # Expected: at least 1.
+
+  # MANUAL.md has the agent-driven worked example.
+  grep -c 'Driving apitest with Claude Code' docs/MANUAL.md
+  # Expected: at least 1.
+
+  # CHANGELOG has the Added entry under [Unreleased].
+  awk '/^## \[Unreleased\]/,/^## \[0/' CHANGELOG.md | grep -E '^- Added.*--skill claude'
+  # Expected: at least one matching line.
+
+  # IMPROVEMENT.md §3 status header is flipped to fully Shipped.
+  head -5 IMPROVEMENT.md | grep -E 'W1.*W5.*[Cc]omplete|Shipped'
+  # Expected: at least one match (no live "Pending" claim remains).
+
+  # IMPROVEMENT.md §5 W5 status block references both M10 PRs.
+  grep -A 1 '^### W5 — Default Claude skill' IMPROVEMENT.md | head -2
+  # Expected: Status: Shipped with M10-001 + M10-002 PR references.
+
+  # No live "W5 pending" or "blocked on W4" claims remain in tracked docs.
+  git grep -n 'W5.*[Pp]ending\|blocked on W4' -- docs/ IMPROVEMENT.md CHANGELOG.md
+  # Expected: zero matches (changelog history references are allowed in
+  # commit messages but not in the live document index).
+
+  # Full unit + integration suite.
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "templates/skills/claude/apitest/SKILL.md contains real content matching the M10-002 SKILL.md spec: frontmatter (name, description with trigger phrases), version comment (apitest-skill: claude v1.0 (apitest <version>)), H1 title, and seven H2 sections in fixed order: When invoked, Invocation, Where results land, How to narrate, Failure playbook by exit code, What to edit, Notes."
+  - "The Failure playbook table covers every exit code the binary actually produces: 0 (all passed), 1 (assertion failed), 2 (guard rail), 3 (with three sub-cases: parse error, config error, --only no-match), 4 (network/runtime), 5 (undefined variable), 6 (feature gate), 9 (license grace expired). Each row names the artifact the agent should read."
+  - "Skill content references responses/run.md as the canonical landing file (not the per-request markdown alone), names the request_id / request_slug correlation IDs, and instructs the agent never to paraphrase response bodies (file-path narration discipline)."
+  - "New cmd/apitest/skill_playbook_test.go contains TestSkillClaude_PlaybookMatchesBinary — for each documented exit code it (a) constructs a minimal scenario producing that exit, (b) runs the binary in-process via captureRunCmd or out-of-process via buildBinary/runBinary, (c) asserts the exit code matches the playbook's documented value, (d) asserts the artifact the playbook tells the agent to read exists and is parseable (e.g., for exit 5 the run.error event in .apitest/run.ndjson contains the missing variable name)."
+  - "Exit code 9 sub-test uses the deterministic grace-expired fixture pattern (internal/license/state_test.go:80-84): backdates LicenseRecord.LastValidatedAt by 30+ days; no clock injection or mocking required."
+  - "docs/SPECIFICATION.md gains a #### init --skill flag subsection under the existing init/scaffold area: documents the flag, the enum, the output: extension, the .gitignore extension, and links the IMPROVEMENT.md §3.2 target experience."
+  - "docs/MANUAL.md gains a Driving apitest with Claude Code section with a worked example: init --skill claude → open the project in Claude Code → natural-language ask (run the sample collection) → agent invokes apitest run with no extra flags → narration via responses/run.md."
+  - "CHANGELOG.md [Unreleased] gains exactly one new entry: Added: --skill claude flag for apitest init scaffolds Claude Code agent skill at .claude/skills/apitest/SKILL.md, enables events stream by default, defaults output format to markdown."
+  - "IMPROVEMENT.md §3 status header (line 3) is flipped from W5 pending to W5 complete (date stamp); §5 W5 status block (line 280) is flipped from Pending to Shipped with M10-001 and M10-002 PR references; §3.2 target experience and §10 minimum viable example are unchanged (already accurate)."
+  - "Consistency gate: after merge, git grep for live W5 [Pp]ending or blocked on W4 against docs/ IMPROVEMENT.md CHANGELOG.md returns zero matches."
+scope: |
+  Slice 2 of W5. Real content + executable-spec test + documentation
+  shipment. Closes IMPROVEMENT.md W5.
+
+  1. SKILL.md content. Replace the M10-001 placeholder at
+     templates/skills/claude/apitest/SKILL.md with the full skill body.
+     Frontmatter follows the convention in the user's
+     ~/.claude/skills/cut-prose/SKILL.md and review-nonfiction-draft/SKILL.md
+     (verified during planning). Length target ~80-120 lines, Markdown
+     prose with one table for the exit-code playbook. The skill version
+     stays v1.0; the apitest version is templated.
+
+  2. Mock-agent-loop test. cmd/apitest/skill_playbook_test.go (new file).
+     For each exit code documented in the SKILL.md playbook:
+       0  - sample collection that passes; assert run.md plus the
+            per-request .md exist.
+       1  - assertion failure; assert the failed assertion appears in the
+            per-request .md and assertion.result event.
+       2  - request limit guard rail (M1-029); assert the run.error event
+            names the limit.
+       3a - YAML parse error; assert stderr names the line.
+       3b - configuration error (e.g., missing apitest.yaml); assert
+            stderr names the config concern.
+       3c - --only with no matching request; assert stderr lists the
+            available request names.
+       4  - non-assertion runtime error (closed-port server); assert the
+            request.end event has error.type = network.
+       5  - undefined variable; assert the run.error event names the
+            variable.
+       6  - feature-gate violation (gated feature in the collection);
+            assert the GateError surface.
+       9  - grace-expired license; backdate LicenseRecord.LastValidatedAt
+            via the existing internal/license fixture pattern; assert
+            checkGraceExpiredTo returns 9.
+     Helpers reused: captureRunCmd, buildBinary, runBinary,
+     httptest.NewServer, writeSimpleCollectionForMain.
+
+  3. Documentation shipment.
+     - docs/SPECIFICATION.md: new #### init --skill flag subsection.
+     - docs/MANUAL.md: new Driving apitest with Claude Code section
+       with a worked example tying init --skill claude to the
+       agent-driven workflow.
+     - CHANGELOG.md [Unreleased]: one new Added line.
+
+  4. IMPROVEMENT.md status flip.
+     - §3 status header (line 3): W5 pending -> W5 complete (date stamp).
+     - §5 W5 status block (line 280): Pending -> Shipped with M10-001
+       (PR #N) + M10-002 (PR #N).
+     - §3.2 and §10 unchanged (already accurate after M10-001 plus prior
+       work).
+
+  5. Consistency gate. The verify step asserts the consistency checklist
+     in management/plans/M10-002-plan.md is satisfied: live "Pending" or
+     "blocked on W4" references gone from tracked docs; backlog has the
+     agent_skill_template capability with both tasks done.
+
+  Not in scope.
+  - apitest skill upgrade / install / list subcommands (deferred).
+  - Additional agent platforms (--skill copilot, --skill cursor) — single
+    enum value (claude) only in v1; the flag shape is future-proof.
+  - schemastore.org publishing (still deferred per IMPROVEMENT.md §8.6).
+  - The §2.4 gap items (data-driven visibility, TAP speedup metrics,
+    JUnit gating, quiet-mode summary JSON) — confirmed during W5
+    planning to not block W5; remain documented but unfiled.
+definition_of_done:
+  - "All behavior tests pass"
+  - "templates/skills/claude/apitest/SKILL.md replaced with real content; the seven H2 section headers and the eight-row playbook table are present"
+  - "TestSkillClaude_PlaybookMatchesBinary passes for every sub-test (codes 0, 1, 2, 3-parse, 3-config, 3-no-match, 4, 5, 6, 9)"
+  - "TestSkillClaude_SkillFileSnapshot passes: the rendered SKILL.md from init --skill claude matches a golden snapshot byte-for-byte (modulo the {{apitest_version}} substitution), guarding against accidental edits to the embedded template"
+  - "docs/SPECIFICATION.md contains an init --skill subsection that documents the flag, the enum, and the output: + .gitignore extensions"
+  - "docs/MANUAL.md contains a Driving apitest with Claude Code section with the worked example"
+  - "CHANGELOG.md [Unreleased] gains the --skill claude Added entry"
+  - "IMPROVEMENT.md §3 status header is flipped to fully Shipped"
+  - "IMPROVEMENT.md §5 W5 status block is flipped to Shipped with M10-001 + M10-002 PR references"
+  - "git grep -n 'W5.*[Pp]ending|blocked on W4' against docs/, IMPROVEMENT.md, CHANGELOG.md returns zero matches"
+  - "go test ./... passes"
+  - "go test -cover ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: medium
+estimated_effort: "1.5 days"

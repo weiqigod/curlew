@@ -1,0 +1,10 @@
+name: GraphQL With Query File
+requests:
+  - name: Get User
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query_file: graphql/queries/get_user.graphql
+        variables:
+          id: "{{user_id}}"

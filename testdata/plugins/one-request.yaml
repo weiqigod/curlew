@@ -1,0 +1,8 @@
+name: hooklog smoke test
+requests:
+  - name: ping
+    request:
+      method: GET
+      url: https://httpbin.org/get
+    assertions:
+      status: 200

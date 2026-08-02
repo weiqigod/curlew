@@ -1,0 +1,38 @@
+id: M16-010
+title: "scheduled_runs.result_id FK migration and ingest-path linkage"
+status: done
+priority: 3
+created: 2026-05-07
+completed_date: 2026-05-11
+verified_by: ai
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-009
+
+track: backend
+
+observable: |
+  Apply the migration with `dotnet ef database update` and confirm `psql -c "\d scheduled_runs"` now shows `result_id UUID NULL REFERENCES results(id)`. Run `dotnet ef migrations remove` and verify rollback drops the column cleanly. Trigger an end-to-end run via the M16-009 endpoints (post a result) and observe `psql -c "SELECT id, status, result_id FROM scheduled_runs ORDER BY created_at DESC LIMIT 1;"` returns the row with `result_id` populated and matching the latest `results.id`. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~ScheduledRunResultLink"` — all pass.
+
+behaviors:
+  - "Given the migration is applied, when the schema is inspected, then scheduled_runs has a nullable result_id UUID column with a foreign-key constraint to results(id)"
+  - "Given the migration is rolled back, when the schema is re-inspected, then scheduled_runs.result_id is gone"
+  - "Given a worker posts a result via POST /api/v1/schedules/runs/{run_id}/result, when the result-ingest path runs, then the new results row's id is written to scheduled_runs.result_id atomically with the status transition to completed"
+  - "Given a row was completed before the migration ran (legacy rows with result_id IS NULL), when the dashboard queries the join, then it gracefully handles NULL (LEFT JOIN; no exception)"
+  - "Given an attempt to delete a results row, when scheduled_runs.result_id references it, then the FK behaviour is ON DELETE SET NULL (so deleting a result does not orphan the schedule run row)"
+  - "Given the result-post endpoint is called twice with the same claim_token (network retry), when the second call lands, then the result is not inserted twice (idempotency via claim_token + scheduled_runs.status guard)"
+
+scope: |
+  EF Core migration adding `result_id UUID NULL` to `scheduled_runs` with a foreign key to `results(id)` and `ON DELETE SET NULL`. Update the `ResultEndpoint` (from M16-009) so the ingest path: inserts the `Result` row, then in the same transaction sets `scheduled_runs.result_id = inserted_id`, transitions status. Add idempotency guard: if `claim_token` already produced a `result_id`, return 200 with the existing linkage rather than re-inserting. Update any existing `ScheduledRun` DTO/serializer to expose `result_id` so the dashboard can link runs to results.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc updated to include result_id in ScheduledRun DTO"
+
+complexity: low
+estimated_effort: "1-3 hours"

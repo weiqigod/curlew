@@ -1,0 +1,31 @@
+id: M1-008
+title: "Structured error messages (parse, network, config)"
+status: done
+priority: 8
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-004]
+observable: |
+  Trigger various error conditions, verify each produces structured, helpful
+  error messages.
+behaviors:
+  - "Given invalid YAML syntax, when parsed, then error includes file path and line number"
+  - "Given a missing required field in a request, when validated, then error indicates which field is missing and where"
+  - "Given a DNS resolution failure, when request executes, then error distinguishes DNS failure from connection refused"
+  - "Given a connection refused error, when request executes, then error message suggests checking if the server is running"
+  - "Given a TLS certificate error, when request executes, then error message identifies the TLS issue"
+  - "Given a timeout, when request times out, then error includes the timeout duration and suggests increasing it"
+  - "Given any error, when displayed, then format is consistent: `[ERROR] file:line \u2014 message`"
+scope: |
+  Enhance error types across `internal/parser/`, `internal/http/`. Create
+  consistent error formatting in `internal/output/`. Wrap all errors with
+  context.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

@@ -1,0 +1,82 @@
+id: M7-003
+title: "Help-after-error: emit one-line usage synopsis on stderr alongside the error"
+status: done
+priority: 2
+created: 2026-04-22
+phase: "M7: Output Discipline"
+track: go-cli
+observable: |
+  # Given an unknown top-level command, stderr carries both the error
+  # and a one-line Usage synopsis; stdout is empty.
+  ./apitest unknown-command > /tmp/out.txt 2> /tmp/err.txt || true
+  wc -c /tmp/out.txt
+  # Expected: 0 (stdout empty on error path).
+  grep -c "Usage:" /tmp/err.txt
+  # Expected: at least 1 (synopsis line appears on stderr).
+  grep -c "Unknown command" /tmp/err.txt
+  # Expected: 1 (error message on stderr).
+
+  # Given explicit --help, stdout carries the full help; stderr is empty.
+  ./apitest --help > /tmp/out.txt 2> /tmp/err.txt
+  wc -c /tmp/err.txt
+  # Expected: 0 (stderr empty on --help path).
+  grep -c "Commands:" /tmp/out.txt
+  # Expected: 1 (full help on stdout).
+behaviors:
+  - "Given apitest <unknown-command>, when invoked, then stderr contains the unknown-command error AND a one-line 'Usage: apitest <command> [arguments]' synopsis; stdout is empty."
+  - "Given apitest plugins <unknown-subcommand>, when invoked, then stderr contains the unknown-subcommand error AND a one-line 'Usage: apitest plugins <subcommand>' synopsis; stdout is empty."
+  - "Given apitest perf with a malformed flag, when invoked, then stderr contains the parse error AND a one-line 'Usage: apitest perf <request-file> [options]' synopsis; stdout is empty."
+  - "Given apitest worker with a malformed flag, when invoked, then stderr contains the parse error AND a one-line 'Usage: apitest worker [options]' synopsis; stdout is empty."
+  - "Given apitest import with no arguments, when invoked, then stderr contains a one-line 'Usage: apitest import <format> <spec-path>' synopsis; stdout is empty."
+  - "Given apitest --help (explicit), when invoked, then stdout contains the full help text and stderr is empty; exit code is 0."
+  - "Given apitest plugins --help and apitest perf --help (explicit), when invoked, then stdout contains the full subcommand help text and stderr is empty; exit code is 0."
+scope: |
+  Parameterize each print*Help function on an io.Writer so the caller
+  picks the stream:
+    - printHelp() at main.go:3077 → printHelp(w io.Writer)
+    - printPluginsHelp() at plugins.go:155 → printPluginsHelp(w io.Writer)
+    - printPerfHelp() at perf.go:258 → printPerfHelp(w io.Writer)
+    - printWorkerHelp() at worker.go:141 → printWorkerHelp(w io.Writer)
+
+  Introduce usageSynopsis(cmd string) string in main.go returning a
+  one-line "Usage: apitest <cmd> [arguments]" string. The synopsis
+  should match the first Usage line each print*Help currently emits.
+
+  At each error-recovery site, replace the pattern
+      fmt.Fprintf(os.Stderr, "Error: ...")
+      printHelp()  // writes full help to stdout
+  with
+      fmt.Fprintf(os.Stderr, "Error: ...")
+      fmt.Fprintln(os.Stderr, usageSynopsis("run"))
+
+  Affected error-recovery sites:
+    - main.go:122 (unknown top-level command)
+    - main.go:3211-3213 (import with no args) and 3220 (unknown import format)
+    - plugins.go:85 (unknown plugins subcommand)
+    - perf.go:51-52 (perf parse error)
+    - worker.go:31-33 (worker parse error)
+
+  Explicit --help invocations — main.go:82 (no-args default), main.go:91
+  (explicit --help), plugins.go:77, perf.go:46, worker.go:26 — continue
+  to call print*Help(os.Stdout) so stdout remains the result stream
+  when help is the intended result.
+
+  Regression test: cmd/apitest/stream_help_test.go (new). Matrix of
+  (command × invocation-style) asserting the correct stream split for
+  both explicit --help and error-path invocations.
+
+  Exit codes remain unchanged; only stream routing changes.
+definition_of_done:
+  - "All behavior tests pass"
+  - "cmd/apitest/stream_help_test.go exercises both explicit --help and error-path invocations across main, plugins, perf, worker, import"
+  - "Each of the four print*Help functions takes an io.Writer parameter"
+  - "usageSynopsis helper exists in main.go and is reused by every error-recovery site"
+  - "Explicit --help invocations continue to write to stdout; error-recovery writes synopsis to stderr"
+  - "go test ./... passes with no regressions"
+  - "Test coverage does not regress below 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "CHANGELOG.md updated"
+complexity: medium
+estimated_effort: "3-5 hours"

@@ -1,0 +1,72 @@
+id: M15-001
+title: "plugin_loading Enterprise gate enforced at APITEST_PLUGINS load sites"
+status: done
+priority: 1
+created: 2026-05-06
+phase: "M15: Tier-matrix corrections"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  go build -o ./apitest ./cmd/apitest
+  go test ./internal/auth/... ./cmd/apitest/... -run "Plugin|Gate" -count=1
+  # Expected: tests for the four-tier matrix all pass.
+
+  # Free / Solo / Professional / Team licenses must reject APITEST_PLUGINS:
+  APITEST_PLUGINS=./testdata/plugins/echo \
+    ./apitest --license ./testdata/m15/license-free.jwt plugins list
+  echo "exit=$?"
+  # Expected stderr: "plugin loading requires Enterprise tier" (from registry
+  # Description) plus the Workaround line; exit 6.
+
+  APITEST_PLUGINS=./testdata/plugins/echo \
+    ./apitest --license ./testdata/m15/license-enterprise.jwt plugins list
+  echo "exit=$?"
+  # Expected: NAME / VERSION / HOOKS table rendered to stdout; exit 0.
+
+  # No APITEST_PLUGINS set → no gate check, no behavior change:
+  ./apitest --license ./testdata/m15/license-free.jwt plugins list
+  # Expected: empty table (header only); exit 0.
+
+behaviors:
+  - "Given a registry built via auth.DefaultRegistry(), when looked up, then a `plugin_loading` entry with RequiredTier=TierEnterprise is returned with non-empty Description and Workaround"
+  - "Given APITEST_PLUGINS is unset, when buildHookDispatcher runs at any tier, then no gate check fires and the function returns (nil, noop, nil) unchanged"
+  - "Given APITEST_PLUGINS=<path> and a Free, Solo, Professional, or Team license, when buildHookDispatcher runs, then auth.CheckFeature returns *GateError before host.LoadForRun is called and no plugin process is spawned"
+  - "Given APITEST_PLUGINS=<path> and an Enterprise license, when buildHookDispatcher runs, then host.LoadForRun is invoked and the dispatcher is returned"
+  - "Given APITEST_PLUGINS=<path> and a Free, Solo, Professional, or Team license, when pluginsListCmdOut runs, then auth.CheckFeature returns *GateError before host.Load is called and the binary exits 6 via the existing main.go gate-error mapping"
+  - "Given APITEST_PLUGINS=<path> and an Enterprise license, when pluginsListCmdOut runs, then host.Load is invoked and the table is rendered"
+  - "Given a triggered plugin_loading gate, when the error renders, then the user-facing message is the registered Description plus Workaround, and no new error shape is introduced"
+  - "Given the existing MANUAL.md plugin tier-gate clarification (currently around line 3373 — verify at edit time), when M15-001 lands, then the wording is verified to match enforcement and is sharpened only if needed (e.g. explicit `APITEST_PLUGINS` mention)"
+
+scope: |
+  Add a `plugin_loading` FeatureDefinition to internal/auth/registry.go's
+  DefaultRegistry() with RequiredTier=TierEnterprise, a Description naming
+  Enterprise tier, and a Workaround pointing users to built-in signers
+  (M17) and dynamic functions. In cmd/apitest/plugins.go, add an
+  auth.CheckFeature call against the active license tier at the top of
+  buildHookDispatcher (after the empty-env early return) and at the top
+  of pluginsListCmdOut (before host.Load) — both guarded by
+  APITEST_PLUGINS being non-empty. Returned *auth.GateError flows through
+  the existing main.go exit-6 mapping unchanged. Verify
+  docs/MANUAL.md plugin tier-gate paragraph (currently around line 3373)
+  against the new enforcement; sharpen only if it does not already
+  explicitly call out user-supplied plugins via APITEST_PLUGINS.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/auth/... ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "internal/auth/registry.go has a `plugin_loading: TierEnterprise` entry with non-empty Description and Workaround"
+  - "internal/auth/registry_test.go updated to assert the new entry across the four-tier matrix (Free, Solo, Professional, Team rejected; Enterprise allowed)"
+  - "cmd/apitest/plugins.go gates both buildHookDispatcher and pluginsListCmdOut behind auth.CheckFeature when APITEST_PLUGINS is non-empty"
+  - "cmd/apitest tests cover: unset APITEST_PLUGINS at any tier (no gate); set APITEST_PLUGINS at Free/Solo/Professional/Team (rejected, exit 6); set APITEST_PLUGINS at Enterprise (loaded)"
+  - "docs/MANUAL.md plugin tier-gate paragraph verified to match new enforcement; sharpened only if needed"
+  - "Smoke test (smoke/run.sh) extended with one APITEST_PLUGINS reject-at-Free case if not already covered"
+
+complexity: low
+completed_date: 2026-05-07
+verified_by: ai

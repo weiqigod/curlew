@@ -1,0 +1,44 @@
+id: M2-032
+title: "WebSocket protocol adapter (connect, send, expect, close)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: WebSocket"
+
+dependencies:
+  - M1-001
+  - M1-005
+  - M1-028
+
+observable: |
+  Create a collection with `protocol: websocket` and steps (send, expect, close).
+  Run `apitest run ws_tests.yaml` and confirm the WebSocket connection lifecycle works.
+  Run `go test ./internal/websocket/...` for WebSocket adapter tests.
+
+behaviors:
+  - "Given `protocol: websocket` with `url: ws://host/path`, when executed, then a WebSocket connection is established via HTTP upgrade"
+  - "Given a `send` action with JSON message, when executed, then the message is sent to the server"
+  - "Given an `expect` action with timeout_ms and assertions, when a matching message arrives, then assertions are evaluated and variables extracted"
+  - "Given an `expect` action, when timeout_ms expires without matching message, then the test fails with clear timeout error"
+  - "Given a `close` action with code 1000, when executed, then the connection closes cleanly"
+  - "Given a `wait` action with duration_ms, when executed, then execution pauses for the specified duration"
+  - "Given `protocol: websocket` at Free tier, when the collection is parsed, then exit code 6 with feature gate message"
+  - "Given WebSocket steps, when executed, then they run sequentially within a single connection"
+
+scope: |
+  Create `internal/websocket/` package implementing the ProtocolAdapter interface for WebSocket.
+  Use `gorilla/websocket` library for WebSocket connections. Parse `websocket:` namespace
+  with `steps:` array containing send/expect/wait/close actions. Implement message buffering
+  for async server messages. Support JSON message assertions via JSONPath.
+  Register as Professional-tier feature gate. Each WebSocket request (all steps) counts as 1 request.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "8-12 hours"

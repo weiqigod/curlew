@@ -1,0 +1,25 @@
+name: M19-001 if conditional smoke
+# Uses vars.status to avoid depending on a specific httpbin response body.
+# The gate fires on the collection variable value so no HTTP response is needed
+# for the condition — making the smoke deterministic and offline-friendly.
+variables:
+  status: pending
+
+requests:
+  - name: seed
+    request:
+      method: GET
+      url: https://httpbin.org/get
+
+  - name: confirm-pending-order
+    # status is "pending", but we check for "cancelled" → always false → SKIPPED
+    if: 'vars.status == "cancelled"'
+    request:
+      method: POST
+      url: https://httpbin.org/post
+
+  - name: notify
+    depends_on: [confirm-pending-order]
+    request:
+      method: POST
+      url: https://httpbin.org/post

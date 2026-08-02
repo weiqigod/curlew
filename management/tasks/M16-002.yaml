@@ -1,0 +1,39 @@
+id: M16-002
+title: "Token tables and templates for password reset and email verification"
+status: done
+priority: 1
+created: 2026-05-07
+planned_date: 2026-05-07
+branch: feature/M16-002-password-reset-email-verification-tables
+phase: "M16: Workflow completion"
+
+dependencies: []
+
+track: backend
+
+observable: |
+  Run `dotnet ef database update --project src/ApiTool.Backend` against a fresh database; psql confirms `\d password_reset_tokens`, `\d email_verification_tokens`, and `\d users` (now showing an `email_verified BOOLEAN NOT NULL DEFAULT false` column). Roll back with `dotnet ef migrations remove` and the schema drops cleanly. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~EmailTemplateInventory|PasswordResetTokenEntity|EmailVerificationTokenEntity"` and observe all tests pass. The asserted inventory now contains the slugs `password_reset` and `trial_expiring`; matching MJML and JSON manifest files exist at `templates/email/password_reset.{mjml,json}` and `templates/email/trial_expiring.{mjml,json}`.
+
+behaviors:
+  - "Given the migration is applied to a fresh database, when the schema is inspected, then password_reset_tokens has columns id (UUID PK), user_id (UUID FK), token_hash (BYTEA), issued_at, expires_at, consumed_at (nullable), revoked_at (nullable), requester_ip (INET), requester_ua (TEXT)"
+  - "Given the migration is applied, when the schema is inspected, then email_verification_tokens has columns id, user_id, token_hash, issued_at, expires_at, consumed_at, revoked_at"
+  - "Given the migration is applied, when the users table is inspected, then it has an email_verified BOOLEAN NOT NULL DEFAULT false column"
+  - "Given the migration is rolled back via dotnet ef migrations remove, when the schema is re-inspected, then both new tables and the email_verified column are removed cleanly"
+  - "Given EmailTemplateInventory.Slugs is queried, when the test asserts membership, then it contains password_reset and trial_expiring in addition to the original six M14 slugs"
+  - "Given templates/email/password_reset.json and trial_expiring.json are loaded by EmailTemplateLoader, when validation runs, then the manifest declares the variables documented in the spec (password_reset: user_email/reset_url/expires_at_local/requester_ip/requester_ua; trial_expiring: user_email/feature/expires_at_local/upgrade_url)"
+  - "Given the password_reset_tokens migration includes a partial index on (expires_at) WHERE consumed_at IS NULL AND revoked_at IS NULL (idx_password_reset_tokens_active) and a separate unique index on (token_hash) (idx_password_reset_tokens_hash), when an EXPLAIN is run on a lookup-by-hash query, then it uses idx_password_reset_tokens_hash"
+
+scope: |
+  EF Core migration adding `password_reset_tokens` and `email_verification_tokens` tables per the spec "Password Reset & Email Verification Flow → Token Tables" plus a `users.email_verified` boolean column. Entity classes under `src/ApiTool.Backend/Data/Entities/` (e.g., `PasswordResetToken.cs`, `EmailVerificationToken.cs`) wired into `AppDbContext`. Update `src/ApiTool.Backend/Notifications/Email/EmailTemplateInventory.cs:16-24` to include `password_reset` and `trial_expiring`. Add MJML templates and JSON manifests at `templates/email/password_reset.{mjml,json}` and `templates/email/trial_expiring.{mjml,json}` with manifest-allowlisted variables matching the spec. No endpoints or services in this slice — those land in M16-003 and M16-008.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "MJML compiles via existing MjmlNetCompiler without errors"
+  - "Manifest validator (existing EmailTemplateLoader) accepts the two new manifests"
+
+complexity: low
+estimated_effort: "1-3 hours"

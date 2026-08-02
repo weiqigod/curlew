@@ -1,0 +1,14 @@
+name: WebSocket Reconnect Bad Backoff
+requests:
+  - name: Bad Reconnect
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/echo"
+      websocket:
+        reconnect:
+          enabled: true
+          backoff: linear
+        steps:
+          - action: send
+            message:
+              type: ping

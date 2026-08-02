@@ -1,0 +1,40 @@
+id: M2-014
+title: "Retry configuration precedence (global, collection, section, request)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Retries"
+
+dependencies:
+  - M2-013
+
+observable: |
+  Configure retry at global (apitest.yaml), collection, section, and request levels.
+  Run `apitest run tests.yaml` and confirm request-level overrides collection-level.
+  Run `go test ./internal/retry/...` to verify config merging.
+
+behaviors:
+  - "Given global retry config `enabled: false` and collection-level `enabled: true`, when the collection runs, then retry is enabled (collection overrides global)"
+  - "Given collection-level retry `max_attempts: 5` and request-level `max_attempts: 10`, when executed, then the request uses 10 attempts"
+  - "Given section-level retry config on setup with `max_attempts: 5`, when a setup request fails, then it retries 5 times"
+  - "Given teardown section with `retry: { enabled: false }`, when teardown fails, then no retries occur"
+  - "Given global `retry_on.status_codes: [429, 503]` and collection `retry_on.status_codes: [500, 502]`, when merged, then collection replaces the global array"
+  - "Given global `retry_on.network_errors: true` and collection omitting it, when merged, then network_errors inherits as true (deep merge)"
+
+scope: |
+  Extend `internal/retry/` with configuration merging following precedence: built-in defaults
+  < global (apitest.yaml defaults) < section-level (setup/requests/teardown) < collection-level
+  < request-level. Implement deep merge rules per spec: scalar fields replaced, array fields
+  replaced entirely, object fields deep-merged. Parse `defaults.retry` from apitest.yaml
+  in `internal/config/project.go`.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

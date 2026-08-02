@@ -1,0 +1,51 @@
+id: M5-016
+title: "Backend: admin bootstrap + migration runner"
+status: done
+priority: 3
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: backend
+dependencies:
+  - M5-015
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Bootstrap|FullyQualifiedName~Migrations"
+  # Expected: Passed: >=8, Failed: 0
+  # From a fresh postgres (no prior data):
+  cd deploy/self-hosted && docker compose up -d postgres redis
+  sleep 5
+  BOOTSTRAP_ADMIN_EMAIL=admin@example.com \
+  BOOTSTRAP_ADMIN_PASSWORD=ChangeMe! \
+  BACKEND_RUN_MIGRATIONS=1 \
+    docker compose up -d backend
+  sleep 10
+  curl -sS -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"email":"admin@example.com","password":"ChangeMe!"}' \
+    http://localhost:5000/api/v1/auth/login
+  # Expected HTTP 200, body contains "access_token":"..." and role="admin"
+  docker compose down -v
+behaviors:
+  - "Given an empty Postgres database, when the backend starts with BACKEND_RUN_MIGRATIONS=1, then all EF migrations are applied and a 'migrations: applied N' log line is printed"
+  - "Given BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD are set and no user exists, when the backend starts, then a user is created with role=admin and tier=enterprise and a bootstrap-completed log line is printed"
+  - "Given a user already exists with that email, when the backend starts with the bootstrap env vars, then no duplicate is created and the log prints 'bootstrap: admin already exists, skipping'"
+  - "Given BOOTSTRAP_ADMIN_PASSWORD is shorter than 12 characters, when the backend starts, then it fails fast with exit code 3 and log 'bootstrap: password must be >=12 chars'"
+  - "Given bootstrap succeeds, when the admin POSTs /api/v1/auth/login with the bootstrap credentials, then the response is 200 with an access_token and role=admin"
+  - "Given migrations fail (e.g., DB unreachable), when the backend starts, then it exits with code 4 and a 'migrations: failed' log"
+  - "Given BACKEND_RUN_MIGRATIONS=0 and a DB missing tables, when the backend starts, then it logs 'migrations: skipped' and endpoints that hit missing tables return 503 service_unavailable"
+  - "Given Swagger is hit, when /swagger is loaded, then POST /api/v1/auth/login for local password auth is listed (existing behavior continues to be documented)"
+scope: |
+  Adds src/ApiTool.Backend/Bootstrap/AdminBootstrap.cs and MigrationRunner.cs.
+  Program.cs wires both as startup tasks guarded by env vars. Bootstrap path
+  reuses the existing user/password flow (argon2id hash). Migration runner
+  invokes context.Database.MigrateAsync() with a timeout and structured
+  logging. Documented in deploy/self-hosted/README.md.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "README documents BOOTSTRAP_* env vars and BACKEND_RUN_MIGRATIONS"
+  - "Smoke test exercises first-boot bootstrap against a throwaway Postgres container"
+complexity: medium
+estimated_effort: "4-6 hours"

@@ -1,0 +1,8 @@
+name: Invalid Status Scalar
+requests:
+  - name: Bad Status
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      status: "abc"

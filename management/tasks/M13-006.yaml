@@ -1,0 +1,115 @@
+id: M13-006
+title: "$faker content data — 5 functions (4 argument-bearing)"
+status: done
+priority: 1
+created: 2026-04-28
+phase: "M13: Faker depth"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FakerContent' -v ./internal/variable/...
+  # Expected: PASS — all 5 content functions registered with both
+  # zero-arg and arg-bearing forms working.
+  # $faker.word returns a single lowercase word.
+  # $faker.words returns 3 space-joined words by default.
+  # $faker.words(5) returns 5 space-joined words (M12-001 arg parser).
+  # $faker.sentence returns 6-10 words ending in a period.
+  # $faker.sentence(4) returns exactly 4 words ending in a period.
+  # $faker.paragraph returns 3-5 sentences.
+  # $faker.paragraph(2) returns exactly 2 sentences.
+  # $faker.text returns ~200 chars.
+  # $faker.text(50) returns approximately 50 chars (within +/- 10).
+
+  go test -run 'TestRegistry_FakerContent_ArgsViaM12001' -v ./internal/variable/...
+  # Expected: PASS — `{{$faker.words('5')}}` is parsed by parseDynArgs
+  # (M12-001) and dispatched to the content-words generator with
+  # args=['5']; integer parsing of args[0] happens inside the
+  # registration body, mirroring the $randomBase64('32') pattern.
+
+  go test -run 'TestRegistry_FakerContent_Seeded' -v ./internal/variable/...
+  # Expected: PASS — given --seed=42, two consecutive runs produce byte-equal output.
+
+  go test -run 'TestRegistry_FakerContent_Unseeded' -v ./internal/variable/...
+  # Expected: PASS — without --seed, two consecutive runs differ.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Body: {"summary":"{{$faker.sentence('5')}}","body":"{{$faker.paragraph('2')}}"}
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: summary is exactly 5 words; body is 2 sentences.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$faker.word` is evaluated with no args, then the result is a single lowercase word from the lorem-ipsum pool (per SPECIFICATION.md:819)."
+  - "Given the registry, when `$faker.words` is evaluated with no args, then the result is 3 space-joined lowercase words (per SPECIFICATION.md:820 default)."
+  - "Given the registry, when `$faker.words('5')` is evaluated, then (a) the M12-001 parseDynArgs in internal/variable/variable.go parses the single quoted argument into args=['5'] without modification, (b) the registration body strconv.Atoi-converts args[0] to an integer count, and (c) the result is exactly 5 space-joined words."
+  - "Given the registry, when `$faker.sentence` is evaluated with no args, then the result is 6 to 10 words capitalised first-letter and ending with a period (per SPECIFICATION.md:821)."
+  - "Given the registry, when `$faker.sentence('4')` is evaluated via the M12-001 parser, then the result is exactly 4 words capitalised and period-terminated."
+  - "Given the registry, when `$faker.paragraph` is evaluated with no args, then the result is 3 to 5 sentences joined by single spaces (per SPECIFICATION.md:822 default)."
+  - "Given the registry, when `$faker.paragraph('2')` is evaluated via the M12-001 parser, then the result is exactly 2 sentences joined by single spaces."
+  - "Given the registry, when `$faker.text` is evaluated with no args, then the result is approximately 200 characters of lorem-ipsum (per SPECIFICATION.md:823 default)."
+  - "Given the registry, when `$faker.text('50')` is evaluated, then the result length is within +/- 10 characters of 50 (the generator stops at the first sentence boundary at-or-after the requested length to keep prose well-formed)."
+  - "Given the registry, when any content function with an integer-string arg receives a non-integer (e.g. `$faker.words('abc')`), then it returns a structured CategoryInput error matching the existing $randomBase64 error shape (DYNFN_FAKER_CONTENT_BAD_INPUT or similar)."
+  - "Given `--seed 42`, when any of the 5 content functions are evaluated twice across two independent runs, then both outputs are byte-equal."
+  - "Given no `--seed`, when any of the 5 content functions are evaluated twice across two independent runs, then both outputs differ."
+  - "Given `--locale de-DE` is passed on the CLI, when any content function is evaluated, then the en-US lorem-ipsum data set is still used; locale support is deferred (see M13 Open Decision #1)."
+scope: |
+  Add 5 registrations to internal/variable/dynamic.go for the content-data
+  family in SPECIFICATION.md:815–823: `$faker.word`, `$faker.words`,
+  `$faker.sentence`, `$faker.paragraph`, `$faker.text`. Four of the five
+  accept an optional integer-string argument: `$faker.words(count)`,
+  `$faker.sentence(wordCount)`, `$faker.paragraph(sentenceCount)`,
+  `$faker.text(charCount)`. The argument is parsed by M12-001's existing
+  parseDynArgs (internal/variable/variable.go:107) without any modification
+  to that parser — each registration body strconv.Atoi-converts args[0]
+  internally, exactly as the existing $randomBase64 and $randomPassword
+  registrations do (see internal/variable/dynamic.go:351 and :383). When
+  args is empty (the no-parens form), the registration applies the
+  documented default count.
+
+  Ship a single lorem-ipsum word pool (~250 words is sufficient) at
+  package scope. Sentence generation: pick N words, capitalise the
+  first, append a period. Paragraph generation: produce N sentences,
+  join with a single space. Text generation: emit sentences until the
+  cumulative length reaches the requested charCount, then stop at the
+  next sentence boundary.
+
+  M12-001 parser reuse: this slice introduces no new arg-parsing work.
+  parseDynArgs already supports comma-separated single-quoted string
+  literals; integer args travel through that parser as quoted strings
+  (e.g. `'5'`) and are converted to int inside the function body. See
+  M13 Open Decision #6.
+
+  Locale: en-US only. Per M13 Open Decision #1, the `--locale` flag is
+  recognised-but-warns-and-ignores. The lorem-ipsum pool is locale-neutral
+  Latin so locale would not change content output even when later
+  implemented. Spec citation: SPECIFICATION.md:859–904 (deferred).
+
+  Files touched:
+  - internal/variable/dynamic.go (5 new registrations using the manual
+    DynFunc form already used by $randomBase64 and $randomPassword;
+    arity-flex (0 or 1 args) is handled by an explicit `if len(args) == 0`
+    default-applying branch)
+  - internal/variable/dynamic_test.go (new TestRegistry_FakerContent*
+    tests including default-count, custom-count, bad-input, seeded-
+    reproducibility, no-seed-entropy)
+  - docs/MANUAL.md §3.7 (5 new rows in the dynamic-functions table,
+    each row showing both the no-arg and arg-bearing forms)
+
+  Not in scope: locale-specific lorem text; markdown / HTML output
+  variants; word-frequency tuning. Spec citations: SPECIFICATION.md:815–823.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 dynamic-functions table includes 5 new rows for the content-data family with both default and arg-bearing example calls matching SPECIFICATION.md:817–823"
+  - "Seeded-reproducibility and no-seed-entropy tests both pass"
+  - "No changes to internal/variable/variable.go's parseDynArgs (M12-001 reuse)"
+complexity: medium
+estimated_effort: "4-6 hours"

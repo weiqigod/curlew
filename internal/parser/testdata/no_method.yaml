@@ -1,0 +1,6 @@
+name: No Method Test
+
+requests:
+  - name: Default Method
+    request:
+      url: "https://example.com"

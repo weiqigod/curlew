@@ -1,0 +1,56 @@
+id: M14-002
+title: "Backend: POST /api/v1/auth/refresh unified mint endpoint"
+status: done
+priority: 1
+created: 2026-05-03
+completed_date: 2026-05-04
+verified_by: ai
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-001
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~AuthRefresh"
+  # Expected: Passed: >=12, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  REFRESH=$(./scripts/test-token.sh refresh owner@example.com)
+  DEVICE=$(./scripts/test-token.sh device owner@example.com)
+  curl -sS -X POST http://localhost:5000/api/v1/auth/refresh \
+    -H "Content-Type: application/json" \
+    -d "{\"refresh_token\":\"$REFRESH\",\"device_id\":\"$DEVICE\"}" \
+  | jq 'keys'
+  # Expected: ["access_token","license_jwt","refresh_token"]
+behaviors:
+  - "Given a valid refresh_token and matching device_id, when POST /auth/refresh is called, then the response 200 contains {license_jwt, access_token, refresh_token}; the License JWT carries the 17-claim shape with typ=license+jwt and the Access token carries the 9-claim shape with typ=at+jwt"
+  - "Given a successful refresh, when the row is rotated, then the presented row's rotated_at is set, a new row is inserted sharing family_id with parent_id pointing at the presented row, and the new expires_at = LEAST(now()+90d, family_root.issued_at+365d)"
+  - "Given a refresh token whose rotated_at is already set, when /auth/refresh is called, then every row sharing family_id is updated with revoked_at=NOW() and revoke_reason='reuse_detected', the response is 401 RFC-7807 with code AUTH_REFRESH_REUSED, and an account_security_alert email message is enqueued"
+  - "Given a presented device_id that does not match the refresh token's bound device_id, when /auth/refresh is called, then the response is 401 AUTH_DEVICE_MISMATCH and no rotation occurs"
+  - "Given a refresh token past its absolute 365-day deadline, when /auth/refresh is called, then the response is 401 AUTH_REFRESH_EXPIRED"
+  - "Given trial fields are not yet populated, when a License JWT is minted, then trial_state='none' and trial_expiry=null are emitted explicitly so M16's trial slices can populate without claim-shape churn"
+  - "Given the active signing key is rotated mid-flight, when /auth/refresh mints a new token, then the JWS header kid points at the current key (not the previously-active key)"
+  - "Given the response shape, when inspected, then it conforms to the unified mint contract; there is no /api/v1/license/issue endpoint route registered"
+scope: |
+  New AuthEndpoints.Refresh handler in src/ApiTool.Backend/Auth/. Implements
+  POST /api/v1/auth/refresh per docs/SPECIFICATION.md:8228 endpoint table and
+  :7901–7944 rotation semantics. Mints all three tokens via IKeyProvider
+  (License JWT 30d, Access token 1h, opaque refresh 90/365d). Family-revocation
+  trigger queues account_security_alert email through
+  System.Threading.Channels (queue boundary stubbed in this slice; the
+  EmailQueueProcessor binding lands in M14-014, but the handler must compile
+  and run with a no-op channel reader registered for unit tests). RFC 7807
+  errors with codes AUTH_REFRESH_REUSED, AUTH_REFRESH_EXPIRED, AUTH_DEVICE_MISMATCH,
+  AUTH_INVALID_REFRESH per :8243–8267. Trial fields default to none/null per
+  decision J in the investigation. Algorithm pinned to ES256, typ headers
+  enforced strictly per RFC 8725 §3.11.
+definition_of_done:
+  - "All behavior tests pass (>=12) under dotnet test"
+  - "Live HTTP probe of /api/v1/auth/refresh returns the unified mint shape"
+  - "RFC 7807 responses returned with application/problem+json content-type"
+  - "Stable error codes (AUTH_REFRESH_REUSED, AUTH_REFRESH_EXPIRED, AUTH_DEVICE_MISMATCH, AUTH_INVALID_REFRESH) documented in docs/api-errors.md"
+  - "Swagger/OpenAPI registers the endpoint without a /api/v1/license/issue route"
+  - "docs/SPECIFICATION.md:8228 and :7901–7944 cited in the handler file header"
+  - "EmailMessage payload shape for account_security_alert defined and contract-tested against the M14-014 manifest variables"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

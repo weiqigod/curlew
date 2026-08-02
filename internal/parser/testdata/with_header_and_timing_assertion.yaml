@@ -1,0 +1,14 @@
+name: Header And Timing Assertion
+requests:
+  - name: Check Both
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      headers:
+        Content-Type:
+          equals: "application/json"
+        X-Request-Id:
+          exists: true
+      timing:
+        max_duration_ms: 1000

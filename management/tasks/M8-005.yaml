@@ -1,0 +1,145 @@
+id: M8-005
+title: "run --only: prune setup to transitive closure of {{variable}} references"
+status: done
+priority: 1
+created: 2026-04-24
+phase: "M8: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M8-004]
+observable: |
+  # Setup is pruned to only the items whose extracts are transitively
+  # referenced by the --only selection. No-extract setup items (pure
+  # seeders) are included unconditionally.
+  #
+  # Collection shape for these examples:
+  #   setup: [Login (extract token), Seed users (extract user_id),
+  #           Seed posts (uses {{user_id}}, extract post_id),
+  #           Warm cache (no extract)]
+  #   main:  [Get user (uses {{token}}), List posts (uses {{post_id}})]
+
+  # Case 1: main request only needs {{token}} -> only Login + Warm run.
+  ./apitest run collections/multi.yaml --only "Get user" --events run.ndjson
+  jq -c 'select(.kind=="request.start") | .name' run.ndjson
+  # Expected: "Login", "Warm cache", "Get user"
+  # (Seed users + Seed posts pruned; Warm cache kept -- no extract.)
+
+  # Case 2: chained producers. List posts needs {{post_id}}, produced by
+  # Seed posts, which needs {{user_id}}, produced by Seed users.
+  ./apitest run collections/multi.yaml --only "List posts" --events run.ndjson
+  jq -c 'select(.kind=="request.start") | .name' run.ndjson
+  # Expected: "Seed users", "Seed posts", "Warm cache", "List posts"
+  # (Login pruned -- not on the closure. Warm cache kept -- no extract.)
+
+  # Case 3: analyzer invalid -> fall back to full setup.
+  # (Synthetic collection where analyze.go returns IsValid=false, e.g.
+  # duplicate producer for the same variable.)
+  ./apitest run collections/ambiguous.yaml --only "Get user" 2>stderr.log
+  grep 'minimal-setup analysis failed' stderr.log
+  # Expected: diagnostic line present; all setup items execute.
+
+  # Case 4: --only not set -> no pruning, setup runs in full (regression).
+  ./apitest run collections/multi.yaml
+  # Expected: all 4 setup items run, both main items run.
+
+  # Full unit + integration suite.
+  go test -run 'TestParallel_AncestorClosure|TestRunner_OnlyPrunesSetup|TestRunner_OnlyPrunesSetup_ChainedProducers|TestRunner_OnlyPrunesSetup_NoExtractSeeder|TestRunner_OnlyPrunesSetup_AnalyzerFallback|TestRunner_OnlyCliff_SetupProducer' ./...
+  # Expected: PASS.
+behaviors:
+  - "When --only is non-empty, the setup phase is pruned to the transitive closure of {{variable}} references starting from the selected main requests; pruned items are not executed and do not appear in events or results."
+  - "The analyzer is seeded with preExecVars from scope.Resolved() (collection vars, env, --var, --env-var, secrets) so variables available before any phase runs are not mistaken for edges."
+  - "Setup items with an empty extract: map are included unconditionally (pure side-effect seeders -- the analyzer cannot prove them unneeded)."
+  - "A single combined parallel.Analyze(setup ++ main, preExecVars) call builds one DAG; reverse-BFS from the --only selection's indices yields the ancestor set; setup items in the ancestor set plus no-extract setup items form the pruned setup slice."
+  - "If parallel.Analyze returns IsValid == false (cycles, duplicate producers, etc.), the runner falls back to the full setup phase and emits a diagnostic line on stderr (verbosity: normal and above) so the user knows pruning was skipped."
+  - "Teardown is unaffected by pruning and always runs in full (matches M8-004 semantics)."
+  - "When --only is not set, no pruning logic runs and setup execution is byte-identical to pre-M8-005 behaviour (regression-tested)."
+  - "The variable-cliff diagnostic (enrichSelectionCliff) is extended to scan fullSetupItems as well as fullMainItems; if a missing variable's producer is a setup item that was pruned, the error message names it with a suffix indicating the analyzer missed a reference and is likely a bug."
+  - "Data-driven main requests in the selection contribute their parent RequestItem's variable references to the closure (per-iteration references are identical across iterations)."
+  - "apitest watch propagates the pruning transparently because it just re-invokes run with the same --only args."
+  - "parallel.AncestorClosure is a new exported graph primitive in internal/parallel/ -- takes a DependencyGraph and a slice of start indices, returns the ancestor set inclusive of starts via reverse-BFS over Dependencies."
+  - "No events schema change: v1.1 stays the shipped version. (An optional additive setup_pruned_names field on run.start is explicitly deferred -- file as future observability work if telemetry calls for it.)"
+  - "CHANGELOG.md [Unreleased] has a Changed entry noting that --only now prunes setup; docs/SPECIFICATION.md and docs/MANUAL.md --only sections get a paragraph describing the minimal-setup behaviour and the no-extract-always-runs rule."
+  - "IMPROVEMENT.md W3 status block and section 8 Q3 are updated to mark M8-005 as shipped (matching the M8-001..M8-004 pattern)."
+scope: |
+  Implement three linked changes plus a documentation pass.
+
+  1. Graph primitive. Add parallel.AncestorClosure(g *DependencyGraph,
+     starts []int) map[int]bool to internal/parallel/ -- reverse-BFS over
+     the Dependencies edges from the given start indices, inclusive of
+     the starts. Unit-test against linear-chain, diamond, disconnected,
+     and empty-starts shapes. Keep the helper next to the forward
+     hasTransitiveDep helper in waves.go (or a new closure.go -- reviewer
+     call at implementation time).
+
+  2. Setup pruning in the runner. Extend the --only filter block at
+     internal/runner/runner.go:455-477 so that after filterMainItems
+     succeeds, we also compute a pruned setup. Steps:
+
+     a. Build preExecVars from scope.Resolved() (lift the pattern
+        currently at executeParallelMain:1078-1083 into a reusable helper
+        or inline it here).
+     b. Build combinedItems = col.Setup.Items ++ filtered.
+     c. graph := parallel.Analyze(combinedItems, preExecVars).
+     d. If !graph.IsValid: fall back to full setup; emit a one-line
+        stderr diagnostic at verbosity >= normal.
+     e. Otherwise: reachable := parallel.AncestorClosure(graph, indices
+        of filtered items within combinedItems).
+     f. Build prunedSetup = setup items at indices where
+        reachable[idx] || item.Extract is empty.
+     g. Shallow-copy col and replace col.Setup.Items with prunedSetup
+        (parallel structure to the existing Requests.Items replacement).
+     h. Add fullSetupForCliff to the VarSources struct (mirroring
+        fullMainForCliff) so the cliff diagnostic can scan setup
+        producers too.
+
+  3. Cliff diagnostic extension. Extend enrichSelectionCliff
+     (runner.go:633-692) so that after failing to find the missing
+     variable's producer in fullMainItems, it scans fullSetupItems. If
+     found there, the enriched error indicates that the analyzer missed
+     a reference and recommends filing a bug. This path is expected to
+     be unreachable in practice; it is a safety net plus debugging aid.
+
+  4. Docs. CHANGELOG.md [Unreleased] gets a Changed bullet for --only
+     minimal-setup. docs/SPECIFICATION.md run section gets a paragraph
+     under --only. docs/MANUAL.md run section gets a short worked
+     example. IMPROVEMENT.md W3 status and section 8 Q3 updated to
+     reference M8-005 as shipped (pattern match with M8-001..M8-004).
+
+  Not in scope.
+  - No --full-setup opt-out flag. If bugs in the analyzer surface in
+    practice, we iterate. The analyzer-invalid fallback covers the
+    structural failure modes.
+  - No new YAML marker (e.g. always: true) for seeders. Conservative
+    include-all-no-extract-items covers the common case without
+    requiring users to touch their collections. Revisit if real-world
+    usage surfaces false-positives.
+  - No events schema change. Selection is already recorded on run.start
+    in v1.1 (shipped by M8-004); setup-pruning observability can be
+    added later as an additive field.
+  - No change to the parallel executor's internal call to
+    parallel.Analyze -- that path re-runs Analyze on the filtered main
+    slice exactly as M8-004 left it. M8-005 does not alter parallel-
+    execution semantics.
+  - Teardown pruning is out of scope (and was never in IMPROVEMENT.md).
+  - Per-iteration filtering of data-driven requests is still out of
+    scope (also deferred by M8-004).
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestParallel_AncestorClosure passes: linear, diamond, disconnected, empty-starts shapes"
+  - "TestRunner_OnlyPrunesSetup passes: simple case where one of four setup items is pruned"
+  - "TestRunner_OnlyPrunesSetup_ChainedProducers passes: transitive closure traverses setup->setup producer chains"
+  - "TestRunner_OnlyPrunesSetup_NoExtractSeeder passes: setup items with empty extract: are always included"
+  - "TestRunner_OnlyPrunesSetup_AnalyzerFallback passes: IsValid == false triggers full-setup fallback with a stderr diagnostic"
+  - "TestRunner_OnlyCliff_SetupProducer passes: cliff diagnostic names a pruned setup producer (safety-net path)"
+  - "Regression: TestRunner_OnlyFilter from M8-004 still passes unmodified"
+  - "Regression: without --only, setup execution is byte-identical to pre-M8-005 (captured via an events-diff test)"
+  - "docs/SPECIFICATION.md run command --only section documents minimal-setup pruning"
+  - "docs/MANUAL.md --only section has a worked example"
+  - "CHANGELOG.md [Unreleased] updated (Changed: --only minimal-setup)"
+  - "IMPROVEMENT.md W3 status block and section 8 Q3 updated to mark M8-005 shipped"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/parallel/... ./internal/runner/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: low
+estimated_effort: "1 day"

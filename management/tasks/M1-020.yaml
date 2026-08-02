@@ -1,0 +1,30 @@
+id: M1-020
+title: "JSON output format (--format json)"
+status: done
+priority: 20
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-019]
+observable: |
+  Run ./apitest run collection.yaml --format json | jq .
+  Verify valid JSON with all fields.
+behaviors:
+  - "Given --format json flag, when executed, then output is valid JSON"
+  - "Given JSON output, when parsed, then it contains name, status, duration_ms, requests array"
+  - "Given each request in JSON output, when inspected, then it contains name, method, url, status_code, duration_ms, assertions array"
+  - "Given a failing assertion in JSON output, when inspected, then it contains expected, actual, operator, passed: false"
+  - "Given --format json, when errors occur, then they are included in JSON structure (not printed to stderr)"
+  - "Given JSON output piped to another tool, when parsed, then no extraneous text contaminates the JSON"
+  - "Given --format json with no assertions, when executed, then assertions array is empty (not omitted)"
+scope: |
+  Add --format flag to CLI. Create JSON output formatter in internal/output/. Define
+  output schema matching spec. Ensure clean separation between human and machine output.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

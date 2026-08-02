@@ -1,0 +1,12 @@
+name: collection-retry
+retry:
+  enabled: true
+  max_attempts: 4
+  backoff_strategy: exponential
+  initial_delay_ms: 500
+  retry_on:
+    status_codes: [429, 503]
+    network_errors: true
+requests:
+  - name: Req
+    request: { method: GET, url: "https://example.com/" }

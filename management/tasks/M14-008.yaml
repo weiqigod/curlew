@@ -1,0 +1,55 @@
+id: M14-008
+title: "Backend: live Stripe SDK wiring + CreateCheckoutAsync"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-002
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres stripe-mock
+  dotnet test src/ApiTool.Backend.Tests --filter "Category=stripe-integration|FullyQualifiedName~StripeCheckout"
+  # Expected: Passed: >=8, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing \
+    APITOOL__STRIPE__MODE=live \
+    APITOOL__STRIPE__APIBASE=http://localhost:12111 \
+    APITOOL__STRIPE__APIKEY=sk_test_stripe_mock \
+    dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"price_id":"price_test_solo_monthly","success_url":"https://app.apitool.dev/billing","cancel_url":"https://app.apitool.dev/cancel"}' \
+    http://localhost:5000/api/v1/subscriptions/checkout | jq .url
+  # Expected: a string starting with "https://checkout.stripe.com/c/pay/cs_test_..."
+behaviors:
+  - "Given a valid checkout request, when CreateCheckoutAsync is invoked, then the Stripe SDK CreateAsync call carries IdempotencyKey set to a request-derived UUID and the returned session URL is surfaced unchanged"
+  - "Given the same IdempotencyKey is replayed (network retry), when the call succeeds, then exactly one Stripe checkout session is created (verified against stripe-mock's recorded call log)"
+  - "Given an org without a Stripe customer, when CreateCheckoutAsync is invoked, then a Stripe Customer is created first and persisted to the orgs.stripe_customer_id column"
+  - "Given a price_id not in the allowlist (price_test_*, price_solo_*, price_team_*, price_professional_*, price_enterprise_*), when CreateCheckoutAsync is called, then the response is 400 with code invalid_price_id and no Stripe call occurs"
+  - "Given the Stripe.Net SDK throws a StripeException on rate limit (429), when CreateCheckoutAsync runs, then the exception is mapped to RFC 7807 STRIPE_RATE_LIMITED 503 and the IdempotencyKey is preserved in logs for retry"
+  - "Given the request comes from an Access token, when /api/v1/subscriptions/checkout is hit, then the Bearer-validated org_id is the one billed; the request body cannot override org_id"
+  - "Given Stripe.Net 43.x is referenced in src/ApiTool.Backend/ApiTool.Backend.csproj, when dotnet build runs, then it succeeds without warnings"
+scope: |
+  Replaces src/ApiTool.Backend/Subscriptions/StripeGateway.cs's
+  NotImplementedException with the live Stripe.Net 43.x integration. Adds the
+  Stripe NuGet package reference. Implements CreateCheckoutAsync with mandatory
+  IdempotencyKey per call. Configuration via APITOOL__STRIPE__APIKEY,
+  APITOOL__STRIPE__APIBASE (for stripe-mock), APITOOL__STRIPE__MODE (live|fake).
+  FakeStripeGateway is preserved per investigation Decision #9 for unit tests
+  only. Three-layer test strategy per docs/SPECIFICATION.md:6856–6870 — unit
+  via fake, integration via stripe-mock with [Trait("Category",
+  "stripe-integration")], smoke against real Stripe test mode pre-release.
+  scripts/ci-local.sh extended to spin stripe-mock on :12111 when backend
+  changes are detected per Open Decision #9.
+definition_of_done:
+  - "All behavior tests pass (>=8) — unit + stripe-integration"
+  - "Live HTTP probe via stripe-mock returns a checkout URL string"
+  - "stripe-mock service added to docker-compose.test.yml"
+  - "scripts/ci-local.sh detects backend changes and starts stripe-mock; runtime overhead documented (~30s)"
+  - "Stripe.Net 43.x referenced in ApiTool.Backend.csproj"
+  - "FakeStripeGateway retained for unit tests; mode switch documented in deploy/self-hosted/README.md"
+  - "docs/SPECIFICATION.md:6856–6870 + :7980 cited in StripeGateway.cs header"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

@@ -1,0 +1,14 @@
+description: |
+  Run a collection that references an auth profile name that is not defined.
+  Should emit run.error with category=auth, code=RUNNER_AUTH_PROFILE_NOT_FOUND.
+  line=0 is acceptable since the error is about a missing profile, not a YAML line.
+exit_code: 5
+events:
+  - kind: run.error
+    must_have:
+      error.category: auth
+      error.code: RUNNER_AUTH_PROFILE_NOT_FOUND
+    hint_contains_any:
+      - Define
+      - fix
+      - Check

@@ -1,0 +1,52 @@
+id: M18-011
+title: "Compliance artefacts (2/2): vendor inventory + customer/internal DFDs + pen-test orchestration"
+status: done
+priority: 4
+created: 2026-05-17
+completed_date: 2026-05-19
+verified_by: ai
+phase: "M18: Compliance & launch"
+
+dependencies:
+  - M18-010
+  - M18-009
+
+observable: |
+  Run from repo root and observe exit 0:
+  `for f in docs/security/vendor-inventory.md docs/security/data-flow-customer.md docs/security/data-flow-internal.md docs/security/pentest-2026-Q2.md; do test -f "$f" || { echo "MISSING $f"; exit 1; }; done`
+  Then assert content acceptance:
+  `for vendor in Stripe SendGrid "Google KMS" GitHub GitLab; do grep -q "$vendor" docs/security/vendor-inventory.md || { echo "MISSING vendor $vendor"; exit 1; }; done`
+  `grep -q "Data shared\|Retention\|Breach notification\|SOC 2" docs/security/vendor-inventory.md` (required columns present)
+  `grep -q "team_vaults\|envelope\|KMS" docs/security/data-flow-internal.md` (M18-009 encryption reflected)
+  `grep -q "CLI\|backend\|customer browser\|web portal" docs/security/data-flow-customer.md`
+  `grep -q "Scope\|Findings\|Remediation\|Severity" docs/security/pentest-2026-Q2.md` (pen-test artefact structure)
+  `npx markdownlint-cli docs/security/{vendor-inventory,data-flow-*,pentest-*}.md` exits 0.
+  Verify cross-links: `grep -q "vendor-inventory.md" docs/COMPLIANCE.md` and `grep -q "data-flow" docs/COMPLIANCE.md`.
+
+behaviors:
+  - "Given docs/security/vendor-inventory.md is read, when its rows are inspected, then every external dependency (Stripe, SendGrid, Google Cloud KMS, AWS S3/SES, GitHub Apps, GitLab) is listed with columns: Vendor | Service | Data shared | Retention | Breach notification SLA | Vendor SOC 2 status | DPA on file"
+  - "Given docs/security/data-flow-customer.md is read, when its diagrams are inspected (Mermaid embedded), then every customer-PII path is captured: CLI → backend (license, telemetry); web portal → backend (registration, dashboard, account/data); backend → SendGrid (transactional email); backend → Stripe (billing)"
+  - "Given docs/security/data-flow-internal.md is read, when its diagrams are inspected, then every internal-secrets path is captured: backend ↔ KMS (signing keys + DEK wrapping per M18-009); team-vault coordinates encryption-at-rest; schedules.env_vars encryption-at-rest; refresh-token storage (DB hash + CLI keychain/file)"
+  - "Given the first pen-test engagement is scheduled (Q2 2026 per v4-15 cadence), when the artefact docs/security/pentest-2026-Q2.md is read, then it carries Scope, Methodology, Findings (by severity), Remediation log (with PR references), Sign-off"
+  - "Given the pen-test artefact references remediated items, when each is traced, then a corresponding git commit or PR link exists in the Remediation log column"
+  - "Given the vendor inventory references each external dependency, when an auditor follows the DPA on file column, then a link or footnote points to the storage location of the executed DPA (S3 bucket path, contract management tool URL, or 'on file at legal@')"
+  - "Given the two DFDs reference internal architecture, when read against the live codebase, then every named component maps to an actual directory or service (CLI = cmd/apitest/, backend = src/ApiTool.Backend/, web = web/, KMS = Google Cloud KMS or FileKeyProvider per deployment)"
+  - "Given the pen-test cadence is annual per v4-15, when docs/COMPLIANCE.md is read, then it names the next pen-test target window (Q2 2027) and the budget-line owner"
+
+scope: |
+  Three new Markdown artefacts: docs/security/vendor-inventory.md (Stripe, SendGrid, Google Cloud KMS, AWS, GitHub Apps, GitLab — columns: Vendor | Service | Data shared | Retention | Breach notification SLA | Vendor SOC 2 status | DPA on file), docs/security/data-flow-customer.md (customer-PII paths, with embedded Mermaid diagrams), docs/security/data-flow-internal.md (internal-secrets paths including the M18-009 envelope-encryption surfaces). Plus docs/security/pentest-2026-Q2.md as the first-engagement artefact template (Scope, Methodology, Findings, Remediation log, Sign-off — populated as the pen-test progresses; the slice ships the structure + the kickoff entry). Pen-test engagement orchestration (vendor selection, NDA, scope statement, kickoff) happens in this slice; the audit itself is out of scope per v4-14. Cross-links updated in docs/COMPLIANCE.md (M18-010 file). Pen-test cadence (annual per v4-15) documented in docs/COMPLIANCE.md.
+
+definition_of_done:
+  - "All four files exist at the documented paths"
+  - "Observable test -f / grep checks pass"
+  - "markdownlint passes against all four files"
+  - "Mermaid diagrams render correctly (npx mmdc dry-run)"
+  - "Cross-links from docs/COMPLIANCE.md to vendor-inventory.md and both DFDs resolve"
+  - "Vendor inventory rows reference an actual DPA storage location (no 'TODO' placeholders for live SaaS vendors)"
+  - "Pen-test kickoff entry documents engagement vendor, scope statement, NDA date, and target completion window"
+  - "CHANGELOG.md entry references v4-14 and v4-15"
+  - "docs/COMPLIANCE.md updated to name Q2 2027 as the next pen-test target window (annual cadence)"
+
+complexity: medium
+estimated_effort: "medium slice"
+track: compliance

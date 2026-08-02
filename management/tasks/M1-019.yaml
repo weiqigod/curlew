@@ -1,0 +1,30 @@
+id: M1-019
+title: "Terminal output with colors and formatting"
+status: done
+priority: 19
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-006]
+observable: |
+  Run collection with passing and failing assertions. See colored output in terminal.
+  Pipe to cat and verify no ANSI codes.
+behaviors:
+  - "Given a passing assertion, when displayed in terminal, then green checkmark is shown"
+  - "Given a failing assertion, when displayed in terminal, then red X is shown with expected vs actual"
+  - "Given output piped to a non-TTY (e.g., | cat), when executed, then ANSI color codes are stripped"
+  - "Given --no-color flag, when executed, then no ANSI color codes in output"
+  - "Given NO_COLOR environment variable set, when executed, then no ANSI color codes in output"
+  - "Given collection summary, when displayed, then it includes total, passed, failed, duration in formatted layout"
+  - "Given multiple requests, when displayed, then each request has a clear visual separator"
+scope: |
+  Enhance internal/output/ with ANSI color support. Implement TTY detection. Add
+  --no-color flag and NO_COLOR env var support. Design formatted summary layout.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

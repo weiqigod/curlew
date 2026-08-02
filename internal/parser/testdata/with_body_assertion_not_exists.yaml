@@ -1,0 +1,10 @@
+name: Body Not Exists Test
+requests:
+  - name: Check Body
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      body:
+        $.deleted:
+          not_exists: true

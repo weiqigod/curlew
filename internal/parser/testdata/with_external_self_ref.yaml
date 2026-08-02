@@ -1,0 +1,3 @@
+name: Self Reference
+requests:
+  - path: with_external_self_ref.yaml

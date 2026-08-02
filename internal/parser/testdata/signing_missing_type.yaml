@@ -1,0 +1,9 @@
+name: Bad Signing
+requests:
+  - name: missing
+    request:
+      method: GET
+      url: https://example.com
+    signing:
+      params:
+        x: 1

@@ -1,0 +1,41 @@
+id: M2-024
+title: "Advanced retry trigger conditions and method restrictions"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Advanced Retries"
+
+dependencies:
+  - M2-023
+
+observable: |
+  Configure `retry_on: { status_ranges: ['500-599'] }` and confirm range matching.
+  Configure `do_not_retry_on: { status_codes: [501] }` and confirm exclusion.
+  Configure `retry_on: { methods: [GET, POST] }` and confirm POST retries with warning.
+  Run `go test ./internal/retry/...` for condition evaluation tests.
+
+behaviors:
+  - "Given `retry_on.status_ranges: ['500-599']`, when a 503 response occurs, then the request is retried"
+  - "Given `do_not_retry_on.status_codes: [501]` alongside `retry_on.status_ranges: ['500-599']`, when a 501 occurs, then no retry (exclusion wins)"
+  - "Given `retry_on.methods: [GET, HEAD, OPTIONS, TRACE, POST]`, when a POST gets 503, then it is retried with a warning about non-idempotent method"
+  - "Given default method restrictions, when a PATCH request gets 503, then no retry occurs (PATCH not in default methods list)"
+  - "Given retry with `retry_on.network_errors: true`, when a connection refused occurs, then the request is retried"
+  - "Given retry with `retry_on.timeouts: true`, when a request times out, then it is retried with full timeout duration per attempt"
+  - "Given the combined condition logic (status OR network OR timeout) AND method AND NOT exclusion, when evaluated, then retries are correctly determined"
+
+scope: |
+  Extend `internal/retry/` with comprehensive trigger condition evaluation: status code
+  matching (exact and ranges), do_not_retry_on exclusions (higher precedence), method
+  restrictions with warnings for non-idempotent methods, network error classification,
+  and timeout handling. Implement the combined condition logic per spec.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

@@ -1,0 +1,73 @@
+id: M6-002
+title: "Source-location plumbing: file and line onto parsed items and results"
+status: done
+priority: 3
+created: 2026-04-21
+phase: "M6: AI Agent Integration"
+track: go-cli
+dependencies:
+  - M6-001
+observable: |
+  # Given a collection with two requests spread across lines:
+  cat > /tmp/src-demo.yaml <<'YAML'
+  name: demo
+  requests:
+    - name: alpha
+      method: GET
+      url: https://example.com/a
+    - name: beta
+      method: GET
+      url: https://example.com/b
+  YAML
+  # A new test asserts RequestItem.SourceFile and RequestItem.SourceLine are
+  # populated from the YAML node positions:
+  go test -run TestParse_CarriesSourceLocation ./internal/parser/
+  # Expected: PASS
+  # And includes-aware: when an included file contributes a request, the
+  # request's SourceFile reflects the included file, not the parent collection.
+  go test -run TestParse_IncludesCarryIncludedFilePath ./internal/parser/
+  # Expected: PASS
+  # Runner's RequestResult carries the same (SourceFile, SourceLine):
+  go test -run TestRunner_RequestResultCarriesSourceLocation ./internal/runner/
+  # Expected: PASS
+behaviors:
+  - "Given a collection file with multiple requests, when parsed, then each parser.RequestItem has SourceFile set to the absolute path of its origin file and SourceLine set to the YAML node line of the request definition."
+  - "Given a collection that uses include: to reference another file, when parsed, then requests contributed by the included file have SourceFile pointing at the included file (not the including file)."
+  - "Given a request loaded via request_file: (externalRequest), when parsed, then SourceFile reflects the external file path and SourceLine reflects the top of the external file (line 1)."
+  - "Given a data-driven request with N iterations, when the runner produces RequestResult for each iteration, then every iteration's (SourceFile, SourceLine) equals the base request's location (not a synthetic offset)."
+  - "Given a request executed by the runner, when it yields a RequestResult, then RequestResult.SourceFile and RequestResult.SourceLine match the RequestItem's values (threaded verbatim)."
+  - "Given existing tests and observable behaviour, when this slice lands, then all existing formatters (terminal/json/tap/junit/html/jsonl) produce identical output (no behaviour change for current formats)."
+scope: |
+  Additive-only struct field changes; no behaviour change in existing formats.
+
+  internal/parser/collection.go:
+    - Add SourceFile string and SourceLine int to RequestItem.
+    - Populate SourceLine from yaml.Node.Line in UnmarshalYAML hooks. The four
+      custom methods worth flagging: SensitiveVars.UnmarshalYAML (~line 35),
+      BodyAssertions.UnmarshalYAML (~line 235), HeaderAssertions.UnmarshalYAML
+      (~line 290), StatusCodes.UnmarshalYAML (~line 336). Request/Collection
+      paths also populate line numbers.
+    - externalRequest loading sets SourceFile to the external file path.
+
+  internal/parser/parser.go / include.go:
+    - Thread the including file's path through include resolution so included
+      items get SourceFile pointing at the included file.
+
+  internal/runner/runner.go:
+    - Add SourceFile string and SourceLine int to RequestResult.
+    - Populate at RequestResult construction from the originating RequestItem.
+    - Data-driven iterations copy the base request's (SourceFile, SourceLine)
+      verbatim — IsDataDriven/IterationIndex/IterationTotal already encode the
+      iteration identity.
+
+  No changes to existing output formats in this slice — consumption lands in
+  M6-004 (events package).
+definition_of_done:
+  - "All behavior tests pass"
+  - "Existing test suite remains green: go test ./... passes with no changes to existing goldens"
+  - "golangci-lint run passes with 0 issues"
+  - "Test coverage for internal/parser and internal/runner does not regress below current levels (>= 80%)"
+  - "New parser tests cover: direct file, include:, request_file:, data-driven"
+  - "Smoke test passes"
+complexity: medium
+estimated_effort: "1-2 days"

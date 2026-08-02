@@ -1,0 +1,9 @@
+name: Timing Assertion
+requests:
+  - name: Check Timing
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      timing:
+        max_duration_ms: 500

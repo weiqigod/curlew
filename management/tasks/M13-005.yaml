@@ -1,0 +1,90 @@
+id: M13-005
+title: "$faker internet data — 9 functions"
+status: done
+priority: 1
+created: 2026-04-28
+phase: "M13: Faker depth"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FakerInternet' -v ./internal/variable/...
+  # Expected: PASS — all 9 internet functions registered.
+  # $faker.url matches /^https?:\/\/[^\/]+\/.*$/;
+  # $faker.ip matches /^(\d{1,3}\.){3}\d{1,3}$/ (each octet 0-255);
+  # $faker.ipv6 matches /^([0-9a-f]{1,4}:){2,7}[0-9a-f:]+$/;
+  # $faker.mac matches /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+  # $faker.color is a CSS color-name string;
+  # $faker.hexColor matches /^#[0-9a-f]{6}$/.
+
+  go test -run 'TestRegistry_FakerInternet_Seeded' -v ./internal/variable/...
+  # Expected: PASS — given --seed=42, two consecutive runs produce byte-equal output.
+
+  go test -run 'TestRegistry_FakerInternet_Unseeded' -v ./internal/variable/...
+  # Expected: PASS — without --seed, two consecutive runs differ.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Body: {"site":"{{$faker.url}}","ip":"{{$faker.ip}}","mac":"{{$faker.mac}}"}
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: site is a full https URL; ip is a dotted-quad; mac is uppercase hex.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$faker.url` is evaluated, then the result matches `^https?://[^/]+/[^\\s]*$` — a full URL with scheme, host, and path (per SPECIFICATION.md:805)."
+  - "Given the registry, when `$faker.domain` is evaluated, then the result matches `^[a-z0-9-]+\\.[a-z]{2,}$` — a hostname with a TLD, no scheme, no path (per SPECIFICATION.md:806)."
+  - "Given the registry, when `$faker.domainSuffix` is evaluated, then the result is a TLD without a leading dot (e.g. `com`, `org`, `net`, `io`; per SPECIFICATION.md:807)."
+  - "Given the registry, when `$faker.ip` is evaluated, then the result matches `^(\\d{1,3}\\.){3}\\d{1,3}$` and each octet is in [0, 255] (per SPECIFICATION.md:808)."
+  - "Given the registry, when `$faker.ipv6` is evaluated, then the result is a valid IPv6 textual representation accepted by net.ParseIP (per SPECIFICATION.md:809)."
+  - "Given the registry, when `$faker.mac` is evaluated, then the result matches `^([0-9A-F]{2}:){5}[0-9A-F]{2}$` (uppercase hex, colon-delimited; per SPECIFICATION.md:810)."
+  - "Given the registry, when `$faker.userAgent` is evaluated, then the result is a non-empty user-agent string from the shipped pool, e.g. starts with `Mozilla/5.0` (per SPECIFICATION.md:811)."
+  - "Given the registry, when `$faker.color` is evaluated, then the result is a CSS color name from a shipped pool of recognised CSS color names (per SPECIFICATION.md:812). The legacy `$randomColor` registration that returns a hex code is retained alongside this new function — see M13 Open Decision #3 — and is not aliased."
+  - "Given the registry, when `$faker.hexColor` is evaluated, then the result matches `^#[0-9a-f]{6}$` (per SPECIFICATION.md:813)."
+  - "Given `--seed 42`, when any of the 9 internet functions are evaluated twice across two independent runs, then both outputs are byte-equal."
+  - "Given no `--seed`, when any of the 9 internet functions are evaluated twice across two independent runs, then both outputs differ."
+  - "Given `--locale de-DE` is passed on the CLI, when any internet function is evaluated, then the en-US data set is still used; locale support is deferred (see M13 Open Decision #1)."
+scope: |
+  Add 9 registrations to internal/variable/dynamic.go for the internet-data
+  family in SPECIFICATION.md:801–813: `$faker.url`, `$faker.domain`,
+  `$faker.domainSuffix`, `$faker.ip`, `$faker.ipv6`, `$faker.mac`,
+  `$faker.userAgent`, `$faker.color`, `$faker.hexColor`. Ship a small TLD
+  list (com, org, net, io, dev, app, co, etc.), a small user-agent pool
+  covering Chrome/Firefox/Safari/Edge variants, and a CSS-color-name pool
+  of common keywords.
+
+  Note on $faker.color vs legacy $randomColor: the existing $randomColor
+  registration at internal/variable/dynamic.go:217 returns a six-digit hex
+  string (`#RRGGBB`), whereas SPECIFICATION.md:812 specifies $faker.color
+  as a CSS color name. Both contracts ship side-by-side per M13 Open
+  Decision #3 — no aliasing, no deprecation in M13.
+
+  Locale: en-US only. Per M13 Open Decision #1, the `--locale` flag is
+  recognised-but-warns-and-ignores. Spec citation: SPECIFICATION.md:859–904
+  (deferred).
+
+  Files touched:
+  - internal/variable/dynamic.go (9 new noArgs registrations + small
+    package-level pools for TLDs, user-agents, CSS color names)
+  - internal/variable/dynamic_test.go (new TestRegistry_FakerInternet*
+    tests including IP-octet-range, IPv6 net.ParseIP roundtrip,
+    seeded-reproducibility, no-seed-entropy)
+  - docs/MANUAL.md §3.7 (9 new rows in the dynamic-functions table; a
+    short note distinguishing $faker.color from legacy $randomColor)
+
+  Not in scope: locale support; geographically-localised user-agent strings;
+  IPv6 zone identifiers; legacy $randomColor deprecation. Spec citations:
+  SPECIFICATION.md:801–813.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 dynamic-functions table includes 9 new rows for the internet-data family with example values matching SPECIFICATION.md:803–813"
+  - "MANUAL.md §3.7 explicitly notes that $faker.color (CSS name) and legacy $randomColor (hex code) co-exist as distinct registrations"
+  - "Seeded-reproducibility and no-seed-entropy tests both pass"
+complexity: medium
+estimated_effort: "3-5 hours"

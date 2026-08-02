@@ -1,0 +1,8 @@
+name: Invalid Status Sequence
+requests:
+  - name: Bad Status List
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      status: [200, "bad"]

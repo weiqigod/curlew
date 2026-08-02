@@ -1,0 +1,31 @@
+id: M1-010
+title: "Variable extraction from responses"
+status: done
+priority: 10
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-009]
+observable: |
+  Create collection: first request logs in and extracts token, second request
+  uses `{{token}}` in Authorization header.
+behaviors:
+  - "Given a request with `extract: { token: \"$.data.token\" }`, when response contains the path, then variable is set"
+  - "Given an extracted variable, when used in a subsequent request as `{{token}}`, then it is interpolated"
+  - "Given `extract` with a JSONPath that matches nothing, when evaluated, then error indicates extraction failed"
+  - "Given `extract` on a non-JSON response, when evaluated, then error indicates response is not JSON"
+  - "Given multiple extractions in one request, when evaluated, then all variables are set"
+  - "Given an extracted variable overriding a collection-level variable, when resolved, then extraction wins (higher precedence)"
+  - "Given extraction in the last request, when no subsequent request uses it, then no error (extraction is valid)"
+scope: |
+  Add `extract:` parsing to `internal/parser/`. Add JSONPath extraction to
+  `internal/variable/`. Wire extraction results into variable store between
+  request executions.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

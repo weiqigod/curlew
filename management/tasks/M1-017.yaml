@@ -1,0 +1,28 @@
+id: M1-017
+title: "Global project config (apitest.yaml)"
+status: done
+priority: 17
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-012]
+observable: |
+  Create apitest.yaml with project-level variables. Run collection and verify
+  variables are resolved.
+behaviors:
+  - "Given apitest.yaml in project root with variables: block, when collection runs, then variables are loaded at precedence 2"
+  - "Given apitest.yaml variables and collection variables with same key, then collection (level 2) equals project config (level 2) — collection wins as more specific"
+  - "Given no apitest.yaml, when collection runs, then no error (file is optional)"
+  - "Given apitest.yaml with project_name: field, when loaded, then it is available for output context"
+  - "Given apitest.yaml in a parent directory, when collection is in subdirectory, then project config is found by walking up"
+scope: |
+  Add apitest.yaml parsing in internal/config/. Implement project root detection
+  (walk up directories). Load global variables into precedence chain.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "1-3 hours"

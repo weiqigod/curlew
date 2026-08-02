@@ -1,0 +1,48 @@
+id: M19-002
+title: "internal/cel/ foundation: Evaluator + standard activation"
+status: done
+priority: 1
+created: 2026-05-16
+phase: "M19: Strategic expressiveness"
+
+dependencies: []
+
+observable: |
+  go test ./internal/cel/... -count=1 -v
+  Expected: PASS for at least TestEvaluator_ParseValidExpression,
+  TestEvaluator_RejectsTimeOfDayNow, TestEvaluator_RejectsZeroArgTimestamp,
+  TestEvaluator_StdLibStringOpsAvailable, TestEvaluator_StdLibListOpsAvailable,
+  TestEvaluator_StandardActivationBindsResponsePreviousVarsEnv,
+  TestEvaluator_ResponseBodyIsDyn, TestEvaluator_TypeCheckRejectsNonBool,
+  TestEvaluator_ParseErrorReturnsErrCelParse,
+  TestEvaluator_TypeErrorReturnsErrCelType,
+  TestEvaluator_SensitiveObserverFiresOnVarReference,
+  TestEvaluator_TruncatesSourceTo200CharsInErrorMessage. Coverage report
+  printed at the end via `-coverprofile` shows >= 80% for the package.
+
+behaviors:
+  - "Given a CEL expression `\"response.body.x == 1\"` and a `StandardActivation{Response, Previous, Vars, Env}`, when the evaluator compiles and evaluates it, then it returns a boolean result and no error."
+  - "Given a CEL expression `\"now()\"`, when the evaluator compiles it, then compilation returns an `ERR_CEL_PARSE`-class error naming `now` as a disallowed function (time-of-day removed from the standard library)."
+  - "Given a CEL expression `\"timestamp()\"` with zero arguments, when the evaluator compiles it, then compilation returns an `ERR_CEL_PARSE`-class error; `timestamp(string)` (single-argument form) remains available."
+  - "Given a CEL expression that uses `\"hello\".upperAscii()` or `[1,2,3].size()`, when the evaluator compiles and evaluates it, then it returns the expected string or int with no error (standard library minus time-of-day)."
+  - "Given a CEL expression `\"1 + 1\"` and a requested result type of `bool`, when the evaluator type-checks it, then it returns an `ERR_CEL_TYPE` error naming `int` as the actual type and `bool` as the expected type."
+  - "Given an Evaluator constructed with a sensitive-value observer callback, when an expression references `vars.api_key` and `api_key` is in the sensitive set, then the observer is invoked exactly once with the resolved value before the evaluation result is returned."
+  - "Given a CEL expression that exceeds 200 characters and triggers a parse error, when the evaluator returns its error, then the source excerpt in the error message is truncated to exactly 200 chars with a trailing ellipsis marker."
+  - "Given a request `response` value with status, headers (map of string to string), and body bound as CEL type `dyn`, when an expression performs `response.body.items[0].price`, then evaluation succeeds for a JSON-decoded body and returns the dynamic value."
+
+scope: |
+  Create new package `internal/cel/` wrapping `github.com/google/cel-go`.
+  Public API: `type Evaluator interface { Compile(src string, expectType *cel.Type) (Program, error); }`, a `Program` with `Eval(activation StandardActivation) (ref.Val, error)`, and a `StandardActivation` struct with fields `Response *Response`, `Previous *Response`, `Vars map[string]any`, `Env map[string]string`. Register a Go-side `Response` type with `status int`, `headers map[string]string`, and `body` bound as `dyn`. Build the CEL environment with the cel-go standard library minus time-of-day: explicitly disable `now()` and zero-arg `timestamp()` by constructing a `cel.Lib` that overrides the function declarations, or by using `cel.Function` overrides that produce parse-time rejection. Emit two structured error sentinels `ErrCelParse` and `ErrCelType` (with field-path placeholder for callers to fill in) carrying the original cel-go error text and a 200-char truncated source excerpt. Provide a `SensitiveObserver func(name, value string)` hook invoked when a `vars.<name>` reference resolves to a value flagged sensitive by the caller (caller supplies the sensitivity check by passing a sensitive-name set). Add `go.mod` / `go.sum` entries for cel-go. Add unit tests with table-driven cases for every behavior. NOT in scope: any integration in `internal/runner/`, `internal/parser/`, `internal/validator/`, `internal/output/`, or `cmd/apitest/` — those are M19-001, M19-004, M19-005. No MANUAL.md edits (M19-005). No skill edits (M19-006).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Test coverage >= 80% for internal/cel/"
+  - "No build warnings or lint errors"
+  - "./scripts/ci-local.sh --go passes"
+  - "go.mod and go.sum updated with github.com/google/cel-go pinned to a tagged release, and `go mod tidy` leaves no diff"
+  - "Public package documentation (doc.go or package-level godoc) explains the standard activation, the disabled time-of-day functions, and the sensitive-observer contract"
+  - "Error sentinels `ErrCelParse` and `ErrCelType` are exported and reachable via `errors.Is`"
+
+complexity: high
+estimated_effort: "large slice"
+track: go-cli

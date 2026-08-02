@@ -1,0 +1,9 @@
+name: stream-discipline-parse-error
+requests:
+  - name: ping
+    request:
+      method: GET
+      url: "http://127.0.0.1:1/ok"
+    assertions:
+      - this is: malformed
+      unclosed

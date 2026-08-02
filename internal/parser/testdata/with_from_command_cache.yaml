@@ -1,0 +1,10 @@
+name: From Command Cache Test
+variables:
+  token:
+    from_command: "cat /tmp/token"
+    cache: 300
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

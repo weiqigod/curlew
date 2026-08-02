@@ -1,0 +1,6 @@
+name: WebSocket No Config
+requests:
+  - name: Missing Block
+    request:
+      protocol: websocket
+      url: "ws://localhost/ws"

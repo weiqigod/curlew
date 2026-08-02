@@ -1,0 +1,51 @@
+id: M4-003
+title: "Backend: organization + seat RBAC data model and service"
+status: done
+planned_date: 2026-04-15
+branch: feature/M4-003-backend-org-rbac
+priority: 1
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies: []
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Organizations|FullyQualifiedName~Rbac"
+  # Expected: Passed! - Failed: 0, Passed: >=12
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations
+  # Expected HTTP 200, JSON: {"organizations":[]}
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Acme","slug":"acme"}' \
+    http://localhost:5000/api/v1/organizations
+  # Expected HTTP 201, body contains "role":"owner","seat_count":1,"seat_limit":10
+behaviors:
+  - "Given a fresh database, when POST /api/v1/organizations is called with a valid name and slug, then the response is 201 with role=owner, seat_count=1, and seat_limit=10 for a team-tier default"
+  - "Given an existing organization slug, when a second POST attempts to reuse it, then the response is 409 with code organization_slug_taken"
+  - "Given a slug containing uppercase letters, when POST /organizations is called, then the response is 400 with code invalid_slug"
+  - "Given a user with no org membership, when GET /api/v1/organizations is called, then the response is 200 with an empty organizations array"
+  - "Given an owner user, when GET /api/v1/organizations/{id} is called for their org, then the response body includes role=owner and the same seat_count/seat_limit as the DB row"
+  - "Given a user who is not a member, when GET /api/v1/organizations/{id} is called, then the response is 404 organization_not_found (not 403, to avoid enumeration)"
+  - "Given an unauthenticated request, when any /api/v1/organizations endpoint is called, then the response is 401 with code unauthorized"
+  - "Given a database migration run at startup, when the service boots, then organizations, organization_members, organization_invitations, and organization_audit_log tables exist with the expected columns"
+scope: |
+  New C# projects: src/ApiTool.Backend (ASP.NET Core minimal API) and
+  src/ApiTool.Backend.Tests (xUnit). Implement Organizations and
+  OrganizationMembers EF Core entities matching the spec's RBAC tables.
+  Ship OrganizationsController with GET list, POST create, GET detail,
+  enforcing slug validation, owner role assignment, and 404-for-non-member
+  semantics. Add EF Core migration 0001_organizations_rbac. OpenAPI doc is
+  generated via Swashbuckle and exposed at /swagger/v1/swagger.json.
+definition_of_done:
+  - "dotnet test passes with the full Organizations + Rbac test suite (>=12 tests)"
+  - "Service boots and serves /api/v1/organizations (200/201/401/404/409 paths verified via curl)"
+  - "EF migration file 0001_organizations_rbac committed and applied on startup in dev mode"
+  - "Swagger UI at /swagger lists all organization endpoints with request/response schemas"
+  - "src/ApiTool.Backend.Tests/Organizations suite uses an in-memory SQLite per test"
+  - "scripts/test-token.sh helper checked in for issuing JWTs in dev"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

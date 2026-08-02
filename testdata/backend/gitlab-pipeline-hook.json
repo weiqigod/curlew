@@ -1,0 +1,13 @@
+{
+  "object_kind": "pipeline",
+  "object_attributes": {
+    "id": 4242,
+    "status": "success",
+    "sha": "abc123def4567890abc123def4567890abc12345",
+    "ref": "main"
+  },
+  "project": {
+    "id": 31337,
+    "path_with_namespace": "test-group/test-project"
+  }
+}

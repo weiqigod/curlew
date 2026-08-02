@@ -1,0 +1,29 @@
+id: M1-014
+title: "Request-level variables, --env-var, full precedence"
+status: done
+priority: 14
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-013]
+observable: |
+  Set OS env var, use --env-var, --var, .env, --env, collection vars, and request vars.
+  Verify correct precedence at each level.
+behaviors:
+  - "Given request-level variables: block, when a request uses {{var}}, then request-level value is used (precedence 8)"
+  - "Given --env-var API_KEY, when OS environment has API_KEY=secret, then it is imported at precedence 9"
+  - "Given --env-var MISSING_VAR, when OS environment lacks it, then error message indicates the variable is not set"
+  - "Given variables at multiple precedence levels, when resolved, then higher precedence wins: CLI (10) > env-var (9) > request (8) > extract (7) > .env (4) > env file (3) > collection (2) > project config (1)"
+  - "Given the full precedence chain exercised in an integration test, when all levels provide the same variable, then the highest precedence value is used"
+  - "Given request-level variables, when they reference collection-level variables, then interpolation chain works across levels"
+scope: |
+  Add request-level variable parsing. Add --env-var CLI flag. Implement full precedence
+  resolution in internal/variable/. Create integration test covering all levels.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

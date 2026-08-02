@@ -1,0 +1,11 @@
+name: Parallel Data Driven Test
+requests:
+  - name: Test Users
+    data_driven:
+      source: ./users.csv
+      parallel: true
+      rate_limit_rps: 100
+      store_results: failed_only
+    request:
+      method: POST
+      url: https://example.com/users

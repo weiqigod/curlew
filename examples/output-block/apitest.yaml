@@ -1,0 +1,4 @@
+project_name: "output-demo"
+output:
+  format: json
+  verbosity: normal

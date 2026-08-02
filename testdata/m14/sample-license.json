@@ -1,0 +1,7 @@
+{
+  "access_token": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRldi1lczI1Ni0yMDI2MDUtYjhjMWU3IiwidHlwIjoibGljZW5zZStqd3QifQ.eyJhdWQiOiJhcGl0ZXN0LWNsaSIsImVtYWlsIjoic21va2VAZXhhbXBsZS5jb20iLCJleHAiOjE4OTM0NTYwMDAsImlhdCI6MTc3Nzk3MDgwOSwiaXNzIjoiYXBpdGVzdC1saWNlbnNlLXNlcnZlciIsIm5iZiI6MTU3NzgzNjgwMCwic3ViIjoic21va2UtdXNlciIsInRpZXIiOiJlbnRlcnByaXNlIn0.NlIJ8anPQHHKNCcWH1xfT_pyCZwQHa8itRjFebhZqa-WK6DsnYqoYQM1hudWVRzaIkJCNBKS22AH8PjaTF9jUQ",
+  "last_validated_at": "2026-04-19T09:29:22+02:00",
+  "last_validation_attempt_at": "2026-04-19T09:29:22+02:00",
+  "tier": "enterprise",
+  "validation_failures": 0
+}

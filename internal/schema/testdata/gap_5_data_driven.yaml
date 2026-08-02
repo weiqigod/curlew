@@ -1,0 +1,15 @@
+name: data-driven-gap
+requests:
+  - name: Users
+    data_driven:
+      source: ./users.csv
+      format: csv
+      filter: "{{active}} == true"
+      limit: 10
+      fail_fast: true
+      parallel: true
+      rate_limit_rps: 5
+      store_results: failed_only
+    request:
+      method: POST
+      url: "https://example.com/users"

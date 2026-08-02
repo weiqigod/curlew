@@ -1,0 +1,96 @@
+id: M7-004
+title: "CI regression gate: stream-discipline matrix across commands and formats"
+status: done
+priority: 3
+created: 2026-04-22
+phase: "M7: Output Discipline"
+track: go-cli
+dependencies:
+  - M7-001
+  - M7-002
+  - M7-003
+observable: |
+  # The matrix test exercises (command × format × TTY-state) combinations
+  # and asserts clean stream separation for every cell.
+  go test -run TestStreamDisciplineMatrix ./cmd/apitest/...
+  # Expected: PASS — stdout is only the declared format's payload, stderr
+  # contains no ANSI on pipes, progress strings never appear on stdout.
+
+  # Smoke-level assertion: --format json | jq . parses cleanly.
+  cat > /tmp/m7-004-check.yaml <<'YAML'
+  name: jq-check
+  requests:
+    - name: ping
+      method: GET
+      url: http://127.0.0.1:18080/ok
+      assertions:
+        status: 200
+  YAML
+  ./apitest run /tmp/m7-004-check.yaml --format json | jq -e '.status == "passed"'
+  # Expected: exit 0 (jq parses the JSON and the assertion evaluates true).
+
+  # The ci-local.sh Go gate invokes the matrix test by name so failures
+  # are easy to triage in CI output.
+  ./scripts/ci-local.sh --go
+  # Expected: PASS; TestStreamDisciplineMatrix appears in the test log.
+behaviors:
+  - "Given apitest run with --format json and a passing collection, when stdout is piped into jq, then the JSON parses cleanly and contains the expected status/total/passed fields."
+  - "Given apitest run with --format tap, when stdout is piped, then stdout begins with 'TAP version 13' and contains no progress or help lines."
+  - "Given apitest run with --format junit, when stdout is piped (no --report flag), then stdout is well-formed JUnit XML; stderr contains no ANSI escape sequences when also piped."
+  - "Given apitest run with --format html --report <tmp>, when executed, then stdout is empty; the HTML file on disk contains the expected section markers; stderr has no ANSI on pipes."
+  - "Given apitest run with the default terminal format and stderr piped, when an error occurs, then stderr contains no ANSI escape sequences."
+  - "Given any apitest subcommand with stdout piped, when stdout is captured, then no known-progress string (Running..., Load test:, Validating license..., Claimed shard) appears on stdout."
+  - "Given ./scripts/ci-local.sh --go, when run, then TestStreamDisciplineMatrix executes and must pass before the Go gate succeeds."
+scope: |
+  New integration test file: cmd/apitest/stream_discipline_matrix_test.go.
+
+  Structure: a matrix helper that iterates
+  (subcommand × format × stdout-TTY × stderr-TTY) and for each
+  combination spawns the real ./apitest binary via exec.Command with
+  stdout/stderr redirected per the matrix entry. Assertions per cell:
+
+    1. stdout contains only the declared format's payload.
+       - --format json: stdout parses via encoding/json and contains
+         expected top-level fields (status, total, passed, failed).
+       - --format tap: stdout begins with "TAP version 13".
+       - --format junit: stdout parses as XML with <testsuites> root.
+       - --format html with --report: stdout is empty; file contains
+         expected markers.
+       - terminal (default): stdout is non-empty and contains the
+         documented section headers (setup/main/teardown as applicable).
+    2. When stderr is a pipe (non-TTY), it contains zero ANSI escape
+       sequences (regex: \x1b\[).
+    3. No known-progress string appears on stdout for any command or
+       format.
+
+  TTY cases use creack/pty if available; otherwise restrict to Unix
+  and document the platform skip. The test file is build-tagged
+  !windows if the pty dependency requires it.
+
+  Fixtures: testdata/stream-discipline/ holds minimal collections
+  covering happy-path, assertion-failure, parse-error, and
+  feature-gate-denial paths.
+
+  ./scripts/ci-local.sh — extend the Go gate section so
+      go test -run TestStreamDisciplineMatrix ./cmd/apitest/... -count=1
+  runs explicitly with a named marker. The goal is failures in CI logs
+  show the matrix name so triage is one grep away.
+
+  This task is intentionally PURE TEST INFRASTRUCTURE — no production
+  code changes. If a matrix assertion fails against the fixes in
+  M7-001/002/003, that indicates a bug in those tasks, not this one.
+definition_of_done:
+  - "All behavior tests pass"
+  - "cmd/apitest/stream_discipline_matrix_test.go exists and covers every command × format combination documented in the scope"
+  - "testdata/stream-discipline/ contains the four documented fixtures"
+  - "./scripts/ci-local.sh --go invokes TestStreamDisciplineMatrix explicitly"
+  - "The matrix test would fail against the pre-M7-001 codebase (verified on a scratch branch by reverting one M7-001 site and re-running)"
+  - "Smoke-level assertion 'apitest run <fixture> --format json | jq .' passes in CI"
+  - "go test ./... passes with no regressions"
+  - "Test coverage does not regress below 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "CHANGELOG.md updated"
+complexity: medium
+estimated_effort: "4-6 hours"

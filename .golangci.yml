@@ -1,0 +1,29 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+
+  # Keep vendored/third-party Go out of lint: web/ and site/ may contain
+  # node_modules with Go files (e.g. flatted ships a Go port).
+  exclusions:
+    paths:
+      - web/
+      - node_modules/
+
+formatters:
+  enable:
+    - gofumpt
+
+  settings:
+    gofumpt:
+      extra-rules: true
+
+  exclusions:
+    paths:
+      - web/
+      - node_modules/

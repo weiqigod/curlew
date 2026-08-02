@@ -1,0 +1,30 @@
+id: M1-026
+title: "AI exec command"
+status: done
+priority: 26
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-020]
+observable: |
+  Run `echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin --format json`.
+  Verify request executed and JSON output returned.
+behaviors:
+  - "Given apitest exec --stdin, when JSON request is piped in, then the request is executed"
+  - "Given apitest exec with inline arguments (URL, method), when executed, then request runs without a collection file"
+  - "Given --dry-run flag, when executed, then request details are shown but no HTTP request is made"
+  - "Given --log output.jsonl flag, when executed, then structured JSONL log entry is appended to the file"
+  - "Given --non-interactive flag, when an error occurs, then no prompts or interactive elements are shown"
+  - "Given --format json with exec, when executed, then output matches the same JSON schema as run"
+  - "Given invalid JSON on stdin, when parsed, then clear error message about invalid input format"
+scope: |
+  Add `exec` command to CLI. Parse stdin JSON input. Implement dry-run mode.
+  Add JSONL logging. Reuse HTTP execution and output formatters.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

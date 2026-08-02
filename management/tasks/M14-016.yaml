@@ -1,0 +1,52 @@
+id: M14-016
+title: "Backend: IGitHubAppKeyProvider + RS256 App-JWT signing"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies: []
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GitHubAppKeyProvider|FullyQualifiedName~AppJwt"
+  # Expected: Passed: >=8, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing \
+    GITHUB_APP__SLUG=apitool-checks-test \
+    GITHUB_APP__KEYPROVIDER__MODE=file \
+    GITHUB_APP__KEYPROVIDER__FILE__PATH=./Keys/github-app/test.pem \
+    dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  curl -sS http://localhost:5000/internal/github-app/jwt-self-test | jq .
+  # Expected: {"alg":"RS256","typ":"JWT","iss":<numeric_app_id>,"iat_offset_seconds":-60,"exp_offset_seconds":540,"verified":true}
+behaviors:
+  - "Given FileGitHubAppKeyProvider configured with a PEM at Keys/github-app/<slug>.pem mode 0600, when SignAppJwtAsync is called, then a JWT with header alg=RS256, typ=JWT and claims {iss=app_id, iat=now-60s, exp=iat+540s} is returned"
+  - "Given GoogleKmsGitHubAppKeyProvider configured with an RSA_SIGN_PKCS1_2048_SHA256 key, when SignAppJwtAsync is called, then signing dispatches to KMS asymmetricSign and the resulting JWT is base64url-correctly assembled"
+  - "Given the App JWT, when verified against the registered public key, then verification succeeds; the test calls JwtSecurityTokenHandler with the public key as a sanity check"
+  - "Given a request to sign for a different app_id than configured, when SignAppJwtAsync is invoked, then the call refuses with InvalidAppIdMismatch (per-product separation per docs/SPECIFICATION.md:8387)"
+  - "Given the signing fails (KMS unreachable or PEM unreadable), when SignAppJwtAsync is invoked, then the exception surfaces as GitHubAppJwtSigningFailed without leaking the PEM content into the error message or logs"
+  - "Given the structured logger filters, when an Authorization header containing 'Bearer eyJ...' is logged, then the value is redacted to '<redacted>' before emission (precondition for installation-token handling in M14-018)"
+  - "Given v4.2's IKeyProvider already exists for ES256, when this slice introduces IGitHubAppKeyProvider, then the two interfaces are distinct types — there is no shared base class and accidental cross-use is impossible by construction (RS256 lives only in IGitHubAppKeyProvider per :8359)"
+scope: |
+  Adds src/ApiTool.Backend/GitHub/IGitHubAppKeyProvider.cs with
+  SignAppJwtAsync(GitHubAppJwtClaims, ct) and GetAppId() per
+  docs/SPECIFICATION.md:8361–8385. Ships FileGitHubAppKeyProvider
+  (deploy/self-hosted/, Keys/github-app/<slug>.pem mode 0600) and
+  GoogleKmsGitHubAppKeyProvider (SaaS, RSA_SIGN_PKCS1_2048_SHA256 HSM tier).
+  RS256 is mandated by GitHub for App JWTs; this is the ONLY place RS256 lives
+  per :8359 v4.2.1 Decision #13 — the type system enforces non-mixing with the
+  ES256 IKeyProvider. App slug per Open Decision #4 default
+  (operator-chosen via GITHUB_APP__SLUG env var; the deploy/self-hosted/
+  bundle includes the runbook for registering an App with a chosen slug).
+  GHES support is explicitly out of scope per Open Decision #7; the API base
+  is hardcoded to https://api.github.com (no IGitHubApiUrlProvider abstraction).
+  Adds a structured-log redaction filter that covers Authorization-header
+  values and ghs_* tokens (precondition for M14-018's stricter rules).
+definition_of_done:
+  - "All behavior tests pass (>=8)"
+  - "Live HTTP probe of /internal/github-app/jwt-self-test returns a verified RS256 JWT"
+  - "FileGitHubAppKeyProvider documented in deploy/self-hosted/README.md with the App-registration runbook"
+  - "GHES non-support and the api.github.com hardcode documented in the provider file header"
+  - "Structured-log redaction filter unit-tested against synthetic Authorization headers and ghs_ values"
+  - "docs/SPECIFICATION.md:8350–8388 cited in IGitHubAppKeyProvider.cs header"
+complexity: high
+estimated_effort: "6-12 hours"
+track: backend

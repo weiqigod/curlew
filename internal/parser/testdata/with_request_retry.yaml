@@ -1,0 +1,23 @@
+name: Per-Request Retry Test
+retry:
+  enabled: true
+  max_attempts: 2
+requests:
+  - name: Default retry
+    request:
+      method: GET
+      url: https://example.com/default
+  - name: Custom retry
+    retry:
+      enabled: true
+      max_attempts: 5
+      initial_delay_ms: 200
+    request:
+      method: GET
+      url: https://example.com/custom
+  - name: Retry disabled
+    retry:
+      enabled: false
+    request:
+      method: GET
+      url: https://example.com/disabled

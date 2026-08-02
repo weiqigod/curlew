@@ -1,0 +1,20 @@
+name: variables-object-form
+variables:
+  api_key:
+    from_command: "op read op://prod/api/key"
+    sensitive: true
+    cache: 3600
+  region: "us-east-1"
+  api_url:
+    value: "https://api.example.com"
+requests:
+  - name: Req
+    variables:
+      request_id:
+        from_command: "uuidgen"
+    request:
+      method: GET
+      url: "{{api_url}}"
+      headers:
+        Authorization: "Bearer {{api_key}}"
+        X-Request-Id: "{{request_id}}"

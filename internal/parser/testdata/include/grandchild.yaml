@@ -1,0 +1,8 @@
+name: Grandchild
+variables:
+  d: "4"
+requests:
+  - name: Grandchild Request
+    request:
+      method: GET
+      url: https://api.example.com/grandchild

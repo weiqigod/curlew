@@ -1,0 +1,9 @@
+name: Child Override
+variables:
+  b: "99"
+  c: "3"
+requests:
+  - name: Child Override Request
+    request:
+      method: GET
+      url: https://api.example.com/child-override

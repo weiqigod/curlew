@@ -1,0 +1,92 @@
+id: M12-005
+title: "$hmacSha256 dynamic function with sensitive-key propagation"
+status: done
+priority: 2
+created: 2026-04-28
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_HmacSha256' -v ./internal/variable/...
+  # Expected: PASS — $hmacSha256('The quick brown fox jumps over the lazy dog', 'key')
+  # returns 'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8'
+  # (RFC 4231-adjacent test vector).
+
+  go test -run 'TestRegistry_HmacSha256_KeyIsSensitive' -v ./internal/variable/...
+  # Expected: PASS — when the key argument resolves from a {{secret}}
+  # variable that is in the SensitiveSet, the resolved key string is
+  # also added as a redaction-trigger value (SensitiveSet.AddValue).
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Set env var STRIPE_SIGNING_SECRET in env file (auto-sensitive by
+  # name heuristic — it contains 'secret').
+  # Add header: X-Signature: "{{$hmacSha256('{{payload}}', '{{stripe_signing_secret}}')}}"
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: rendered header is the correct hex MAC; the secret string
+  # itself never appears in any --log/--format output (replaced by [REDACTED]
+  # in serialised request and response bodies if it were to leak).
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$hmacSha256(payload, key)` is invoked with two strings, then it returns the lowercase hex of crypto/hmac.New(sha256.New, []byte(key)).Sum([]byte(payload)) (64 chars)."
+  - "Given a known HMAC test vector (payload=`The quick brown fox jumps over the lazy dog`, key=`key`), when evaluated, then the result equals `f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8`."
+  - "Given `$hmacSha256` is invoked with zero, one, or three arguments, when evaluated, then an arity-mismatch error is returned naming arity 2."
+  - "Given the second argument resolves from a sensitive variable (a name matching the heuristic in internal/variable/sensitive.go: contains 'secret', 'token', 'password', etc.) or from {{secrets.X}}, when evaluated, then the runner registers the resolved key string in the run's SensitiveSet via AddValue so it is redacted everywhere it would appear in serialised output."
+  - "Given a literal key (no variable reference, e.g. `{{$hmacSha256('p', 'literal-key')}}`), when evaluated, then no SensitiveSet mutation occurs (literal keys cannot be back-traced; document this caveat)."
+  - "Given the payload argument also resolves from a sensitive variable, when evaluated, then only the key triggers the auto-sensitive marking (HMAC payloads are typically the data being signed, not the secret; document this asymmetry)."
+  - "Given two HMAC computations in the same request with different keys, when evaluated, then both results are correct (per-request cache key includes the resolved arg values; see M12-001 cache-key behaviour)."
+scope: |
+  Add a single registration to internal/variable/dynamic.go for
+  `$hmacSha256(payload, key)` using crypto/hmac and crypto/sha256.
+
+  Sensitive-key propagation: the existing dynamic-function evaluation
+  path in internal/variable/variable.go (around lines 200-230) does not
+  currently know which variables resolved into a dynamic function's
+  args. This task plumbs that context through so the HMAC key, when
+  it resolves from a sensitive source, gets registered as a sensitive
+  *value* on the run's SensitiveSet.
+
+  Implementation outline (pick the smaller diff):
+  1. Track sensitive-arg origin during arg-string interpolation: when
+     resolving `{{var}}` placeholders inside an arg literal, if the var
+     name is sensitive, mark the arg as "key-sensitive" in a parallel
+     bool slice; the registry-side hook (a new optional callback on
+     Registry) receives the args and the per-arg sensitivity slice and
+     can choose to AddValue the resolved arg.
+  2. Alternatively, the runner wraps Registry.Evaluate with a thin
+     adapter that consults the same heuristic.
+
+  The chosen mechanism must be reusable by any future dynamic function
+  whose argument is itself a credential; for M12 only $hmacSha256
+  uses it.
+
+  Files touched:
+  - internal/variable/dynamic.go ($hmacSha256 registration)
+  - internal/variable/variable.go (arg-resolution path: track per-arg
+    sensitivity origin)
+  - internal/variable/sensitive.go (no changes expected; AddValue
+    already exists)
+  - internal/variable/dynamic_test.go (new tests including the key-
+    sensitive propagation test using a fixture with a sensitive var)
+  - internal/runner/runner.go (only if the Evaluate call site needs to
+    plumb the SensitiveSet through; expected: yes, a small change)
+  - docs/MANUAL.md §3.7 ($hmacSha256 row + a callout block on the
+    sensitive-key behaviour)
+
+  Not in scope: $hmacSha1, $hmacSha512 (defer until a real first-party
+  plugin demands them); auto-redaction of literal HMAC keys passed
+  inline (literal keys are flagged in docs as a footgun).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 documents $hmacSha256 and the key-sensitivity propagation rule, including the literal-key caveat"
+  - "A new smoke or integration fixture proves a request can produce a Stripe-style X-Signature header end-to-end"
+complexity: low

@@ -1,0 +1,29 @@
+id: M1-006
+title: "Assert on response headers and timing"
+status: done
+priority: 6
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-004]
+observable: |
+  Create collection asserting Content-Type header and max response time.
+  Run and verify.
+behaviors:
+  - "Given `assertions.headers` with `name: Content-Type` and `equals: application/json`, when header matches, then assertion passes"
+  - "Given `assertions.headers` with `operator: exists`, when header is present, then assertion passes"
+  - "Given `assertions.headers` with `operator: matches` and a regex, when header matches pattern, then assertion passes"
+  - "Given `assertions.timing.max_duration_ms: 500`, when response takes 200ms, then timing assertion passes"
+  - "Given `assertions.timing.max_duration_ms: 100`, when response takes 200ms, then timing assertion fails"
+  - "Given header assertion with case-insensitive name matching, when header name differs in case, then it still matches"
+scope: |
+  Add header and timing assertion logic to `internal/assertion/`. Track
+  response duration in `internal/http/`.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "2-3 hours"

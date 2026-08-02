@@ -1,0 +1,7 @@
+fragment PostFields on Post {
+  id
+  title
+  author {
+    ...UserFields
+  }
+}

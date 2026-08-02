@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.vscode
+**/bin
+**/obj
+**/node_modules
+**/.svelte-kit
+**/build
+**/coverage
+**/coverage.out
+**/playwright-report
+**/test-results
+apitest

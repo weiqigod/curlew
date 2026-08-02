@@ -1,0 +1,40 @@
+id: M18-003
+title: "GDPR data inventory: 13-table decision matrix, [GdprIncluded]/[GdprAnonymise] attributes, assembly scanner"
+status: done
+priority: 1
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies: []
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GdprInventory"` and see >= 10 tests pass — including one test that reflects across the EF entity assembly and asserts every one of the 13 enumerated user-attributable types (RefreshToken, OrganizationMember, EmailVerificationToken, PasswordResetToken, NotificationRule, CustomRole, Schedule, CoordinatorJob, TeamVault, OrganizationAuditLogEntry, GithubInstallation, GitLabInstallation, User) carries at least one of [GdprIncluded] or [GdprAnonymise] on its UserId/ActorId/CreatedBy properties. Confirm the inventory doc is present and content-valid:
+  `test -f docs/security/data-inventory.md && grep -c "^| \`" docs/security/data-inventory.md` returns >= 13 (one row per table). Run the scanner integration test:
+  `dotnet test --filter "FullyQualifiedName~GdprAttributeScannerTests"` confirms the scanner produces a GdprBundleManifest naming all 13 tables with their disposition (export | hard-delete | anonymise | excluded).
+
+behaviors:
+  - "Given the EF entity assembly is reflected, when GdprAttributeScanner runs, then it discovers every property tagged [GdprIncluded] and emits a GdprBundleManifest entry per discovered (Entity, Property, Disposition) triple"
+  - "Given the 13 user-attributable entities enumerated in M18_INVESTIGATION.md, when the manifest is inspected, then each appears with an explicit Disposition value drawn from {InExportInDeletionHard, InExportInDeletionAnonymise, ExcludedFromExportAnonymisedInDeletion, ExcludedFromBoth}"
+  - "Given docs/security/data-inventory.md, when it is parsed as Markdown, then it carries a table with columns Table | Owner | InExport | InDeletion | Retention | Notes and >= 13 data rows"
+  - "Given a developer adds a new user-attributable entity without GDPR attributes, when GdprInventoryCoverageTests runs in CI, then the test FAILS naming the offending entity (closes the lint-on-new-table gap so future additions can't drift)"
+  - "Given the [GdprAnonymise] attribute is placed on a property of type Guid?, when the scanner runs, then it records the property as anonymisable-to-null (used by M18-006's IUserAnonymiser to know which columns to NULL)"
+  - "Given the [GdprAnonymise] attribute is placed on a property of type string, when the scanner runs, then it records the property as anonymisable-to-token (used by M18-006 to substitute the deterministic deleted-user-{first8(sha256)} token)"
+  - "Given the assembly scanner output, when M18-004's export builder is exercised, then the export bundle's table list is exactly the InExport subset of the manifest (no hand-maintained second list to drift)"
+  - "Given the docs/security/data-inventory.md table, when human-reviewed, then every disposition matches the corresponding entity's attribute (a doc-vs-code consistency test asserts this)"
+
+scope: |
+  New file docs/security/data-inventory.md — the 13-table decision matrix per v4-4 with columns Table | Owner | InExport | InDeletion | Retention | Notes. New attributes src/ApiTool.Backend/Data/GdprAttributes/GdprIncludedAttribute.cs and GdprAnonymiseAttribute.cs (property-level). Apply attributes to UserId/ActorId/CreatedBy/etc. properties on the 13 enumerated entities under src/ApiTool.Backend/Data/Entities/. New src/ApiTool.Backend/Compliance/Gdpr/GdprAttributeScanner.cs reflects across the entity assembly and emits a GdprBundleManifest consumed by M18-004 (export builder) and M18-006 (anonymiser). New src/ApiTool.Backend.Tests/Compliance/Gdpr/GdprInventoryCoverageTests.cs is a CI guard that fails when a new user-attributable entity is added without GDPR attributes — closes the future-drift gap. This is a backend-track slice but produces a docs artefact as a load-bearing output; the dual nature is intentional and noted in scope.
+
+definition_of_done:
+  - "All behavior tests pass (>=10 tests)"
+  - "Observable command finds the inventory doc with >= 13 table rows"
+  - "Test coverage >= 80% on GdprAttributeScanner.cs"
+  - "No build warnings or lint errors"
+  - "docs/security/data-inventory.md committed and cross-linked from docs/COMPLIANCE.md placeholder"
+  - "CHANGELOG.md entry references v4-4"
+  - "CI guard GdprInventoryCoverageTests passes against the current entity set"
+  - "Doc-vs-code consistency test asserts every table row in data-inventory.md matches the scanner output disposition"
+
+complexity: medium
+estimated_effort: "medium slice"
+track: backend

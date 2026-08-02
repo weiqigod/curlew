@@ -1,0 +1,107 @@
+id: M11-004
+title: "exec --log correlation IDs: additive run_id + request_id fields"
+status: done
+priority: 1
+created: 2026-04-25
+phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+  TMP=$(mktemp -d); cd "$TMP"
+
+  # Live exec writes a JSONL entry with run_id (32-char hex) and request_id (req-1).
+  # The integration test uses an httptest.Server, not a live network.
+  go test -run 'TestExecCmd_LogContainsRunIDAndRequestID' -v ./cmd/apitest/...
+  # Expected: PASS — JSONL line contains run_id matching ^[0-9a-f]{32}$ and request_id == "req-1".
+
+  go test -run 'TestExecCmd_LogDryRun_RunIDPresent' -v ./cmd/apitest/...
+  # Expected: PASS — dry-run also emits a run_id.
+
+  # Schema fields exist on JSONLEntry.
+  grep -E '^[[:space:]]*RunID[[:space:]]+string' internal/output/jsonl.go
+  # Expected: 1 match.
+  grep -E '^[[:space:]]*RequestID[[:space:]]+string' internal/output/jsonl.go
+  # Expected: 1 match.
+
+  # MANUAL.md example shows the new fields.
+  grep -c 'run_id' docs/MANUAL.md
+  # Expected: at least 1.
+  grep -c 'request_id' docs/MANUAL.md
+  # Expected: at least 1.
+
+  # IMPROVEMENT.md §6 W5 bonus annotated.
+  grep -c 'Shipped (M11-004)' IMPROVEMENT.md
+  # Expected: at least 1.
+
+  # IMPROVEMENT.md line 3 status header carries the M11 closeout annotation.
+  head -5 IMPROVEMENT.md | grep -E 'M11|2\.4 / §6'
+  # Expected: at least 1 match.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "JSONLEntry gains RunID string `json:\"run_id,omitempty\"` and RequestID string `json:\"request_id,omitempty\"` fields. Both are populated for live exec invocations; dry-run also emits run_id (every invocation has a run_id, even when no HTTP happens)."
+  - "RunID generation uses a shared 32-char lowercase hex generator (crypto/rand). If a shared helper does not yet exist, factor it out of internal/output/events/emitter.go (around line 296) into a small package-level helper callable from both the events emitter and the exec command path. Both call sites must produce the same shape."
+  - "RequestID for exec is the literal string 'req-1' (single-request invocation; matches the run-command convention from internal/runner/runner.go:293)."
+  - "TestExecCmd_LogContainsRunIDAndRequestID writes a log file from an httptest.Server-driven exec, asserts the JSONL line contains run_id matching ^[0-9a-f]{32}$ and request_id == 'req-1'."
+  - "TestExecCmd_LogDryRun_RunIDPresent asserts dry-run also emits run_id."
+  - "docs/MANUAL.md §4.5 example JSONL line is updated to include run_id and request_id."
+  - "docs/SPECIFICATION.md exec --log mention is expanded with a brief schema reference (or links to MANUAL.md §4.5)."
+  - "CHANGELOG.md [Unreleased] gains an Added entry: exec --log entries now carry run_id and request_id correlation fields, matching the run command's events stream."
+  - "IMPROVEMENT.md §6 W5 bonus (line 355) is annotated with 'Shipped (M11-004)'."
+  - "IMPROVEMENT.md line 3 status header gains a §2.4/§6 closeout annotation referencing M11."
+scope: |
+  Last task in M11. Two additive fields on JSONLEntry plus the
+  IMPROVEMENT.md status-header closeout that wraps M11.
+
+  1. Add RunID and RequestID to JSONLEntry with omitempty JSON tags.
+     Populate from the exec command path. The run-id generator should be
+     shared with the events emitter — extract a helper if not already
+     shared. Whether to introduce a new package (e.g. internal/output/ids)
+     or place the helper alongside the existing events package is a
+     judgment call best made when reading the emitter file in context.
+     Either choice leaves the events schema untouched (no v1.x bump).
+
+  2. RequestID for exec is always 'req-1' (single-request).
+
+  3. Update tests in internal/output/jsonl_test.go and the exec block of
+     cmd/apitest/main_test.go (TestExecCmd_logFileContent area).
+
+  4. Doc updates: MANUAL.md §4.5 example, SPECIFICATION.md mention,
+     CHANGELOG entry.
+
+  5. IMPROVEMENT.md closeout. By task ordering this is the last M11
+     task to merge — it carries the line 3 status-header annotation that
+     records §2.4/§6 follow-ups closed in M11. Each previous M11 task
+     already annotated its specific bullet; this task adds the header
+     summary line. If for some reason another M11 task ships last
+     instead, that task absorbs this header edit.
+
+  Files:
+  - internal/output/jsonl.go (struct additions)
+  - internal/output/ids.go or similar (run-id generator helper)
+  - cmd/apitest/main.go (exec command path populates new fields)
+  - internal/output/jsonl_test.go and cmd/apitest/main_test.go (new + updated tests)
+  - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
+
+  Not in scope:
+  - Backwards-incompatible schema changes (fields are additive, omitempty).
+  - Adding run_id/request_id to other --log surfaces (no other --log
+    surfaces exist; the events stream already has them).
+  - Changes to the events schema version (events already at v1.2; this
+    bonus does not affect events).
+definition_of_done:
+  - "All behavior tests pass"
+  - "JSONLEntry has RunID and RequestID fields with correct JSON tags"
+  - "Exec invocations populate both fields (live and dry-run)"
+  - "MANUAL.md §4.5 example shows the new fields"
+  - "go test ./... passes"
+  - "go test -cover ./internal/output/... ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "IMPROVEMENT.md §6 W5 bonus marked Shipped"
+  - "IMPROVEMENT.md line 3 status header carries a closeout annotation for §2.4/§6 follow-ups"
+complexity: low
+estimated_effort: "0.5 day"

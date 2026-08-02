@@ -1,0 +1,40 @@
+id: M2-028
+title: "HTML report data-driven and parallel visualization"
+status: done
+priority: 5
+created: 2026-03-20
+phase: "M2: Reporting"
+
+dependencies:
+  - M2-027
+  - M2-019
+  - M2-016
+
+observable: |
+  Run data-driven tests and generate HTML report; confirm iteration summary card and table.
+  Run parallel tests and generate HTML report; confirm wave visualization.
+  Run `go test ./internal/output/...` for advanced report tests.
+
+behaviors:
+  - "Given data-driven results in HTML report, when viewed, then a summary card shows total iterations, pass rate, average duration, throughput"
+  - "Given data-driven results, when viewed, then a filterable table shows each iteration with status, duration, and data values"
+  - "Given data-driven results, when filtering by 'failed', then only failed iterations are shown"
+  - "Given parallel execution results, when viewed, then a wave diagram shows which requests ran in each wave"
+  - "Given parallel execution results, when viewed, then speedup factor and maximum parallelism are shown"
+
+scope: |
+  Extend `internal/output/html.go` with data-driven-specific visualizations (iteration
+  summary card, filterable iteration table, status filters) and parallel execution
+  visualizations (wave diagram, parallelism metrics). Use Chart.js (embedded) for
+  timeline charts showing iteration duration.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

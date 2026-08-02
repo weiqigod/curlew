@@ -1,0 +1,46 @@
+id: M14-010
+title: "Backend: ComputeProrationAsync via Stripe upcoming-invoice preview"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-008
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres stripe-mock
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~Proration"
+  # Expected: Passed: >=6, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"new_price_id":"price_test_team_monthly"}' \
+    http://localhost:5000/api/v1/subscriptions/preview-proration | jq '.amount_due_now'
+  # Expected: an integer (cents) returned by stripe-mock's upcoming-invoice preview
+behaviors:
+  - "Given an existing subscription and a new price_id, when ComputeProrationAsync is invoked, then InvoiceService.UpcomingAsync is called with subscription_proration_date=now() and the returned line items are summed to amount_due_now"
+  - "Given the IStripeGateway interface previously returned ProrationResult synchronously, when this slice ships, then the signature is async (Task<ProrationResult>) and FakeStripeGateway.ComputeProration is preserved with its local-math implementation but only used in unit tests (XML doc comment notes the intentional divergence)"
+  - "Given the new price_id equals the current price, when invoked, then amount_due_now is 0 and no Stripe call is needed (short-circuit)"
+  - "Given the org has no active subscription, when invoked, then the response is 409 no_active_subscription and no Stripe call occurs"
+  - "Given Stripe returns 'no_invoice_available' (no upcoming invoice exists), when invoked, then the API returns 200 with amount_due_now=0 and renewal_date=null"
+  - "Given the FakeStripeGateway proration math diverges from real Stripe's, when running unit tests, then assertions tolerate the documented divergence (test scope is 'shape correct' not 'cents identical')"
+scope: |
+  Adds ComputeProrationAsync to IStripeGateway and StripeGateway.cs. Calls
+  Stripe's InvoiceService.UpcomingAsync (the upcoming-invoice preview)
+  per docs/SPECIFICATION.md:6856 reference and investigation Gap-6 design.
+  The interface shifts from sync to async because Stripe computes proration
+  server-side; the existing FakeStripeGateway local-math is retained for unit
+  tests with a doc-comment noting the intentional divergence. Integration
+  tests verify wire-protocol shape against stripe-mock; the smoke pass
+  against real Stripe test mode catches actual proration drift.
+definition_of_done:
+  - "All behavior tests pass (>=6)"
+  - "Live HTTP probe via stripe-mock returns a JSON payload with amount_due_now"
+  - "IStripeGateway.ComputeProration interface migrated to async signature; all callers updated"
+  - "FakeStripeGateway retained for unit tests with doc comment explaining divergence"
+  - "deploy/self-hosted/README.md notes that proration is server-computed in live mode"
+  - "docs/SPECIFICATION.md (Stripe Test Strategy section) cited in StripeGateway.cs header"
+complexity: medium
+estimated_effort: "3-6 hours"
+track: backend

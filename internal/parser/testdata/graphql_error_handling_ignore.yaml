@@ -1,0 +1,9 @@
+name: GQL Ignore
+requests:
+  - name: Ignore Errors
+    request:
+      protocol: graphql
+      url: https://example.com/graphql
+      graphql:
+        query: "{ me { id } }"
+        error_handling: ignore

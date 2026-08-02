@@ -1,0 +1,42 @@
+id: M2-022
+title: "Data-driven integration with parallel execution and large datasets"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: Data-Driven Testing"
+
+dependencies:
+  - M2-019
+  - M2-016
+
+observable: |
+  Run data-driven with `parallel: true` and confirm concurrent iteration execution.
+  Run data-driven with 10,000+ rows and confirm streaming/chunked processing.
+  Run `go test ./internal/datadriven/...` for parallel and large dataset tests.
+
+behaviors:
+  - "Given data-driven with `parallel: true`, when executed, then iterations run concurrently (up to 20 workers)"
+  - "Given data-driven with `parallel: true` and `rate_limit_rps: 100`, when executed, then no more than 100 requests per second are sent"
+  - "Given data-driven request in dependency graph, when analyzed, then it is treated as an atomic unit (all iterations complete before dependents start)"
+  - "Given a data file with > 10,000 rows, when executed, then a confirmation prompt appears with performance estimates"
+  - "Given `store_results: failed_only`, when data-driven completes, then only failed iteration details are stored in output"
+  - "Given `store_results: summary`, when data-driven completes, then only pass/fail/timing per iteration is included"
+  - "Given data-driven with parallel and extraction, when all iterations complete, then accumulated array variables are available to dependent requests"
+
+scope: |
+  Extend `internal/datadriven/` with parallel iteration execution using a worker pool
+  (configurable, default 20 workers). Implement rate limiting with token bucket algorithm.
+  Implement streaming/chunked processing for large datasets (>10,000 rows processed in
+  1,000-row chunks). Implement result storage options (all, summary, failed_only).
+  Wire data-driven as atomic unit in parallel dependency graph.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "6-10 hours"

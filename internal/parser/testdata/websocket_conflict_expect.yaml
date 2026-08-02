@@ -1,0 +1,17 @@
+name: WebSocket Expect Conflict Test
+requests:
+  - name: Bad Expect
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/ws"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 100
+            message:
+              $.type:
+                equals: "ok"
+            any_of:
+              - message:
+                  $.type:
+                    equals: "success"

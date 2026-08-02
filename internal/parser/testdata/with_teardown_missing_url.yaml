@@ -1,0 +1,10 @@
+name: Teardown Missing URL Test
+requests:
+  - name: Main Request
+    request:
+      method: GET
+      url: https://example.com
+teardown:
+  - name: Bad Teardown
+    request:
+      method: GET

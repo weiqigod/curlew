@@ -1,0 +1,15 @@
+description: |
+  Run a collection against 127.0.0.1:1, which is always connection-refused.
+  Should emit request.end with outcome=error and error.category=network.
+  line=0 is acceptable because network errors do not originate from a YAML line.
+exit_code: 4
+events:
+  - kind: request.end
+    must_have:
+      outcome: error
+      error.category: network
+      error.line_nonzero: true
+    hint_contains_any:
+      - Check
+      - Verify
+      - Run

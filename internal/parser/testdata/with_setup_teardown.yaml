@@ -1,0 +1,20 @@
+name: Setup Teardown Test
+setup:
+  - name: Create Resource
+    request:
+      method: POST
+      url: https://example.com/resources
+requests:
+  - name: Get Resource
+    request:
+      method: GET
+      url: https://example.com/resources/1
+  - name: List Resources
+    request:
+      method: GET
+      url: https://example.com/resources
+teardown:
+  - name: Delete Resource
+    request:
+      method: DELETE
+      url: https://example.com/resources/1

@@ -1,0 +1,95 @@
+name: E2E M5 enterprise-full
+
+on:
+  # Auto-triggers disabled while GitHub Actions billing is paused.
+  # Re-enable by restoring the push/pull_request blocks once billing is resolved.
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-m5-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E enterprise-full
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      BACKEND_URL: http://localhost:5000
+      WEB_BASE_URL: http://localhost:3000
+      APITEST_BACKEND_URL: http://localhost:5000
+      # qa@acme.example user UUID — must match seed-enterprise.sh QA_USER_ID
+      QA_USER_ID: 00000000-0000-0000-0000-000000000002
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build CLI
+        run: go build -o apitest ./cmd/apitest
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Start test stack (includes fake-idp and enterprise seed)
+        run: ./scripts/test-stack.sh up
+
+      - name: Mint backend token for qa user (qa-lead custom role)
+        id: mint-qa-token
+        run: |
+          TOKEN=$(./scripts/test-token.sh qa@acme.example ${{ env.QA_USER_ID }})
+          echo "APITEST_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Run Go unit tests
+        run: go test ./...
+
+      - name: Run backend tests
+        run: dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj
+
+      - name: Run web unit tests
+        working-directory: web
+        run: npm run test:unit
+
+      - name: Run enterprise-full E2E spec
+        working-directory: web
+        run: npx playwright test tests/e2e/enterprise-full.spec.ts
+
+      - name: Dump backend logs on Playwright failure
+        if: failure()
+        run: |
+          echo "==================== backend logs ===================="
+          docker compose -f docker-compose.test.yml logs --tail 500 backend || true
+          echo "==================== fake-idp logs ===================="
+          docker compose -f docker-compose.test.yml logs --tail 200 fake-idp || true
+          echo "==================== web logs ===================="
+          docker compose -f docker-compose.test.yml logs --tail 200 web || true
+
+      - name: Tear down test stack
+        if: always()
+        run: ./scripts/test-stack.sh down
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-m5
+          path: web/playwright-report/
+          retention-days: 7

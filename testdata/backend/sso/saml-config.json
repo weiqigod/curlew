@@ -1,0 +1,6 @@
+{
+  "idp_metadata_url": "https://idp.example.com/metadata",
+  "acs_url": "http://localhost:5000/api/v1/sso/saml/00000000-0000-0000-0000-000000000000/acs",
+  "entity_id": "http://localhost:5000",
+  "idp_sso_url": "https://idp.example.com/sso"
+}

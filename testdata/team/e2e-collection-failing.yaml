@@ -1,0 +1,14 @@
+# E2E collection with a deliberately failing assertion.
+# Used to verify that --report-upload reports state=failure when assertions fail.
+name: e2e-failing-pipeline
+
+variables:
+  APITEST_BACKEND_URL: "http://localhost:5000"
+
+requests:
+  - name: expect-status-999
+    request:
+      method: GET
+      url: "{{APITEST_BACKEND_URL}}/swagger/v1/swagger.json"
+    assertions:
+      status: 999

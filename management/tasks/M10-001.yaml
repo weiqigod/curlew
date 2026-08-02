@@ -1,0 +1,148 @@
+id: M10-001
+title: "agent skill scaffolding: init --skill flag, embedded SKILL.md template, output: + .gitignore extension"
+status: done
+priority: 1
+created: 2026-04-25
+phase: "M10: Default agent skill template (IMPROVEMENT W5)"
+track: go-cli
+dependencies: [M9-005]
+observable: |
+  # init --skill claude scaffolds a project with the Claude Code skill file.
+  TMP=$(mktemp -d)
+  cd "$TMP"
+  apitest init --skill claude
+  test -f .claude/skills/apitest/SKILL.md && echo "skill scaffolded"
+  # Expected: "skill scaffolded".
+
+  # Default output: block enables the events stream and uses markdown.
+  grep -A 5 '^output:' apitest.yaml
+  # Expected:
+  # output:
+  #   format: markdown
+  #   report: responses/
+  #   events: .apitest/run.ndjson
+  #   verbosity: normal
+
+  # .gitignore is extended with the .apitest/ entry.
+  grep -E '^\.apitest/$' .gitignore
+  # Expected: one match.
+
+  # SKILL.md embeds the version comment with the apitest version substituted.
+  grep 'apitest-skill: claude v1.0 (apitest ' .claude/skills/apitest/SKILL.md
+  # Expected: one match (M10-001 ships placeholder content; the version
+  # comment is the only stable substring at this slice).
+
+  # init --skill claude --output json honors the format and still adds events.
+  TMP2=$(mktemp -d); cd "$TMP2"
+  apitest init --skill claude --output json
+  grep -A 5 '^output:' apitest.yaml | grep -E 'format: json|events: \.apitest/run\.ndjson'
+  # Expected: at least two matching lines.
+
+  # Bare init (no --skill) is byte-identical to its M9-005 baseline.
+  TMP3=$(mktemp -d); cd "$TMP3"
+  apitest init
+  grep events apitest.yaml || echo "no events reference"
+  # Expected: "no events reference" (events stream stays opt-in for bare init).
+
+  # init --skill madeup exits 3 with a clear error naming the supported skills.
+  TMP4=$(mktemp -d); cd "$TMP4"
+  apitest init --skill madeup 2>err.log; echo $?
+  grep -E 'claude' err.log
+  # Expected: exit 3; stderr names claude as a supported value.
+
+  # init --help documents the --skill flag and the enum.
+  apitest init --help | grep -E '^\s*--skill'
+  # Expected: one line documenting the flag plus the supported values.
+
+  # Pre-existing responses/ directory does not break init.
+  TMP5=$(mktemp -d); cd "$TMP5"
+  mkdir responses
+  echo "preexisting" > responses/keep.md
+  apitest init --skill claude
+  test -f responses/keep.md && echo "responses preserved"
+  # Expected: "responses preserved".
+
+  # Schema parity: the scaffolded apitest.yaml validates at the project level.
+  TMP6=$(mktemp -d); cd "$TMP6"
+  apitest init --skill claude
+  apitest validate apitest.yaml
+  # Expected: exit 0.
+
+  # Full unit + integration suite.
+  go test -run 'TestInit_SkillClaude_|TestInit_SkillFlag_|TestInit_SkillUnknown_' ./...
+  # Expected: PASS.
+behaviors:
+  - "apitest init gains a --skill <name> flag accepting the enum {claude}; --skill claude scaffolds .claude/skills/apitest/SKILL.md from an embedded template; --skill with an unknown value exits 3 and the stderr message names the supported values."
+  - "Bare apitest init (no --skill flag) is byte-identical to its M9-005 behaviour: format: terminal + verbosity: normal in apitest.yaml, .gitignore contains only the .env entry, no .claude/ directory created."
+  - "apitest init --skill claude defaults the output: block to format: markdown + report: responses/ + events: .apitest/run.ndjson + verbosity: normal; --skill claude --output <fmt> honours <fmt> and still appends events: .apitest/run.ndjson; --skill claude --output unknown exits 3 (re-using the M9-005 --output validation path)."
+  - "apitest init --skill claude extends .gitignore with .apitest/ in addition to the existing .env entry; bare init still appends only .env; ensureGitignore is refactored to accept a slice of entries while preserving existing behaviour byte-for-byte for callers who pass {.env}."
+  - "The embedded SKILL.md is treated as a Go template at scaffold time; one substitution token, {{apitest_version}}, is replaced with the cmd/apitest/main.go const version (currently 0.1.0-dev). The template lives at templates/skills/claude/apitest/SKILL.md and is exposed through a new templates/templates.go package using //go:embed (mirroring schemas/schemas.go)."
+  - "apitest init --help documents the --skill flag with the supported enum and a one-line note about the markdown default + events + .gitignore extension; the top-level apitest --help init line also gains a single-line addendum about --skill."
+  - "Pre-existing responses/ directory does not break init --skill claude; the scaffold never touches responses/ (that directory is created at first run by the markdown formatter, M9-002+). Test asserts a pre-populated responses/ directory survives unmodified."
+  - "M10-001 ships placeholder SKILL.md content (frontmatter + a notice that M10-002 will populate it); the version comment is the only line guaranteed stable across the two slices. Real content lands in M10-002."
+  - "Schema parity: a new fixture internal/schema/testdata/output_collection_skill_claude.yaml asserts the --skill claude scaffold validates against schemas/project-v1.json; TestSchema_scaffolded_all_output_formats_validate is extended to cover the --skill claude variant."
+scope: |
+  Slice 1 of W5. Plumbing only — no real skill content yet.
+
+  1. New embed package. templates/templates.go with //go:embed for
+     templates/skills/claude/apitest/SKILL.md, exposing a Render(version string)
+     (string, error) helper that does the {{apitest_version}} substitution.
+     Pattern mirrors schemas/schemas.go (M8-001).
+
+  2. Placeholder SKILL.md. Frontmatter + version comment + H1 + a "Content
+     populated by M10-002" body. Goes in repo so the embed compiles; full
+     content lands in M10-002. The placeholder body is intentionally
+     uncomfortable — a stranded user (only M10-001 merged, M10-002 stalled)
+     should immediately see the warning.
+
+  3. scaffold.Options extension. New SkillName string field. Init calls a
+     new installSkill(dir, skillName, version string) error helper when
+     SkillName != "". outputBlock gains an enableEvents bool parameter;
+     apitestYAML threads it. ensureGitignore is refactored to accept a
+     []string of entries (back-compat: existing callers pass {".env"}).
+
+  4. Scaffold default-format coupling. When SkillName == "claude" and
+     OutputFormat == "", the scaffold treats OutputFormat as "markdown"
+     for the purpose of outputBlock — the events line is added regardless
+     of format. CLI-layer validation (M9-005) is unchanged.
+
+  5. cmd/apitest/main.go. New --skill flag in initCmdOut, validated
+     against an enum {claude} (unknown -> exit 3 with a message naming the
+     supported values, mirroring the M9-005 --output validation). Threads
+     the cmd-level version const into scaffold.Init via a new ApitestVersion
+     field on scaffold.Options. printInitHelpTo documents the flag + enum.
+
+  6. Schema fixture. internal/schema/testdata/output_collection_skill_claude.yaml
+     captures the --skill claude scaffold; TestSchema_scaffolded_all_output_formats_validate
+     gains a sub-test for it.
+
+  Not in scope.
+  - Real SKILL.md content (M10-002).
+  - The mock-agent-loop test that asserts the playbook matches binary
+    behaviour (M10-002).
+  - SPECIFICATION.md, MANUAL.md, CHANGELOG, IMPROVEMENT.md updates
+    (M10-002 — those track the user-visible W5 surface).
+  - Any post-init "skill upgrade" or "skill install" subcommand (deferred).
+  - schemastore.org publishing (still deferred per IMPROVEMENT.md §8.6).
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestInit_SkillClaude_CopiesFile passes: --skill claude writes .claude/skills/apitest/SKILL.md with the version-substituted placeholder"
+  - "TestInit_SkillClaude_DefaultsMarkdown passes: --skill claude with no --output writes format: markdown"
+  - "TestInit_SkillClaude_ExtendsOutputBlock passes: every variant of --skill claude (alone and with --output {json,tap,junit,html}) appends events: .apitest/run.ndjson"
+  - "TestInit_SkillClaude_ExtendsGitignore passes: --skill claude appends .apitest/ to the new or existing .gitignore alongside .env"
+  - "TestInit_SkillClaude_PreservesExistingResponsesDir passes: a pre-populated responses/ survives init --skill claude unchanged"
+  - "TestInit_SkillClaude_OutputOverride passes: --skill claude --output json writes the json block plus the events line"
+  - "TestInit_SkillClaude_VersionInTemplate passes: the {{apitest_version}} token is substituted with the binary version; no untouched template tokens remain in the scaffolded file"
+  - "TestInit_SkillFlag_DocumentsInHelp passes: --help text includes the --skill flag and lists the supported enum"
+  - "TestInit_SkillUnknown_Exit3 passes: --skill madeup exits 3 with a stderr message naming the supported values"
+  - "TestInit_SkillClaude_FullPipeline passes: end-to-end binary invocation produces all five baseline files plus .claude/skills/apitest/SKILL.md and the extended .gitignore"
+  - "TestSchema_scaffolded_all_output_formats_validate passes: extended to cover the --skill claude scaffold against schemas/project-v1.json"
+  - "Regression: bare apitest init (no --skill, no --output) produces output byte-for-byte identical to its M9-005 behaviour (test asserts byte-equality of all five generated files)"
+  - "Regression: every existing M9-005 test continues to pass unmodified"
+  - "go test ./... passes"
+  - "go test -cover ./internal/scaffold/... ./cmd/apitest/... ./templates/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: low
+estimated_effort: "1 day"

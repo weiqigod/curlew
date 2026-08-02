@@ -1,0 +1,85 @@
+id: M8-001
+title: "Publish collection JSON Schema + document VS Code yaml.schemas snippet"
+status: done
+priority: 1
+created: 2026-04-24
+planned_date: 2026-04-24
+started_date: 2026-04-24
+review_date: 2026-04-24
+completed_date: 2026-04-24
+verified_by: ai
+branch: feature/M8-001-publish-collection-schema
+merged_pr: 117
+phase: "M8: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M7-005]
+observable: |
+  # Published schema file exists at the stable versioned path.
+  ls schemas/collection-v1.json
+  # Expected: -rw-r--r--  schemas/collection-v1.json
+
+  # Schema tests pass (DoD + negative control + drift guard + reachability).
+  go test ./internal/schema/...
+  # Expected: PASS — TestSchema_validates_scaffolded_sample,
+  # TestSchema_rejects_sample_missing_required_name,
+  # TestSchema_published_path_matches_embed,
+  # TestSchema_file_exists_at_published_path.
+
+  # `apitest schema` still emits the JSON Schema, now versioned.
+  ./apitest schema | jq -r .title
+  # Expected: "ApiTest Collection v1"
+  ./apitest schema | jq -r '.["$id"]'
+  # Expected: https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/collection-v1.json
+
+  # Manual: with redhat.vscode-yaml installed and the documented
+  # .vscode/settings.json snippet applied locally, opening
+  # collections/sample.yaml surfaces autocomplete, hover docs, and
+  # inline validation.
+behaviors:
+  - "schemas/collection-v1.json exists at repo root as a Draft 2020-12 schema with $id set to the raw.githubusercontent.com/peterlindqvist/apitest/main URL and title 'ApiTest Collection v1'."
+  - "schema.CollectionSchema returns bytes byte-identical to the contents of schemas/collection-v1.json (TestSchema_published_path_matches_embed)."
+  - "The JSON Schema validates collections/sample.yaml produced by scaffold.Init in a fresh temp dir (TestSchema_validates_scaffolded_sample)."
+  - "The JSON Schema rejects a copy of sample.yaml with the required top-level 'name' field removed (TestSchema_rejects_sample_missing_required_name)."
+  - "schemas/collection-v1.json is reachable from the test working dir via runtime.Caller walk-up (TestSchema_file_exists_at_published_path)."
+  - "docs/MANUAL.md §1.5 'Editor setup (VS Code)' documents the yaml.schemas snippet (relative path + raw URL) and names redhat.vscode-yaml as the prerequisite."
+  - "CHANGELOG.md [Unreleased] → Added has an M8-001 bullet."
+  - "`apitest schema` stdout contains the published schema content (no caller behaviour change)."
+scope: |
+  Move the embedded collection schema to schemas/collection-v1.json. New
+  repo-root package schemas/ owns the //go:embed. internal/schema/schema.go
+  becomes a one-line alias (var CollectionSchema = schemas.CollectionV1).
+  Add $id and bump title to 'ApiTest Collection v1'. Document the VS Code
+  yaml.schemas snippet in MANUAL.md §1.5. Add four tests: DoD sample-validates,
+  negative control, drift guard, file-exists. CHANGELOG entry.
+
+  Rationale for the sibling-package approach: //go:embed cannot use '..',
+  so a file at the repo root cannot be embedded directly from within
+  internal/schema/. The cleanest solution is a new schemas/ package at
+  the repo root owning the embed; internal/schema/schema.go aliases its
+  exported byte slice to preserve the public symbol name.
+
+  Not in scope (deferred to M8-002): adding auth, retry (3 levels),
+  data_driven, section object form, variables object form, and
+  constraining assertions.status to oneOf[integer, array[integer]].
+  Not in scope (permanent per IMPROVEMENT.md §7): auto-writing
+  .vscode/settings.json, VS Code extension / LSP, restricting
+  request.method to an enum.
+definition_of_done:
+  - "All behavior tests pass"
+  - "schemas/collection-v1.json exists with correct $id and title"
+  - "internal/schema/collection.json no longer exists (single source of truth)"
+  - "schema.CollectionSchema public API symbol is unchanged"
+  - "TestSchema_validates_scaffolded_sample passes"
+  - "TestSchema_rejects_sample_missing_required_name passes"
+  - "TestSchema_published_path_matches_embed passes"
+  - "TestSchema_file_exists_at_published_path passes"
+  - "docs/MANUAL.md §1.5 documents the yaml.schemas snippet"
+  - "CHANGELOG.md updated with M8-001 entry"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/schema/... ≥ 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "Manual VS Code smoke verified against collections/sample.yaml"
+complexity: low
+estimated_effort: "3-5 hours"

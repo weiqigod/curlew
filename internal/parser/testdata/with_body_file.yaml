@@ -1,0 +1,7 @@
+name: Body File Text Variant
+requests:
+  - name: Post with body_file
+    request:
+      method: POST
+      url: "https://example.com/api"
+      body_file: "bodies/payload.json"

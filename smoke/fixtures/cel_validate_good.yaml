@@ -1,0 +1,12 @@
+name: M19-005 validate good
+variables:
+  active: true
+requests:
+  - name: only-when-active
+    if: 'vars.active == true'
+    request:
+      method: GET
+      url: https://example.com
+    assertions:
+      cel:
+        - "response.status == 200"

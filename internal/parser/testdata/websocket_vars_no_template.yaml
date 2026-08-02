@@ -1,0 +1,13 @@
+name: WebSocket Vars Without Template
+requests:
+  - name: Bad Send
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/ws"
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: ping
+            variables:
+              channel: "news"

@@ -1,0 +1,15 @@
+{
+  "collection_name": "smoke-tests",
+  "run_at": "2026-04-11T08:00:00Z",
+  "duration_ms": 980,
+  "pass_count": 3,
+  "fail_count": 0,
+  "skipped_count": 0,
+  "triggered_by": "cli",
+  "git_sha": "mno7890",
+  "items": [
+    { "name": "GET /users",    "status": "passed", "duration_ms": 110, "message": null },
+    { "name": "POST /users",   "status": "passed", "duration_ms": 230, "message": null },
+    { "name": "DELETE /users", "status": "passed", "duration_ms": 640, "message": null }
+  ]
+}

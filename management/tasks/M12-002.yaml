@@ -1,0 +1,62 @@
+id: M12-002
+title: "$base64 and $base64Decode dynamic functions"
+status: done
+priority: 2
+created: 2026-04-28
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_Base64' -v ./internal/variable/...
+  # Expected: PASS — $base64('hello') returns 'aGVsbG8=';
+  # $base64Decode('aGVsbG8=') returns 'hello'.
+
+  go test -run 'TestRegistry_Base64_Roundtrip' -v ./internal/variable/...
+  # Expected: PASS — base64Decode(base64(x)) == x for ASCII, UTF-8,
+  # binary-safe (NUL byte) inputs.
+
+  go test -run 'TestRegistry_Base64_NestedVar' -v ./internal/variable/...
+  # Expected: PASS — `{{$base64('{{user}}:{{pass}}')}}` resolves the
+  # inner vars first, then base64-encodes the joined string.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a request with: header Authorization: "Basic {{$base64('user:pw')}}"
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: rendered Authorization header value is "Basic dXNlcjpwdw==".
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$base64` is invoked with one string argument, then it returns standard-base64 encoding of that string's UTF-8 bytes (encoding/base64.StdEncoding)."
+  - "Given the registry, when `$base64Decode` is invoked with one well-formed base64 string, then it returns the decoded UTF-8 string."
+  - "Given the registry, when `$base64Decode` is invoked with malformed base64 input, then it returns a structured error containing the offending input snippet (truncated to 32 chars) and the underlying decoder error."
+  - "Given a nested template `{{$base64('{{user}}:{{pass}}')}}` with user=admin and pass=secret, when interpolated, then the result is `YWRtaW46c2VjcmV0` (the base64 encoding of `admin:secret`)."
+  - "Given `$base64` is invoked with zero or two arguments, when evaluated, then it returns an arity-mismatch error naming the function and the expected arity of 1."
+  - "Given an empty string input `{{$base64('')}}`, when evaluated, then it returns the empty string (StdEncoding of zero-length bytes)."
+  - "Given that `$base64` and `$base64Decode` are pure functions of their input, when called twice with the same arg in one request, then they hit the per-request cache (single Evaluate call observable in tests via a counter wrapper)."
+scope: |
+  Add two registrations to internal/variable/dynamic.go:
+  - `$base64(s)` — encoding/base64.StdEncoding.EncodeToString([]byte(s))
+  - `$base64Decode(s)` — encoding/base64.StdEncoding.DecodeString(s),
+    return decoded string or wrap the decoder error in a structured
+    apierrors.Structured with CategoryInput.
+
+  Files touched:
+  - internal/variable/dynamic.go (two new registrations + arity=1 helper if not already provided by M12-001)
+  - internal/variable/dynamic_test.go (new TestRegistry_Base64* tests)
+  - docs/MANUAL.md §3.7 (one row each in the dynamic-functions table)
+
+  Not in scope: URL-safe base64 (would be a separate function if/when
+  needed); MIME-padding-stripping variants.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md dynamic-functions table updated with $base64 and $base64Decode rows"
+complexity: low

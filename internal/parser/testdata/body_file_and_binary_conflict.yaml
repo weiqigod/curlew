@@ -1,0 +1,8 @@
+name: Text + Binary Conflict
+requests:
+  - name: Both text and binary
+    request:
+      method: POST
+      url: "https://example.com/api"
+      body_file: "bodies/payload.json"
+      body_binary_file: "bodies/payload.bin"

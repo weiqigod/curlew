@@ -1,0 +1,15 @@
+name: GraphQL With Variables
+requests:
+  - name: Get User By ID
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query: |
+          query GetUser($id: ID!) {
+            user(id: $id) {
+              name
+            }
+          }
+        variables:
+          id: "123"

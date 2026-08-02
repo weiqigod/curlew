@@ -1,0 +1,82 @@
+id: M11-002
+title: "JSON output completeness: per-iteration data-driven entries + root summary block"
+status: done
+priority: 1
+created: 2026-04-25
+phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+  TMP=$(mktemp -d); cd "$TMP"
+  apitest init demo && cd demo
+
+  # Root summary block.
+  apitest run collections/sample.yaml --format json > out.json
+  jq '.summary | .total, .passed, .failed, .skipped' out.json | wc -l | tr -d ' '
+  # Expected: 4 (four integers, no nulls).
+
+  # Per-iteration data-driven entries.
+  REPO=$(git -C "$OLDPWD" rev-parse --show-toplevel 2>/dev/null || pwd)
+  apitest run "$REPO/cmd/apitest/testdata/datadriven_simple.yaml" --format json > dd.json
+  test "$(jq '.data_driven[0].iterations | length' dd.json)" = "$(jq '.data_driven[0].total_iterations' dd.json)"
+  # Expected: exit 0 (lengths match).
+  jq -r '.data_driven[0].iterations[0] | .name, .status, .duration_ms' dd.json
+  # Expected: three values; name has [i/N] suffix; status is passed or failed; duration_ms is a number.
+
+  go test -run 'TestJSONOutput_Summary|TestJSONOutput_DataDrivenIterations' -v ./cmd/apitest/...
+  # Expected: PASS.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "JSONOutput gains a Summary *SummaryJSON field (always populated): {total, passed, failed, skipped int}. Populated from the runner Summary in buildJSONOutput. JSON tag is `summary`."
+  - "DataDrivenJSON gains an Iterations []DataDrivenIterationJSON field, populated whenever iterations ran. Each entry: {name string, status string ('passed'|'failed'), duration_ms int64, data_columns map[string]string optional}."
+  - "DataDrivenIterationJSON.Name follows the convention used in the events stream and terminal output: 'BaseName [i/N]' (e.g. 'Create user [1/3]')."
+  - "Aggregate fields (total_iterations, passed_iterations, failed_iterations, total_duration_ms, average_duration_ms) remain unchanged. The iterations array is additive, not a replacement."
+  - "TestJSONOutput_Summary asserts the root summary block is present and accurate for pass-only and mixed-pass-fail runs."
+  - "TestJSONOutput_DataDrivenIterations asserts iterations[].length == total_iterations and per-iteration name/status/duration round-trip correctly."
+  - "docs/SPECIFICATION.md JSON-output schema section gains documentation for the summary block and per-iteration entries."
+  - "docs/MANUAL.md JSON-format section gains a data-driven JSON example and a quiet-mode summary jq example."
+  - "CHANGELOG.md [Unreleased] gains an Added entry: JSON output now includes a root summary block and per-iteration data-driven entries."
+  - "IMPROVEMENT.md §2.4 bullet 1 (the JSON half) and bullet 4 are annotated with 'Shipped (M11-002)'."
+scope: |
+  Two additive changes to the JSON formatter that close two §2.4 bullets:
+
+  1. Root summary block. Add Summary *SummaryJSON to JSONOutput.
+     SummaryJSON is {total, passed, failed, skipped int}. JSON tag is
+     `summary` (singular, lowercase). Populated unconditionally so
+     `jq '.summary.passed > 0'` works without traversing requests[].
+
+  2. Per-iteration data-driven entries. Add Iterations
+     []DataDrivenIterationJSON to DataDrivenJSON. The events stream
+     already emits per-iteration request.start / request.end pairs at
+     internal/output/events/emitter.go:176-213 — the JSON formatter
+     currently collapses those into the aggregate. Surface them.
+
+  Files:
+  - internal/output/json.go (struct additions)
+  - cmd/apitest/main.go (buildJSONOutput populates Summary + Iterations)
+  - internal/output/json_test.go and cmd/apitest/main_test.go (new + updated tests)
+  - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
+
+  Not in scope:
+  - Iteration-level per-assertion detail (events stream remains the canonical
+    fine-grained source; JSON stays at iteration granularity).
+  - Iteration-level retry-attempt or wave_index detail (the §2.4 gap was
+    iteration visibility, not full per-iteration request detail).
+  - Changes to terminal output (intentionally aggregates per request).
+  - Changes to TAP / JUnit / HTML formatters (separate tasks).
+definition_of_done:
+  - "All behavior tests pass"
+  - "JSONOutput.Summary present in every run (jq '.summary' returns object)"
+  - "DataDrivenJSON.Iterations populated for data-driven runs"
+  - "Existing JSON snapshot tests updated to expect the new shapes"
+  - "go test ./... passes"
+  - "go test -cover ./internal/output/... ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "IMPROVEMENT.md §2.4 bullets 1 (JSON half) + 4 marked Shipped"
+complexity: low
+estimated_effort: "1 day"

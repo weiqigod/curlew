@@ -1,0 +1,6 @@
+name: Child Base URL
+requests:
+  - name: Child Base URL Request
+    request:
+      method: GET
+      url: "{{base_url}}/v1/ping"

@@ -1,0 +1,33 @@
+id: M1-018
+title: "Dynamic variable functions with seed reproducibility"
+status: done
+completed_date: 2026-03-14
+verified_by: ai
+priority: 18
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-014]
+observable: |
+  Create collection using {{$uuid}} and {{$timestamp}}. Run twice with same --seed
+  and verify identical output.
+behaviors:
+  - "Given {{$timestamp}} in a request, when interpolated, then current Unix timestamp is inserted"
+  - "Given {{$uuid}} in a request, when interpolated, then a valid UUID v4 is inserted"
+  - "Given {{$randomInt}} in a request, when interpolated, then a random integer is inserted"
+  - "Given --seed 42 flag, when {{$uuid}} is used, then the same UUID is generated each run"
+  - "Given --seed 42 with multiple dynamic functions, when executed, then all produce deterministic results"
+  - "Given {{$randomEmail}} or {{$randomName}}, when interpolated, then realistic-looking values are generated"
+  - "Given an unknown function {{$unknownFunc}}, when interpolated, then error indicates the function is not recognized and lists available functions"
+  - "Given dynamic functions at precedence level 1, when a variable with the same name exists at any higher level, then the explicit variable wins"
+scope: |
+  Create dynamic function registry in internal/variable/. Implement 15 core functions.
+  Add --seed CLI flag. Integrate with variable resolution at precedence level 1.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

@@ -1,0 +1,16 @@
+description: |
+  Run a collection with syntactically invalid YAML.
+  Should emit run.error with category=parse, code=PARSE_INVALID_YAML,
+  and file+line pointing at the offending YAML line.
+exit_code: 3
+events:
+  - kind: run.error
+    must_have:
+      error.category: parse
+      error.code: PARSE_INVALID_YAML
+      error.file_nonempty: true
+      error.line_nonzero: true
+    hint_contains_any:
+      - Fix
+      - Check
+      - Verify

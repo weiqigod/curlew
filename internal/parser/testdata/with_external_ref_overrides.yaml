@@ -1,0 +1,6 @@
+name: External Ref Overrides
+requests:
+  - path: requests/get-user.yaml
+    variables:
+      user_id: "42"
+      token: "abc123"

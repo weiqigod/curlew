@@ -1,0 +1,49 @@
+id: M3-002
+title: "Glob pattern discovery for apitest run"
+status: done
+priority: 2
+created: 2026-04-10
+completed_date: 2026-04-11
+verified_by: ai
+phase: "M3: Professional Tier"
+
+dependencies: []
+
+observable: |
+  Create `testdata/discovery/` with `a_test.yaml`, `b_test.yaml`, `sub/c_test.yaml`,
+  and one non-matching `ignore.yaml`. Run
+  `go build ./cmd/apitest && ./apitest run "testdata/discovery/**/*_test.yaml"`
+  at Professional tier and verify output lists three collections executed, and
+  exit code reflects the worst collection result. Run at Free tier and verify
+  exit code 6 with a `test_discovery` feature gate message. Run
+  `go test ./internal/discovery/...` and verify all tests pass.
+
+behaviors:
+  - "Given the pattern `**/*_test.yaml`, when expanded by the discovery package, then all matching YAML files under the working directory are returned in deterministic (sorted) order"
+  - "Given a glob pattern that matches zero files, when `apitest run <pattern>` executes, then exit code 2 and a 'no collections matched' error is printed"
+  - "Given a literal file path (no glob metachars), when passed to `apitest run`, then the existing single-file behavior is preserved (no discovery pass)"
+  - "Given a `.apitestignore` file with `**/drafts/*.yaml`, when discovery runs, then ignored files are excluded from the match set"
+  - "Given three matching collections A, B, C where B fails, when executed sequentially, then A and C still run and the final exit code reflects the failure"
+  - "Given `--format json` with a glob, when executed, then the output is a single JSON document containing one result entry per matched collection"
+  - "Given a glob pattern at Free tier, when `apitest run` parses args, then exit code 6 and a feature gate for `test_discovery` is returned before any file I/O"
+  - "Given a pattern containing directory traversal (`../`), when expanded, then discovery rejects the pattern with a clear error"
+
+scope: |
+  Create new package `internal/discovery/` with `Expand(pattern string) ([]string, error)`
+  using `doublestar` (pure-Go `**` glob) or a hand-rolled walker plus
+  `filepath.Match`. Detect glob metachars (`*`, `?`, `[`) in `runCmd` to decide
+  between single-file and discovery paths. Aggregate per-collection results into
+  one combined `runner.Summary`. Honor `.apitestignore`. Register
+  `test_discovery` as a Professional-tier feature in `internal/auth/registry.go`.
+  Update help text and smoke tests.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text updated (if user-facing)"
+  - "Smoke test updated (if new capability)"
+
+complexity: medium
+estimated_effort: "5-6 hours"

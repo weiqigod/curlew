@@ -1,0 +1,1 @@
+fragment B on T { ...A }

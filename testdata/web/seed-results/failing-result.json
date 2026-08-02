@@ -1,0 +1,13 @@
+{
+  "collection_name": "notifications-e2e",
+  "run_at": "2026-04-17T08:00:00Z",
+  "duration_ms": 600,
+  "pass_count": 0,
+  "fail_count": 1,
+  "skipped_count": 0,
+  "triggered_by": "cli",
+  "git_sha": "fail001",
+  "items": [
+    { "name": "POST /api health", "status": "failed", "duration_ms": 600, "message": "Expected 200 got 503" }
+  ]
+}

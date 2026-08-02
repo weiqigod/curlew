@@ -1,0 +1,6 @@
+name: missing-variable
+requests:
+  - name: needs-undefined-var
+    request:
+      method: GET
+      url: "{{UNDEFINED_VAR}}"

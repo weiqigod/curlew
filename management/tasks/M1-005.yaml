@@ -1,0 +1,31 @@
+id: M1-005
+title: "Assert on response body with JSONPath"
+status: done
+priority: 5
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-004]
+observable: |
+  Create collection asserting `$.data.id` equals a value. Run and see
+  pass/fail per assertion.
+behaviors:
+  - "Given `assertions.body` with `path: $.data.id` and `equals: 1`, when response body has matching value, then assertion passes"
+  - "Given `assertions.body` with `path: $.data.id` and `equals: 1`, when value is 2, then assertion fails with expected vs actual"
+  - "Given `assertions.body` with `operator: exists` and a valid path, when value exists, then assertion passes"
+  - "Given `assertions.body` with `operator: not_exists`, when path has no value, then assertion passes"
+  - "Given `assertions.body` with `operator: type` and `value: string`, when value is a string, then assertion passes"
+  - "Given a JSONPath that matches nothing, when evaluated, then a clear error message indicates \"no match at path\""
+  - "Given a non-JSON response body, when body assertions are evaluated, then error indicates response is not JSON"
+scope: |
+  Add JSONPath evaluation library (or minimal implementation). Create body
+  assertion logic in `internal/assertion/`. Parse `assertions.body` array in
+  collection format.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

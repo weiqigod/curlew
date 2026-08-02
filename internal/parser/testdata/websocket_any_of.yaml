@@ -1,0 +1,17 @@
+name: WebSocket AnyOf Test
+requests:
+  - name: Subscribe
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/ws"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 100
+            any_of:
+              - message:
+                  $.type:
+                    equals: "success"
+              - message:
+                  $.type:
+                    equals: "error"

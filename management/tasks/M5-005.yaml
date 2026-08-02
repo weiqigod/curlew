@@ -1,0 +1,42 @@
+id: M5-005
+title: "Web: audit log viewer page"
+status: done
+priority: 2
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: web
+dependencies:
+  - M5-004
+observable: |
+  cd web && npm install && npm run build
+  npm run test:e2e -- tests/e2e/org-audit-log.spec.ts
+  # Expected: Playwright run OK, >=6 passing. The spec:
+  #   1. logs in as admin
+  #   2. navigates to /org/acme/audit-log
+  #   3. asserts 10 rows render newest-first with event_type, user, timestamp
+  #   4. filters by event_type=member.invited -> row count drops
+  #   5. picks date range "last 7 days" -> URL includes ?from=...
+  #   6. clicks "Export CSV" -> CSV downloads with correct rows
+behaviors:
+  - "Given an authenticated admin, when they navigate to /org/[slug]/audit-log, then the page renders a table with columns event_type, user, target, timestamp, IP"
+  - "Given 20 seeded audit rows, when the page loads, then 10 are shown per page with pagination controls"
+  - "Given the user selects event_type=member.invited in the filter dropdown, when applied, then the URL gains ?event_type=member.invited and the table reflects the filter"
+  - "Given the user picks a date range, when applied, then the URL includes ?from=... and ?to=... and only matching rows show"
+  - "Given the user clicks Export CSV, when the download finishes, then the file matches the current filter and has a header row event_type,user,target,timestamp,ip"
+  - "Given a non-admin navigates to /org/[slug]/audit-log, when the page loads, then they are redirected to /org/[slug] with an 'Admin access required' toast"
+  - "Given the route file exists, when running svelte-check, then there are no type errors"
+scope: |
+  New SvelteKit route web/src/routes/(app)/org/[slug]/audit-log/+page.svelte
+  with +page.server.ts loader. Add web/src/lib/api/audit-log.ts client.
+  Reuse the data-table component used by results dashboard. CSV export uses
+  the backend's ?format=csv passthrough via a SvelteKit endpoint at
+  /org/[slug]/audit-log/export. Tests in web/tests/e2e/org-audit-log.spec.ts.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Route appears in org sub-navigation only for admins of enterprise-tier orgs"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: medium
+estimated_effort: "4-6 hours"

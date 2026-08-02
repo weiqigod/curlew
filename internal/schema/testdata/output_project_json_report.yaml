@@ -1,0 +1,5 @@
+project_name: demo
+output:
+  format: json
+  report: results.json
+  verbosity: normal

@@ -1,0 +1,7 @@
+name: Body File Binary Variant
+requests:
+  - name: Post with body_binary_file
+    request:
+      method: POST
+      url: "https://example.com/upload"
+      body_binary_file: "bodies/payload.bin"

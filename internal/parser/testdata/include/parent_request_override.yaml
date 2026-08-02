@@ -1,0 +1,8 @@
+name: Parent Request Override
+include:
+  - ./child_request_override.yaml
+requests:
+  - name: Parent Request Override Item
+    request:
+      method: GET
+      url: https://api.example.com/parent-req-override

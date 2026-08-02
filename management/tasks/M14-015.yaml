@@ -1,0 +1,51 @@
+id: M14-015
+title: "Backend: 6-template inventory (MJML + manifests) + CI upload job"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-014
+observable: |
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~EmailTemplateInventory"
+  # Expected: Passed: >=12, Failed: 0 (one or more tests per template)
+  for slug in email_verification auth_device_code billing_receipt \
+              billing_payment_failed billing_subscription_canceled \
+              account_security_alert; do
+    dotnet run --project src/ApiTool.Backend -- dev email-preview $slug \
+      > /tmp/preview-$slug.html
+    test -s /tmp/preview-$slug.html || { echo "FAIL: $slug"; exit 1; }
+  done
+  echo "All 6 templates render."
+  # Expected: "All 6 templates render."
+behaviors:
+  - "Given six MJML files (email_verification, auth_device_code, billing_receipt, billing_payment_failed, billing_subscription_canceled, account_security_alert), when each is compiled, then each produces non-empty responsive HTML"
+  - "Given each template has a JSON sidecar manifest with slug, subject, variables, and test_data, when the manifest validator runs, then no required field is missing and every test_data key is also a declared variable"
+  - "Given the M14-014 variable-allowlist rule, when a manifest declares variables, when the compose-time check runs against a hand-crafted out-of-list variable, then it raises EmailTemplateVariableUnknown for each of the six templates"
+  - "Given the spec's M14 inventory at docs/SPECIFICATION.md:8924+, when verifying coverage, then the six implemented slugs match the six listed slugs exactly (no additions, no omissions)"
+  - "Given password_reset and trial_expiring are NOT in the M14 inventory, when scanning templates/email/, then those filenames are absent (they ship with M16 senders per investigation Decision #10)"
+  - "Given placeholder copy per Open Decision #8, when a template renders, then a header comment in each MJML file notes 'placeholder copy; product/design polish in a later non-M14 commit'"
+  - "Given the CI upload job, when it runs against a fake SendGrid in CI, then it uploads each template and writes a per-slug template ID to the secrets-store fixture"
+scope: |
+  Ships the six M14 transactional email templates per
+  docs/SPECIFICATION.md:8924+ inventory: email_verification, auth_device_code,
+  billing_receipt, billing_payment_failed, billing_subscription_canceled,
+  account_security_alert. Each template is a templates/email/<slug>.mjml +
+  templates/email/<slug>.json manifest pair. Manifests follow the schema at
+  :8941+. password_reset and trial_expiring are deliberately NOT included
+  (they ship with M16's password-reset and trial cron slices per investigation
+  Decision #10). Per Open Decision #8: ships syntactically-valid MJML with
+  placeholder copy and correct variable substitution; product/design polishes
+  copy in a separate non-M14 commit. Adds a manifest-validator unit test that
+  refuses to merge a template if a declared variable is missing test_data, or
+  vice versa. CI upload job wiring lands here (the pipeline lives in M14-014).
+definition_of_done:
+  - "All behavior tests pass (>=12)"
+  - "All six templates render via the dev preview command"
+  - "Manifest-validator unit test rejects a fixture with a missing variable"
+  - "templates/email/README.md documents the placeholder-copy convention and the variable-allowlist rule"
+  - "CI workflow .github/workflows/email-templates.yml or equivalent committed"
+  - "docs/SPECIFICATION.md:8924–8953 cited in templates/email/README.md"
+complexity: medium
+estimated_effort: "5-8 hours"
+track: backend

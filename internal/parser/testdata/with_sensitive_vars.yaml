@@ -1,0 +1,10 @@
+name: Sensitive Vars Test
+variables:
+  base_url: "https://example.com"
+  api_key: !sensitive "sk_live_abc123"
+  password: "secret123"
+requests:
+  - name: Test request
+    request:
+      method: GET
+      url: "{{base_url}}/get"

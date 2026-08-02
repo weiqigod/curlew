@@ -1,0 +1,97 @@
+---
+title: CEL invariants & conditional requests
+intent: Reach past the operator catalogue with Google CEL — assert cross-field aggregates over a list, and run a request only when the data warrants it.
+group: core
+features: [cel, chaining]
+command: apitest run collections/catalog.yaml
+order: 50
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+Most checks are a single field against a literal — that's what the operator
+catalogue is for. But some truths span a whole response: *every* item is in stock,
+the page count *matches* the array length, totals *add up*. For those, ApiTool
+embeds **Google's CEL**. It appears in exactly two places — `assertions.cel` (a list
+of boolean expressions) and `if:` (conditional execution) — and it's type-checked at
+`validate` time, so a broken expression fails before any HTTP request fires.
+
+## The collection
+
+```yaml
+# collections/catalog.yaml
+name: Catalog invariants
+requests:
+  - name: List products
+    request:
+      method: GET
+      url: "{{base_url}}/products?page=1"
+    assertions:
+      status: 200
+      cel:
+        # the array length equals the advertised page size
+        - "response.body.items.size() == response.body.page_size"
+        # every product is sellable
+        - "response.body.items.all(p, p.price > 0)"
+        - "response.body.items.all(p, p.in_stock || p.backorderable)"
+        # at least one item is featured
+        - "response.body.items.exists(p, p.featured)"
+
+  - name: Fetch next page
+    if: "previous.body.has_more"        # only runs when page 1 says there's more
+    request:
+      method: GET
+      url: "{{base_url}}/products?page=2"
+    assertions:
+      status: 200
+      cel:
+        - "response.body.items.all(p, p.price > 0)"
+```
+
+Every expression evaluates against four bindings: `response` (this request),
+`previous` (the prior request — that's how `Fetch next page` reads page 1's
+`has_more`), `vars`, and `env`.
+
+## Validate before you run
+
+CEL is parse- and type-checked offline. A typo never reaches the network:
+
+```bash
+apitest validate collections/catalog.yaml
+```
+
+```
+collections/catalog.yaml: line 9: assertions[0].cel:
+  ERR_CEL_TYPE: got int, expected bool (source: response.body.page_size)
+```
+
+## Run it
+
+```bash
+apitest run collections/catalog.yaml
+```
+
+```
+Collection: Catalog invariants
+  ✓ List products  200  94ms
+  ✓ Fetch next page  200  88ms
+
+────────────────────────────────
+  2 request(s): 2 passed, 0 failed (182ms)
+```
+
+<Callout type="output">
+	Representative output — the collection targets a catalog API. The
+	<code>ERR_CEL_TYPE</code> diagnostic matches ApiTool's documented validation
+	error format.
+</Callout>
+
+<Callout type="note">
+	Time functions like <code>now()</code> are blocked inside CEL to keep tests
+	deterministic. When an expression needs "now", set <code>vars.now</code>
+	explicitly. If you find yourself repeating the same expression across many
+	collections, that logic belongs in a plugin, not inline.
+</Callout>

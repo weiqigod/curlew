@@ -1,0 +1,42 @@
+id: M2-025
+title: "Retry output and integration with parallel/data-driven execution"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: Advanced Retries"
+
+dependencies:
+  - M2-024
+  - M2-016
+  - M2-019
+
+observable: |
+  Run a collection with retries and parallel execution and confirm retry happens within wave.
+  Run data-driven with retries and confirm per-iteration retry behavior.
+  Run `apitest run tests.yaml -v` with retries and confirm retry attempt details in output.
+  Run `go test ./internal/retry/...` for integration tests.
+
+behaviors:
+  - "Given parallel execution with retries, when a request in wave 1 is retried, then other wave 1 requests continue executing concurrently"
+  - "Given parallel execution with retries, when a retried request succeeds, then dependent requests in wave 2 proceed normally"
+  - "Given data-driven with retries, when an iteration fails after all retries, then it is marked failed but next iteration continues (unless fail_fast)"
+  - "Given verbose terminal output with retries, when a request is retried, then each attempt shows attempt number, status, and delay"
+  - "Given JSON output with retries, when a request succeeds on retry, then the output includes retry_count and attempt_details array"
+  - "Given TAP output with retries, when a request is retried, then a diagnostic comment shows retry information"
+
+scope: |
+  Extend retry integration with parallel execution (retries happen within wave execution,
+  not blocking other wave members) and data-driven testing (per-iteration retries).
+  Update all output formatters (terminal, JSON, TAP) to include retry metadata:
+  attempt count, individual attempt details (status, duration, delay), and final outcome.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

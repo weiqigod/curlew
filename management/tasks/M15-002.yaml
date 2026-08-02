@@ -1,0 +1,76 @@
+id: M15-002
+title: "SSO Enterprise tier gate at SsoService with 402/404 endpoint translation"
+status: done
+priority: 1
+created: 2026-05-06
+phase: "M15: Tier-matrix corrections"
+track: backend
+
+dependencies: []
+
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Sso&FullyQualifiedName~Tier" -v minimal
+  # Expected: tier-matrix tests pass (4 tiers × authenticated/public + no-sub case).
+
+  # End-to-end probe against a running backend with seeded fixtures:
+  # Authenticated config endpoint, non-Enterprise org → 402:
+  curl -sS -o /dev/null -w "%{http_code}\n" \
+    -H "Authorization: Bearer <free-tier-owner-token>" \
+    http://localhost:5000/api/v1/organizations/<free-org-id>/sso
+  # Expected: 402
+
+  # Public flow endpoint, non-Enterprise org → 404 with Cache-Control: no-store:
+  curl -sS -i http://localhost:5000/api/v1/sso/saml/<free-org-id>/login \
+    | head -n 20
+  # Expected: HTTP/1.1 404 Not Found; Cache-Control: no-store; empty body.
+
+  # Enterprise org continues to work:
+  curl -sS -o /dev/null -w "%{http_code}\n" \
+    -H "Authorization: Bearer <enterprise-tier-owner-token>" \
+    http://localhost:5000/api/v1/organizations/<enterprise-org-id>/sso
+  # Expected: 200 (or 404 for "not configured", never 402).
+
+behaviors:
+  - "Given an org with an active Subscription where Tier=Enterprise, when SsoService runs any SAML or OIDC method, then no tier rejection occurs and existing behavior is preserved"
+  - "Given an org with an active Subscription where Tier=Free, Professional, or Team, when SsoService runs any SAML or OIDC method, then the call is rejected with a TierIneligible signal before any other work"
+  - "Given an org with no active Subscription row, when SsoService runs any SAML or OIDC method, then the org is treated as Free and the call is rejected with the same TierIneligible signal"
+  - "Given a non-Enterprise org, when GET/PUT /api/v1/organizations/{id}/sso{,/saml,/oidc} is called by an authenticated owner, then the response is HTTP 402 Payment Required with a structured error body"
+  - "Given a non-Enterprise org, when GET /api/v1/sso/saml/{orgId}/login or POST /api/v1/sso/saml/{orgId}/acs is called, then the response is HTTP 404 Not Found with no body and a Cache-Control: no-store header"
+  - "Given a non-Enterprise org, when GET /api/v1/sso/oidc/{orgId}/login or GET /api/v1/sso/oidc/{orgId}/callback is called, then the response is HTTP 404 Not Found with no body and a Cache-Control: no-store header"
+  - "Given an Enterprise org, when any SAML or OIDC public endpoint is called, then the existing 302/401/403 behavior is preserved and the tier check does not affect the response"
+  - "Given the dev seed (if any) configures SSO on a fixture org, when M15-002 lands, then the seed inserts an Enterprise Subscription row for that org so SSO continues to function in dev"
+
+scope: |
+  Insert a tier-gate precondition in src/ApiTool.Backend/Sso/SsoService.cs
+  that loads the org's active Subscription row, treats no-row as
+  SubscriptionTier.Free, and signals TierIneligible when Tier !=
+  SubscriptionTier.Enterprise. Implementation should match the existing
+  SsoService idiom: prefer extending SsoError with a TierIneligible
+  variant and returning the existing tuple form (dto, SsoError, field,
+  message); a typed exception is acceptable if the surrounding code
+  already uses exceptions for similar branches. The check runs at the
+  top of every SsoService method that backs an SSO endpoint (config
+  upsert/get for SAML and OIDC; login redirect; ACS / callback). In
+  SamlEndpoints.cs and OidcEndpoints.cs, translate the TierIneligible
+  signal: for the authenticated /api/v1/organizations/{id}/sso* group
+  return HTTP 402 Payment Required with a structured ErrorResponse; for
+  the public /api/v1/sso/{saml,oidc}/{orgId}/* group return HTTP 404 Not
+  Found with no body and Cache-Control: no-store. Update dev seed (if
+  any) per open decision #2 to seed an Enterprise Subscription on the
+  SSO-configured fixture org. Tier-matrix coverage on the backend is
+  {Free, Professional, Team, Enterprise} plus the no-subscription
+  default-Free case — the backend SubscriptionTier enum has no Solo.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "dotnet test src/ApiTool.Backend.Tests passes; new tier-matrix tests included"
+  - "dotnet build /warnaserror passes with 0 analyzer errors"
+  - "./scripts/ci-local.sh passes"
+  - "TierIneligible signal added to SsoError (or new typed exception, matching existing SSO error idiom) under src/ApiTool.Backend/Sso/"
+  - "SsoService methods backing SSO endpoints emit the TierIneligible signal on non-Enterprise tier or missing subscription"
+  - "SamlEndpoints.cs and OidcEndpoints.cs translate the signal: 402 for authenticated config endpoints, 404 + Cache-Control: no-store for public flow endpoints"
+  - "Tier-matrix tests in src/ApiTool.Backend.Tests/Sso/ cover the full grid: {Free, Professional, Team, Enterprise, no-subscription} × {GET/PUT config, login, acs/callback}"
+  - "Dev seed (if any) updated to insert an Enterprise Subscription on the SSO-configured fixture org"
+
+complexity: low

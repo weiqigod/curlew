@@ -1,0 +1,10 @@
+name: WebSocket Auto-detect WSS
+requests:
+  - name: Echo WSS
+    request:
+      url: "wss://localhost:9999/echo"
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: ping

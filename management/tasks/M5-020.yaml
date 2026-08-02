@@ -1,0 +1,55 @@
+id: M5-020
+title: "E2E: SSO login -> audit capture -> dashboard with custom role"
+status: done
+priority: 2
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: web
+dependencies:
+  - M5-003
+  - M5-005
+  - M5-007
+observable: |
+  scripts/test-stack.sh up                  # backend + web + postgres + fake-idp
+  go build ./cmd/apitest
+  # 1. Seed an enterprise org with a custom role via API (helper):
+  scripts/seed-enterprise.sh acme qa-lead "results.upload,results.view,dashboard.view"
+  # 2. CLI uploads a result as a service token tied to the custom role:
+  APITEST_BACKEND_URL=http://localhost:5000 \
+  APITEST_BACKEND_TOKEN=$(scripts/test-token.sh qa@acme.example) \
+    ./apitest run testdata/team/e2e-collection.yaml --report-upload --org acme
+  # Expected: exit 0, stdout "Uploaded result res_..."
+  # 3. Playwright logs in via fake-idp SSO, reads the audit log, and asserts the dashboard:
+  cd web && npm run test:e2e -- tests/e2e/enterprise-full.spec.ts
+  # Expected: Playwright >=5 passing:
+  #   - SSO login via fake-idp issues a session cookie and lands on /org/acme
+  #   - /org/acme/audit-log shows a new "sso.login" row within 5s
+  #   - /org/acme/audit-log shows "results.upload" row for the CLI run
+  #   - /org/acme/results lists the uploaded run
+  #   - /org/acme/settings/roles shows the qa-lead custom role with 1 member
+  scripts/test-stack.sh down
+behaviors:
+  - "Given the docker-compose stack is up with a fake IdP, when Playwright triggers POST /sso/saml/{org_id}/acs with a signed fake-IdP response, then a session cookie is set and the user lands on /org/acme"
+  - "Given the user lands on /org/acme, when /org/acme/audit-log is loaded, then a row with event_type=sso.login and the user's email is visible within 5 seconds"
+  - "Given the CLI ran apitest run --report-upload with a service token assigned to the qa-lead custom role, when the upload completes, then the backend accepts it because the role grants results.upload"
+  - "Given the upload succeeds, when /org/acme/audit-log is refreshed, then a row with event_type=results.upload and the service token's display name is visible"
+  - "Given the uploaded run exists, when /org/acme/results is loaded, then the run is listed in the recent runs table within 5 seconds"
+  - "Given the qa-lead custom role is in use, when /org/acme/settings/roles is loaded, then the row for qa-lead shows member_count=1 and is_builtin=false"
+  - "Given scripts/test-stack.sh down is run, when invoked, then all containers including the fake IdP stop and the test volume is removed"
+  - "Given svelte-check, golangci-lint, and dotnet build run on touched files, then no issues are reported"
+scope: |
+  Convergence slice — no new production endpoints or CLI commands. Stitch
+  together M5-001/2/3 (SSO), M5-004/5 (audit), M5-006/7 (custom roles), and
+  the existing M4-004 results pipeline into a single end-to-end Playwright
+  test. Adds a fake IdP sidecar (simple SAML responder) to
+  docker-compose.test.yml, scripts/seed-enterprise.sh, testdata/enterprise/
+  fixtures, and web/tests/e2e/enterprise-full.spec.ts.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80% (e2e spec with >=5 assertions + failure path)"
+  - "No build warnings or lint errors"
+  - "scripts/test-stack.sh seeds fake-idp service and the qa-lead custom role"
+  - "CI job e2e-m5 added that runs enterprise-full.spec.ts on a Linux runner"
+complexity: high
+estimated_effort: "8-12 hours"

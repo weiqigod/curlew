@@ -1,0 +1,67 @@
+id: M14-021
+title: "E2E: login → run --report-upload → check-run posted → receipt email queued"
+status: done
+priority: 1
+created: 2026-05-03
+planned_date: 2026-05-06
+completed_date: 2026-05-06
+verified_by: ai
+branch: feature/M14-021-e2e-revenue-loop
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-006
+  - M14-013
+  - M14-015
+  - M14-018
+observable: |
+  ./scripts/ci-local.sh --full
+  # Expected: docker-compose stack (backend + web + postgres + stripe-mock + github-mock) up
+  # Expected: M14 e2e job passes
+  go build ./cmd/apitest
+  ./apitest login --no-browser     # against the local stack
+  ./apitest run testdata/m14/e2e-collection.yaml \
+    --report-upload --org acme --pr 7 --repo acme/api
+  # Expected: stdout "Uploaded result res_...; check-run posted; status=success"; exit 0
+  cd web && npm run e2e -- tests/e2e/m14-revenue-loop.spec.ts
+  # Expected: Playwright >=5 passing:
+  #   - dashboard /org/acme/runs shows the new run
+  #   - /org/acme/integrations/github shows posted_at within 5s of upload
+  #   - email queue audit page lists a billing_receipt row from the simulated invoice.payment_succeeded
+  #   - github-mock recorded call log shows POST /repos/acme/api/check-runs
+  ./scripts/ci-local.sh --down
+behaviors:
+  - "Given the full docker-compose stack is up via ./scripts/ci-local.sh --full, when apitest login --no-browser runs, then a refresh-token family is established server-side and persisted via internal/backend storage"
+  - "Given login succeeded, when apitest run --report-upload --org acme --pr 7 --repo acme/api executes against testdata/m14/e2e-collection.yaml, then the License JWT is offline-verified, the run is uploaded to the backend, and a check-run is posted to github-mock for the configured installation"
+  - "Given the M14-018 worker posts the check-run, when the Playwright spec inspects /org/acme/integrations/github, then posted_at is set within 5s and check_run_id is non-null"
+  - "Given a stripe-mock invoice.payment_succeeded event is replayed via scripts/replay-stripe-event.sh, when the M14-013 handler processes it, then the EmailQueueProcessor consumes a billing_receipt EmailMessage and the email-audit page lists the row"
+  - "Given Open Decision #1's bounded scope (happy-path only), when reviewing this slice, then failure-mode coverage (revoked refresh family, webhook quarantine, App suspended) lives in each cluster's slice tests, NOT in this convergence test"
+  - "Given the e2e spec runs, when ci-local.sh --down is invoked, then all containers stop and the test database is cleaned"
+  - "Given Playwright runs, when assertions execute, then >=5 pass: run-listed, check-run-posted, receipt-email-queued, github-mock-call-recorded, exit-code-0"
+scope: |
+  Convergence slice. NO new endpoints, NO new CLI commands, NO new database
+  tables. Wires the existing surface end-to-end:
+    apitest login → /auth/device/start + /auth/device/poll
+        → backend mints License JWT + Access token + refresh token
+    apitest run --report-upload
+        → /api/v1/results upload (existing M4-004)
+        → /api/v1/pr-checks (M4-007) → M14-018 worker posts to github-mock
+    scripts/replay-stripe-event.sh invoice.payment_succeeded
+        → M14-013 handler enqueues billing_receipt email
+        → M14-014 EmailQueueProcessor consumes it (logged in audit page)
+  Ships testdata/m14/e2e-collection.yaml and
+  web/tests/e2e/m14-revenue-loop.spec.ts. Extends scripts/ci-local.sh --full
+  to seed: one team-tier org, one device, one stripe customer in stripe-mock,
+  one github_installations row pointing at github-mock. Per Open Decision #1,
+  the convergence slice is HAPPY-PATH ONLY; failure modes are tested per
+  cluster.
+definition_of_done:
+  - "Playwright spec passes with >=5 assertions"
+  - "All four cluster heads (M14-006, M14-013, M14-015, M14-018) verified to interoperate end-to-end"
+  - "scripts/ci-local.sh --full and --down idempotent (covered by a smoke test)"
+  - "testdata/m14/e2e-collection.yaml and the Playwright spec checked in"
+  - "docs/M14_INVESTIGATION.md updated with a 'verified end-to-end on <date>' marker (doc-only commit on completion)"
+  - "CI workflow .github/workflows/m14-e2e.yml runs on PRs touching backend/cmd/apitest/web"
+  - "MANUAL.md gains the apitest login + apitest run --report-upload walkthrough section"
+complexity: high
+estimated_effort: "8-12 hours"
+track: e2e

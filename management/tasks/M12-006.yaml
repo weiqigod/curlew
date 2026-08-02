@@ -1,0 +1,86 @@
+id: M12-006
+title: "$dateAdd and $dateSubtract relative-time arithmetic"
+status: done
+priority: 2
+created: 2026-04-28
+completed_date: 2026-04-28
+verified_by: ai
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_DateAdd' -v ./internal/variable/...
+  # Expected: PASS — using a frozen time.Now via a test clock injection,
+  # $dateAdd('1', 'day') returns now+24h as ISO-8601 UTC.
+
+  go test -run 'TestRegistry_DateSubtract' -v ./internal/variable/...
+  # Expected: PASS — $dateSubtract('30', 'minute') returns now-30m as
+  # ISO-8601 UTC.
+
+  go test -run 'TestRegistry_DateAdd_AllUnits' -v ./internal/variable/...
+  # Expected: PASS — second, minute, hour, day, week, month, year all
+  # produce expected offsets relative to a frozen now.
+
+  go test -run 'TestRegistry_DateAdd_InvalidUnit' -v ./internal/variable/...
+  # Expected: PASS — unit='fortnight' returns a structured error listing
+  # the seven allowed units.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a body field expires_at: "{{$dateAdd('7', 'day')}}"
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: expires_at is an ISO-8601 UTC string seven days in the future.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$dateAdd(amount, unit)` is invoked with amount='1' unit='hour', then it returns ISO-8601 UTC (`2006-01-02T15:04:05Z`) one hour after now."
+  - "Given the registry, when `$dateSubtract('7', 'day')` is invoked, then it returns ISO-8601 UTC seven days before now."
+  - "Given a negative amount `$dateAdd('-3', 'hour')`, when evaluated, then it returns now-3h (negative amounts work; equivalent to dateSubtract)."
+  - "Given an unknown unit `$dateAdd('1', 'fortnight')`, when evaluated, then a structured error is returned naming the function, the bad unit, and the allowed list (second, minute, hour, day, week, month, year)."
+  - "Given a non-integer amount `$dateAdd('1.5', 'hour')`, when evaluated, then a structured error is returned (amount must be an integer; document that decimal hours are not supported — use $dateAdd('90', 'minute') instead)."
+  - "Given amount='12' unit='month' on date 2026-01-31, when evaluated, then the result follows time.AddDate semantics (which may roll forward to 2027-03-03 because Feb 31 doesn't exist); document this Go-stdlib behaviour."
+  - "Given `$dateAdd` or `$dateSubtract` is invoked with zero, one, or three arguments, when evaluated, then an arity-mismatch error is returned naming arity 2."
+  - "Given a frozen test clock, when both functions are called with amount='0' unit='second', then they both return the current ISO-8601 UTC instant (the same value, byte-for-byte)."
+scope: |
+  Add two registrations to internal/variable/dynamic.go:
+  - `$dateAdd(amount, unit)`
+  - `$dateSubtract(amount, unit)` (== $dateAdd with negated amount)
+
+  Implementation: parse amount via strconv.Atoi (reject non-integer);
+  switch on unit:
+    second/minute/hour -> time.Duration arithmetic via time.Now().Add()
+    day                -> time.Now().AddDate(0, 0, n)
+    week               -> time.Now().AddDate(0, 0, 7*n)
+    month              -> time.Now().AddDate(0, n, 0)
+    year               -> time.Now().AddDate(n, 0, 0)
+  Format result with `.UTC().Format("2006-01-02T15:04:05Z")` to match
+  the existing `$isoTimestamp` shape.
+
+  Test injection: introduce (or reuse) a clock seam — the cleanest
+  is to add an unexported `now func() time.Time` field on Registry,
+  default to time.Now, overridable in tests. This will also be useful
+  for M12-007.
+
+  Files touched:
+  - internal/variable/dynamic.go (two registrations + clock seam)
+  - internal/variable/dynamic_test.go (full unit-coverage table, frozen-
+    clock golden tests, error path tests)
+  - docs/MANUAL.md §3.7 (two rows + a short paragraph on the seven
+    units, the AddDate month-rollover caveat, and the integer-only
+    amount restriction)
+
+  Not in scope: business-day arithmetic; timezone-aware bases (always
+  UTC); explicit base-date argument (defer to a future $dateAdd-from
+  if needed; see ambiguities note in milestone-mapping.md).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 documents $dateAdd, $dateSubtract, the seven units, and the month-rollover caveat"
+complexity: low

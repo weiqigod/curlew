@@ -1,0 +1,386 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://apitest.dev/events-schema/v1.2.json",
+  "title": "ApiTool Agent Event Stream v1.2",
+  "description": "NDJSON event stream emitted by apitest run when --events is provided. Each line is one event object matching exactly one of the definitions below. v1.2 adds an optional 'request_slug' field to request.start and request.end derived from the request name.",
+  "version_status": "stable",
+  "oneOf": [
+    { "$ref": "#/definitions/RunStart" },
+    { "$ref": "#/definitions/RunError" },
+    { "$ref": "#/definitions/RequestStart" },
+    { "$ref": "#/definitions/RequestEnd" },
+    { "$ref": "#/definitions/AssertionResult" },
+    { "$ref": "#/definitions/RunEnd" }
+  ],
+  "definitions": {
+    "Header": {
+      "type": "object",
+      "required": ["schema_version", "run_id", "id", "at_ms", "kind"],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "const": "1.2",
+          "description": "Schema version. Always 1.2 for this stream."
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque run identifier. Same across all events in one run."
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Monotonically increasing event counter. Starts at 1 (RunStart)."
+        },
+        "at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Milliseconds since run start (monotonic; RunStart is always 0)."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "run.start",
+            "run.error",
+            "request.start",
+            "request.end",
+            "assertion.result",
+            "run.end"
+          ],
+          "description": "Event kind discriminator."
+        }
+      }
+    },
+    "EventError": {
+      "type": "object",
+      "required": ["category", "message"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "parse",
+            "network",
+            "config",
+            "assertion",
+            "auth",
+            "input",
+            "internal"
+          ],
+          "description": "Error category from the apierrors taxonomy."
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code (e.g. NETWORK_DNS).",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message."
+        },
+        "hint": {
+          "type": "string",
+          "description": "Suggested remediation hint.",
+          "minLength": 1
+        },
+        "file": {
+          "type": "string",
+          "description": "Source file where the error originated.",
+          "minLength": 1
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number in the source file."
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunStart": {
+      "allOf": [
+        { "$ref": "#/definitions/Header" }
+      ],
+      "required": [
+        "schema_version", "run_id", "id", "at_ms", "kind",
+        "started_at", "apitest_version", "cli_args"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.2" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "at_ms": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "const": "run.start" },
+        "started_at": {
+          "type": "string",
+          "description": "RFC3339Nano UTC timestamp when the run began."
+        },
+        "apitest_version": {
+          "type": "string",
+          "description": "apitest binary version.",
+          "minLength": 1
+        },
+        "cli_args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "CLI arguments passed to the run command. Caller is responsible for redacting sensitive values."
+        },
+        "collection_file": {
+          "type": "string",
+          "description": "Path to the collection file, if provided."
+        },
+        "env_name": {
+          "type": "string",
+          "description": "Environment name selected for this run, if any."
+        },
+        "selection": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Names passed via --only for this run. Omitted when --only was not supplied. Added in v1.1."
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunError": {
+      "allOf": [
+        { "$ref": "#/definitions/Header" }
+      ],
+      "required": [
+        "schema_version", "run_id", "id", "at_ms", "kind",
+        "error"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.2" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "at_ms": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "const": "run.error" },
+        "error": { "$ref": "#/definitions/EventError" }
+      },
+      "additionalProperties": false
+    },
+    "RequestStart": {
+      "allOf": [
+        { "$ref": "#/definitions/Header" }
+      ],
+      "required": [
+        "schema_version", "run_id", "id", "at_ms", "kind",
+        "request_id", "method", "url"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.2" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "at_ms": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "const": "request.start" },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque request identifier. Paired with the corresponding request.end."
+        },
+        "request_slug": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URL-safe identifier derived from name. NFKD-normalized, lowercased, non-alphanumeric runs collapsed to '-'. Added in v1.2."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable request name, if available."
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method (GET, POST, etc.)."
+        },
+        "url": {
+          "type": "string",
+          "description": "Resolved URL for this request."
+        },
+        "phase": {
+          "type": "string",
+          "description": "Run phase name, if applicable."
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Source file where this request was defined."
+        },
+        "source_line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line in source_file where this request was defined."
+        }
+      },
+      "additionalProperties": false
+    },
+    "RequestEnd": {
+      "allOf": [
+        { "$ref": "#/definitions/Header" }
+      ],
+      "required": [
+        "schema_version", "run_id", "id", "at_ms", "kind",
+        "request_id", "outcome", "duration_ms"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.2" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "at_ms": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "const": "request.end" },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_slug": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URL-safe identifier derived from name; matches the paired request.start. Added in v1.2."
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["passed", "failed", "skipped", "error"],
+          "description": "Terminal state: passed=all assertions passed, failed=assertion failure, skipped=skipped by runner, error=network/pre-flight error."
+        },
+        "status_code": {
+          "type": "integer",
+          "minimum": 100,
+          "description": "HTTP response status code. Absent when outcome=skipped or outcome=error."
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Round-trip duration in milliseconds."
+        },
+        "wave_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based wave index when running in parallel waves."
+        },
+        "request_body": {
+          "type": "string",
+          "description": "Request body content (UTF-8 text, or base64 if request_body_encoding=base64)."
+        },
+        "request_body_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Original request body size in bytes. Present only when truncated."
+        },
+        "request_body_truncated": {
+          "type": "boolean",
+          "description": "True when request body was truncated to body limit."
+        },
+        "request_body_encoding": {
+          "type": "string",
+          "enum": ["base64"],
+          "description": "Present and set to 'base64' when request body content is base64-encoded binary."
+        },
+        "response_body": {
+          "type": "string",
+          "description": "Response body content (UTF-8 text, or base64 if response_body_encoding=base64)."
+        },
+        "response_body_size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Original response body size in bytes. Present only when truncated."
+        },
+        "response_body_truncated": {
+          "type": "boolean",
+          "description": "True when response body was truncated to body limit."
+        },
+        "response_body_encoding": {
+          "type": "string",
+          "enum": ["base64"],
+          "description": "Present and set to 'base64' when response body content is base64-encoded binary."
+        },
+        "error": { "$ref": "#/definitions/EventError" }
+      },
+      "additionalProperties": false
+    },
+    "AssertionResult": {
+      "allOf": [
+        { "$ref": "#/definitions/Header" }
+      ],
+      "required": [
+        "schema_version", "run_id", "id", "at_ms", "kind",
+        "request_id", "type", "passed"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.2" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "at_ms": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "const": "assertion.result" },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": ["status", "body", "header", "schema"],
+          "description": "Assertion type discriminator."
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "True when the assertion passed."
+        },
+        "expected": {
+          "type": "string",
+          "description": "Expected value (stringified)."
+        },
+        "actual": {
+          "type": "string",
+          "description": "Actual value (stringified)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "RunEnd": {
+      "allOf": [
+        { "$ref": "#/definitions/Header" }
+      ],
+      "required": [
+        "schema_version", "run_id", "id", "at_ms", "kind",
+        "duration_ms", "total", "passed", "failed", "skipped",
+        "exit_code", "event_count"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.2" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "id": { "type": "integer", "minimum": 1 },
+        "at_ms": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string", "const": "run.end" },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total run duration in milliseconds."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of requests executed."
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of requests that passed."
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of requests that failed."
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of requests that were skipped."
+        },
+        "exit_code": {
+          "type": "integer",
+          "description": "Process exit code. 0 = success, 1 = failure."
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of events emitted for this run, including RunStart and RunEnd."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

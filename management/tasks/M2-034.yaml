@@ -1,0 +1,42 @@
+id: M2-034
+title: "WebSocket reconnection, heartbeat, and parallel connection support"
+status: done
+priority: 5
+created: 2026-03-20
+phase: "M2: WebSocket"
+
+dependencies:
+  - M2-033
+  - M2-016
+
+observable: |
+  Configure `reconnect: { enabled: true }` and confirm auto-reconnection on drop.
+  Configure `heartbeat: { enabled: true }` and confirm periodic ping/pong.
+  Run multiple independent WebSocket tests in parallel.
+  Run `go test ./internal/websocket/...` for reconnection and parallel tests.
+
+behaviors:
+  - "Given `reconnect: { enabled: true, max_attempts: 3, backoff: exponential }`, when the connection drops mid-test, then reconnection is attempted"
+  - "Given `heartbeat: { enabled: true, interval_ms: 30000 }`, when enabled, then ping messages are sent periodically and pong is expected"
+  - "Given heartbeat enabled and no pong received, when the heartbeat times out, then the test fails with connection error"
+  - "Given two independent WebSocket tests in a parallel collection, when `--parallel` is used, then both connections are established concurrently"
+  - "Given a WebSocket test within parallel execution, steps within one connection remain sequential"
+  - "Given WebSocket auto-detection, when URL uses `ws://` or `wss://` scheme, then WebSocket protocol is auto-selected"
+
+scope: |
+  Extend `internal/websocket/` with reconnection logic (configurable max_attempts and
+  backoff strategy), heartbeat/ping-pong support with configurable interval, and integration
+  with parallel execution (independent WebSocket connections can run concurrently,
+  steps within a single connection are always sequential). Implement URL scheme
+  auto-detection for `ws://` and `wss://`.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

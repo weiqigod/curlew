@@ -1,0 +1,6 @@
+name: Invalid Protocol
+requests:
+  - name: Bad Protocol
+    request:
+      protocol: grpc
+      url: "https://api.example.com/rpc"

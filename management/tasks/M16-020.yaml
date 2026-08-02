@@ -1,0 +1,38 @@
+id: M16-020
+title: "Web /dashboard page with overview cards, trend chart, and failing endpoints"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-019
+
+track: web
+
+observable: |
+  With the backend stack running and result fixtures seeded, sign in as a Team-tier org admin and navigate to `http://localhost:5173/org/<slug>/dashboard`. Observe overview cards (Total Runs, Pass Rate %, Avg Duration ms, p50/p95 Duration ms), a daily-aggregation pass-rate trend line chart (defaulted to 30d), a recent-runs table (existing data shape), and a top-10 frequently-failing-endpoints list. Switch the window selector to 7d and 90d; both refresh the page state. As a Free-tier user, navigate to the same URL and observe the tier-gate prompt rendered in place of the dashboard. Run `cd web && npm run test:e2e -- --grep "dashboard"` — all pass.
+
+behaviors:
+  - "Given a Free-tier org navigates to /org/<slug>/dashboard, when the page loads, then it shows the tier-gate upgrade prompt (handles 402 from /results/stats)"
+  - "Given a Team-tier org with results, when the page loads with default ?window=30d, then it calls GET /results/stats and renders the four overview cards with values from the totals object"
+  - "Given the trend array is non-empty, when the chart renders, then it shows a daily pass-rate line with x-axis = date and y-axis = pass_rate (0-1) for each entry"
+  - "Given the user clicks the window selector and chooses 7d, when the URL updates to ?window=7d, then both /results/stats and /results/failures are refetched with window=7d and the page state updates"
+  - "Given the user passes ?window=14d via URL hack, when the page loads, then the dashboard shows the 400 error returned by the backend (per M16-019 Open Decision 10) without crashing"
+  - "Given /results/failures returns 10 items, when the failing-endpoints list renders, then each row shows method, path_template, failure_count, last_seen_at relative time"
+  - "Given the org has zero results in the window, when the page renders, then it shows an empty-state message ('No runs in this window') instead of broken charts"
+  - "Given the page is reachable from the existing org sidebar nav, when a Team-tier user clicks the 'Dashboard' nav item, then they land on /org/<slug>/dashboard"
+
+scope: |
+  New SvelteKit route `web/src/routes/(app)/org/[slug]/dashboard/` with `+page.svelte` (overview cards + trend chart + recent-runs table + frequently-failing-endpoints list) and `+page.server.ts` calling `/results/stats` and `/results/failures` with the user-selected window. Use an existing chart library (e.g., `chart.js` already in dev deps, or `layercake`); minimum-viable visualization. Window selector binds to `?window=` query param. Add the dashboard nav entry to the existing sidebar. Minimum-viable working page (per Open Decision 11) — no visual polish required; copy/aesthetics are not blocking review.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Page accessible via dashboard nav; minimum-viable form works (no visual polish required)"
+  - "Playwright specs pass headlessly (`npm run test:e2e --grep dashboard`)"
+
+complexity: medium
+estimated_effort: "3-6 hours"

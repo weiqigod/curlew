@@ -1,0 +1,43 @@
+id: M5-007
+title: "Web: custom role editor UI"
+status: done
+priority: 3
+created: 2026-04-18
+completed_date: 2026-04-19
+verified_by: ai
+phase: "M5: Enterprise Tier"
+track: web
+dependencies:
+  - M5-006
+observable: |
+  cd web && npm install && npm run build
+  npm run test:e2e -- tests/e2e/org-roles.spec.ts
+  # Expected: Playwright run OK, >=6 passing. The spec:
+  #   1. logs in as owner
+  #   2. navigates to /org/acme/settings/roles
+  #   3. creates role "qa-lead" with 4 permission checkboxes ticked
+  #   4. asserts the new role appears in the roles table
+  #   5. edits the role to add one more permission -> PATCH fires
+  #   6. attempts to delete a role in use -> error toast "Role is assigned to N members"
+behaviors:
+  - "Given an owner, when they navigate to /org/[slug]/settings/roles, then the page lists built-in roles (read-only) and custom roles (editable) with member counts"
+  - "Given the owner clicks 'Create role', when the form is submitted with name and checked permissions, then POST /organizations/{id}/roles is called and the new row appears in the table"
+  - "Given an owner edits a custom role, when the form is saved, then PATCH /organizations/{id}/roles/{role_id} is called and the row updates"
+  - "Given a custom role assigned to members, when the owner clicks Delete and confirms, then DELETE /roles/{role_id} returns 409 and an error toast 'Role assigned to N members' is shown"
+  - "Given the permission matrix, when the form renders, then permissions are grouped by category (Member Management, Billing, Org Settings, Service Tokens, Test Resources, Dashboard) matching the spec table"
+  - "Given a non-owner navigates to /org/[slug]/settings/roles, when the page loads, then the user is redirected with an 'Owner access required' toast"
+  - "Given the route file exists, when running svelte-check, then there are no type errors"
+scope: |
+  New SvelteKit route web/src/routes/(app)/org/[slug]/settings/roles/+page.svelte
+  with +page.server.ts loader. Add web/src/lib/api/roles.ts typed client.
+  Permission picker component groups the static permission catalogue into
+  sections from the spec's matrix. Tests in web/tests/e2e/org-roles.spec.ts.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Route appears under org settings only for owners of enterprise-tier orgs"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: medium
+estimated_effort: "4-6 hours"

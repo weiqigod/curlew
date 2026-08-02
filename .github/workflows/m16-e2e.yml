@@ -1,0 +1,87 @@
+name: M16 E2E happy path
+
+on:
+  # Auto-triggers disabled while GitHub Actions billing is paused.
+  # Re-enable by restoring the push/pull_request blocks once billing is resolved.
+  workflow_dispatch:
+
+concurrency:
+  group: m16-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  m16-e2e:
+    name: M16 happy-path E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      BACKEND_URL: http://localhost:5000
+      WEB_BASE_URL: http://localhost:3000
+      APITEST_BACKEND_URL: http://localhost:5000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build CLI
+        run: go build -o apitest ./cmd/apitest
+
+      - name: Run Go unit tests
+        run: go test ./...
+
+      - name: Run backend tests
+        run: dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Run web unit tests
+        working-directory: web
+        run: npm run test:unit
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Start test stack
+        run: ./scripts/test-stack.sh up
+
+      - name: Mint backend token for CLI uploads
+        id: mint-token
+        run: |
+          TOKEN=$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)
+          echo "APITEST_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Run M16 happy-path E2E scenario
+        run: ./scripts/m16-e2e.sh
+
+      - name: Tear down test stack
+        if: always()
+        run: ./scripts/ci-local.sh --down
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m16-playwright-report
+          path: web/playwright-report/
+          retention-days: 7

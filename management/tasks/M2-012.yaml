@@ -1,0 +1,39 @@
+id: M2-012
+title: "Watch mode terminal UX and incremental feedback"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: Watch Mode"
+
+dependencies:
+  - M2-011
+
+observable: |
+  Run `apitest watch tests.yaml` and modify the collection.
+  Confirm the terminal clears and shows re-run results with clear timestamps.
+  Run `apitest watch tests.yaml --format json` and confirm JSON output per run.
+  Run `go test ./internal/watch/...` for watch UX tests.
+
+behaviors:
+  - "Given watch mode running, when a re-run is triggered, then the terminal shows a separator with timestamp and change trigger file name"
+  - "Given watch mode running, when results are displayed, then pass/fail counts include a running total across all re-runs"
+  - "Given watch mode with `--format json`, when a re-run is triggered, then each run outputs a complete JSON object"
+  - "Given watch mode running, when the first run completes, then the output shows 'Watching for changes...' with list of watched files"
+  - "Given watch mode with invalid collection after edit, when the file is saved, then the parse error is shown and watch continues"
+
+scope: |
+  Enhance `internal/watch/` with terminal UX: clear separator between runs, timestamp
+  display, running totals, file change trigger information. Support `--format json` for
+  structured output per run. Handle parse errors gracefully (show error, continue watching).
+  Support `--clear` flag to clear terminal between runs.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

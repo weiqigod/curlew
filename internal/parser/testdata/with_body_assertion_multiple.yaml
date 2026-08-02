@@ -1,0 +1,14 @@
+name: Body Multiple Test
+requests:
+  - name: Check Body
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      body:
+        $.id:
+          equals: 1
+        $.name:
+          type: string
+        $.token:
+          exists: true

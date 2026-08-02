@@ -1,0 +1,75 @@
+id: M14-019
+title: "Backend: POST /webhooks/github + github_webhook_events idempotency"
+status: done
+priority: 2
+created: 2026-05-03
+completed_date: 2026-05-06
+verified_by: ai
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-017
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet ef database update --project src/ApiTool.Backend
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GitHubWebhookEndpoint|FullyQualifiedName~GitHubInstallationEvents"
+  # Expected: Passed: >=12, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing \
+    GITHUB__WEBHOOK_SECRETS=whsec_test \
+    dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  BODY='{"action":"created","installation":{"id":12345,"app_id":111}}'
+  SIG="sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac whsec_test -binary | xxd -p -c 256)"
+  DELIVERY=$(uuidgen)
+  curl -sS -i -X POST http://localhost:5000/webhooks/github \
+    -H "X-Hub-Signature-256: $SIG" \
+    -H "X-GitHub-Delivery: $DELIVERY" \
+    -H "X-GitHub-Event: installation" \
+    -H "Content-Type: application/json" \
+    -d "$BODY"
+  # Expected: HTTP/1.1 200, row inserted in github_webhook_events
+  # Replay same delivery_id:
+  curl -sS -i -X POST http://localhost:5000/webhooks/github \
+    -H "X-Hub-Signature-256: $SIG" \
+    -H "X-GitHub-Delivery: $DELIVERY" \
+    -H "X-GitHub-Event: installation" \
+    -H "Content-Type: application/json" \
+    -d "$BODY"
+  # Expected: HTTP/1.1 200, no second row (idempotent)
+behaviors:
+  - "Given a request with valid X-Hub-Signature-256 over the raw body, when /webhooks/github is hit, then HMAC-SHA256 verification succeeds (constant-time compare via FixedTimeEquals) and a row is inserted into github_webhook_events"
+  - "Given GITHUB__WEBHOOK_SECRETS contains 'whsec_old,whsec_new', when a request signed with either secret arrives, then verification succeeds (multi-secret rotation per docs/SPECIFICATION.md:8577–8584)"
+  - "Given the legacy X-Hub-Signature (SHA-1) header is present and X-Hub-Signature-256 is absent, when received, then the request is rejected 401 — SHA-1 is intentionally ignored per :8575"
+  - "Given a duplicate X-GitHub-Delivery, when the second request arrives, then the INSERT ... ON CONFLICT (delivery_id) DO NOTHING returns no row and the response is 200 immediately"
+  - "Given installation.created with state=null (webhook-first install), when received, then a github_installations row is inserted with org_id=NULL (the M14-017 claim flow links it later)"
+  - "Given installation.deleted, when received, then deleted_at is set, the M14-018 token cache entry is evicted, and open pr_checks are marked PRCHECK_INSTALLATION_DELETED"
+  - "Given installation.suspend, when received, then suspended_at is set and the token cache entry is evicted"
+  - "Given check_run.rerequested, when received, then a re-run job for the originating ApiTool collection on the same head_sha is enqueued"
+  - "Given a handler exception, when raised, then attempt_count increments, last_error is captured, and the response is 500; after 5 failures status='quarantined' and the handler returns 200"
+  - "Given the body is parsed as JSON for routing, when the signature is verified, then the verifier reads the RAW body (not the re-serialized JSON) per :8570"
+scope: |
+  New endpoint POST /webhooks/github in
+  src/ApiTool.Backend/Webhooks/GitHubWebhookEndpoint.cs. Reads raw body BEFORE
+  JSON parse (essential per docs/SPECIFICATION.md:8570). HMAC-SHA256 verify
+  via CryptographicOperations.FixedTimeEquals. Multi-secret rotation per
+  GITHUB__WEBHOOK_SECRETS env var (despite GitHub itself supporting only one
+  secret at a time — operator-side overlap window) per :8577–8584. Adds the
+  github_webhook_events table per the v4.2.1 Database Schema appendix
+  (delivery_id PK, event_type, action, payload JSONB, received_at, processed_at,
+  status, attempt_count, last_error, last_error_at). Handlers wired for
+  installation.{created,deleted,suspend,unsuspend},
+  installation_repositories.{added,removed}, check_run.rerequested per :8557.
+  Same 5-failure quarantine pattern as the Stripe webhook handler in M14-011.
+  marketplace_purchase.* events explicitly NOT handled (out of M14 per :8566).
+definition_of_done:
+  - "All behavior tests pass (>=12)"
+  - "Live HTTP probe with valid X-Hub-Signature-256 returns 200; duplicate delivery returns 200 with no second row"
+  - "EF Core migration 0018_github_webhook_events committed"
+  - "Migration 0018_github_webhook_events applied to staging DB and rolled back cleanly"
+  - "Multi-secret rotation covered by a test (old + new both accepted)"
+  - "Constant-time signature compare verified (CryptographicOperations.FixedTimeEquals)"
+  - "Quarantine budget covered by a test (5 failures → status='quarantined')"
+  - "Legacy SHA-1 header explicitly rejected by a negative test"
+  - "docs/SPECIFICATION.md:8551–8597 cited in GitHubWebhookEndpoint.cs header"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

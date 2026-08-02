@@ -1,0 +1,7 @@
+name: auth-missing
+requests:
+  - name: needs-nonexistent-auth
+    request:
+      method: GET
+      url: http://example.com/api
+    auth: nonexistent-profile

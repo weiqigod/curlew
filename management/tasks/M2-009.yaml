@@ -1,0 +1,38 @@
+id: M2-009
+title: "Auth profile token caching and refresh"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Dynamic Auth"
+
+dependencies:
+  - M2-008
+
+observable: |
+  Configure an auth profile with TTL-based caching.
+  Run `apitest run tests.yaml` twice within TTL and confirm the auth profile only executes once.
+  Run `go test ./internal/auth/...` to verify caching and refresh behavior.
+
+behaviors:
+  - "Given an auth profile with `cache_ttl: 3600`, when the same collection is run within 3600s, then the auth profile does not re-execute"
+  - "Given an auth profile with expired cache, when the collection runs, then the auth profile re-executes to get fresh credentials"
+  - "Given an auth profile with `refresh_on_failure: true`, when a main request gets 401 Unauthorized, then the auth profile is re-executed and the request retried"
+  - "Given multiple collections referencing the same auth profile, when run sequentially, then cached credentials are shared"
+  - "Given an auth profile cache file, sensitive values are stored in an encrypted or obfuscated format"
+
+scope: |
+  Extend `internal/auth/profile.go` with token caching that persists between runs
+  (file-based cache in `.apitest/cache/`). Implement TTL-based cache invalidation.
+  Implement optional refresh-on-failure behavior where auth profile is re-executed when
+  a 401 is encountered. Cache is per-profile, keyed by profile name.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

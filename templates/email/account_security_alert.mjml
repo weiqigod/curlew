@@ -1,0 +1,28 @@
+<!-- placeholder copy; product/design polish in a later non-M14 commit -->
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-text font-size="20px" font-weight="bold">
+          Security alert on your ApiTool account
+        </mj-text>
+        <mj-text>
+          Hi {{first_name}},
+        </mj-text>
+        <mj-text>
+          We detected a security event on your account at {{event_time}}
+          from IP address {{event_ip}}.
+          If this was not you, please re-secure your account immediately.
+        </mj-text>
+        <mj-button href="{{relogin_url}}" background-color="#cc3300" font-size="16px">
+          Re-secure my account
+        </mj-button>
+        <mj-divider border-color="#eeeeee" />
+        <mj-text font-size="12px" color="#999999">
+          If this was you, no action is required. Contact support@apitool.dev if you
+          need help reviewing recent account activity.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

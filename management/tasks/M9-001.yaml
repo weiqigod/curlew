@@ -1,0 +1,114 @@
+id: M9-001
+title: "request_slug: derive per-request identifier and emit in events schema v1.2"
+status: done
+completed_date: 2026-04-25
+verified_by: ai
+priority: 1
+created: 2026-04-24
+phase: "M9: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M8-005]
+observable: |
+  # request_slug appears on every request.start and request.end event.
+  ./apitest run collections/sample.yaml --events run.ndjson
+  jq -c 'select(.kind=="request.start") | {name, request_id, request_slug}' run.ndjson
+  # Expected: each line has a request_slug derived from name, e.g.,
+  #   {"name":"Get user","request_id":"req-1","request_slug":"get-user"}
+
+  # Slug derivation handles unicode, punctuation, case, and edges.
+  go test -run 'TestSlug_Derive' ./internal/parser/...
+  # Expected: PASS; covers "Get user" -> "get-user", "Create Post!" ->
+  # "create-post", "Héllo 世界" -> "hello", empty/whitespace-only rejected.
+
+  # v1.2 schema is published alongside v1.1 (retained historical anchor).
+  ls docs/events-schema/v1.2.json docs/events-schema/v1.1.json docs/events-schema/v1.0.json
+  # Expected: all three present; v1.0 and v1.1 byte-unchanged.
+
+  # v1.2 schema validates emitted events carrying request_slug.
+  go test -run 'TestSchema_v12_validates' ./internal/output/events/...
+  # Expected: PASS.
+
+  # Regression: v1.0 and v1.1 goldens still validate against their own
+  # versioned schemas.
+  go test -run 'TestSchema_v10|TestSchema_v11' ./internal/output/events/...
+  # Expected: PASS (unchanged).
+
+  # Integration: request_slug surfaces in emitted NDJSON for a real run.
+  go test -run 'TestRunner_RequestSlugAllEmitSites' ./internal/runner/...
+  # Expected: PASS; slug present on RequestStart + RequestEnd across
+  # sequential, parallel, data-driven, and websocket emit paths.
+
+  # Full unit + integration suite.
+  go test -run 'TestSlug_Derive|TestEvents_v12_RequestSlug|TestSchema_v12_validates|TestRunner_RequestSlugAllEmitSites' ./...
+  # Expected: PASS.
+behaviors:
+  - "A slug helper in internal/parser/ (new file slug.go) converts a request name to a URL-safe slug: Unicode NFKD normalized, lowercased, non-alphanumeric runs collapsed to a single hyphen, leading/trailing hyphens trimmed."
+  - "The slug helper returns a non-nil structured error for names that slugify to empty (whitespace-only or punctuation-only); callers surface this as a load-time error, matching the early-reject posture of the duplicate-name check at parser/parser.go:106-146."
+  - "Every RequestStart and RequestEnd event carries the derived slug: the request_id generator at runner.go:321-323 pairs id assignment with slug derivation, and the slug is threaded to all emit sites (sequential main emission, parallel wave emission, data-driven iteration emission, WebSocket emission) so no path emits an event without the field."
+  - "RequestStartEvent and RequestEndEvent gain a new exported field RequestSlug string with tag `json:\"request_slug,omitempty\"` in internal/output/events/events.go; omitempty preserves forward-compat with consumers that do not expect the field."
+  - "docs/events-schema/v1.2.json is published as a new versioned schema; docs/events-schema/v1.1.json and v1.0.json remain byte-unchanged as historical anchors, matching the M8-004 pattern for v1.0 retention."
+  - "docs/EVENTS_SCHEMA_v1.2.md documents the additive request_slug field, the slug derivation rule, and confirms backward-compatibility with v1.1 consumers."
+  - "Events emitted in this version report schema_version \"1.2\"; v1.1 goldens are not edited and continue to report \"1.1\"."
+  - "A concrete consumer anchors the schema: one integration test reads request_slug from the NDJSON stream for a real fixture collection and asserts it matches the expected derivation for each request name."
+  - "Duplicate-name rejection (shipped in M8-004 at parser.go:106-146) already guarantees that distinct main-phase requests yield distinct slugs; no second-chance collision logic is required."
+scope: |
+  Pure plumbing slice; no user-visible markdown format yet. The goal is
+  to land the correlation primitive used by W4's sentinel tags and by
+  W5's future skill narration.
+
+  1. Slug derivation helper. New file internal/parser/slug.go exposing
+     Slug(name string) (string, error). Algorithm: Unicode NFKD
+     normalize -> lowercase -> replace runs of non-[a-z0-9] with single
+     hyphen -> trim leading/trailing hyphens. Empty result returns a
+     structured error. Unit-tested against a table of names including
+     ASCII, punctuation, Unicode combining marks, digits, whitespace.
+
+  2. Events schema extension. Add RequestSlug field with tag
+     `json:"request_slug,omitempty"` to RequestStartEvent and
+     RequestEndEvent in internal/output/events/events.go. Bump the
+     SchemaVersion constant to "1.2" at emission sites; v1.1 goldens
+     are unchanged.
+
+  3. Runner wiring. The request_id generator at runner.go:321-323
+     derives the slug once per RequestItem and caches it on the
+     per-request context; every RequestStart/RequestEnd emit site
+     (including parallel executor, data-driven iterator, WebSocket
+     adapter) passes slug alongside request_id.
+
+  4. Schema publication. docs/events-schema/v1.2.json is authored as
+     an additive superset of v1.1.json. docs/EVENTS_SCHEMA_v1.2.md
+     narrates the delta and backward-compatibility guarantees.
+
+  5. Tests. TestSlug_Derive is table-driven. TestSchema_v12_validates
+     loads v1.2.json and validates representative goldens.
+     TestEvents_v12_RequestSlug asserts emission on every code path.
+     TestRunner_RequestSlugAllEmitSites covers sequential, parallel,
+     data-driven, and websocket paths end-to-end.
+
+  Not in scope.
+  - Markdown formatter: "markdown" stays absent from SupportedFormats
+    (config.go:15) until M9-002.
+  - CHANGELOG entry: M9-005 batches all W4 CHANGELOG + IMPROVEMENT.md
+    edits.
+  - IMPROVEMENT.md §6/§8.1 corrections about the v1.1-vs-v1.2 claim:
+    deferred to M9-005 with the W4 status flip.
+  - Slug rendering in setup/teardown markdown: W4 only covers main-
+    phase requests. Setup/teardown emit events with slug for
+    consistency, but no .md files are written for them.
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestSlug_Derive passes: ASCII simple, punctuation collapsed, unicode normalized, case-folded, empty-after-slugify rejected with a structured error"
+  - "TestRunner_RequestSlugAllEmitSites passes: slug present on every RequestStart and RequestEnd across sequential, parallel, data-driven, and websocket paths"
+  - "TestEvents_v12_RequestSlug passes: emitted events report schema_version \"1.2\"; request_slug field present and matches derivation"
+  - "TestSchema_v12_validates passes: docs/events-schema/v1.2.json validates representative goldens including both minimal and full-feature fixtures"
+  - "Regression: TestSchema_v11_validates and TestSchema_v10_validates still pass unmodified"
+  - "Regression: TestParser_DuplicateNameRejection from M8-004 still passes unmodified"
+  - "docs/events-schema/v1.2.json exists; v1.0.json and v1.1.json byte-unchanged"
+  - "docs/EVENTS_SCHEMA_v1.2.md documents the additive request_slug field and derivation rule"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/parser/... ./internal/runner/... ./internal/output/events/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: low
+estimated_effort: "4-6 hours"

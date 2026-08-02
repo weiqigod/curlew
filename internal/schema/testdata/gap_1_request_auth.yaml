@@ -1,0 +1,7 @@
+name: request-auth-gap
+requests:
+  - name: Authed GET
+    auth: admin_token
+    request:
+      method: GET
+      url: "https://example.com/me"

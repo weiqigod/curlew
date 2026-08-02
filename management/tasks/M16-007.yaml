@@ -1,0 +1,40 @@
+id: M16-007
+title: "Trial activation endpoint with CLI subcommand and Claims struct extension"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-006
+
+track: backend+go-cli
+
+observable: |
+  End-to-end seam check: with the backend running, register a user and let their 14-day full trial expire (or seed one expired full_initial row for feature `vault_provider_profiles`). Build the CLI: `go build -o ./apitest ./cmd/apitest`. Then run `./apitest license trial start vault_provider_profiles` and observe stdout `Trial activated: vault_provider_profiles (expires 2026-05-14T12:34:56Z)` and exit code 0. Re-run the same command; observe stderr `Trial already consumed for feature vault_provider_profiles` and exit code 5. Confirm the CLI's cached License JWT now carries `vault_provider_profiles` in `features[]` and `trial_state=active` (`./apitest license --debug`). Run `dotnet test src/ApiTool.Backend.Tests --filter "TrialsEndpoints"` and `go test ./internal/license/... ./internal/auth/... ./cmd/apitest/...` — all pass.
+
+behaviors:
+  - "Given an authenticated user with no prior trial of feature X (no full_initial row), when POST /api/v1/trials/X is called, then a new trials row is inserted with kind = ondemand, granted_at = now, expires_at = now + 7 days, and the response 200 body contains feature, kind, granted_at, expires_at, and re-minted tokens (license_jwt, access_token, refresh_token)"
+  - "Given an authenticated user already has a row for feature X (any kind), when POST /api/v1/trials/X is called, then the response is 409 with RFC 7807 type .../trial-already-consumed and a previous_grant object containing granted_at, expires_at, and kind"
+  - "Given an unknown feature is requested, when POST /api/v1/trials/{feature} is called, then the response is 404 with type .../feature-unknown"
+  - "Given the CLI's Claims struct (internal/license/jwt.go), when the JSON token includes trial_state and trial_expiry fields, then they deserialize into Claims.TrialState (string) and Claims.TrialExpiry (int64) with omitempty"
+  - "Given Claims.IsTrialActiveFor(feature) is called, when trial_state == 'active' AND features[] contains feature, then it returns true; otherwise false"
+  - "Given internal/auth/registry.go feature gates, when checking authorization, then they consult Claims.IsTrialActiveFor(feature) before rejecting on RequiredTier"
+  - "Given the user runs `apitest license trial start <feature>`, when the backend returns 200, then the CLI persists the new tokens to the existing token cache and prints a one-line confirmation including expires_at"
+  - "Given the user runs `apitest license trial start <feature>` and the backend returns 409, when the CLI handles the response, then it exits with code 5 and prints a clear message naming the previous-grant date"
+  - "Given the user runs `apitest license trial --help`, when help text renders, then it documents the trial start subcommand with the usage and one-per-feature constraint"
+
+scope: |
+  Backend half: new endpoint `POST /api/v1/trials/{feature}` in `src/ApiTool.Backend/Licensing/Trials/TrialsEndpoints.cs` that consults `ITrialStateResolver`, inserts an `ondemand` row when allowed (409 with RFC 7807 problem detail otherwise), and re-mints all three tokens via the existing `/auth/refresh`-style helper. Validate `feature` against the registered feature list. CLI half: extend `Claims` struct in `internal/license/jwt.go` (lines 49-61) with `TrialState string` (json tag `trial_state,omitempty`) and `TrialExpiry int64` (json tag `trial_expiry,omitempty`) plus an `IsTrialActiveFor(feature string) bool` accessor. Integrate at every premium-feature gate in `internal/auth/registry.go` (~10 RequiredTier sites). Add `backend.Client.StartTrial(ctx, feature)` in `internal/backend/client.go`. Add `trial start <feature>` subcommand to the `apitest license` switch at `cmd/apitest/license.go:41`, reusing existing token persistence. Per Open Decision 1: kept as one logical slice on `track: backend+go-cli`.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "OpenAPI/HTTP API doc updated for POST /api/v1/trials/{feature}"
+  - "Help text updated for new flags/subcommands (apitest license trial start)"
+  - "Smoke test updated if user-visible (scripts/smoke.sh exercises trial start)"
+
+complexity: high
+estimated_effort: "6-12 hours"

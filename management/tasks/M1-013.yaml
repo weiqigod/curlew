@@ -1,0 +1,29 @@
+id: M1-013
+title: ".env file loading for local secrets"
+status: done
+priority: 13
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-012]
+observable: |
+  Create .env with API_KEY=secret123. Use {{API_KEY}} in collection.
+  Run and verify it's resolved.
+behaviors:
+  - "Given a .env file in project root, when collection runs, then variables are auto-loaded at precedence level 4"
+  - "Given .env with KEY=VALUE format, when parsed, then variables are available as {{KEY}}"
+  - "Given .env with comments (# comment), empty lines, and whitespace, when parsed, then they are ignored"
+  - "Given .env with quoted values (KEY=\"value with spaces\"), when parsed, then quotes are stripped"
+  - "Given no .env file, when collection runs, then no error (file is optional)"
+  - "Given .env with KEY= (empty value), when parsed, then variable is set to empty string"
+scope: |
+  Add .env file parsing in internal/variable/ or internal/config/. Auto-detect project
+  root (directory containing apitest.yaml or .env). Load at precedence level 4.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "1-3 hours"

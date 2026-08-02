@@ -1,0 +1,89 @@
+---
+title: CI pipeline with PR checks
+intent: Run the suite in GitHub Actions or GitLab, emit JUnit for the test reporter, then upload results and post a check straight onto the pull request.
+group: automation
+features: [ci, reporting, redaction]
+command: apitest run 'collections/**/*.yaml' --format junit --report results.xml
+order: 120
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+Tests that pass on your laptop need to gate every pull request. ApiTool speaks the
+CI native tongues — JUnit and TAP — exits with a precise code your pipeline can
+branch on, and uploads the run and posts a status check back onto the
+PR.
+
+## GitHub Actions
+
+```yaml
+# .github/workflows/api-tests.yml
+name: API tests
+on: [push, pull_request]
+jobs:
+  apitest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - run: go install github.com/peterlindqvist/apitest/cmd/apitest@latest
+      - name: Run API tests
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          apitest run 'collections/**/*.yaml' \
+            --env staging \
+            --env-var API_KEY \
+            --format junit \
+            --report test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
+```
+
+GitLab is the same pattern — `--format junit --report test-results.xml`, then let the
+`artifacts.reports.junit` integration render it.
+
+## Exit codes you can branch on
+
+| Code | Meaning |
+|---|---|
+| `0` | All assertions passed |
+| `1` | Assertion failure (tests ran, some checks didn't pass) |
+| `2` | Usage error or safety guard (e.g. large dataset without confirmation) |
+| `3` | Parse / config error — tests never started; treat as a pipeline bug, not a regression |
+| `5` | Variable resolution error |
+
+That `1` vs `3` split matters: a `3` means your YAML is broken, not your API.
+
+## Post a check on the PR
+
+```bash
+export APITEST_BACKEND_URL=https://api.apitool.dev
+export APITEST_BACKEND_TOKEN=$APITEST_TOKEN
+
+apitest run 'collections/**/*.yaml' \
+  --env staging \
+  --format junit --report test-results.xml \
+  --report-upload \
+  --org acme \
+  --pr "$PR_NUMBER" --repo acme/demo-api \
+  --git-sha "$GITHUB_SHA"
+```
+
+```
+Uploaded result res_abc123; check-run posted; status=success
+```
+
+<Callout type="output">
+	Representative output — uploading requires a backend and token. The check-run
+	state mirrors the run outcome (<code>success</code> / <code>failure</code>), and any
+	sensitive variable stays <code>[REDACTED]</code> in the uploaded report.
+</Callout>

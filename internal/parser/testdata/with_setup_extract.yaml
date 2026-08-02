@@ -1,0 +1,13 @@
+name: Setup Extract Test
+setup:
+  - name: Create Resource
+    request:
+      method: POST
+      url: https://example.com/resources
+    extract:
+      resource_id: "$.data.id"
+requests:
+  - name: Get Resource
+    request:
+      method: GET
+      url: https://example.com/resources/{{resource_id}}

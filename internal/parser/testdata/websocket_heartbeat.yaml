@@ -1,0 +1,21 @@
+name: WebSocket Heartbeat
+requests:
+  - name: Echo With Heartbeat
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/echo"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 5000
+          message:
+            type: ping
+        steps:
+          - action: send
+            message:
+              type: hello
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type:
+                equals: "welcome"

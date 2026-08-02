@@ -1,0 +1,11 @@
+name: Body And Status Test
+requests:
+  - name: Check Both
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      status: 200
+      body:
+        $.id:
+          equals: 1

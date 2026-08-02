@@ -1,0 +1,8 @@
+name: Missing Query File
+requests:
+  - name: Missing
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query_file: graphql/queries/does_not_exist.graphql

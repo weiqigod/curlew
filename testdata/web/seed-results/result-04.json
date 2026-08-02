@@ -1,0 +1,25 @@
+{
+  "collection_name": "payment-service",
+  "run_at": "2026-04-12T16:00:00Z",
+  "duration_ms": 5200,
+  "pass_count": 12,
+  "fail_count": 1,
+  "skipped_count": 0,
+  "triggered_by": "ci",
+  "git_sha": "jkl3456",
+  "items": [
+    { "name": "POST /payments",            "status": "passed", "duration_ms": 500, "message": null },
+    { "name": "GET /payments/status",      "status": "passed", "duration_ms": 200, "message": null },
+    { "name": "POST /payments/refund",     "status": "failed", "duration_ms": 1000, "message": "timeout after 1000ms" },
+    { "name": "GET /payments/history",     "status": "passed", "duration_ms": 300, "message": null },
+    { "name": "POST /payments/dispute",    "status": "passed", "duration_ms": 400, "message": null },
+    { "name": "GET /invoices",             "status": "passed", "duration_ms": 250, "message": null },
+    { "name": "POST /invoices",            "status": "passed", "duration_ms": 350, "message": null },
+    { "name": "GET /invoices/1",           "status": "passed", "duration_ms": 150, "message": null },
+    { "name": "PUT /invoices/1",           "status": "passed", "duration_ms": 400, "message": null },
+    { "name": "GET /billing/summary",      "status": "passed", "duration_ms": 600, "message": null },
+    { "name": "POST /billing/plan",        "status": "passed", "duration_ms": 450, "message": null },
+    { "name": "DELETE /billing/card/1",    "status": "passed", "duration_ms": 200, "message": null },
+    { "name": "GET /billing/transactions", "status": "passed", "duration_ms": 400, "message": null }
+  ]
+}

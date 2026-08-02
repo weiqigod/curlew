@@ -1,0 +1,3 @@
+{"schema_version":"1.3","run_id":"golden-run-error","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","apitest_version":"0.1.0-test","cli_args":["run","error.yaml"],"collection_file":"error.yaml"}
+{"schema_version":"1.3","run_id":"golden-run-error","id":2,"at_ms":0,"kind":"run.error","error":{"category":"parse","code":"PARSE_INVALID_YAML","message":"invalid YAML syntax","hint":"check indentation","file":"error.yaml","line":5}}
+{"schema_version":"1.3","run_id":"golden-run-error","id":3,"at_ms":0,"kind":"run.end","duration_ms":0,"total":0,"passed":0,"failed":0,"skipped":0,"exit_code":1,"event_count":3}

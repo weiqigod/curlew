@@ -1,0 +1,40 @@
+id: M2-017
+title: "Parallel execution edge cases (failed dependencies, skipped requests)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Parallel Execution"
+
+dependencies:
+  - M2-016
+
+observable: |
+  Run `apitest run --parallel tests.yaml` with a request that fails, and confirm dependents are skipped.
+  Run `apitest run --parallel tests.yaml` with auth profiles and confirm pre-execution variable handling.
+  Run `go test ./internal/parallel/...` for edge case tests.
+
+behaviors:
+  - "Given parallel execution where Request A fails, when Request B depends on `user_id` from A, then B is skipped with message: 'Depends on user_id from Request A, which failed'"
+  - "Given parallel execution with auth profile variables, when multiple parallel requests reference `admin_token`, then no dependency is created between them"
+  - "Given parallel execution with external request files containing extractions, when analyzed, then external file extractions are included in dependency analysis"
+  - "Given parallel execution impact analysis, when one request fails, then output shows how many requests were skipped and which request caused the skip"
+  - "Given a variable with a default value (`{{var|default:value}}`), when the producing request fails, then the dependent request still skips (producer failed, regardless of default)"
+  - "Given nested variable resolution depth > 10, when analyzed, then a warning is produced"
+
+scope: |
+  Extend `internal/parallel/` with comprehensive edge case handling per spec:
+  failed dependency propagation with clear messages, auth profile variable handling as
+  pre-execution scope, external request file analysis, impact analysis output, default
+  value interaction with failed producers. Update terminal and JSON output to show
+  skip reasons for parallel failures.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

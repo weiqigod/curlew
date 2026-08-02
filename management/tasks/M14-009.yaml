@@ -1,0 +1,43 @@
+id: M14-009
+title: "Backend: Stripe billing portal session"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-008
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres stripe-mock
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~StripeBillingPortal"
+  # Expected: Passed: >=5, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{}' \
+    http://localhost:5000/api/v1/subscriptions/billing-portal | jq .url
+  # Expected: string starting with "https://billing.stripe.com/p/session/test_..."
+behaviors:
+  - "Given an org with a stripe_customer_id, when CreateBillingPortalAsync is invoked, then the SDK BillingPortalSessionService.CreateAsync is called with return_url derived from App:WebAppUrl + '/billing' (per Open Decision #2 default)"
+  - "Given an org without a stripe_customer_id, when /billing-portal is hit, then the response is 409 with code no_billing_setup and no Stripe call occurs"
+  - "Given an IdempotencyKey is set, when the same request replays, then exactly one billing-portal session is created (verified against stripe-mock)"
+  - "Given Stripe returns 5xx, when CreateBillingPortalAsync runs, then the exception maps to RFC 7807 STRIPE_UNAVAILABLE 502 and the request_id is preserved"
+  - "Given a member-role user (not admin/owner) hits the endpoint, when the request is authorized, then the response is 403 permission_denied because billing portal access is admin/owner-only"
+  - "Given App:WebAppUrl config is unset, when the controller boots, then it fails fast with a configuration error (rather than minting a portal session with a broken return_url)"
+scope: |
+  Adds CreateBillingPortalAsync to IStripeGateway and StripeGateway.cs.
+  return_url comes from App:WebAppUrl + '/billing' per Open Decision #2 default
+  in milestone-mapping.md. Authorization requires admin or owner role on the
+  org. RFC 7807 mapping for STRIPE_* errors consistent with M14-008. Tests
+  use stripe-mock and the FakeStripeGateway in unit-test mode.
+definition_of_done:
+  - "All behavior tests pass (>=5)"
+  - "Live HTTP probe returns a billing-portal URL string"
+  - "Authorization rule (admin|owner only) covered by a test"
+  - "Configuration validation for App:WebAppUrl covered (boot-time fail-fast)"
+  - "deploy/self-hosted/README.md documents the App:WebAppUrl env var requirement"
+  - "docs/SPECIFICATION.md (Subscription endpoints subsection) cited in handler header"
+complexity: medium
+estimated_effort: "3-6 hours"
+track: backend

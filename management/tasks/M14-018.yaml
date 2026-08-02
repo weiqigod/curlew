@@ -1,0 +1,63 @@
+id: M14-018
+title: "Backend: outbound Checks API POST + pr_checks expansion + 6-state mapping"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-017
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres github-mock
+  dotnet ef database update --project src/ApiTool.Backend
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~CheckRunPoster|FullyQualifiedName~PrChecksExpansion"
+  # Expected: Passed: >=14, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing \
+    GITHUB__APIBASE=http://localhost:18443 \
+    dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary @testdata/m14/pr-check-payload.json \
+    http://localhost:5000/api/v1/pr-checks | jq '{state, github_check_run_id}'
+  # Expected: {"state":"posted","github_check_run_id":<integer>} with pr_checks row showing posted_at set
+behaviors:
+  - "Given a CLI-uploaded pr_checks row and a non-deleted, non-suspended github_installations row for the org, when the worker picks it up, then it (1) verifies the requested repo is in repo_set, (2) exchanges the App JWT (M14-016) for an installation token (cached in-process, expires 5 minutes early), and (3) POSTs to /repos/{owner}/{repo}/check-runs"
+  - "Given the CLI emits state ∈ {success, failure, cancelled, timed_out, neutral, skipped}, when the worker maps to GitHub conclusion, then the 6-state mapping per docs/SPECIFICATION.md:8501–8511 is applied unchanged; action_required is NEVER emitted in M14"
+  - "Given a green run, when the worker posts, then the check run is posted regardless (always-post-on-green per :8514)"
+  - "Given a transient 5xx from GitHub, when the worker retries with the same external_id, then before the retry it calls GET /repos/{owner}/{repo}/check-runs?head_sha=<sha>&app_id=<our_app>&filter=latest and treats a found run as already-succeeded (no double-post per :8529–8533)"
+  - "Given X-RateLimit-Remaining drops below 100, when the worker observes the headers, then new posts queue rather than fire and the queue drains as the budget resets per :8535"
+  - "Given an org with no github_installations row, when /api/v1/pr-checks is hit, then the response is 404 RFC-7807 with code PRCHECK_NO_INSTALLATION"
+  - "Given the requested repo is not in repo_set, when invoked, then the response is 403 PRCHECK_REPO_NOT_COVERED"
+  - "Given the request body matches the regex ghs_[A-Za-z0-9]{36,} or contains an active install token, when received, then it is rejected 400 PRCHECK_TOKEN_LEAK_DETECTED and a security incident is logged per :8643"
+  - "Given output.summary or output.text exceeds 60 000 chars, when the worker composes the payload, then the field is truncated and '(truncated)' is appended per :8520"
+  - "Given installation tokens, when the worker requests one, then the resulting ghs_* token is cached in process memory only — never persisted to DB, Redis, disk, or surfaced in any HTTP response per :8456–8470"
+scope: |
+  Wires the outbound POST /repos/{owner}/{repo}/check-runs path into
+  src/ApiTool.Backend/PrChecks/PrChecksEndpoints.cs (M4-007's storage-only
+  endpoint). New worker class CheckRunPoster handles two-stage auth (App JWT
+  → installation token), in-process token cache with 5-min early expiry,
+  per-installation single-flight refresh lock per
+  docs/SPECIFICATION.md:8456–8462, and 6-state mapping per :8501. pr_checks
+  table expanded ADDITIVELY per Open Decision #6 default: ALTER TABLE adds
+  installation_id, check_run_id, external_id (backfilled gen_random_uuid()),
+  conclusion, details_url, output_summary, output_text, annotations JSONB,
+  posting_started_at, posted_at, attempt_count, last_error, status (backfilled
+  via CASE on existing state). Idempotency-on-retry via the
+  GET-by-(head_sha,app_id) lookup per :8529–8533. Token-bucket rate-limit
+  back-off keyed by installation_id per :8535. Backend-side defensive
+  PRCHECK_TOKEN_LEAK_DETECTED check per :8643. Markdown safety enforced per
+  :8638–8642.
+definition_of_done:
+  - "All behavior tests pass (>=14)"
+  - "Live HTTP probe via github-mock posts a check run and persists check_run_id"
+  - "EF Core migration 0017_pr_checks_v421 committed; ADD COLUMN ordering safe; backfill expressions deterministic"
+  - "Migration 0017_pr_checks_v421 applied to staging DB and rolled back cleanly"
+  - "RFC 7807 PRCHECK_* error codes documented in docs/api-errors.md"
+  - "Token-handling rules unit-tested (no log, no echo, no persistence — three negative tests)"
+  - "Markdown-safety + size-truncation covered by tests"
+  - "github-mock service added to docker-compose.test.yml"
+  - "docs/SPECIFICATION.md:8429–8550 cited in CheckRunPoster.cs header"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

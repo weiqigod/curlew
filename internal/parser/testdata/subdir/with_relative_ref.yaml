@@ -1,0 +1,3 @@
+name: Relative Ref Test
+requests:
+  - path: ../requests/get-user.yaml

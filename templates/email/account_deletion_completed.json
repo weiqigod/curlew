@@ -1,0 +1,12 @@
+{
+  "slug": "account_deletion_completed",
+  "subject": "Your ApiTool account has been deleted",
+  "variables": {
+    "user_email":     "string",
+    "deleted_at_local": "string (e.g. '2026-06-17 12:00 UTC')"
+  },
+  "test_data": {
+    "user_email": "alex@example.com",
+    "deleted_at_local": "2026-06-17 12:00 UTC"
+  }
+}

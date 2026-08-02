@@ -1,0 +1,40 @@
+id: M16-018
+title: "CLI GetTeamVault with cache, --refresh-vault flag, and load-site enforcement"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-017
+
+track: go-cli
+
+observable: |
+  With the backend running and a Team-tier vault-config seeded for the org, build the CLI: `go build -o ./apitest ./cmd/apitest`. Run `./apitest license --refresh` and observe `~/.config/apitesttool/team_vault.json` written with `{ "fetched_at":…, "version":…, "template":{…} }`. Run `./apitest run testdata/team-secrets.yaml`; the run resolves `{{secrets.api_key}}` from the cached template's coordinates. Force a refetch with `./apitest run --refresh-vault testdata/team-secrets.yaml`. Now downgrade the user (revoke Team subscription). Re-run with `APITEST_TEAM_CONFIG=./team.yaml ./apitest run testdata/team-secrets.yaml`; observe stderr `feature 'shared_vault_templates' requires Team tier (or trial)` and exit code 5 — proving the CLI-side gate enforcement closes the revenue leak. Run `go test ./internal/backend/... ./internal/vault/teamtemplate/... ./cmd/apitest/...` — all pass.
+
+behaviors:
+  - "Given an authenticated Team-tier session, when backend.Client.GetTeamVault(ctx, orgId) is called, then it fetches GET /api/v1/organizations/{orgId}/vault-config and returns the parsed template plus the version"
+  - "Given a fresh fetch lands, when the CLI writes the cache, then ~/.config/apitesttool/team_vault.json contains {fetched_at, version, template} with mode 0600"
+  - "Given the cache exists and is younger than 5 minutes, when an `apitest run` invocation needs the template, then the cached version is returned without a network call (TTL hit)"
+  - "Given the cache is stale (>5 min) and the backend is reachable, when `apitest run` runs, then a stale-while-revalidate fetch happens in foreground (≤2s blocking) and writes the new cache before resolving secrets"
+  - "Given the cache is stale and the backend is unreachable, when `apitest run` runs, then the cached template is used with a clear stderr warning naming the staleness"
+  - "Given the user passes `--refresh-vault`, when `apitest run` starts, then the cache is force-refreshed regardless of TTL"
+  - "Given the active License JWT carries tier ∉ {team, enterprise} AND IsTrialActiveFor('shared_vault_templates') is false AND APITEST_TEAM_CONFIG is set OR the team_vault cache exists with content, when internal/vault/teamtemplate loads the template, then the standard feature-gated error fires and the CLI exits with code 5"
+  - "Given the active License JWT carries tier == 'team' OR IsTrialActiveFor('shared_vault_templates') is true, when the load site evaluates, then the template is loaded successfully and used"
+  - "Given the user runs `apitest license --refresh`, when the refresh path runs, then the team_vault cache is fetched as part of the same single round-trip alongside the JWT refresh"
+  - "Given concurrent worker invocations boot at the same time, when each tries to refresh the cache, then the existing flock on ~/.config/apitesttool/refresh.lock prevents thundering-herd refetches"
+
+scope: |
+  Add `backend.Client.GetTeamVault(ctx, orgId)` in `internal/backend/client.go` calling the M16-017 endpoint. New cache file `~/.config/apitesttool/team_vault.json` with the JSON envelope from spec line 5695. Stale-while-revalidate fetch logic in `internal/vault/teamtemplate/cache.go` reusing the same `flock` pattern as the JWKS cache. New `--refresh-vault` flag on `apitest run` and `apitest worker` that bypasses TTL. Integration in `internal/vault/teamtemplate/loader.go`: backend-fetched template is the base; `APITEST_TEAM_CONFIG` (when set) overlays per-key. Load-site enforcement: when the loader is invoked, consult `Claims.IsTrialActiveFor("shared_vault_templates")` and the JWT's `tier` claim; reject with the standard feature-gated error (exit code 5) when both checks fail. Closes the M15-style registered-but-not-enforced revenue leak from `internal/auth/registry.go:126`.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Help text updated for new flags/subcommands (--refresh-vault on apitest run and apitest worker)"
+  - "Smoke test updated if user-visible (scripts/smoke.sh exercises the team-vault fetch)"
+
+complexity: high
+estimated_effort: "6-12 hours"

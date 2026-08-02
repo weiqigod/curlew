@@ -1,0 +1,37 @@
+id: M2-006
+title: "GCP Secret Manager and 1Password CLI providers"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: Vault Storage"
+
+dependencies:
+  - M2-004
+
+observable: |
+  Configure GCP and 1Password vault profiles in apitest.yaml.
+  Run `go test ./internal/vault/...` with mocked CLI calls for both providers.
+
+behaviors:
+  - "Given a configured `gcp-secret-manager` provider, when secrets are requested, then values are fetched via `gcloud secrets versions access`"
+  - "Given a configured `1password` provider, when secrets are requested, then values are fetched via `op item get`"
+  - "Given a configured `gcp-secret-manager` with structured extraction, when fetched, then the JSON field is extracted"
+  - "Given the `1password` CLI not installed, when secrets are requested, then a clear error suggests installing 1Password CLI"
+  - "Given all five providers implemented, when `apitest vault list` is run, then all providers are recognized"
+
+scope: |
+  Implement `internal/vault/gcp.go` for GCP Secret Manager using `gcloud` CLI commands.
+  Implement `internal/vault/onepassword.go` for 1Password using `op` CLI commands.
+  Both reuse the Provider interface and caching from M2-004. Update provider registry
+  to include all five built-in providers.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

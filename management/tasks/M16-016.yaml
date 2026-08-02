@@ -1,0 +1,39 @@
+id: M16-016
+title: "Web /integrations/gitlab dashboard page with PAT submission and project lookup"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-013
+
+track: web
+
+observable: |
+  With the backend stack running and a Team-tier org seeded, sign in to the portal and navigate to `http://localhost:5173/org/<slug>/integrations/gitlab`. Click "Connect GitLab", enter `gitlab_base_url=https://gitlab.com`, paste a test PAT, enter the project path `group/project`; the form resolves the numeric project_id via the GitLab API and creates a `gitlab_installations` row. The integrations table now shows `group/project` with a green "connected" badge. Click "Disconnect" → row soft-deleted. Run `cd web && npm run test:e2e -- --grep "integrations/gitlab"` — all Playwright specs pass.
+
+behaviors:
+  - "Given a Free-tier org navigates to /org/<slug>/integrations/gitlab, when the page loads, then it shows the tier-gate upgrade prompt (handles 402 from the backend)"
+  - "Given a Team-tier org navigates to the page, when it loads with no installations, then it shows a 'Connect GitLab' empty-state with a primary action"
+  - "Given the user submits the connect form with a valid PAT and project path, when POST /api/v1/integrations/gitlab is called, then a gitlab_installations row is created with the PAT stored as ciphertext, and the table updates to show the new integration"
+  - "Given the user submits a project path that does not resolve, when the lookup runs, then an inline error message names the issue (e.g., 'Project not found or PAT lacks access')"
+  - "Given the user submits a self-managed gitlab_base_url with an optional CA bundle, when the form is submitted, then both fields are persisted and the connection is validated against that instance"
+  - "Given an existing integration shows access_token_revoked_at = NOT NULL, when the table renders, then the row carries a 'token revoked' badge and a 'Re-paste PAT' action"
+  - "Given the user clicks Disconnect, when DELETE /api/v1/integrations/gitlab/{id} succeeds, then the row's deleted_at is set and the row disappears from the list"
+  - "Given the page renders the connection-health table, when rows have last_status_post timestamps, then the most recent post per integration is shown with a relative time"
+
+scope: |
+  New SvelteKit route `web/src/routes/(app)/org/[slug]/integrations/gitlab/` with `+page.svelte` (list + connect modal + disconnect action) and `+page.server.ts` calling the GitLab integration endpoints (`POST /api/v1/integrations/gitlab`, `DELETE /api/v1/integrations/gitlab/{id}`, `GET /api/v1/integrations/gitlab`). Backend half of the create/delete endpoints lands here (small surface; the heavy lifting — encryption, key provider — is in M16-013). Form validation: `gitlab_base_url` is required (defaults to `https://gitlab.com`), `project_path` looked up against `{gitlab_base_url}/api/v4/projects/<encoded-path>` to resolve `project_id`, `access_token` is masked (never echoed back after save), optional `gitlab_ca_bundle` PEM textarea. Tier-gated by `ScheduleExecutorTierGate` (or `VaultConfigTierGate` — re-uses the Team gate). Minimum-viable working page (per Open Decision 11).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Page accessible via dashboard nav; minimum-viable form works (no visual polish required)"
+  - "Playwright specs pass headlessly (`npm run test:e2e --grep integrations/gitlab`)"
+  - "OpenAPI/HTTP API doc updated for POST/DELETE /api/v1/integrations/gitlab"
+
+complexity: medium
+estimated_effort: "3-6 hours"

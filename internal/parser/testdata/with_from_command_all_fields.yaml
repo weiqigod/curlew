@@ -1,0 +1,11 @@
+name: From Command All Fields Test
+variables:
+  vault_secret:
+    from_command: "vault read -field=value secret/data"
+    sensitive: true
+    cache: 600
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

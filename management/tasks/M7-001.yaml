@@ -1,0 +1,75 @@
+id: M7-001
+title: "Stderr printers derive color flag from stderr's TTY state, not stdout's"
+status: done
+priority: 1
+created: 2026-04-22
+phase: "M7: Output Discipline"
+track: go-cli
+observable: |
+  # Given stdout piped to a file (non-TTY) and stderr still attached, the
+  # error output emitted to stderr must NOT contain ANSI escape sequences
+  # when stderr is also a pipe. Today a stray stdout-derived color flag
+  # leaks \033[...m codes into piped stderr.
+  cat > /tmp/m7-001-check.yaml <<'YAML'
+  name: stream-color-check
+  requests:
+    - name: missing-var
+      method: GET
+      url: "{{UNDEFINED}}"
+  YAML
+  ./apitest run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt || true
+  # Expected: /tmp/err.txt contains zero ANSI escape sequences.
+  grep -c $'\033\[' /tmp/err.txt
+  # Expected: 0
+  go test -run TestStderrColorFlag ./cmd/apitest/...
+  # Expected: PASS across all four stdout/stderr TTY-vs-pipe combinations.
+behaviors:
+  - "Given stderr is a pipe and stdout is a TTY, when apitest run emits an error, then the stderr content contains no ANSI escape sequences."
+  - "Given stderr is a TTY and stdout is a pipe, when apitest run emits an error, then the stderr content contains ANSI escape sequences (color preserved on the TTY)."
+  - "Given both stdout and stderr are pipes, when apitest run emits an error, then neither stream contains ANSI escape sequences."
+  - "Given NO_COLOR env var is set, when apitest run emits an error, then stderr contains no ANSI escape sequences regardless of TTY state."
+  - "Given --no-color flag, when apitest run emits an error, then stderr contains no ANSI escape sequences regardless of TTY state."
+  - "Given runCmdInner, watchCmd, and execCmd, when each constructs a stderr printer, then the color flag comes from shouldUseColor(os.Stderr, noColor) — never from os.Stdout's TTY state."
+scope: |
+  The stdout-derived useColor flag applied to stderr printers in
+  runCmdInner (main.go:552-553 and every subsequent errOut construction
+  in that function), watchCmd (main.go:1545), and execCmd
+  (main.go:2710-2828; five derived printers) must switch to a per-stream
+  decision based on os.Stderr.
+
+  Introduce a helper newStderrPrinter(noColor bool) *output.Printer in
+  cmd/apitest/ (co-located with shouldUseColor at main.go:319) that
+  returns output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, noColor)).
+  Every existing errOut construction in the three affected functions
+  switches to this helper.
+
+  The stdout-bound useColor variable remains (for the stdout-bound
+  terminal printer) but should be renamed stdoutUseColor at
+  main.go:552, 1545, 2710 to prevent the pattern from being
+  reintroduced later.
+
+  The early-exit stderr printers at main.go:432, 453, 469, 477, 531,
+  542, 1537, 2699, 2705 already construct via shouldUseColor(os.Stderr,
+  ...) directly — these stay as-is or adopt the new helper for
+  uniformity.
+
+  No changes to internal/output/ — the Printer abstraction is already
+  correct; bugs live at the call sites.
+
+  Regression test: cmd/apitest/stream_color_test.go — table-driven,
+  exercises four TTY/pipe combinations. TTY cases use a pseudo-TTY
+  helper (creack/pty or equivalent); if unavailable restrict TTY
+  assertions to Unix and document.
+definition_of_done:
+  - "All behavior tests pass"
+  - "cmd/apitest/stream_color_test.go exercises all four TTY/pipe combinations"
+  - "grep -n 'NewPrinter(os.Stderr, useColor)' cmd/apitest/*.go returns zero matches (no stdout-derived color flag reaches a stderr printer)"
+  - "newStderrPrinter helper exists and is used at every former site"
+  - "go test ./... passes with no regressions"
+  - "Test coverage does not regress below 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "CHANGELOG.md updated"
+complexity: medium
+estimated_effort: "3-5 hours"

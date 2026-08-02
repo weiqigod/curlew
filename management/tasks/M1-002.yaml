@@ -1,0 +1,35 @@
+id: M1-002
+title: "All HTTP methods, headers, query params, JSON body"
+status: done
+planned_date: 2026-03-10
+branch: feature/M1-002-http-methods-headers-body-query
+priority: 2
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-001]
+observable: |
+  Create collection with POST request including headers, JSON body, and query
+  params. Run and verify all are sent correctly (use httpbin.org/post which
+  echoes back).
+behaviors:
+  - "Given a request with `method: POST`, when executed, then a POST request is sent"
+  - "Given a request with `method: PUT/DELETE/PATCH/HEAD/OPTIONS`, when executed, then the correct HTTP method is used"
+  - "Given a request with `headers:` map, when executed, then all headers are sent in the request"
+  - "Given a request with `body:` as a YAML map, when executed, then it is serialized as JSON and Content-Type is set to application/json"
+  - "Given a request with `body:` as a string, when executed, then it is sent as-is"
+  - "Given a request with `query:` map, when executed, then query parameters are appended to the URL"
+  - "Given a request with no method specified, when executed, then GET is used as default"
+  - "Given an unsupported HTTP method, when parsed, then an error is returned"
+scope: |
+  Extend `internal/parser/` to handle method, headers, body, query fields.
+  Extend `internal/http/` to construct requests with all fields. Update sample
+  collection.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

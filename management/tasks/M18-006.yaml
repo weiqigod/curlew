@@ -1,0 +1,44 @@
+id: M18-006
+title: "IUserAnonymiser + last-admin protection + account/data delete panel"
+status: done
+priority: 2
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies:
+  - M18-005
+  - M18-003
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~UserAnonymiser|FullyQualifiedName~LastAdminProtection"` and see >= 14 tests pass. Then run `npm --prefix web run test:unit -- account-data-delete.spec.ts`. Seed user alice (no admin orgs) and bob (sole owner of orgFoo with 3 other members). With alice:
+  `curl -X POST -H "Authorization: Bearer <alice_jwt>" -H "X-Reauth-Token: <fresh>" http://localhost:5000/api/v1/users/me/deletion-requests` returns 202. Force the finalizer (test hook). Confirm via `psql -c "SELECT actor_id, actor_email FROM organization_audit_log WHERE actor_id IS NULL OR actor_email LIKE 'deleted-user-%' LIMIT 1"` returns alice's anonymised rows: actor_id is NULL and actor_email matches `deleted-user-[0-9a-f]{8}`. Confirm a new `user.anonymised` audit-log row exists for alice's anonymisation token. With bob:
+  `curl -i -X POST -H "Authorization: Bearer <bob_jwt>" -H "X-Reauth-Token: <fresh>" http://localhost:5000/api/v1/users/me/deletion-requests`
+  expect `HTTP/1.1 409 Conflict` with body listing `{"blocking_orgs":[{"slug":"orgFoo","name":"Foo Co"}],"error_code":"OwnerCannotLeave"}`. Visit `http://localhost:5173/account/data` and confirm the "Delete account" panel renders with re-auth prompt; click Delete and observe the blocking-orgs preview surfacing bob's case.
+
+behaviors:
+  - "Given a user with audit-log rows attributable to them, when IUserAnonymiser.AnonymiseAsync runs, then every OrganizationAuditLogEntry with ActorId=user has ActorId set to NULL and ActorEmail set to deleted-user-{first 8 hex chars of sha256(user_id+org_id)}"
+  - "Given the same user has audit-log rows across multiple orgs, when anonymisation runs, then each org's rows get a distinct deterministic token (the org_id is part of the sha256 input per v4-6)"
+  - "Given anonymisation completes, when the host emits the audit event, then a new OrganizationAuditLogEntry of EventType='user.anonymised' is inserted with TargetType='user' and TargetId set to the deterministic token (audit-of-audit trail preserved without re-identifying the user)"
+  - "Given the in-deletion-hard subset of the M18-003 manifest, when anonymisation runs, then every row in those tables where UserId=user is hard-deleted (RefreshToken, EmailVerificationToken, PasswordResetToken, NotificationRule per the inventory dispositions)"
+  - "Given a user who is sole Owner of an org with >=1 other member, when POST /api/v1/users/me/deletion-requests is called, then the response is 409 OwnerCannotLeave with blocking_orgs[] enumerated"
+  - "Given a user who is sole Owner of an org with zero other members, when deletion is initiated, then the org is also marked OrgStatus.PendingDeletion in the same transaction (cascade behaviour matches existing MembersService pattern)"
+  - "Given a user who is Owner of an org with another Owner present, when deletion is initiated, then no blocking applies (last-admin == sole-admin, not 'is an admin')"
+  - "Given the web page /account/data renders the Delete panel, when the user clicks Delete without a fresh re-auth, then a re-auth modal is shown; on successful re-auth the POST is issued and the response body is rendered (success countdown OR blocking-orgs preview)"
+  - "Given the user with pending_deletion_at set visits /account/data/cancel-deletion within the 30-day window, when they click Cancel, then the cancellation POST succeeds and pending_deletion_at is cleared"
+
+scope: |
+  New src/ApiTool.Backend/Compliance/Gdpr/UserAnonymiser.cs : IUserAnonymiser implements ActorId=NULL + ActorEmail=deleted-user-{first8(sha256(user_id+org_id))} across audit-log entries; hard-deletes rows in the InDeletionHard subset of the M18-003 manifest using the assembly scanner output. Emits the user.anonymised audit event after anonymisation completes (target_id = the deterministic token, not the user_id). Extend src/ApiTool.Backend/Organizations/MembersService.cs's OwnerCannotLeave check to a new trigger site in UserDeletionEndpoints.cs (per v4-7); response carries blocking_orgs[]. Web: new "Delete account" panel under web/src/routes/(app)/account/data/+page.svelte (same page as M18-004), re-auth modal, blocking-orgs preview, cancellation page at web/src/routes/(app)/account/data/cancel-deletion/+page.svelte. Track is backend because the anonymiser logic + last-admin extension is the meatier half; web UX lands in the same slice for vertical-completeness.
+
+definition_of_done:
+  - "All behavior tests pass (>=14 tests + Svelte component tests)"
+  - "Observable psql + curl + web flow works as documented"
+  - "Test coverage >= 80% on UserAnonymiser.cs and the extended last-admin paths"
+  - "No build warnings or lint errors (dotnet + svelte-check + eslint clean)"
+  - "OpenAPI documents the 409 OwnerCannotLeave response shape with blocking_orgs[]"
+  - "CHANGELOG.md entry references v4-6 and v4-7"
+  - "Anonymisation function documented in docs/security/data-inventory.md (deterministic token shape, irreversibility property, audit-of-audit trail)"
+  - "Playwright smoke covers the delete-with-blocking-orgs case"
+
+complexity: high
+estimated_effort: "large slice"
+track: backend

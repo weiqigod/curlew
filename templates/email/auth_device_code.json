@@ -1,0 +1,14 @@
+{
+  "slug": "auth_device_code",
+  "subject": "Your ApiTool device-login code",
+  "variables": {
+    "user_code":          "string (e.g. 'WDJB-MJHT')",
+    "verification_url":   "string (HTTPS URL)",
+    "expires_in_minutes": "string (e.g. '15')"
+  },
+  "test_data": {
+    "user_code": "WDJB-MJHT",
+    "verification_url": "https://app.apitool.dev/device",
+    "expires_in_minutes": "15"
+  }
+}

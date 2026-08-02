@@ -1,0 +1,42 @@
+id: M2-008
+title: "Auth profile configuration and execution"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Dynamic Auth"
+
+dependencies:
+  - M1-016
+  - M1-017
+  - M1-028
+
+observable: |
+  Add `auth_profiles:` to apitest.yaml with a dynamic profile referencing a login collection.
+  Run `apitest run tests.yaml` and confirm the auth profile executes before main requests.
+  Run `go test ./internal/auth/...` to verify auth profile lifecycle.
+
+behaviors:
+  - "Given an `auth_profiles:` entry with `type: dynamic` and `collection: auth/login.yaml`, when the collection is executed, then the login collection runs before main requests"
+  - "Given an auth profile that extracts `admin_token`, when main requests reference `{{admin_token}}`, then the value from the auth profile is available"
+  - "Given an auth profile that fails (non-200 response), when the collection runs, then exit code 5 (configuration error) and all main requests are skipped"
+  - "Given auth profile variables, when used in parallel requests, then they are treated as pre-execution variables (no inter-request dependencies)"
+  - "Given auth profile variables, they are automatically marked as sensitive"
+  - "Given auth profile execution, the requests do NOT count toward the 1,000-request guard rail"
+
+scope: |
+  Extend `internal/config/project.go` to parse `auth_profiles:` from apitest.yaml.
+  Create `internal/auth/profile.go` with auth profile execution logic that runs a referenced
+  collection file to obtain credentials. Integrate into `internal/runner/runner.go` to execute
+  auth profiles before setup phase. Auth profile variables feed into pre_execution_vars scope.
+  Register dynamic auth profiles as a Solo-tier feature gate.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "6-8 hours"

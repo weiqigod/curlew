@@ -1,0 +1,21 @@
+name: WebSocket Reconnect
+requests:
+  - name: Echo With Reconnect
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/echo"
+      websocket:
+        reconnect:
+          enabled: true
+          max_attempts: 3
+          initial_delay_ms: 500
+          backoff: exponential
+        steps:
+          - action: send
+            message:
+              type: ping
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type:
+                equals: "pong"

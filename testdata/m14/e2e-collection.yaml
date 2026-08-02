@@ -1,0 +1,13 @@
+name: m14-e2e-convergence
+description: |
+  M14-021 convergence E2E collection. Used by the Playwright spec to exercise
+  the full revenue loop: upload result → post check-run → assert received by backend.
+  Single passing GET request against the github-mock health endpoint.
+
+requests:
+  - name: github-mock-health
+    request:
+      method: GET
+      url: "{{ GITHUB_MOCK_URL }}/health"
+    assertions:
+      status: 200

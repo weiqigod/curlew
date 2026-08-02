@@ -1,0 +1,75 @@
+id: M20-002
+title: "Latin-script European locale pools (en-GB, fr-FR, es-ES, it-IT, pt-BR, nl-NL, pl-PL, sv-SE, tr-TR)"
+status: done
+priority: 3
+created: 2026-06-12
+phase: "M20: Faker locale completion"
+track: go-cli
+
+dependencies:
+  - M20-001
+
+observable: |
+  go build ./cmd/apitest
+
+  # 1. Each Latin-script locale produces region-appropriate names matching the SPEC:971-988 exemplars' shape.
+  for L in en-GB fr-FR es-ES it-IT pt-BR nl-NL pl-PL sv-SE tr-TR; do
+    printf '{{$faker.fullName}} | {{$faker.phone}}\n' | ./apitest exec --stdin --seed 42 --locale $L --format json
+  done
+  # Expected: fr-FR e.g. "Jean Dupont | +33 1 23 45 67 89"; sv-SE e.g. "Erik Svensson";
+  # tr-TR e.g. "Ahmet Yılmaz" (note the dotted-I/dotless-ı handled correctly). Each phone
+  # matches the locale's documented format from the spec table.
+
+  # 2. en-GB now resolves to its OWN pool, no longer falling back to en-US.
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale en-GB -v 2>&1 \
+    | grep -F 'falling back' && echo "UNEXPECTED FALLBACK" || echo "en-GB native pool OK"
+  # Expected: "en-GB native pool OK" — no fallback warning now that the pool exists.
+
+  # 3. Seed/locale independence holds across all nine new locales.
+  go test -run 'TestRegistry_Locale_SeedPositionInvariant' -v ./internal/variable/...
+  # Expected: PASS — same seed selects the same pool index in every Latin-script locale.
+
+  # 4. Pool-shape invariants (non-empty, no empty strings, UTF-8 valid) for all nine locales.
+  go test -run 'TestLocalePools_LatinScript_Shape' -v ./internal/variable/...
+  # Expected: PASS.
+
+  go test ./internal/variable/... ./cmd/apitest/...
+  # Expected: PASS.
+
+behaviors:
+  - "Given `--locale fr-FR --seed 42`, when `$faker.fullName` runs, then the value is a French name drawn from the fr-FR pool (e.g. \"Jean Dupont\"), not the en-US or de-DE pool."
+  - "Given `--locale tr-TR`, when names containing Turkish characters are generated, then the dotted-I/dotless-ı casing is preserved correctly in the output (e.g. \"Yılmaz\")."
+  - "Given `--locale en-GB`, when `$faker.phone` runs, then the number matches the British format from SPEC:974 (e.g. \"+44 20 7946 0958\"-shaped), distinct from the en-US `(555) 123-4567` format."
+  - "Given `--locale en-GB` in verbose mode, when faker output is generated, then NO fallback warning is logged because the en-GB pool now exists natively (the M20-001 fallback path is bypassed)."
+  - "Given the same `--seed N`, when `$faker.firstName` is run across all nine Latin-script locales, then each selects the same pool index (seed/locale independence per SPEC:1023-1026)."
+  - "Given any of the nine Latin-script locale codes, when its data table is first accessed, then it is initialised lazily behind sync.Once (no eager load of all locales at startup, per SPEC:1110)."
+  - "Given a culturally-bound location pool (city) for es-ES, when `$faker.city` runs with that locale, then a Spanish city is returned rather than a US city."
+  - "Given `--locale pt-BR --seed 42`, when the same seed is reused across runs, then output is byte-identical (cross-run determinism preserved per-locale)."
+
+scope: |
+  Adds nine Latin-script European locale data tables to the `localeData`
+  lookup established in M20-001 (internal/variable/dynamic.go): en-GB,
+  fr-FR, es-ES, it-IT, pt-BR, nl-NL, pl-PL, sv-SE, tr-TR. Each locale
+  provides per-locale name pools (first/last), phone-format rendering, and
+  the culturally-bound location pools (city, and where meaningful
+  street/region) for the personal-data (dynamic.go:451) and location-data
+  (dynamic.go:507) families. Pools are in-source Go tables initialised
+  behind sync.Once per settled decision 4 (~100KB/locale budget per
+  SPEC:1110). Phone formatting hooks into the per-locale renderer added in
+  M20-001 so each locale emits its spec-documented format (SPEC:974-987).
+  No new flag/config/precedence work — that all lands in M20-001; this
+  slice only registers data and per-locale formatters. Mutually
+  independent of M20-003 (CJK/Cyrillic).
+  Not in scope: ja-JP/zh-CN/ko-KR/ru-RU (M20-003); MANUAL.md table (M20-004).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "All nine new pools pass a shared pool-shape invariant test (non-empty, no empty/whitespace entries, valid UTF-8, locale-appropriate phone format regex)"
+  - "Seed/locale-position-invariant test extended to cover all nine locales and passes"
+  - "./smoke/run.sh passes"
+
+complexity: high
+estimated_effort: "8-12 hours"

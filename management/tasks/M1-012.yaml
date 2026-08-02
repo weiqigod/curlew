@@ -1,0 +1,31 @@
+id: M1-012
+title: "Environment files with --env flag"
+status: done
+priority: 12
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-011]
+observable: |
+  Create environments/dev.yaml with base_url. Run with --env dev.
+  Verify environment variables are used.
+behaviors:
+  - "Given --env dev and environments/dev.yaml exists, when resolved, then variables from environment file are loaded"
+  - "Given environment variables and collection variables, when both define same key, then environment (level 3) vs collection (level 2) precedence applies"
+  - "Given --env staging and no environments/staging.yaml, then error message lists available environments"
+  - "Given environments/ directory structure, when environments are searched, then .yaml and .yml extensions are accepted"
+  - "Given an environment file with invalid YAML, when loaded, then clear parse error with file path"
+  - "Given no --env flag, when executed, then no environment file is loaded"
+  - "Given environment file with nested variables, when loaded, then variables are flattened appropriately"
+scope: |
+  Add --env flag to CLI. Create environment file loading in internal/variable/ or
+  internal/config/. Search for environment files relative to collection file location,
+  then project root.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

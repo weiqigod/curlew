@@ -1,0 +1,40 @@
+id: M2-030
+title: "GraphQL external query files and fragment support"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: GraphQL"
+
+dependencies:
+  - M2-029
+
+observable: |
+  Create a `.graphql` query file and reference it via `query_file:`.
+  Create fragment files and reference them via `fragments:`.
+  Run `apitest run tests.yaml` and confirm queries resolve correctly.
+  Run `go test ./internal/graphql/...` for file loading tests.
+
+behaviors:
+  - "Given `graphql.query_file: graphql/queries/get_user.graphql`, when the collection runs, then the query is loaded from the external file"
+  - "Given `graphql.fragments: [graphql/fragments/user_fields.graphql]`, when the query uses `...UserFields`, then the fragment is concatenated with the query"
+  - "Given multiple fragments with dependencies, when loaded, then fragments are resolved in correct order"
+  - "Given a circular fragment dependency, when loaded, then a validation error is produced"
+  - "Given a missing query file, when the collection runs, then a clear error shows the expected path"
+  - "Given variable interpolation in external query files, when `{{user_id}}` appears in the query, then it is interpolated before execution"
+
+scope: |
+  Extend `internal/graphql/` with external query file loading (`query_file:` field),
+  fragment file loading (`fragments:` field), fragment concatenation with automatic
+  dependency resolution, circular dependency detection for fragments. Support variable
+  interpolation within external query files.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

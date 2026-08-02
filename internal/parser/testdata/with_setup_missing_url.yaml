@@ -1,0 +1,10 @@
+name: Setup Missing URL Test
+setup:
+  - name: Bad Setup
+    request:
+      method: GET
+requests:
+  - name: Main Request
+    request:
+      method: GET
+      url: https://example.com

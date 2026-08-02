@@ -1,0 +1,12 @@
+name: WebSocket Template Test
+requests:
+  - name: Subscribe
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/ws"
+      websocket:
+        steps:
+          - action: send
+            message_template: "websocket_template.json"
+            variables:
+              channel: "news"

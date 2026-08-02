@@ -1,0 +1,6 @@
+name: out-normal
+output:
+  verbosity: normal
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

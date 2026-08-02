@@ -1,0 +1,40 @@
+id: M16-019
+title: "/results/stats and /results/failures aggregation endpoints"
+status: done
+priority: 2
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-001
+
+track: backend
+
+observable: |
+  With the backend running and a Team-tier org seeded with N>=100 result rows over 90 days, run:
+  `curl -s -H "Authorization: Bearer <team_jwt>" "http://localhost:5000/api/v1/organizations/{orgId}/results/stats?window=30d" | jq` → expect a JSON envelope matching the spec schema: `window`, `window_start`, `window_end`, `totals` (runs, pass_count, fail_count, skipped_count, pass_rate, avg_duration_ms, p50_duration_ms, p95_duration_ms), `trend[]` of daily entries.
+  `curl -s -H "Authorization: Bearer <team_jwt>" "http://localhost:5000/api/v1/organizations/{orgId}/results/failures?window=7d&limit=10" | jq` → expect items grouped by `(method, path_template)` sorted by `failure_count DESC`.
+  `curl -i "...?window=14d"` → expect 400 with type `.../unsupported-window` (per Open Decision 10). Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~ResultsStats|ResultsFailures"` — all pass with empirical query latency <800ms on 5M-row test fixtures (where seeded).
+
+behaviors:
+  - "Given a Free-tier org calls GET /api/v1/organizations/{orgId}/results/stats, when DashboardTierGate denies, then the response is 402 with the org's current tier"
+  - "Given a Team-tier org calls GET /results/stats?window=30d, when the handler runs, then the response body matches the spec schema (window, window_start, window_end, totals object with the eight named fields, trend array of daily entries)"
+  - "Given the request omits ?window, when the handler runs, then the default 30d window is used"
+  - "Given ?window=14d (or any value not in {7d,30d,90d}), when the handler runs, then the response is 400 with type .../unsupported-window and detail naming the allowed values (per Open Decision 10)"
+  - "Given results contain assertion-failed rows, when /results/failures?window=7d&limit=10 is queried, then items are grouped by (method, path_template) using the same path-template extraction as the result-ingest pipeline, sorted by failure_count DESC, with first_seen_at, last_seen_at, and 3 sample_run_ids per group"
+  - "Given limit > 50, when /results/failures is called, then limit is clamped to 50 and a Warning header (or response field) notes the clamp"
+  - "Given the org has 5M results rows in the (org_id, created_at) index, when the stats endpoint is called, then EXPLAIN ANALYZE shows the index is used and observed latency is below 800ms (allowed regression threshold)"
+  - "Given the org has zero results in the window, when the stats endpoint is called, then the response is 200 with empty totals (zeros) and an empty trend array (not 404)"
+
+scope: |
+  Two endpoints under `src/ApiTool.Backend/Health/Dashboard/`: `GET /api/v1/organizations/{orgId}/results/stats` and `GET /api/v1/organizations/{orgId}/results/failures`. Both gated by `DashboardTierGate.EnsureTeamOrAboveAsync` (M16-001 adapter). On-demand SQL aggregation against the `results` table indexed on `(org_id, created_at)` — no rollup table (per spec line 10210). Window selector `7d | 30d (default) | 90d`; reject any other value with 400 per Open Decision 10. Failure grouping uses the existing path-template extractor (the same one the result-ingest pipeline uses); document the helper. Sort by `failure_count DESC`; default limit 10, max 50. Response shape strictly matches the spec JSON examples at lines 10166-10206. Permissions check: `dashboard.view` required.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "OpenAPI/HTTP API doc updated for both endpoints with the response schemas"
+
+complexity: medium
+estimated_effort: "3-6 hours"

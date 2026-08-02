@@ -1,0 +1,10 @@
+name: Mixed Scalar and Command Test
+variables:
+  base_url: "https://example.com"
+  secret:
+    from_command: "echo secret123"
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

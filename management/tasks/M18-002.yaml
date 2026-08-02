@@ -1,0 +1,42 @@
+id: M18-002
+title: "Audit-log RBAC permissions + per-org retention + AuditLogCleanupHost"
+status: done
+priority: 1
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies: []
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~AuditLogRetention|FullyQualifiedName~AuditLogRbac"` and see >= 12 tests pass. Apply the migration with `dotnet ef database update --project src/ApiTool.Backend` and verify the new column:
+  `psql -d apitool -c "\d organizations"` shows `audit_log_retention_days integer NOT NULL DEFAULT 365`.
+  Seed an org with retention_days=30 and 100 audit-log rows where 40 are older than 30 days. Run the cleanup tick manually via `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/run-audit-cleanup` (test-only hook). Confirm via `psql -c "SELECT COUNT(*) FROM organization_audit_log WHERE org_id='<orgId>'"` returns 60. Assign the new "Security Auditor" custom role (audit_log.view only, no audit_log.export) to a Member-tier user and confirm:
+  `curl -i -H "Authorization: Bearer <auditor_jwt>" "http://localhost:5000/api/v1/organizations/{orgId}/audit-log?limit=10"` returns 200 with rows;
+  `curl -i -H "Authorization: Bearer <auditor_jwt>" "http://localhost:5000/api/v1/organizations/{orgId}/audit-log?format=jsonl"` returns 403 with RFC 7807 body naming the missing audit_log.export permission. A plain Member without the custom role gets 403 for both.
+
+behaviors:
+  - "Given the migration is applied, when the organizations table is inspected, then audit_log_retention_days exists as INTEGER NOT NULL DEFAULT 365"
+  - "Given a non-Enterprise org attempts to set audit_log_retention_days > 365, when the org-settings update endpoint runs, then it returns 400 with a problem detail naming the Enterprise-only constraint (per v4-2 cap)"
+  - "Given an org with audit_log_retention_days=30 and rows older than 30 days, when AuditLogCleanupHost fires its daily tick, then rows older than now() - retention_days are hard-deleted and rows within the window are retained"
+  - "Given Permissions.cs is loaded, when audit_log.view and audit_log.export are looked up, then both exist and the built-in Owner and Admin roles carry both"
+  - "Given a Member-tier user with the Security Auditor custom role (audit_log.view only), when GET /audit-log is called, then 200 is returned with rows"
+  - "Given a Member-tier user with the Security Auditor custom role, when GET /audit-log?format=jsonl is called, then 403 is returned with an RFC 7807 detail naming the missing audit_log.export permission"
+  - "Given a plain Member-tier user without the custom role, when GET /audit-log is called, then 403 is returned (the hardcoded Owner/Admin gate at AuditLogQueryService.cs:24 has been lifted to the permission check)"
+  - "Given the AuditLogCleanupHost runs at 02:00 UTC daily, when it completes, then it logs the per-org deletion count to the structured logger and surfaces a Prometheus counter audit_log_cleanup_rows_deleted_total"
+
+scope: |
+  EF migration adds organizations.audit_log_retention_days (INTEGER, NOT NULL, DEFAULT 365). New src/ApiTool.Backend/Audit/AuditLogCleanupHost.cs : BackgroundService runs daily at 02:00 UTC, mirrors GithubWebhookCleanupHost pattern at src/ApiTool.Backend/GitHub/Webhooks/; per-org iteration so retention is honoured per-org; structured logging + Prometheus counter. Add audit_log.view and audit_log.export entries to src/ApiTool.Backend/Rbac/Permissions.cs; update RoleSeeder to grant both to Owner and Admin built-in roles. Lift the hardcoded Owner/Admin gate at src/ApiTool.Backend/Audit/AuditLogQueryService.cs:24 to consult IPermissionService (audit_log.view for read, audit_log.export for export). New "Security Auditor" custom-role template seeded via RoleTemplateSeeder carries audit_log.view only. Org-settings update endpoint (PUT /api/v1/organizations/{orgId}) enforces the Enterprise-only cap for retention_days > 365. Test-only internal hook (POST /api/v1/internal/test-hooks/run-audit-cleanup, gated behind APITEST_INTERNAL=1) lets the e2e slice trigger the cleanup deterministically.
+
+definition_of_done:
+  - "All behavior tests pass (>=12 tests)"
+  - "Observable psql + curl commands return the documented results against the running stack"
+  - "Test coverage >= 80% on AuditLogCleanupHost.cs and the modified AuditLogQueryService.cs paths"
+  - "EF migration is reversible (down-migration drops the column without data loss for non-default values)"
+  - "No build warnings or lint errors"
+  - "CHANGELOG.md entry references v4-2 and v4-3"
+  - "RBAC docs in docs/SPECIFICATION.md updated to list the two new permissions and the Security Auditor template"
+  - "Existing audit-log endpoint tests still pass after the RBAC lift (no regressions)"
+
+complexity: medium
+estimated_effort: "medium slice"
+track: backend

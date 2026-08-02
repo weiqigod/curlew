@@ -1,0 +1,7 @@
+name: Path And Request
+requests:
+  - name: Both
+    path: requests/get-user.yaml
+    request:
+      method: GET
+      url: https://example.com/conflict

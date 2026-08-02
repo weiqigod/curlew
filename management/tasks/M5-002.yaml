@@ -1,0 +1,49 @@
+id: M5-002
+title: "Backend: OIDC SSO auth flow"
+status: done
+priority: 2
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: backend
+dependencies:
+  - M4-003
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Sso&FullyQualifiedName~Oidc"
+  # Expected: Passed: >=10, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X PUT -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary @testdata/backend/sso/oidc-config.json \
+    "http://localhost:5000/api/v1/organizations/$ORG/sso/oidc"
+  # Expected HTTP 200, body contains "sso_enabled":true,"sso_provider":"oidc"
+  curl -sSL -D - "http://localhost:5000/api/v1/sso/oidc/$ORG/login" | head -20
+  # Expected HTTP 302 with Location header to the IdP /authorize URL containing client_id and state params
+behaviors:
+  - "Given an org owner, when PUT /organizations/{id}/sso/oidc is called with issuer_url, client_id, client_secret, then the response is 200 and sso_provider=oidc is persisted"
+  - "Given an OIDC config with an unreachable issuer_url, when PUT /sso/oidc is called, then discovery fails with 400 code oidc_discovery_failed"
+  - "Given an org with sso_provider=oidc, when GET /api/v1/sso/oidc/{org_id}/login is called, then the response is 302 to the IdP /authorize endpoint including client_id, redirect_uri, state, and nonce parameters"
+  - "Given a callback to /api/v1/sso/oidc/{org_id}/callback with a valid authorization code, when the backend exchanges it for an id_token signed by the IdP JWKS, then a session cookie is set and the response redirects to the web portal"
+  - "Given a callback with state not matching the stored state cookie, when /sso/oidc/{org_id}/callback is called, then the response is 400 code oidc_state_mismatch"
+  - "Given an id_token whose email claim does not match any org member, when /sso/oidc/{org_id}/callback is called, then the response is 403 code sso_user_not_member"
+  - "Given a non-owner user, when PUT /organizations/{id}/sso/oidc is called, then the response is 403 permission_denied"
+  - "Given the service is running, when curl hits /swagger, then the JSON lists PUT /organizations/{id}/sso/oidc, GET /sso/oidc/{org_id}/login, and GET /sso/oidc/{org_id}/callback"
+scope: |
+  Add OidcController and OidcOptions under src/ApiTool.Backend/Sso. Use
+  IdentityModel.OidcClient or raw HttpClient to perform the authorization-code
+  flow with PKCE. Discovery document fetched lazily and cached in memory for
+  15 minutes per org. Reuses the sso_credentials table from M5-001 to store
+  the cached JWKS. State and nonce stored in a short-lived cookie.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Swagger lists the three new OIDC endpoints"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: high
+estimated_effort: "8-12 hours"

@@ -1,0 +1,10 @@
+name: Child Request Override
+variables:
+  b: "child_b"
+requests:
+  - name: Child Request Override Item
+    variables:
+      b: "req_b_wins"
+    request:
+      method: GET
+      url: https://api.example.com/child-req-override

@@ -1,0 +1,51 @@
+id: M4-006
+title: "Backend: scheduled run trigger service"
+status: done
+priority: 2
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies:
+  - M4-003
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Schedules"
+  # Expected: Passed: >=8, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"nightly","cron":"0 2 * * *","collection_ref":"smoke.yaml"}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/schedules"
+  # Expected HTTP 201, body contains "next_run_at":"...Z"
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    "http://localhost:5000/api/v1/organizations/$ORG/schedules/nightly/run-now"
+  # Expected HTTP 202, body: {"run_id":"run_...","status":"queued"}
+behaviors:
+  - "Given an org admin, when POST /organizations/{id}/schedules is called with name, cron, and collection_ref, then 201 is returned and the schedule row has a computed next_run_at in the future"
+  - "Given a malformed cron expression, when POST /schedules is called, then the response is 400 with code invalid_cron and a human-readable description"
+  - "Given a duplicate schedule name in the same org, when POST /schedules is called, then the response is 409 with code schedule_name_taken"
+  - "Given a scheduled run exists, when the in-process scheduler hosted service fires at its next tick past next_run_at, then a queued run row is created and last_run_at is updated"
+  - "Given an admin, when POST /schedules/{name}/run-now is called, then 202 is returned and a new queued run appears in GET /schedules/{name}/runs"
+  - "Given a member (non-admin), when POST /schedules is called, then 403 permission_denied is returned"
+  - "Given the service restarts, when it boots with existing schedules in the DB, then the hosted scheduler re-hydrates them and recomputes next_run_at"
+  - "Given Swagger UI is hit, when /swagger is loaded, then schedules endpoints are listed with request/response schemas"
+scope: |
+  Add SchedulesController plus a hosted BackgroundService (SchedulerHost) that
+  polls every 30s for due schedules and enqueues a run record. New EF entities
+  Schedule and ScheduledRun, migration 0003_schedules. Cron parsing via
+  Cronos library. Schedules persist, survive restart, and are org-scoped via
+  the M4-003 RBAC service. This slice enqueues runs — actual CLI dispatch is a
+  future milestone, so enqueued runs stay in 'queued' state.
+definition_of_done:
+  - "dotnet test Schedules suite passes (>=8 tests)"
+  - "curl end-to-end probe for create + run-now + list verified"
+  - "Hosted service logs 'scheduler tick n schedules due' at info level"
+  - "EF migration 0003_schedules committed"
+  - "Swagger lists schedules endpoints with cron field documented"
+  - "Cronos NuGet dependency added to ApiTool.Backend.csproj"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

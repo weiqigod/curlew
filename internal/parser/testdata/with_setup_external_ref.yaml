@@ -1,0 +1,8 @@
+name: Setup External Ref Test
+setup:
+  - path: requests/get-user.yaml
+requests:
+  - name: List Resources
+    request:
+      method: GET
+      url: https://example.com/resources

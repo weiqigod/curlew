@@ -1,0 +1,31 @@
+id: M1-028
+title: "Feature gate framework"
+status: done
+priority: 28
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-020]
+observable: |
+  Trigger a gated feature (e.g., vault command). See structured gate message
+  with feature name, required tier, and register URL. Exit code 6.
+behaviors:
+  - "Given a gated feature accessed without license, when triggered, then exit code 6 with structured message"
+  - "Given a gate message, when displayed, then it includes feature name, required tier, trial_available flag, and register URL"
+  - "Given --format json with a gated feature, when triggered, then gate message is in JSON format"
+  - "Given a declarative gate (detected at parse time), when collection is parsed, then gate fires before execution"
+  - "Given a runtime gate (detected during execution), when feature is used, then gate fires at point of use"
+  - "Given a feature gate, when displayed in terminal, then message is user-friendly with clear next steps"
+  - "Given gate configuration, when feature tiers are checked, then gates are configurable (not hardcoded)"
+scope: |
+  Create `internal/auth/` package with feature gate framework. Define gate
+  configuration format. Integrate at parse and execution points. Add exit
+  code 6.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

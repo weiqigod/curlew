@@ -1,0 +1,50 @@
+id: M14-007
+title: "CLI: JWKS fetch + cache for offline License JWT verification"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-003
+  - M14-004
+observable: |
+  go build ./cmd/apitest
+  go test ./internal/license/... -count=1
+  # Expected: ok, >=12 tests (existing + new JWKS tests)
+  ./testdata/m14/stub-backend.sh start
+  ./apitest license --validate testdata/m14/sample-license.jwt
+  # Expected stdout: "License valid; tier=solo; kid=dev-es256-202605-a3f4d2; jwks=cached"
+  # Exit 0; ~/.config/apitesttool/jwks_cache.json now contains the keys
+  ./testdata/m14/stub-backend.sh stop
+  ./apitest license --validate testdata/m14/sample-license.jwt
+  # Expected: same success — backend is down but jwks_cache.json + embedded JWKS suffice
+  # Exit 0
+behaviors:
+  - "Given an empty jwks_cache.json and a reachable backend, when offline verification needs a kid not in the embedded JWKS, then the CLI fetches /api/v1/.well-known/jwks.json, persists it to ~/.config/apitesttool/jwks_cache.json, and verifies"
+  - "Given jwks_cache.json exists and contains the required kid, when offline verification runs, then no network call is made and verification succeeds"
+  - "Given a JWT signed with a kid not in either the embedded JWKS or jwks_cache.json AND the backend is unreachable, when verification runs, then VerifyJWT returns ErrKeyNotFound and the CLI exits 6 (per existing license validation taxonomy)"
+  - "Given the JWS header alg is not in the allowlist {ES256}, when VerifyJWT runs, then it rejects with InvalidAlgorithm without attempting key lookup"
+  - "Given the JWS header typ is not 'license+jwt', when VerifyJWT is asked to verify a License JWT, then it rejects with InvalidType per RFC 8725 §3.11"
+  - "Given the existing internal/license/jwt.go VerifyRS256 export, when this slice lands, then the function is renamed VerifyJWT(token, jwks) per docs/SPECIFICATION.md:7990 and the old name is removed (no alias)"
+  - "Given Cache-Control max-age=3600 from the JWKS response, when the cache is read, then the CLI honors it as a soft TTL — the cache is still consulted past 3600s if the backend is unreachable"
+scope: |
+  Extends internal/license/ with a new jwks_client.go wired through
+  internal/backend (M14-004). Renames VerifyRS256 → VerifyJWT(token, jwks) per
+  the v4.2 algorithm-agnostic verifier requirement at
+  docs/SPECIFICATION.md:7990. The verifier dispatches on JWS header alg with
+  initial allowlist {"ES256"} and rejects all others. JWKS cache file at
+  ~/.config/apitesttool/jwks_cache.json (mode 0600). Embedded JWKS continues
+  to ship in the binary as the primary fallback for the SaaS issuer's current
+  key; the cache extends coverage to additional/rotated kids. Online refresh
+  is best-effort — failures are non-fatal so long as a valid kid is locally
+  available.
+definition_of_done:
+  - "go test ./internal/license/... passes with >=12 tests (renamed-verifier coverage included)"
+  - "Live binary verifies a JWT against the cache after the backend has stopped — proving offline path works"
+  - "VerifyRS256 export removed; no compile aliases remain"
+  - "Help text for `license --validate` mentions the cache path"
+  - "docs/SPECIFICATION.md:7990 + the alg-agnostic clause cited in jwt.go header"
+  - "Smoke test confirms `license --validate` exits 0 against a fixture JWT after one online warm-up"
+complexity: medium
+estimated_effort: "5-8 hours"
+track: go-cli

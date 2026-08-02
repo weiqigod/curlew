@@ -1,0 +1,36 @@
+id: M16-013
+title: "gitlab_installations table with IGitLabKeyProvider and gitlab_webhook_events"
+status: done
+priority: 1
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies: []
+
+track: backend
+
+observable: |
+  Apply the migration via `dotnet ef database update` and confirm `psql -c "\d gitlab_installations"` and `\d gitlab_webhook_events` show the columns from the spec appendix. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GitLabKeyProvider|GitLabInstallation|GitLabWebhookEvent"`. Confirm both `FileGitLabKeyProvider` (deploy/self-hosted/Keys/gitlab-kek.bin) and `GoogleKmsGitLabKeyProvider` round-trip a PAT through encrypt/decrypt correctly. Then start the backend with `GITLAB__KEY_PROVIDER=file GITLAB__KEK_PATH=Keys/gitlab-kek.bin` and probe `curl -i -H "Authorization: Bearer <jwt>" http://localhost:5000/api/v1/integrations/gitlab` → expect 200 with an empty list (no installations yet) — proving the wiring loads.
+
+behaviors:
+  - "Given the migration is applied, when gitlab_installations is inspected, then columns match the spec: id, org_id, project_id, project_path, gitlab_base_url, gitlab_ca_bundle, access_token_ciphertext, access_token_kid, webhook_secret_ciphertext, created_at, updated_at, deleted_at, with UNIQUE (org_id, project_id) WHERE deleted_at IS NULL"
+  - "Given the migration is applied, when gitlab_webhook_events is inspected, then it has columns id, event_uuid (UNIQUE), installation_id (FK), event_type, payload (JSONB), failure_count, quarantined_at, created_at"
+  - "Given the migration is rolled back, when the schema is re-inspected, then both tables are removed cleanly"
+  - "Given FileGitLabKeyProvider is configured with Keys/gitlab-kek.bin (32-byte file, mode 0600), when EncryptAsync is called with a PAT 'glpat-…', then it returns ciphertext and a kid; DecryptAsync(ciphertext, kid) returns the original plaintext"
+  - "Given GoogleKmsGitLabKeyProvider is configured with a stub KMS client, when EncryptAsync is called with a PAT, then it produces a per-row DEK wrapped via the KMS stub and ciphertext that round-trips on Decrypt"
+  - "Given a missing or wrong-size KEK file, when FileGitLabKeyProvider initializes, then it throws a clear startup exception naming the path and required size (32 bytes)"
+  - "Given the FK installation_id on gitlab_webhook_events, when an installation is hard-deleted, then ON DELETE CASCADE removes the event rows (or ON DELETE SET NULL — whichever the spec dictates; document the choice)"
+
+scope: |
+  EF Core migration adding `gitlab_installations` and `gitlab_webhook_events` tables per the Database Schema Reference Appendix. Entities under `src/ApiTool.Backend/Data/Entities/` (`GitLabInstallation.cs`, `GitLabWebhookEvent.cs`) wired into `AppDbContext`. New folder `src/ApiTool.Backend/GitLab/` mirroring the GitHub structure, containing `IGitLabKeyProvider` interface and two implementations: `FileGitLabKeyProvider` (reads `Keys/gitlab-kek.bin` for self-hosted; AES-256 KEK; per-row DEK pattern using AES-256-GCM) and `GoogleKmsGitLabKeyProvider` (KMS-wrapped DEK; same shape as `GoogleKmsKeyProvider`). DI registration switches via `GITLAB__KEY_PROVIDER` config flag. Add a stub list-endpoint `GET /api/v1/integrations/gitlab` that returns an empty array (the create endpoint lands in M16-016 web slice's backend half via the existing pattern). Outbound poster and webhook handler are M16-014 and M16-015.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc updated for the GET /api/v1/integrations/gitlab list endpoint"
+
+complexity: high
+estimated_effort: "6-12 hours"

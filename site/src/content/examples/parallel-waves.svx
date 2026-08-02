@@ -1,0 +1,111 @@
+---
+title: Parallel execution by dependency waves
+intent: Declare what depends on what; ApiTool topologically sorts your requests into concurrent waves and proves the plan before running it.
+group: core
+features: [parallel, chaining, setup-teardown]
+command: apitest run collections/order-graph.yaml --parallel
+order: 30
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+When requests are independent, running them one after another just wastes wall-clock.
+You don't hand-write a thread pool, though — you declare dependencies with
+`depends_on`, and ApiTool computes the execution **waves** with a topological sort.
+Independent requests in the same wave run concurrently; extracted variables flow
+forward to the next wave.
+
+## The collection
+
+`Create user` and `Create product` don't depend on each other, so they belong in the
+same wave. `Place order` needs both, so it waits.
+
+```yaml
+# collections/order-graph.yaml
+name: Order graph
+requests:
+  - name: Create user
+    request:
+      method: POST
+      url: "{{base_url}}/users"
+      body: { name: "{{$faker.fullName}}" }
+    extract:
+      user_id: "$.id"
+
+  - name: Create product
+    request:
+      method: POST
+      url: "{{base_url}}/products"
+      body: { name: "Widget", price: 19.99 }
+    extract:
+      product_id: "$.id"
+
+  - name: Place order
+    depends_on: [Create user, Create product]
+    request:
+      method: POST
+      url: "{{base_url}}/orders"
+      body:
+        user_id: "{{user_id}}"
+        product_id: "{{product_id}}"
+    assertions:
+      status: 201
+```
+
+## Preview the plan — without sending a single request
+
+`--show-dependencies` prints the computed waves; combine it with `--dry-run` to
+resolve every variable and preview URLs and bodies with zero network traffic. A
+cycle (A→B→A) is rejected at parse time with a clear error.
+
+```bash
+apitest run collections/order-graph.yaml --show-dependencies --dry-run
+```
+
+```
+  Wave 1: [Create user, Create product] → 2 concurrent
+  Wave 2: [Place order] → 1 sequential
+
+Total waves: 2
+Maximum parallelism: 2 requests per wave
+Expected speedup: 1.5x
+```
+
+## Run it for real
+
+```bash
+apitest run collections/order-graph.yaml --parallel
+```
+
+```
+Collection: Order graph
+
+Wave 1 (2 concurrent):
+  ✓ Create user  201  88ms
+  ✓ Create product  201  91ms
+
+Wave 2 (1 concurrent):
+  ✓ Place order  201  102ms
+
+────────────────────────────────
+  3 request(s): 3 passed, 0 failed (193ms)
+  Waves: 2, Max parallelism: 2
+  Speedup: 1.7x
+```
+
+<Callout type="tip">
+	This is ApiTool's real parallel output, captured from a run — the
+	<code>Speedup</code> line corresponds to
+	<code>.parallel_execution.speedup_factor</code> in <code>--format json</code>.
+	Waves are computed from data flow: <code>Place order</code> uses values extracted by
+	the first two requests, so it lands in wave 2.
+</Callout>
+
+<Callout type="note">
+	Parallelism is opt-in: without <code>--parallel</code>, the collection runs
+	sequentially regardless of <code>depends_on</code>. The dependency graph is always
+	respected — the flag only decides whether independent requests overlap.
+</Callout>

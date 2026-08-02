@@ -1,0 +1,94 @@
+id: M13-001
+title: "Dotted-namespace syntax foundation for $faker.* dynamic functions"
+status: done
+priority: 1
+created: 2026-04-28
+completed_date: 2026-04-28
+verified_by: ai
+phase: "M13: Faker depth"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestDynPattern_DottedNamespace' -v ./internal/variable/...
+  # Expected: PASS — dynPattern matches `{{$faker.firstName}}` capturing
+  # funcName=`faker.firstName` (literal dot in capture group 1).
+
+  go test -run 'TestDynPattern_DottedNamespace_WithArgs' -v ./internal/variable/...
+  # Expected: PASS — dynPattern matches `{{$faker.imageUrl(640, 480)}}`
+  # capturing funcName=`faker.imageUrl` and rawArgList=`640, 480`.
+
+  go test -run 'TestRegistry_DottedName_NotYetRegistered' -v ./internal/variable/...
+  # Expected: PASS — `{{$faker.firstName}}` resolves at the regex level
+  # but Evaluate returns `unknown dynamic function "faker.firstName";
+  # available: ...` (the available list does not yet contain any
+  # faker.* names — those land in M13-002..M13-008).
+
+  go test -run 'TestDynPattern_BackwardCompatNoDot' -v ./internal/variable/...
+  # Expected: PASS — `{{$timestamp}}`, `{{$uuid}}`, `{{$base64('a')}}`,
+  # `{{$hmacSha256('p','k')}}` continue to match unchanged.
+
+  printf '{{$faker.firstName}}\n' | ./apitest exec --stdin --format json 2>&1 \
+    | grep -F 'unknown dynamic function "faker.firstName"'
+  # Expected: success — the runtime error names the dotted function (proves
+  # the regex resolved the dot-form rather than rejecting it as a literal).
+
+  grep -n '52 functions' docs/SPECIFICATION.md || echo "typo fixed"
+  # Expected: "typo fixed" — line 748 now reads "53 functions".
+
+  go test ./...
+  # Expected: PASS — full suite green, no regressions in any caller of dynPattern.
+behaviors:
+  - "Given the input `{{$faker.firstName}}`, when matched by dynPattern, then capture group 1 equals `faker.firstName` and capture group 2 (raw arg list) is the empty string."
+  - "Given the input `{{$faker.imageUrl(640, 480)}}`, when matched by dynPattern, then capture group 1 equals `faker.imageUrl` and capture group 2 equals `640, 480`."
+  - "Given the input `{{$timestamp}}` (no dot), when matched by dynPattern, then capture group 1 equals `timestamp` — the legacy single-segment form is unaffected."
+  - "Given the input `{{$base64('hello')}}` (no dot, parens), when matched by dynPattern, then capture group 1 equals `base64` and capture group 2 equals `'hello'` — the M12-001 arg syntax is preserved verbatim."
+  - "Given the input `{{$faker..badName}}` (consecutive dots) or `{{$.faker.firstName}}` (leading dot), when matched, then no match occurs — the regex requires `[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)*` so each dot-separated segment must be a valid identifier."
+  - "Given a dotted name `{{$faker.firstName}}` is encountered before any faker.* registration exists, when Registry.Evaluate is called, then it returns `unknown dynamic function \"faker.firstName\"` whose available-list is the existing M11/M12 functions only (proves the regex resolved the dot-form before the registry rejected it as unknown)."
+  - "Given SPECIFICATION.md:748 reads `Phase 4: Faker integration (52 functions for realistic data)`, when the doc-fix in this slice lands, then the same line reads `(53 functions for realistic data)` — counting the seven category tables (10 + 12 + 5 + 9 + 5 + 8 + 4 = 53) confirms the corrected number."
+  - "Given the cache key produced by cacheKey(funcName, args) (M12-001), when funcName contains a dot, then the NUL-delimited cache key shape is unchanged — `faker.firstName` plus NUL is a valid distinct key from `firstName` plus NUL."
+scope: |
+  Cross-cutting parser change. Update `dynPattern` in
+  internal/variable/variable.go:96 to accept dotted namespaces in
+  function names. Replace the existing character class
+  `[a-zA-Z][a-zA-Z0-9_]*` with
+  `[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)*`
+  so each dot-separated segment must be a valid identifier; consecutive
+  dots and leading/trailing dots are rejected. The funcName captured by
+  group 1 includes the literal dots and is used verbatim as the registry
+  lookup key (see Registry.Evaluate at internal/variable/dynamic.go:117).
+  No changes are needed in cacheKey, parseDynArgs, or the SensitiveSet
+  plumbing — they all treat funcName as an opaque string.
+
+  Also fix the spec typo at SPECIFICATION.md:748 (52 → 53; the seven
+  category tables at SPECIFICATION.md:759–847 sum to 53).
+
+  Files touched:
+  - internal/variable/variable.go (dynPattern regex update; existing
+    Pass-1 dispatch at lines 80–230 is unchanged otherwise)
+  - internal/variable/variable_test.go (new TestDynPattern_DottedNamespace*
+    cases + a backward-compat case for legacy single-segment names)
+  - internal/variable/dynamic_test.go (new TestRegistry_DottedName_NotYetRegistered
+    asserting the unknown-function error message format for dotted names)
+  - docs/SPECIFICATION.md:748 (52 → 53 doc-fix only; no other doc changes)
+  - docs/MANUAL.md §3.7 (one-paragraph note that dynamic-function names
+    may contain dotted namespaces, with `$faker.*` cited as the
+    forthcoming user)
+
+  Not in scope: any `$faker.*` registrations (those are M13-002..M13-008);
+  the `--locale` flag (deferred from M13 entirely — see M13 Open Decision #1);
+  any change to parseDynArgs (M12-001's arg parser is reused unmodified).
+  Spec citations: SPECIFICATION.md:743–748, SPECIFICATION.md:751–847.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "Backward-compatible: every existing `{{$fn}}` and `{{$fn(args)}}` invocation in the codebase, smoke fixtures, and management/tasks/*.yaml continues to match dynPattern unchanged"
+  - "docs/SPECIFICATION.md:748 reads `Phase 4: Faker integration (53 functions for realistic data)`"
+  - "docs/MANUAL.md §3.7 mentions dotted-namespace function names and points forward to $faker.*"
+complexity: medium
+estimated_effort: "3-5 hours"

@@ -1,0 +1,42 @@
+id: M2-002
+title: "Vault provider profile configuration and parsing"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Vault Commands"
+
+dependencies:
+  - M2-001
+  - M1-017
+
+observable: |
+  Add a `secrets:` block to apitest.yaml with `provider: aws-secrets-manager` and keys.
+  Run `apitest validate collection.yaml` and confirm the vault config is parsed without errors.
+  Run at Free tier and confirm exit code 6 with feature gate message for vault_provider_profiles.
+  Run `go test ./internal/vault/...` to verify config parsing.
+
+behaviors:
+  - "Given a `secrets:` block in apitest.yaml with `provider: aws-secrets-manager`, when parsed, then the provider, region, keys, and cache_ttl are correctly extracted"
+  - "Given a `secrets:` block with `provider: hashicorp-vault` and `auth.method: approle`, when parsed, then all auth fields (role_id, secret_id) are extracted"
+  - "Given a `secrets:` block with `provider: azure-key-vault`, when parsed, then vault_name and keys are extracted"
+  - "Given a `secrets:` block with structured extraction (`prod/db#password`), when parsed, then the key and field are separated correctly"
+  - "Given an unknown provider name, when parsed, then a validation error lists supported providers"
+  - "Given a `secrets:` block at Free tier, when the collection is loaded, then exit code 6 and feature gate error"
+  - "Given a `secrets:` block, all extracted variables are automatically marked as sensitive"
+
+scope: |
+  Create `internal/vault/` package with configuration types for vault provider profiles.
+  Parse the `secrets:` block from apitest.yaml in `internal/config/project.go`.
+  Implement config validation for all five supported providers (AWS, Azure, HashiCorp, GCP, 1Password).
+  Support structured extraction syntax (`key#field`). All vault variables auto-sensitive.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

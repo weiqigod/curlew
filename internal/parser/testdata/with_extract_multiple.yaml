@@ -1,0 +1,10 @@
+name: Extract Multiple
+requests:
+  - name: Login
+    request:
+      method: POST
+      url: "https://example.com/login"
+    extract:
+      token: "$.data.token"
+      user_id: "$.data.user.id"
+      role: "$.data.role"

@@ -1,0 +1,10 @@
+name: M19-005 validate bad
+requests:
+  - name: int-typed-if
+    if: "1 + 2"
+    request:
+      method: GET
+      url: https://example.com
+    assertions:
+      cel:
+        - "response.status =="

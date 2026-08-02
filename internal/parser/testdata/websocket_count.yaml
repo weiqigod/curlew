@@ -1,0 +1,16 @@
+name: WebSocket Count Test
+requests:
+  - name: Subscribe
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/ws"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 500
+            count: 5
+            message:
+              $.type:
+                equals: "update"
+            extract:
+              notifications: "$.data"

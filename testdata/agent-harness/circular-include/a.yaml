@@ -1,0 +1,8 @@
+name: circular-include-a
+include:
+  - b.yaml
+requests:
+  - name: request-a
+    request:
+      method: GET
+      url: http://example.com/a

@@ -1,0 +1,10 @@
+name: Conflict Test
+variables:
+  secret:
+    value: "inline"
+    from_command: "echo secret123"
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

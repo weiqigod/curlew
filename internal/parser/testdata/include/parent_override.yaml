@@ -1,0 +1,11 @@
+name: Parent Override
+variables:
+  a: "1"
+  b: "2"
+include:
+  - ./child_override.yaml
+requests:
+  - name: Parent Own Request
+    request:
+      method: GET
+      url: https://api.example.com/parent-override

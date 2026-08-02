@@ -1,0 +1,20 @@
+description: |
+  Run a collection against a server returning 200, but assert status 201.
+  Should emit assertion.result with passed=false and request.end with
+  outcome=failed carrying an error.category=assertion and a concrete hint.
+exit_code: 1
+events:
+  - kind: assertion.result
+    must_have:
+      passed: false
+      type: status
+  - kind: request.end
+    must_have:
+      outcome: failed
+      error.category: assertion
+      error.code: ASSERTION_FAILED
+    hint_contains_any:
+      - Inspect
+      - Check
+      - Verify
+      - Adjust

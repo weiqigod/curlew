@@ -1,0 +1,31 @@
+id: M1-003
+title: "Run multiple requests sequentially"
+status: done
+priority: 3
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-001]
+observable: |
+  Create collection with 3 requests. Run and see per-request output plus
+  summary (total, passed, failed, duration).
+behaviors:
+  - "Given a collection with multiple requests, when executed, then each request runs sequentially in order"
+  - "Given a collection with 3 requests, when all succeed, then summary shows \"3 passed, 0 failed\""
+  - "Given a collection with 3 requests where one fails (network error), when executed, then summary shows correct pass/fail counts"
+  - "Given `options.stop_on_failure: true`, when a request fails, then subsequent requests are skipped"
+  - "Given `options.stop_on_failure: false` (default), when a request fails, then remaining requests still execute"
+  - "Given a collection with multiple requests, when executed, then total duration is shown in summary"
+  - "Given an empty requests array, when executed, then a warning is printed and exit code 0"
+scope: |
+  Add execution loop in `internal/http/` or new `internal/runner/` package. Add
+  summary output to `internal/output/`. Parse `options:` block in collection.
+  Update sample collection.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

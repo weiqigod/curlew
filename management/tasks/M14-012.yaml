@@ -1,0 +1,53 @@
+id: M14-012
+title: "Backend: Stripe subscription + customer event handlers"
+status: done
+priority: 2
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-011
+  - M14-014
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres stripe-mock
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~StripeSubscriptionHandler|FullyQualifiedName~StripeCustomerUpdatedHandler"
+  # Expected: Passed: >=12, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  ./scripts/replay-stripe-event.sh customer.subscription.created subs_test_1
+  curl -sS -H "Authorization: Bearer $(./scripts/test-token.sh owner@example.com)" \
+    http://localhost:5000/api/v1/me | jq .tier
+  # Expected: "team" (or whatever tier the replayed subscription's price maps to)
+  ./scripts/replay-stripe-event.sh customer.subscription.deleted subs_test_1
+  curl -sS -H "Authorization: Bearer $(./scripts/test-token.sh owner@example.com)" \
+    http://localhost:5000/api/v1/me | jq .tier
+  # Expected: "free" with billing_subscription_canceled email row in the email queue
+behaviors:
+  - "Given a customer.subscription.created event, when the handler runs, then it RE-FETCHES the Subscription from Stripe (not the event payload) per docs/SPECIFICATION.md:6845–6848 and upserts the subscriptions row with status, tier, period dates, and seat count"
+  - "Given a customer.subscription.updated event arriving BEFORE customer.subscription.created (out-of-order), when the handler runs, then it re-fetches and writes 'DB matches Stripe current state' — never 'apply this delta' — and the second arrival is a no-op"
+  - "Given a customer.subscription.deleted event, when the handler runs, then subscriptions.status='canceled', stripe_subscription_id is cleared, an EmailMessage with slug=billing_subscription_canceled is enqueued onto the EmailQueue channel, and the org tier falls back per the existing license-tier-resolution logic"
+  - "Given a customer.updated event, when the handler runs, then customer email/metadata changes are mirrored into orgs.stripe_customer_email"
+  - "Given a Stripe.Net SubscriptionService.GetAsync call fails with 404, when the handler runs, then the row is marked status='quarantined' (not retried — the underlying object is gone)"
+  - "Given the EmailQueueProcessor channel is bound, when billing_subscription_canceled is enqueued, then it is consumed by the M14-014 processor; if the channel is unbound (handlers landed before M14-014 in CI ordering), the test fixture provides a no-op channel reader and the handler still completes"
+  - "Given a duplicate event arrives within the idempotency window, when the M14-011 middleware deduplicates, then this slice's handler is never invoked"
+scope: |
+  Adds handlers in src/ApiTool.Backend/Webhooks/Handlers/SubscriptionHandlers.cs
+  for customer.subscription.{created,updated,deleted} and customer.updated per
+  docs/SPECIFICATION.md:6796–6804. Each handler re-fetches the underlying
+  object from Stripe via the StripeGateway from M14-008, never trusting the
+  event payload's snapshot per the order-defense pattern at :6845–6848. The
+  billing_subscription_canceled email is composed and pushed onto the
+  System.Threading.Channels EmailQueue per the M14-014 sender contract.
+  Soft-coupling to M14-014: handler compiles and runs in unit tests against
+  a no-op channel reader; the live integration is verified once M14-014 is
+  also merged (Plan-agent treats this as a soft dependency per the mapping's
+  M14-012/013 ↔ M14-014 note).
+definition_of_done:
+  - "All behavior tests pass (>=12)"
+  - "Live event-replay produces the documented tier change and an email row in the queue"
+  - "Re-fetch-not-deltas pattern covered by an out-of-order test"
+  - "Quarantine path for deleted-from-Stripe objects covered"
+  - "scripts/replay-stripe-event.sh helper checked in"
+  - "docs/SPECIFICATION.md:6796–6848 cited in handler file headers"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

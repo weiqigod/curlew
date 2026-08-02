@@ -1,0 +1,41 @@
+id: M2-027
+title: "HTML report generation"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Reporting"
+
+dependencies:
+  - M2-026
+  - M1-028
+
+observable: |
+  Run `apitest run tests.yaml --format html --report report.html` and open report.html in a browser.
+  Confirm the report is self-contained (embedded CSS/JS) and shows test summary, pass/fail, timing.
+  Run `go test ./internal/output/...` for HTML report tests.
+
+behaviors:
+  - "Given `--format html --report report.html`, when the collection completes, then a self-contained HTML file is generated"
+  - "Given the HTML report, when opened in a browser, then it shows test summary (total, passed, failed, skipped, duration)"
+  - "Given the HTML report, when opened, then each request shows name, status (pass/fail/skip), method, URL, duration"
+  - "Given failed assertions in the report, when viewed, then assertion details (expected vs actual) are shown"
+  - "Given the HTML report, the file is self-contained (no external CSS/JS dependencies) so it can be emailed or uploaded"
+  - "Given `--format html` without `--report`, when run, then an error message instructs the user to provide `--report <file>`"
+
+scope: |
+  Create `internal/output/html.go` with HTML report generation using embedded Go templates.
+  The report is a single self-contained HTML file with embedded CSS for styling and minimal
+  JavaScript for interactivity (collapsible sections). Include test summary dashboard,
+  per-request details, assertion results, and timing information. Register as Professional-tier
+  feature gate.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "6-10 hours"

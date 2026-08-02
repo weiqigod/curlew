@@ -1,0 +1,90 @@
+id: M13-003
+title: "$faker location data — 12 functions"
+status: done
+priority: 1
+created: 2026-04-28
+phase: "M13: Faker depth"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FakerLocation' -v ./internal/variable/...
+  # Expected: PASS — all 12 location functions registered.
+  # $faker.address matches /^\d+ \w+( \w+)* (St|Ave|Blvd|...), \w+( \w+)*, [A-Z]{2} \d{5}$/;
+  # $faker.latitude is a string-encoded float in [-90, 90] with 4 decimals;
+  # $faker.timezone is a valid IANA identifier (e.g. America/New_York).
+
+  go test -run 'TestRegistry_FakerLocation_Seeded' -v ./internal/variable/...
+  # Expected: PASS — given --seed=42, two consecutive calls to
+  # $faker.city and $faker.zipCode produce byte-equal output.
+
+  go test -run 'TestRegistry_FakerLocation_Unseeded' -v ./internal/variable/...
+  # Expected: PASS — without --seed, two consecutive runs differ.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a request body: {"address":"{{$faker.address}}","lat":{{$faker.latitude}},"tz":"{{$faker.timezone}}"}
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: address is a US-shaped full address, lat is a numeric
+  # JSON value (no quotes — note this is consistent with the
+  # rendered-string-into-JSON convention used by other numeric faker
+  # functions; see scope), tz is a valid IANA name.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$faker.address` is evaluated, then the result is a US-format full address `<num> <street>, <city>, <stateAbbr> <zip>` (per SPECIFICATION.md:778)."
+  - "Given the registry, when `$faker.street` is evaluated, then the result is `<num> <streetName>` (per SPECIFICATION.md:779)."
+  - "Given the registry, when `$faker.streetName` is evaluated, then the result is a non-empty street name (no leading number; per SPECIFICATION.md:780)."
+  - "Given the registry, when `$faker.city` is evaluated, then the result is a non-empty US city name from the shipped pool (per SPECIFICATION.md:781)."
+  - "Given the registry, when `$faker.state` and `$faker.stateAbbr` are evaluated for the same seeded RNG state, then `$faker.state` returns a full state name and `$faker.stateAbbr` returns the corresponding 2-letter ISO code; the two pools are aligned 1:1 by index (per SPECIFICATION.md:782–783)."
+  - "Given the registry, when `$faker.zipCode` is evaluated, then the result matches `^\\d{5}$` (per SPECIFICATION.md:784)."
+  - "Given the registry, when `$faker.country` is evaluated, then the result is a full country name from a shipped pool (per SPECIFICATION.md:785)."
+  - "Given the registry, when `$faker.countryCode` is evaluated, then the result matches `^[A-Z]{2}$` and is a valid ISO 3166-1 alpha-2 code (per SPECIFICATION.md:786)."
+  - "Given the registry, when `$faker.latitude` is evaluated, then the result is a string-encoded float with 4 decimal places in the range [-90.0000, 90.0000] (per SPECIFICATION.md:787)."
+  - "Given the registry, when `$faker.longitude` is evaluated, then the result is a string-encoded float with 4 decimal places in the range [-180.0000, 180.0000] (per SPECIFICATION.md:788)."
+  - "Given the registry, when `$faker.timezone` is evaluated, then the result is a valid IANA timezone identifier accepted by time.LoadLocation (per SPECIFICATION.md:789)."
+  - "Given `--seed 42`, when any location function is evaluated twice across two independent runs, then both outputs are byte-equal."
+  - "Given no `--seed`, when any location function is evaluated twice across two independent runs, then both outputs differ."
+  - "Given `--locale de-DE` is passed on the CLI, when any of the 12 location functions are evaluated, then the result still uses the en-US data set; locale support is deferred (see M13 Open Decision #1)."
+scope: |
+  Add 12 registrations to internal/variable/dynamic.go for the location-data
+  family in SPECIFICATION.md:774–789. Ship small package-scope pools for
+  cities, street-names, street-suffixes, state names + matching abbreviations
+  (parallel slices, indexed 1:1 so $faker.state and $faker.stateAbbr stay
+  consistent within a single Evaluate call when seeded), country names +
+  matching ISO 3166-1 alpha-2 codes, and a list of common IANA timezones.
+  Latitude and longitude use float64InRange (already in dynamic.go:566)
+  and strconv.FormatFloat(v, 'f', 4, 64).
+
+  Locale: en-US only. Per M13 Open Decision #1, the `--locale` flag is
+  recognised-but-warns-and-ignores. No locale-specific country pools or
+  address shapes ship in this slice. Spec citation: SPECIFICATION.md:859–904
+  (deferred).
+
+  Files touched:
+  - internal/variable/dynamic.go (12 new noArgs registrations +
+    package-level pools for cities, streets, states, countries, timezones)
+  - internal/variable/dynamic_test.go (new TestRegistry_FakerLocation*
+    tests including a 1:1-pool-alignment test for state/stateAbbr,
+    seeded-reproducibility, no-seed-entropy)
+  - docs/MANUAL.md §3.7 (12 new rows in the dynamic-functions table)
+
+  Not in scope: locale support; per-state ZIP-code prefix realism (the
+  shipped ZIPs are uniformly random 5-digit strings, which the spec
+  permits at SPECIFICATION.md:784); IPv6-style coordinate formats
+  (latitude/longitude follow the spec's plain-decimal shape).
+  Spec citations: SPECIFICATION.md:774–789.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 dynamic-functions table includes 12 new rows for the location-data family with example values matching SPECIFICATION.md:776–789"
+  - "Seeded-reproducibility test and no-seed-entropy test both pass"
+  - "$faker.state and $faker.stateAbbr are 1:1 aligned (verified by an explicit pool-length-equality assertion in tests)"
+complexity: medium
+estimated_effort: "4-6 hours"

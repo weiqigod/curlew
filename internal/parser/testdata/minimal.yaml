@@ -1,0 +1,7 @@
+name: Minimal Test
+
+requests:
+  - name: Get Example
+    request:
+      method: GET
+      url: "https://example.com"

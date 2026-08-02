@@ -1,0 +1,15 @@
+name: m16-e2e-happy-path
+description: |
+  M16-021 happy-path E2E collection. Used by the schedule-pull worker as the
+  collection that the scheduled run executes. A single GET against the backend
+  /health endpoint so the run produces a green result without depending on
+  outbound network or other sidecars. The schedule injects BACKEND_URL through
+  its encrypted env_vars payload, which also exercises scheduled variable flow.
+
+requests:
+  - name: backend-healthz
+    request:
+      method: GET
+      url: "{{BACKEND_URL}}/health"
+    assertions:
+      status: 200

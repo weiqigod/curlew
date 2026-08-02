@@ -1,0 +1,7 @@
+name: Mixed Test
+requests:
+  - name: Inline Request
+    request:
+      method: GET
+      url: https://example.com/inline
+  - path: requests/get-user.yaml

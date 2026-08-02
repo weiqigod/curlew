@@ -1,0 +1,41 @@
+id: M4-009
+title: "Web: notification rule configuration UI"
+status: done
+priority: 3
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies:
+  - M4-008
+observable: |
+  cd web && npm run test:e2e -- tests/e2e/org-notifications.spec.ts
+  # Expected: Playwright >=5 passing. Spec:
+  #   1. Signs in as admin of seeded team-tier org
+  #   2. Navigates to /org/acme/settings/notifications
+  #   3. Adds a Slack rule via the modal, sees it appear in the rules table
+  #   4. Deletes the rule, sees it disappear
+  #   5. Asserts the delivery log section renders one row seeded by M4-008
+behaviors:
+  - "Given an org admin lands on /org/[slug]/settings/notifications, when the page loads, then the rules table and delivery log sections render with data from the backend"
+  - "Given the admin clicks 'Add rule' and submits slack + webhook URL + on=run_failed, when the form is submitted, then a POST is sent to /notification-rules and the new rule appears in the table without a full page reload"
+  - "Given a webhook URL that does not start with https://, when the form is submitted, then client-side validation shows an error and no API call is made"
+  - "Given an admin clicks delete on an existing rule, when they confirm, then a DELETE request is sent and the row is removed from the table"
+  - "Given a member (non-admin) navigates to the settings/notifications page, when the page loads, then they are redirected to /org/[slug] with a 'Admin role required' toast"
+  - "Given the delivery log contains one failed and one delivered entry, when the page loads, then both are displayed with distinct status badges"
+  - "Given svelte-check runs, when the new route and component are checked, then no type errors are reported"
+scope: |
+  New SvelteKit route web/src/routes/(app)/org/[slug]/settings/notifications/
+  with +page.svelte and +page.server.ts, and a NotificationRuleModal.svelte
+  component. New typed API client web/src/lib/api/notifications.ts. Guards:
+  RequireOrgAdmin + RequireTeamTier. Playwright spec at
+  web/tests/e2e/org-notifications.spec.ts uses the same docker-compose test
+  stack introduced in M4-005.
+definition_of_done:
+  - "Playwright spec passes with >=5 assertions"
+  - "svelte-check and npm run lint pass"
+  - "Route appears in the org settings sub-navigation only for admins of team-tier orgs"
+  - "Types in web/src/lib/types/notifications.ts align with the backend OpenAPI schema"
+  - "Accessibility: modal has labelled inputs and is keyboard-dismissable (asserted in e2e)"
+  - "docker-compose seed script extended to create one rule + one delivery for the spec"
+complexity: medium
+estimated_effort: "5-8 hours"
+track: web

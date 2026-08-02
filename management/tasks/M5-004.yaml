@@ -1,0 +1,54 @@
+id: M5-004
+title: "Backend: audit log capture middleware"
+status: done
+priority: 2
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: backend
+dependencies:
+  - M4-003
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Audit"
+  # Expected: Passed: >=12, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  # Trigger an event that should be audited:
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"email":"auditee@example.com","role":"member"}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/invitations"
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    "http://localhost:5000/api/v1/organizations/$ORG/audit-log?limit=10"
+  # Expected HTTP 200, first row: event_type="member.invited", target_type="invitation"
+behaviors:
+  - "Given an org admin invites a new member via POST /organizations/{id}/invitations, when the request succeeds, then a row is inserted into organization_audit_log with event_type=member.invited, user_id=admin, target_type=invitation, and ip_address recorded"
+  - "Given an org owner updates org settings, when PATCH /organizations/{id} succeeds, then an organization_audit_log row with event_type=org.settings.updated and previous_state + new_state JSONB diff is written"
+  - "Given a user logs in via SSO, when the session is created, then an auth_audit_log row with event_type=sso.login, success=true, and ip_address is written"
+  - "Given a failed login attempt, when credentials are invalid, then an auth_audit_log row with success=false and failure_reason is written"
+  - "Given a subscription tier change, when PATCH /subscriptions/{id} succeeds, then a subscription_audit_log row with event_type=subscription.updated and stripe_event_id is written"
+  - "Given an org admin calls GET /organizations/{id}/audit-log?limit=10, when rows exist, then the response returns them newest-first with event_type, user_id, target_type, target_id, and created_at"
+  - "Given a non-admin calls GET /organizations/{id}/audit-log, when the request is made, then the response is 403 permission_denied"
+  - "Given GET /organizations/{id}/audit-log?event_type=member.invited&from=2026-01-01, when filters are applied, then only matching rows are returned"
+  - "Given GET /organizations/{id}/audit-log?format=csv, when the request is made, then the response is 200 with Content-Type text/csv and a filename in Content-Disposition"
+scope: |
+  Add an AuditCaptureMiddleware and IAuditWriter service in
+  src/ApiTool.Backend/Audit/. A MediatR pipeline behavior captures domain events
+  (MemberInvited, OrgSettingsUpdated, SubscriptionUpdated, SsoLoginSucceeded,
+  etc.) and writes rows to the existing user_audit_log, auth_audit_log,
+  organization_audit_log, and subscription_audit_log tables (schemas already in
+  DB design, no new migration needed). AuditLogController exposes
+  GET /organizations/{id}/audit-log with filter (event_type, user_id,
+  from, to) and format (json, csv) query params. Rate limiter: 30/min/org.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Swagger lists GET /organizations/{id}/audit-log with filter schema"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: high
+estimated_effort: "8-10 hours"

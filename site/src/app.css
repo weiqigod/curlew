@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Theme tokens. Light is the default; `.dark` on <html> swaps the palette.
+--------------------------------------------------------------------------- */
+:root {
+	--bg: #ffffff;
+	--bg-soft: #f6f8fa;
+	--bg-elevated: #ffffff;
+	--border: #d8dee4;
+	--border-soft: #e6eaef;
+	--text: #1f2328;
+	--text-soft: #59636e;
+	--text-faint: #818b96;
+	--code-bg: #f6f8fa;
+}
+
+html.dark {
+	--bg: #0a0e14;
+	--bg-soft: #0f141b;
+	--bg-elevated: #131a23;
+	--border: #1f2733;
+	--border-soft: #18202a;
+	--text: #e6edf3;
+	--text-soft: #9aa7b4;
+	--text-faint: #6b7681;
+	--code-bg: #0d1117;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	background-color: var(--bg);
+	color: var(--text);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------------------
+   Shiki dual-theme bridge. Shiki renders with the light theme inline and
+   stashes the dark colors in CSS variables; flip them under `.dark`.
+--------------------------------------------------------------------------- */
+.shiki,
+.shiki span {
+	background-color: var(--shiki-light-bg);
+	color: var(--shiki-light);
+}
+
+html.dark .shiki,
+html.dark .shiki span {
+	background-color: var(--shiki-dark-bg) !important;
+	color: var(--shiki-dark) !important;
+}
+
+.shiki {
+	overflow-x: auto;
+	padding: 1rem 1.1rem;
+	font-size: 0.83rem;
+	line-height: 1.6;
+	tab-size: 2;
+}
+
+.shiki code {
+	font-family: theme('fontFamily.mono');
+	display: block;
+}
+
+/* ---------------------------------------------------------------------------
+   Prose tuning for mdsvex scenario bodies.
+--------------------------------------------------------------------------- */
+.prose :where(code):not(:where([class~='not-prose'] *))::before,
+.prose :where(code):not(:where([class~='not-prose'] *))::after {
+	content: none;
+}
+
+.prose :where(code):not(:where(pre *)) {
+	background-color: var(--code-bg);
+	border: 1px solid var(--border-soft);
+	border-radius: 0.35rem;
+	padding: 0.1rem 0.35rem;
+	font-weight: 500;
+	font-size: 0.85em;
+}
+
+/* mdsvex wraps each fenced block in our CodeBlock; kill default pre styling. */
+.prose :where(pre) {
+	background: transparent;
+	padding: 0;
+	margin: 0;
+}
+
+/* Anchor links in headings rendered inside prose. */
+.prose :where(h2, h3) {
+	scroll-margin-top: 6rem;
+}
+
+::selection {
+	background-color: rgba(6, 182, 212, 0.35);
+}
+
+/* Thin, themed scrollbars on code blocks. */
+.shiki::-webkit-scrollbar {
+	height: 8px;
+}
+.shiki::-webkit-scrollbar-thumb {
+	background-color: var(--border);
+	border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Code block chrome injected by the `codeCopy` action.
+--------------------------------------------------------------------------- */
+.code-wrap {
+	position: relative;
+	margin: 1.25rem 0;
+	border: 1px solid var(--border);
+	border-radius: 0.6rem;
+	overflow: hidden;
+	background-color: var(--code-bg);
+}
+
+.code-wrap .shiki {
+	margin: 0;
+	border-radius: 0;
+}
+
+.code-lang {
+	position: absolute;
+	top: 0.55rem;
+	left: 0.85rem;
+	font-family: theme('fontFamily.mono');
+	font-size: 0.66rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-faint);
+	pointer-events: none;
+	user-select: none;
+}
+
+/* Reserve room for the language label so the first code line isn't hidden. */
+.code-wrap:has(.code-lang) .shiki {
+	padding-top: 1.9rem;
+}
+
+.copy-btn {
+	position: absolute;
+	top: 0.5rem;
+	right: 0.5rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.2rem 0.6rem;
+	font-size: 0.72rem;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--text-soft);
+	background-color: var(--bg-elevated);
+	border: 1px solid var(--border);
+	border-radius: 0.4rem;
+	cursor: pointer;
+	opacity: 0;
+	transition:
+		opacity 0.15s ease,
+		color 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.code-wrap:hover .copy-btn,
+.copy-btn:focus-visible {
+	opacity: 1;
+}
+
+.copy-btn:hover {
+	color: var(--text);
+	border-color: var(--text-faint);
+}
+
+.copy-btn.copied {
+	color: theme('colors.brand.600');
+	border-color: theme('colors.brand.500');
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.copy-btn {
+		opacity: 1;
+	}
+}

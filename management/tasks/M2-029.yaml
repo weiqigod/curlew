@@ -1,0 +1,44 @@
+id: M2-029
+title: "GraphQL protocol adapter (queries and mutations)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: GraphQL"
+
+dependencies:
+  - M1-001
+  - M1-005
+  - M1-028
+
+observable: |
+  Create a collection with `protocol: graphql` and a query against a GraphQL API.
+  Run `apitest run graphql_tests.yaml` and confirm the query executes and response is validated.
+  Run `go test ./internal/graphql/...` for GraphQL adapter tests.
+
+behaviors:
+  - "Given a request with `protocol: graphql` and a `graphql.query`, when executed, then the query is sent as a POST with proper Content-Type (application/json)"
+  - "Given a GraphQL query with `graphql.variables`, when executed, then variables are included in the request body alongside the query"
+  - "Given a GraphQL mutation, when executed, then the mutation is sent and assertions validate `$.data` fields"
+  - "Given a GraphQL response with `$.errors` array, when `error_handling: fail` (default), then the test fails with exit code 1"
+  - "Given a GraphQL response with `$.errors` and `error_handling: warn`, when executed, then a warning is logged but exit code is 0"
+  - "Given `protocol: graphql` at Free tier, when the collection is parsed, then exit code 6 with feature gate message"
+  - "Given assertions on `$.data.user.name` and `$.errors`, when evaluated, then JSONPath assertions work identically to HTTP"
+
+scope: |
+  Create `internal/graphql/` package implementing the ProtocolAdapter interface for GraphQL.
+  Parse `graphql:` namespace (query, variables) in collection YAML. Execute as HTTP POST
+  with JSON body `{"query": "...", "variables": {...}}`. Handle GraphQL-specific error
+  semantics (partial success). Support `error_handling` configuration (fail/warn/ignore).
+  Register as Professional-tier feature gate. Reuse existing assertion, extraction, and
+  variable interpolation infrastructure.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "6-10 hours"

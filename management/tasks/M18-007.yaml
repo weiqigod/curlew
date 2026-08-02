@@ -1,0 +1,41 @@
+id: M18-007
+title: "Telemetry Phase 3 ingest: telemetry_events table, anonymous POST endpoint, daily aggregator, 90-day purge"
+status: done
+priority: 2
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies: []
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~Telemetry"` and see >= 14 tests pass. Apply migration and verify:
+  `psql -d apitool -c "\dt telemetry*"` lists telemetry_events and telemetry_daily_aggregates. Without any auth header:
+  `curl -i -X POST -H "Content-Type: application/json" -H "Idempotency-Key: 11111111-1111-1111-1111-111111111111" -d '{"install_id":"22222222-2222-2222-2222-222222222222","event_type":"run.completed","event_payload":{"collection_size":12,"duration_ms":420}}' http://localhost:5000/api/v1/telemetry/events`
+  expect `HTTP/1.1 202 Accepted` with empty body. Replay with the same Idempotency-Key returns `HTTP/1.1 202` no-op. Issue 61 distinct requests with the same install_id in under a minute and observe the 61st return `HTTP/1.1 429 Too Many Requests` (per-install_id rate limit 60/min). POST a body > 64KB and expect `HTTP/1.1 413 Payload Too Large`. Force aggregator: `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/run-telemetry-aggregator` and confirm a row appears in telemetry_daily_aggregates with the day's per-event-type count. Force purge: `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/purge-telemetry-events` after backdating a row to 91 days old; confirm it is hard-deleted.
+
+behaviors:
+  - "Given the migration is applied, when the schema is inspected, then telemetry_events (install_id, event_type, event_payload_jsonb, received_at, idempotency_key UNIQUE) and telemetry_daily_aggregates exist"
+  - "Given an anonymous POST /api/v1/telemetry/events with a fresh Idempotency-Key, when the endpoint runs, then the row is inserted and the response is 202 with empty body (no authentication required per v4-9 opt-in consent model)"
+  - "Given a replayed Idempotency-Key, when the endpoint runs, then the duplicate insert is detected via the UNIQUE constraint, no new row is inserted, and the response is still 202 (at-most-once delivery)"
+  - "Given >60 requests from the same install_id in a 60-second window, when the 61st arrives, then it is rate-limited (429) per Internal/RateLimit per-install_id bucket"
+  - "Given a request body > 64KB, when the endpoint runs, then 413 Payload Too Large is returned and no row is inserted"
+  - "Given TelemetryAggregatorHost runs daily at 04:00 UTC, when it ticks, then it produces one telemetry_daily_aggregates row per (event_type, day) with counts and basic numeric aggregates per spec :6604"
+  - "Given a telemetry_events row older than 90 days, when the daily purge runs, then it is hard-deleted per spec :6604"
+  - "Given the endpoint receives an event with an unknown event_type, when stored, then the row is accepted (forward-compat with future CLI versions emitting new event types)"
+
+scope: |
+  EF migration adds telemetry_events and telemetry_daily_aggregates tables. New src/ApiTool.Backend/Telemetry/TelemetryIngestEndpoint.cs registers POST /api/v1/telemetry/events as anonymous (allows pipeline to skip JwtBearer). Idempotency dedup via UNIQUE(idempotency_key). Body-size cap 64KB enforced before model binding. Per-install_id rate limit (60/min) via Internal/RateLimit. New src/ApiTool.Backend/Telemetry/TelemetryAggregatorHost.cs : BackgroundService runs daily at 04:00 UTC; emits telemetry_daily_aggregates rows. New src/ApiTool.Backend/Telemetry/TelemetryPurgeHost.cs : BackgroundService runs daily and hard-deletes telemetry_events older than 90 days per spec :6604. Two test-only hooks gated behind APITEST_INTERNAL=1 for deterministic aggregator/purge triggering. The endpoint is the CLI's HTTP contract that M18-008 implements against — both must agree on the wire shape before M18-008 can ship.
+
+definition_of_done:
+  - "All behavior tests pass (>=14 tests)"
+  - "Observable psql + curl commands work as documented"
+  - "Test coverage >= 80% on TelemetryIngestEndpoint.cs, TelemetryAggregatorHost.cs, TelemetryPurgeHost.cs"
+  - "EF migration reversible"
+  - "No build warnings or lint errors"
+  - "OpenAPI documents POST /api/v1/telemetry/events with anonymous auth, the Idempotency-Key header, 202/413/429 response shapes"
+  - "CHANGELOG.md entry references v4-8, v4-9, v4-10"
+  - "Wire-shape contract recorded in docs/SPECIFICATION.md so M18-008 can implement against a stable surface"
+
+complexity: high
+estimated_effort: "large slice"
+track: backend

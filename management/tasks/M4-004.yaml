@@ -1,0 +1,51 @@
+id: M4-004
+title: "Backend: test results ingestion API"
+status: done
+priority: 1
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies:
+  - M4-003
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Results"
+  # Expected: Passed: >=10, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary @testdata/backend/sample-result-upload.json \
+    "http://localhost:5000/api/v1/organizations/$ORG/results"
+  # Expected HTTP 202, body: {"result_id":"res_...","status":"accepted"}
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    "http://localhost:5000/api/v1/organizations/$ORG/results?limit=10"
+  # Expected HTTP 200, body: {"results":[{"id":"res_...","pass_count":3,"fail_count":0,...}]}
+behaviors:
+  - "Given an org member with a valid token, when POST /organizations/{id}/results receives a well-formed JUnit-like JSON payload, then the response is 202 and a row is persisted in the results table"
+  - "Given a non-member, when POST /organizations/{id}/results is called, then the response is 403 permission_denied and nothing is written"
+  - "Given a payload exceeding 5 MB, when POST /results is called, then the response is 413 payload_too_large"
+  - "Given a malformed payload missing pass_count, when POST /results is called, then the response is 400 with code invalid_result_schema and a pointer to the missing field"
+  - "Given three stored results for an org, when GET /organizations/{id}/results?limit=10 is called, then the response lists them newest-first with pass_count, fail_count, duration_ms, and run_at"
+  - "Given a GET /results/{result_id} call, when the result belongs to the caller's org, then the full detail (per-test rows) is returned with 200"
+  - "Given a GET /results/{result_id} call, when the result belongs to a different org, then the response is 404 result_not_found"
+  - "Given the service is running, when curl hits /swagger/v1/swagger.json, then the JSON lists POST /results, GET /results, and GET /results/{id} with their schemas"
+scope: |
+  Extend src/ApiTool.Backend with a ResultsController, Result and ResultItem
+  EF entities, and an EF migration 0002_results. Enforce org-scoped access via
+  the RBAC service from M4-003. Add payload validation (size limit + schema)
+  and newest-first pagination. testdata/backend/sample-result-upload.json is a
+  CLI-shaped fixture that future slices will reuse. OpenAPI annotations are
+  mandatory on every new endpoint.
+definition_of_done:
+  - "dotnet test Results suite passes (>=10 tests)"
+  - "POST/GET results verified via curl against a running service"
+  - "EF migration 0002_results committed"
+  - "Swagger exposes all three results endpoints with correct response schemas"
+  - "testdata/backend/sample-result-upload.json checked in and referenced by the M4-012 e2e"
+  - "Rate limiting middleware configured for POST /results (60/min/org)"
+complexity: high
+estimated_effort: "6-10 hours"
+track: backend

@@ -1,0 +1,74 @@
+id: M20-004
+title: "MANUAL.md locale reference + cross-locale seed reproducibility matrix"
+status: done
+priority: 4
+created: 2026-06-12
+phase: "M20: Faker locale completion"
+track: go-cli
+
+dependencies:
+  - M20-002
+  - M20-003
+
+observable: |
+  go build ./cmd/apitest
+
+  # 1. MANUAL.md documents all 15 locales (deferral notes from M13 replaced).
+  grep -c -E '`(en-US|en-GB|de-DE|fr-FR|es-ES|it-IT|pt-BR|ja-JP|zh-CN|ko-KR|nl-NL|pl-PL|ru-RU|sv-SE|tr-TR)`' docs/MANUAL.md
+  # Expected: >= 15 — every locale code from SPEC:973-988 appears in the manual's locale reference table.
+
+  # 2. The stale "--locale flag is deferred from M13" notes are gone.
+  grep -F 'flag is deferred from M13' docs/MANUAL.md && echo "STALE NOTE REMAINS" || echo "deferral notes cleared"
+  # Expected: "deferral notes cleared" — the seven M13 deferral notes
+  # (MANUAL.md:1083,1106,1120,1138,1168,1211,1246) are replaced with live --locale docs.
+
+  # 3. Cross-locale reproducibility matrix test: same seed, every locale, output stable across two runs.
+  go test -run 'TestLocale_ReproducibilityMatrix' -v ./internal/variable/...
+  # Expected: PASS — a table-driven test over all 15 locales x a fixed seed asserts
+  # run-1 output == run-2 output for $faker.fullName/$faker.phone/$faker.city.
+
+  # 4. The matrix is also exercisable from the CLI as a documented worked example.
+  ./apitest run testdata/locale/reproducibility-matrix.yaml --seed 12345
+  # Expected: all assertions pass — the collection runs the same seed across multiple
+  # --locale-configured collections and pins the expected localized values.
+
+  go test ./internal/variable/...
+  # Expected: PASS.
+
+behaviors:
+  - "Given the MANUAL.md faker section, when rendered, then it contains a locale reference table listing all 15 supported locale codes with their language/region, name-format exemplar, and phone-format exemplar (mirroring SPEC:971-988)."
+  - "Given the seven M13 deferral notes in MANUAL.md (lines ~1083-1246 stating the --locale flag is deferred), when this slice lands, then each is replaced with current documentation describing the working flag, config precedence, and fallback chain."
+  - "Given a fixed `--seed` and any of the 15 locales, when `$faker.fullName` is generated twice, then both runs produce byte-identical output (cross-run determinism, asserted for every locale by the reproducibility matrix test)."
+  - "Given a fixed `--seed`, when `$faker.firstName` is generated across all 15 locales, then every locale selects the same pool index — the matrix test documents the seed/locale independence guarantee from SPEC:1023-1026."
+  - "Given the MANUAL.md precedence section, when read, then it documents the chain Default (en-US) < Project < Environment < Collection < CLI flag and the fallback chain en-GB -> en -> en-US (SPEC:1006, :989)."
+  - "Given the worked-example collection testdata/locale/reproducibility-matrix.yaml run with --seed 12345, when executed, then all pinned localized-value assertions pass, demonstrating reproducibility end-to-end from the CLI."
+  - "Given the MANUAL.md ERR_LOCALE_UNKNOWN reference, when read, then it documents the error and shows the supported-locale list a user sees on an unknown locale."
+
+scope: |
+  Documentation-and-verification capstone. Rewrites the faker locale
+  documentation in docs/MANUAL.md: replaces the seven stale "deferred
+  from M13" notes (MANUAL.md:1083, 1106, 1120, 1138, 1168, 1211, 1246)
+  with a single authoritative locale reference table (all 15 codes,
+  name/phone exemplars), the precedence chain, the fallback chain, and an
+  ERR_LOCALE_UNKNOWN reference. Adds a table-driven
+  `TestLocale_ReproducibilityMatrix` in internal/variable covering all 15
+  locales x a fixed seed, asserting run-to-run stability and same-index
+  selection. Adds a worked-example collection fixture under
+  testdata/locale/ that a reader can run to see the guarantee from the
+  CLI. Depends on both pool slices (M20-002, M20-003) so the matrix can
+  cover all 15 locales. No production-code behavior change beyond the
+  test/fixture/doc additions.
+  Not in scope: any new locale pools or flag/precedence behavior (already
+  shipped in M20-001..003).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "docs/MANUAL.md contains a 15-row locale reference table and no remaining 'deferred from M13' locale notes"
+  - "TestLocale_ReproducibilityMatrix covers all 15 locales and passes"
+  - "testdata/locale/reproducibility-matrix.yaml runs green via `apitest run`"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+
+complexity: medium
+estimated_effort: "3-6 hours"

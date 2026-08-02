@@ -1,0 +1,39 @@
+id: M2-005
+title: "Azure Key Vault and HashiCorp Vault providers"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: Vault Storage"
+
+dependencies:
+  - M2-004
+
+observable: |
+  Configure Azure Key Vault and HashiCorp Vault profiles in apitest.yaml.
+  Run `go test ./internal/vault/...` with mocked CLI calls for both providers.
+  Run `apitest run tests.yaml` with an Azure vault profile and verify secrets load.
+
+behaviors:
+  - "Given a configured `azure-key-vault` provider with vault_name, when secrets are requested, then values are fetched via `az keyvault secret show`"
+  - "Given a configured `azure-key-vault` with structured extraction (`database/prod#host`), when fetched, then the JSON secret field is extracted"
+  - "Given a configured `hashicorp-vault` provider with token auth, when secrets are requested, then values are fetched via `vault kv get`"
+  - "Given a configured `hashicorp-vault` with AppRole auth (role_id, secret_id), when secrets are requested, then AppRole login precedes secret fetch"
+  - "Given invalid Azure CLI credentials, when secrets are requested, then a clear error references Azure documentation"
+  - "Given an unreachable HashiCorp Vault address, when secrets are requested, then a clear network error is shown"
+
+scope: |
+  Implement `internal/vault/azure.go` for Azure Key Vault using `az` CLI commands.
+  Implement `internal/vault/hashicorp.go` for HashiCorp Vault using `vault` CLI commands
+  with support for token and AppRole authentication methods. Both providers reuse the
+  caching layer from M2-004 and the Provider interface.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

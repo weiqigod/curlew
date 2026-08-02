@@ -1,0 +1,144 @@
+id: M9-003
+title: "markdown content-type matrix, volatile-header discipline, 1 MiB body cap"
+status: done
+priority: 1
+created: 2026-04-24
+phase: "M9: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M9-002]
+observable: |
+  # Text body renders inside ```text fence, verbatim.
+  ./apitest run collections/text.yaml --format markdown --report /tmp/resp
+  grep -A 1 '^```text$' /tmp/resp/echo-text.md | head -2
+  # Expected: ```text fence followed by the verbatim text.
+
+  # Empty body renders as `_(empty body)_`.
+  ./apitest run collections/empty.yaml --format markdown --report /tmp/resp
+  grep '_(empty body)_' /tmp/resp/health.md
+  # Expected: marker present on its own line.
+
+  # HEAD response renders as `_(HEAD — no body)_`.
+  ./apitest run collections/head.yaml --format markdown --report /tmp/resp
+  grep '_(HEAD' /tmp/resp/ping-head.md
+  # Expected: HEAD marker present.
+
+  # Binary body (image/png) renders hex preview + total-bytes footer.
+  ./apitest run collections/binary.yaml --format markdown --report /tmp/resp
+  grep '^```hexdump$' /tmp/resp/fetch-image.md
+  grep -E 'bytes total' /tmp/resp/fetch-image.md
+  # Expected: hexdump fence present; `_<N> bytes total_` footer present.
+
+  # YAML body renders canonicalized inside ```yaml fence.
+  ./apitest run collections/yaml-response.yaml --format markdown --report /tmp/resp
+  grep '^```yaml$' /tmp/resp/config-yaml.md
+  # Expected: yaml fence present.
+
+  # XML and HTML bodies render verbatim inside their respective fences.
+  ./apitest run collections/xml-html.yaml --format markdown --report /tmp/resp
+  grep '^```xml$' /tmp/resp/fetch-xml.md
+  grep '^```html$' /tmp/resp/fetch-html.md
+  # Expected: both fences present.
+
+  # 1 MiB body cap applies post-redaction with a truncation marker.
+  ./apitest run collections/large.yaml --format markdown --report /tmp/resp
+  grep 'truncated' /tmp/resp/huge.md
+  # Expected: marker line like "_... truncated (body was 2097152 bytes, showing first 1048576)_"
+  wc -c /tmp/resp/huge.md
+  # Expected: file size well under 2 MiB.
+
+  # Volatile headers (Date, X-Request-ID, Set-Cookie, ETag, Server, Age)
+  # appear under Response metadata only; absent from the signal blocks.
+  ./apitest run collections/volatile.yaml --format markdown --report /tmp/resp
+  awk '/BEGIN apitest:response/,/### Response metadata/' /tmp/resp/volatile-demo.md | grep -Ec '^(Date|X-Request-ID|Set-Cookie|ETag|Server|Age):'
+  # Expected: 0 (volatile headers are not in the request/response blocks).
+  grep -A 20 '^### Response metadata' /tmp/resp/volatile-demo.md | grep -E '^(Date|X-Request-ID|Set-Cookie|ETag|Server|Age):'
+  # Expected: each volatile header present in the metadata section.
+
+  # Redaction invariant: --allow-sensitive does NOT leak secrets into markdown.
+  ./apitest run collections/secret.yaml --format markdown --report /tmp/resp --allow-sensitive
+  grep 'sk_live' /tmp/resp/*.md
+  # Expected: no matches. Body and headers contain [REDACTED].
+
+  # Full unit + integration suite.
+  go test -run 'TestMarkdown_ContentType|TestMarkdown_Render_(Text|Empty|HEAD|Binary|YAML|XML|HTML)|TestMarkdown_BodyCap|TestMarkdown_VolatileHeaders|TestMarkdown_RedactionInvariant' ./...
+  # Expected: PASS.
+behaviors:
+  - "A new internal/output/markdown/contenttype.go exposes Classify(body []byte, contentType string) Kind and a Kind enum (JSON, YAML, XML, HTML, Text, Binary, Empty, HEAD). Primary signal: mime.ParseMediaType on the Content-Type header. Fallback when header is missing or unparseable: the isBinary heuristic from events/emitter.go:336 + UTF-8 validation + JSON-sniff (first non-whitespace char `{` or `[`)."
+  - "JSON bodies (application/json or *+json) render via json.Indent with 2-space indentation inside a ```json fence; the M9-002 pretty-printer is reused, not duplicated."
+  - "YAML bodies (application/yaml or text/yaml) render via a canonical yaml.v3 encoder (default options, LF line endings) inside a ```yaml fence so downstream diffs are stable regardless of wire representation."
+  - "XML bodies (application/xml, text/xml, *+xml) render verbatim inside a ```xml fence; not prettified because the server output is authoritative."
+  - "HTML bodies (text/html) render verbatim inside a ```html fence; never rendered as HTML."
+  - "Plain text bodies (text/* other than HTML and XML) render verbatim inside a ```text fence."
+  - "Empty bodies render as `_(empty body)_` on its own line with no code fence."
+  - "HEAD responses (request method HEAD) render as `_(HEAD — no body)_` on its own line regardless of Content-Length."
+  - "Binary bodies (classifier returns Binary) render as the first 512 bytes via hex.Dump inside a ```hexdump fence, followed by a `_<N> bytes total_` footer line."
+  - "The 1 MiB body cap (1048576 bytes) is applied AFTER redaction has already rewritten body bytes (main.go:1407-1416). Order: redact -> classify -> truncate -> format. The cap applies to classified body bytes, not raw bytes, so truncation cannot split a redaction boundary and leak a partial secret."
+  - "Capped bodies get a footer line `_... truncated (body was <N> bytes, showing first 1048576)_` after the body code block; the code block itself ends cleanly on a full line boundary."
+  - "A new `### Response metadata` subsection renders BELOW the response body block (physically separated from the signal) and contains: Content-Type, Content-Length, and all other response headers sorted alphabetically (post-redaction)."
+  - "Known-volatile headers (Date, X-Request-ID, Set-Cookie, ETag, Server, Age) are filtered out of the Request and Response code blocks and appear only under Response metadata; the named set is defined in internal/output/markdown/metadata.go and is the single source of truth."
+  - "The redaction invariant holds: a fixture collection with a `!sensitive` token produces markdown containing `[REDACTED]` in both body and headers regardless of whether --allow-sensitive is passed. The flag does not reach the formatter per the dispatcher pattern at main.go:1407-1416."
+scope: |
+  Extends the M9-002 formatter with full content-type coverage and the
+  discipline rules that make markdown output diff-friendly and
+  redaction-safe.
+
+  1. Content-type classifier. internal/output/markdown/contenttype.go
+     with Classify(body []byte, contentType string) Kind and Kind enum
+     (JSON, YAML, XML, HTML, Text, Binary, Empty, HEAD). Implementation
+     uses mime.ParseMediaType as the primary signal; falls back to the
+     existing isBinary heuristic plus UTF-8 validation plus JSON-sniff.
+
+  2. Renderers per kind. formatter.go gains renderBody(kind, body)
+     string dispatching per Kind; JSON reuses the M9-002 pretty-printer;
+     other kinds implement the fenced rendering described in behaviors.
+
+  3. Body cap. New helper truncateForMarkdown(body []byte, cap int)
+     ([]byte, bool) returns the capped bytes + a truncated flag. The
+     builder calls it AFTER redaction (main.go:1407-1416) but BEFORE
+     classify + render, ensuring the cap never splits a redaction
+     boundary.
+
+  4. Response metadata subsection. New section rendered below the
+     response body block. Header ordering is deterministic
+     (alphabetical, post-redaction). Volatile-header filter set lives
+     in internal/output/markdown/metadata.go as a package-level
+     constant.
+
+  5. Redaction-invariant snapshot test. Fixture collection with
+     !sensitive token; run with --allow-sensitive; assert markdown
+     contains [REDACTED] and never contains the raw secret (neither in
+     body nor headers, in signal block nor metadata).
+
+  Not in scope.
+  - Parallel wave grouping (M9-004).
+  - Data-driven iteration files (M9-004).
+  - init, docs, CHANGELOG (M9-005).
+  - Streaming body semantics: bodies are fully buffered by the runner
+    before reaching the formatter; "streaming response" from
+    IMPROVEMENT.md §5 W4 DoD is covered by the 1 MiB cap test
+    exercising a large buffered body.
+  - Multipart-specific rendering: multipart/* bodies are classified as
+    Binary and render via hex preview; richer multipart rendering
+    deferred to a future work item if real-world demand surfaces.
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestMarkdown_ContentType passes: classifier returns correct Kind for JSON/YAML/XML/HTML/Text/Empty/HEAD/Binary fixtures"
+  - "TestMarkdown_ContentType_FallbackSniff passes: missing or unparseable Content-Type falls back to binary-detection + JSON-sniff correctly"
+  - "TestMarkdown_Render_Text passes: text body verbatim in ```text fence"
+  - "TestMarkdown_Render_Empty passes: empty body renders `_(empty body)_`"
+  - "TestMarkdown_Render_HEAD passes: HEAD response renders `_(HEAD — no body)_`"
+  - "TestMarkdown_Render_Binary passes: hex.Dump of first 512 bytes + total-bytes footer"
+  - "TestMarkdown_Render_YAML passes: stable canonical YAML in ```yaml fence"
+  - "TestMarkdown_Render_XML and TestMarkdown_Render_HTML pass with verbatim fences"
+  - "TestMarkdown_BodyCap passes: 1.1 MiB body truncated to 1 MiB with footer marker"
+  - "TestMarkdown_BodyCap_PostRedaction passes: large redacted body truncated after redaction with no partial-secret leak; body shrunk below the cap by redaction is not truncated"
+  - "TestMarkdown_VolatileHeaders passes: Date/X-Request-ID/Set-Cookie/ETag/Server/Age appear in Response metadata only, never in the signal block"
+  - "TestMarkdown_RedactionInvariant passes: --allow-sensitive does not leak secrets into markdown (body or headers)"
+  - "Regression: all M9-001 and M9-002 tests pass unmodified"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/output/markdown/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: medium
+estimated_effort: "1-2 days"

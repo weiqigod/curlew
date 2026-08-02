@@ -1,0 +1,8 @@
+name: failing-assertion
+requests:
+  - name: expect-201-got-200
+    request:
+      method: GET
+      url: "{{SERVER_URL}}/ping"
+    assertions:
+      status: 201

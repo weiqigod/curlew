@@ -1,0 +1,48 @@
+id: M14-004
+title: "CLI: internal/backend HTTP client foundation with flock + hybrid keychain"
+status: done
+priority: 1
+created: 2026-05-03
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-002
+  - M14-003
+observable: |
+  go build ./cmd/apitest
+  go test ./internal/backend/... -count=1
+  # Expected: ok, >=14 tests
+  # Probe via the shipped test harness — uses an httptest server to stand in for the backend
+  ./apitest internal backend-probe --base http://127.0.0.1:0 --self-test
+  # Expected stdout: "OK: client built; lock OK; keychain available=<bool>; rfc7807 mapping OK"
+  # Exit 0
+behaviors:
+  - "Given a 200 response with application/json content-type, when the client GETs an endpoint, then the response is parsed into the typed result and the function returns nil error"
+  - "Given a 401 application/problem+json response with code=AUTH_REFRESH_REUSED, when the client receives it, then it returns a typed *backend.ProblemDetails carrying Code, Title, Type, RequestID; callers branch on Code, never on Status or Title"
+  - "Given the user does not have an OS keychain (Linux without keyring daemon), when refresh-token storage is requested, then the AES-256-GCM encrypted-file fallback at ~/.config/apitesttool/refresh_token.enc mode 0600 is used and the unit test stub flips on it"
+  - "Given two concurrent CLI invocations call backend.RefreshTokens, when both attempt to acquire ~/.config/apitesttool/refresh.lock, then exactly one acquires the exclusive flock and the other blocks until release"
+  - "Given the flock holder crashes mid-refresh, when a waiting invocation hits the 5s acquisition timeout, then it falls back to re-reading the cache and returns the cached token without triggering a second refresh"
+  - "Given a Bearer Access token, when the client builds a request, then Authorization: Bearer <token> is set; refresh tokens are passed in JSON request bodies only (verified by reflection-based test)"
+  - "Given the user's OS exposes a working keychain (zalando/go-keyring success on Darwin), when refresh tokens are persisted, then they go to the keychain and not to the encrypted file"
+scope: |
+  New Go package internal/backend/. Contains the HTTP client, RFC 7807
+  ProblemDetails decoding, single-flight flock guard, and the hybrid
+  refresh-token storage layer. Storage layer wraps zalando/go-keyring with an
+  AES-256-GCM encrypted-file fallback (HKDF key derived from device_id +
+  machine-id) at ~/.config/apitesttool/refresh_token.enc per
+  docs/SPECIFICATION.md:7946–7951. flock pattern per :7938–7944 with hard
+  5-second timeout. Bearer-only auth header policy per :8195–8202. Tests use
+  httptest.Server fakes; this slice lands before login (M14-005) so the
+  testing model is HTTP-fixture-driven rather than against a live backend.
+  Adds a hidden CLI subcommand `apitest internal backend-probe --self-test`
+  that exercises the package end-to-end without requiring credentials.
+definition_of_done:
+  - "go test ./internal/backend/... passes with >=14 tests"
+  - "Real binary invocation of `apitest internal backend-probe --self-test` produces the documented stdout and exit 0"
+  - "ProblemDetails struct exported with stable JSON tag names; godoc explains the Code-not-Status branching rule"
+  - "Storage fallback covered by a unit test that simulates 'no keychain' on Linux"
+  - "flock contention covered by a test that spawns two goroutines and asserts ordering"
+  - "Help text adds `internal backend-probe` as hidden (gated behind APITEST_INTERNAL=1)"
+  - "docs/SPECIFICATION.md:7938–7951 + :8195–8202 cited in package doc.go"
+complexity: high
+estimated_effort: "8-12 hours"
+track: go-cli

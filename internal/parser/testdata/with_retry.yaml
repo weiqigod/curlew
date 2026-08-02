@@ -1,0 +1,10 @@
+name: Retry Test
+retry:
+  enabled: true
+  max_attempts: 3
+  initial_delay_ms: 500
+requests:
+  - name: GET health
+    request:
+      method: GET
+      url: https://example.com/health

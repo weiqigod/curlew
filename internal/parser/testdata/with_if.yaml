@@ -1,0 +1,17 @@
+name: with_if test collection
+requests:
+  - name: seed
+    request:
+      method: GET
+      url: https://example.com/seed
+  - name: conditional-request
+    if: 'previous.body.status == "pending"'
+    depends_on: [seed]
+    request:
+      method: POST
+      url: https://example.com/confirm
+  - name: notify
+    depends_on: [conditional-request]
+    request:
+      method: POST
+      url: https://example.com/notify

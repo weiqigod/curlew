@@ -1,0 +1,23 @@
+# E2E collection used by M5-020 enterprise full-pipeline tests.
+# Run by the qa-lead custom role (results.upload + results.view permissions).
+# Hits the backend's own Swagger JSON endpoint, which is stable and
+# always available when the stack is running. No external network required.
+name: e2e-enterprise-full
+
+variables:
+  APITEST_BACKEND_URL: "http://localhost:5000"
+
+requests:
+  - name: backend-health
+    request:
+      method: GET
+      url: "{{APITEST_BACKEND_URL}}/swagger/v1/swagger.json"
+    assertions:
+      status: 200
+
+  - name: backend-root-redirect
+    request:
+      method: GET
+      url: "{{APITEST_BACKEND_URL}}/"
+    assertions:
+      status: 200

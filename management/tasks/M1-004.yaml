@@ -1,0 +1,30 @@
+id: M1-004
+title: "Assert on status code"
+status: done
+priority: 4
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-001]
+observable: |
+  Create collection with status assertion (expect 200). Run against real
+  endpoint, see green check. Change to expect 404, see red X and exit code 1.
+behaviors:
+  - "Given a request with `assertions.status: 200`, when response is 200, then assertion passes with pass indicator"
+  - "Given a request with `assertions.status: 200`, when response is 404, then assertion fails with fail indicator"
+  - "Given any assertion failure, when execution completes, then exit code is 1"
+  - "Given all assertions pass, when execution completes, then exit code is 0"
+  - "Given a request with no assertions, when executed, then it always passes (status only reported)"
+  - "Given `assertions.status` as a list `[200, 201]`, when response matches any, then assertion passes"
+  - "Given assertion results, when displayed, then pass (\u2713) and fail (\u2717) indicators are shown"
+scope: |
+  Create `internal/assertion/` package with status code assertion logic.
+  Integrate into execution pipeline. Update output to show pass/fail indicators.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

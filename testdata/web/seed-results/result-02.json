@@ -1,0 +1,23 @@
+{
+  "collection_name": "api-integration",
+  "run_at": "2026-04-14T14:30:00Z",
+  "duration_ms": 3500,
+  "pass_count": 8,
+  "fail_count": 2,
+  "skipped_count": 1,
+  "triggered_by": "ci",
+  "git_sha": "def5678",
+  "items": [
+    { "name": "GET /products",     "status": "passed", "duration_ms": 200, "message": null },
+    { "name": "POST /products",    "status": "passed", "duration_ms": 450, "message": null },
+    { "name": "GET /orders",       "status": "passed", "duration_ms": 300, "message": null },
+    { "name": "POST /orders",      "status": "failed", "duration_ms": 800, "message": "expected 201, got 500" },
+    { "name": "GET /customers",    "status": "passed", "duration_ms": 250, "message": null },
+    { "name": "POST /customers",   "status": "passed", "duration_ms": 400, "message": null },
+    { "name": "PUT /customers/1",  "status": "passed", "duration_ms": 350, "message": null },
+    { "name": "DELETE /orders/1",  "status": "failed", "duration_ms": 500, "message": "expected 204, got 403" },
+    { "name": "GET /reports",      "status": "passed", "duration_ms": 600, "message": null },
+    { "name": "POST /webhooks",    "status": "passed", "duration_ms": 100, "message": null },
+    { "name": "GET /deprecated",   "status": "skipped", "duration_ms": 0, "message": "endpoint deprecated" }
+  ]
+}

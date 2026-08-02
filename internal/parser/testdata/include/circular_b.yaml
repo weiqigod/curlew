@@ -1,0 +1,8 @@
+name: Circular B
+include:
+  - ./circular_a.yaml
+requests:
+  - name: Circular B Request
+    request:
+      method: GET
+      url: https://api.example.com/circular-b

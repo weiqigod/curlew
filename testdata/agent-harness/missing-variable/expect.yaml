@@ -1,0 +1,17 @@
+description: |
+  Run a collection that references {{UNDEFINED_VAR}} without defining it.
+  Should emit run.error with category=input, code=VAR_UNDEFINED,
+  with file+line pointing into the fixture.
+exit_code: 5
+events:
+  - kind: run.error
+    must_have:
+      error.category: input
+      error.code: VAR_UNDEFINED
+      error.file_nonempty: true
+      error.line_nonzero: true
+    hint_contains_any:
+      - Set
+      - Add
+      - Pass
+      - Define

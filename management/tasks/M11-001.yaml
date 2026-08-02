@@ -1,0 +1,59 @@
+id: M11-001
+title: "JUnit XML output ungating (remove Professional-tier feature gate)"
+status: done
+priority: 1
+created: 2026-04-25
+phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+  TMP=$(mktemp -d); cd "$TMP"
+  apitest init demo && cd demo
+  APITEST_TIER=free apitest run collections/sample.yaml --format junit
+  # Expected: exit 0 (no GateError), valid JUnit XML on stdout.
+
+  go test -run 'TestRun_JUnitFormat_FreeTier' -v ./cmd/apitest/...
+  # Expected: PASS — free-tier invocation produces JUnit XML, no gate check.
+
+  grep -c '"junit_xml"' internal/auth/registry.go
+  # Expected: 0.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "internal/auth/registry.go no longer registers a junit_xml FeatureDefinition; the four-line block (lines 71-76) is removed."
+  - "cmd/apitest/main.go no longer calls auth.CheckFeature(reg, \"junit_xml\", ...) when --format=junit is selected (lines 645-650, 1035-1036 and any other call sites)."
+  - "TestRun_JUnitFormat_FreeTier (new) drives apitest run with APITEST_TIER=free and --format junit, asserts exit 0 and well-formed JUnit XML output."
+  - "Existing JUnit gating tests are removed or rewritten to assert the absence of the gate (no GateError surface for --format junit)."
+  - "docs/SPECIFICATION.md and docs/MANUAL.md JUnit sections drop any tier-gating language."
+  - "CHANGELOG.md [Unreleased] gains a Changed entry: JUnit XML output is no longer Professional-tier gated."
+  - "IMPROVEMENT.md §2.4 bullet 3 (line 59) is annotated with 'Shipped (M11-001)'."
+scope: |
+  Remove the junit_xml feature gate. Free-tier users can emit JUnit XML.
+  No other tier gates are touched (parallel_execution, data_driven,
+  html_report, custom_backoff stay gated — those are intentional product
+  decisions). The §2.4 audit only flagged JUnit as atypical for CI.
+
+  Files:
+  - internal/auth/registry.go (delete the junit_xml Register block)
+  - cmd/apitest/main.go (remove CheckFeature calls at the JUnit branch)
+  - cmd/apitest/main_test.go (remove/rewrite the JUnit-gating tests; add the free-tier success test)
+  - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
+
+  Not in scope:
+  - Ungating other Professional-tier features.
+  - Adding new JUnit-output capabilities (per-iteration data-driven entries
+    or speedup metrics live in M11-002 / M11-003 territory for JSON / TAP).
+definition_of_done:
+  - "All behavior tests pass"
+  - "JUnit gate registration removed; grep for 'junit_xml' in internal/auth/registry.go returns 0"
+  - "TestRun_JUnitFormat_FreeTier passes"
+  - "go test ./... passes"
+  - "go test -cover ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "IMPROVEMENT.md §2.4 bullet 3 marked Shipped"
+complexity: low
+estimated_effort: "0.5 day"

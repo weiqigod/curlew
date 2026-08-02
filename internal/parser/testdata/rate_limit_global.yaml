@@ -1,0 +1,7 @@
+name: Rate Limited
+rate_limit_rps: 5
+requests:
+  - name: A
+    request:
+      method: GET
+      url: https://example.com

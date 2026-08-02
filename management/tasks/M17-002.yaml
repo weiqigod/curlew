@@ -1,0 +1,163 @@
+id: M17-002
+title: "AWS Signature Version 4 signer (`type: aws-sigv4`)"
+status: done
+priority: 2
+created: 2026-04-28
+planned_date: 2026-04-29
+completed_date: 2026-04-29
+verified_by: ai
+branch: feature/M17-002-aws-sigv4-signer
+phase: "M17: First-party signers and signing helpers"
+track: go-cli
+dependencies:
+  - M17-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestSigV4_GetVanilla' -v ./internal/signer/awssigv4/...
+  # Expected: PASS — using the AWS SigV4 published test-suite vector
+  # `get-vanilla` (canonical request hash, string-to-sign, signing key
+  # derivation, final signature) with frozen clock 2015-08-30T12:36:00Z,
+  # access_key=AKIDEXAMPLE, secret_key=wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY,
+  # region=us-east-1, service=service — the computed Authorization header
+  # equals AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request,
+  # SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31.
+
+  go test -run 'TestSigV4_PostHeaderKeyCase' -v ./internal/signer/awssigv4/...
+  # Expected: PASS — header-name canonicalisation lowercases all header names
+  # in the SignedHeaders list and in the canonical request, regardless of
+  # the case in the original request (spec: 'Add the lowercase header name
+  # followed by a colon').
+
+  go test -run 'TestSigV4_BodyHashInjection' -v ./internal/signer/awssigv4/...
+  # Expected: PASS — Sign() injects header `x-amz-content-sha256` with the
+  # lowercase hex SHA-256 of the request body BEFORE computing the
+  # canonical request; an empty body uses the spec's
+  # well-known empty-string hash
+  # e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.
+
+  go test -run 'TestSigV4_WithSessionToken' -v ./internal/signer/awssigv4/...
+  # Expected: PASS — when params include session_token, header
+  # `x-amz-security-token` is injected before signing AND the token header
+  # name appears in the SignedHeaders list (sorted with the other
+  # canonical headers).
+
+  go test -run 'TestSigV4_SecretKeySensitivePropagation' -v ./internal/signer/awssigv4/...
+  # Expected: PASS — when secret_key resolves from a sensitive variable
+  # (e.g. {{aws_secret}} where aws_secret is in the SensitiveSet), Sign
+  # calls sensitives.AddValue(resolved) on the secret key; the secret never
+  # appears in the signed request output (already redacted on serialisation).
+
+  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  # Edit collections/sample.yaml to add:
+  #   signing:
+  #     type: aws-sigv4
+  #     params:
+  #       region: us-east-1
+  #       service: s3
+  #       access_key: "{{aws_key}}"
+  #       secret_key: "{{aws_secret}}"
+  # Add aws_key / aws_secret to .env (auto-sensitive: name contains 'secret').
+  ./apitest run collections/sample.yaml --dry-run --format json | jq -r '.requests[0].headers.Authorization' | head -c 24
+  # Expected output: AWS4-HMAC-SHA256 Crede
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the AWS SigV4 published test-suite vector get-vanilla (frozen clock 2015-08-30T12:36:00Z, AKIDEXAMPLE / wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY, region=us-east-1, service=service), when Sign is invoked, then the resulting Authorization header value equals AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31."
+  - "Given a request with mixed-case header names (e.g. Content-Type, HOST), when canonical headers are built, then every header name is lowercased before being placed in SignedHeaders and in the canonical request (per AWS SigV4 spec)."
+  - "Given a request body of N bytes, when Sign is invoked, then the signer injects header x-amz-content-sha256 with the lowercase hex SHA-256 of the body BEFORE the canonical-request hash is computed; given an empty body, then the injected hash equals e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855."
+  - "Given the signing spec params include session_token, when Sign is invoked, then the signer injects header x-amz-security-token with the resolved token value, and that header name appears in the alphabetically-sorted SignedHeaders list and in the canonical request."
+  - "Given the signing spec params do not include a region or service field, when the registry resolves the spec, then it returns a structured CategoryInput error with code SIGNER_AWSSIGV4_MISSING_FIELD naming the absent field, before any HTTP request is dispatched."
+  - "Given secret_key resolves from a sensitive variable (e.g. {{aws_secret}} where aws_secret is in the SensitiveSet), when Sign is invoked, then sensitives.AddValue(resolved_secret) is called inside Sign so that the resolved secret string is registered for redaction wherever it would otherwise appear in serialised output (mirrors the M12-005 pattern for $hmacSha256)."
+  - "Given a literal secret_key (no variable reference, e.g. secret_key: 'literal-key'), when Sign is invoked, then no SensitiveSet mutation occurs (literal secrets cannot be back-traced; documented as a footgun in MANUAL.md, mirroring the $hmacSha256 documentation in M12-005)."
+  - "Given a query string with multi-value parameters (e.g. ?Key=2&Key=1), when canonical query string is built, then values are sorted by key then by value, URI-encoded per RFC 3986 unreserved-character rules (per AWS SigV4 spec)."
+  - "Given a request whose URL string carries query params AND whose RequestPayload.QueryParams map is also populated, when the canonical query string is built, then both sources are merged verbatim (URL-embedded params first parsed via net/url.ParseQuery, then map entries appended), the merged set is then sorted by key then by value, duplicates are preserved (no de-duplication on conflict), and each pair is RFC 3986 percent-encoded — matching the order in which the runner serialises the final URL for transport."
+scope: |
+  Implements the first concrete signer behind M17-001's registry. New
+  package internal/signer/awssigv4/. Standard-library-only implementation
+  (crypto/hmac, crypto/sha256, encoding/hex, net/url, sort) — no AWS SDK
+  dependency.
+
+  Init-time registration: package init() in internal/signer/awssigv4/
+  registers the type via signer.Register("aws-sigv4", awssigv4.Factory).
+  The CLI's main package imports the awssigv4 subpackage (blank import or
+  direct) so the registration runs at startup.
+
+  Required params (per Open Decision #2):
+    - region        (string, required, supports {{interpolation}})
+    - service       (string, required, supports {{interpolation}})
+    - access_key    (string, required, supports {{interpolation}})
+    - secret_key    (string, required, supports {{interpolation}})
+    - session_token (string, optional, supports {{interpolation}})
+
+  Header injection order during Sign:
+    1. Resolve all params via the standard variable-interpolation chain
+       (CLI > env > collection > project > built-in).
+    2. Inject x-amz-date (RFC 3339 basic format YYYYMMDDTHHMMSSZ from clock).
+    3. Inject x-amz-content-sha256 (lowercase hex SHA-256 of body bytes).
+    4. Inject x-amz-security-token if session_token is non-empty.
+    5. Compute canonical request, string-to-sign, signing key, signature
+       per the AWS SigV4 specification.
+    6. Inject Authorization: AWS4-HMAC-SHA256 Credential=..., SignedHeaders=..., Signature=...
+    7. Call sensitives.AddValue(secret_key_resolved) and, if non-empty,
+       sensitives.AddValue(session_token_resolved). access_key is NOT
+       added — it is not strictly secret (per AWS guidance).
+
+  Canonical query string — merge rule (resolves Plan-agent ambiguity):
+  the *httpexec.Request the signer receives may carry query params in
+  two places: embedded in the URL string and in a separate QueryParams
+  map (mirroring the RequestPayload type in internal/plugin/hooks/hooks.go).
+  Merge both sources verbatim — parse URL-embedded params via
+  net/url.ParseQuery first, then append every entry from the QueryParams
+  map. Sort the merged set by key then by value (lexicographic). Do NOT
+  de-duplicate on key conflict — duplicate (Key, Value) pairs may exist
+  legitimately and AWS SigV4's canonical form requires preserving them.
+  Percent-encode each pair per RFC 3986 unreserved-character rules.
+  This matches the order in which the runner serialises the final URL
+  for transport.
+
+  Clock seam: per the M17-001 contract, the Signer interface does not
+  carry a clock argument. M17-002's Factory accepts a `WithClock(now
+  func() time.Time)` option (defaulting to time.Now); tests pin the
+  clock to the AWS test-suite vector timestamps via this option.
+
+  Clock seam: signer constructor accepts an optional `now func() time.Time`;
+  defaults to time.Now. Tests use a frozen clock to reproduce the AWS
+  test-suite vectors exactly.
+
+  Documentation: update only the aws-sigv4 row added to the MANUAL.md
+  signing-types table introduced by M17-001's doc-fix. Per Open Decision
+  #8, this slice does NOT carry the broader canonical-plugin-example doc-fix in MANUAL.md —
+  M17-001 already did that.
+
+  Files touched:
+    - internal/signer/awssigv4/awssigv4.go        (new — SigV4 implementation)
+    - internal/signer/awssigv4/awssigv4_test.go   (new — AWS test-suite vectors)
+    - internal/signer/awssigv4/testdata/          (new — fixture canonical-request and string-to-sign files for diff-on-failure)
+    - cmd/apitest/main.go                         (one-line blank import: _ "github.com/peterlindqvist/apitest/internal/signer/awssigv4")
+    - docs/MANUAL.md                              (one row added to the signing-types table introduced in M17-001)
+
+  Files explicitly NOT touched:
+    - internal/signer/signer.go                   (M17-001 is the sole author of the registry interface)
+    - internal/signer/oauth1/                     (M17-003 ships the OAuth1 sibling)
+    - internal/variable/*                         (no dynamic-function changes)
+    - internal/auth/profile.go                    (unchanged across all of M17)
+
+  Not in scope: AWS SigV4-A (asymmetric multi-region signing — separate
+  feature; revisit if customer demand emerges); presigned URLs; STS
+  credential-fetching helpers (users supply credentials via the standard
+  variable-interpolation chain per Open Decision #2); SPECIFICATION.md
+  v4.2 update for `signing:` (separate follow-up commit).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/signer/awssigv4/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "At least three AWS SigV4 published test-suite vectors (get-vanilla, get-header-key-case, post-x-www-form-urlencoded or equivalent) pass byte-exactly against the canonical request, string-to-sign, and final Authorization header"
+  - "A smoke fixture under smoke/ exercises a real or mocked S3-style request end-to-end with `signing: {type: aws-sigv4, ...}` and shows the Authorization header rendered correctly under --dry-run"
+  - "docs/MANUAL.md signing-types table includes an aws-sigv4 row with required-params and one example block"
+  - "internal/auth/profile.go remains unchanged (verified via git diff)"
+complexity: high

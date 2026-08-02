@@ -1,0 +1,46 @@
+id: M5-015
+title: "Backend: self-hosted docker-compose bundle"
+status: done
+priority: 3
+created: 2026-04-18
+completed_date: 2026-04-20
+verified_by: ai
+phase: "M5: Enterprise Tier"
+track: backend
+dependencies: []
+observable: |
+  cd deploy/self-hosted
+  docker compose -f docker-compose.yml --env-file .env.example up -d
+  # Expected: postgres, redis, backend, web containers reach healthy state within 60s
+  sleep 30
+  curl -sS http://localhost:5000/health
+  # Expected HTTP 200, body: {"status":"healthy","db":"connected","redis":"connected"}
+  curl -sS http://localhost:3000/
+  # Expected HTTP 200, HTML body contains <title>apitest</title>
+  docker compose down -v
+  # Expected: all containers stop and volumes removed
+behaviors:
+  - "Given a fresh checkout, when docker compose up is run with the self-hosted bundle, then postgres, redis, backend, and web containers start and all reach healthy state within 60 seconds"
+  - "Given the backend container is healthy, when curl GET /health is called, then the response is 200 with db=connected and redis=connected"
+  - "Given the web container is healthy, when curl GET / is called, then the response is 200 with the apitest login page HTML"
+  - "Given .env.example is copied to .env and POSTGRES_PASSWORD is changed, when docker compose up is re-run, then the backend picks up the new password on first boot"
+  - "Given the bundle uses persistent volumes, when docker compose down is run without -v, then data survives and a restart retrieves the same state"
+  - "Given docker compose down -v is run, when invoked, then all containers stop and both pg_data and redis_data volumes are removed"
+  - "Given a deploy/self-hosted/README.md exists, when a user reads it, then they see steps: copy .env.example, edit passwords, docker compose up, visit http://localhost:3000"
+scope: |
+  New deploy/self-hosted/ directory containing docker-compose.yml, .env.example,
+  postgres.Dockerfile (with a pg_cron-friendly image), an extension of the
+  existing backend Dockerfile, and the existing web Dockerfile. Reuses the
+  current docker-compose.test.yml services but adds Postgres + Redis dependencies
+  with persistent volumes. Spec is thin — concrete decision: use the existing
+  src/ApiTool.Backend/Dockerfile unchanged; add a migrations entrypoint that
+  runs EF `database update` on startup behind a BACKEND_RUN_MIGRATIONS=1 flag.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80% (smoke test for stack boot under scripts/test-self-hosted.sh)"
+  - "No build warnings or lint errors"
+  - "Deployment README.md documents .env variables, ports, volumes, and upgrade path"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: medium
+estimated_effort: "4-6 hours"

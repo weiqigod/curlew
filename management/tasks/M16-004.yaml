@@ -1,0 +1,38 @@
+id: M16-004
+title: "Web pages for password reset and email verification"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-003
+
+track: web
+
+observable: |
+  Start the backend stack and the web portal (`cd web && npm run dev` against the backend started in M16-003), then run `cd web && npm run test:e2e -- --grep "auth/password-reset|auth/email-verification"` and observe all Playwright specs pass. Manual verification: navigate to `http://localhost:5173/auth/password-reset/request`, submit a known email, observe a confirmation message; click the email link (or use the test harness to retrieve the token), navigate to `/auth/password-reset/confirm?token=prst_…`, submit a strong password, and observe success + redirect to `/login`. For email verification, click an `evtk_` link, observe success and auto-redirect to the dashboard.
+
+behaviors:
+  - "Given the route /auth/password-reset/request is loaded, when the user submits an email, then the form POSTs to /api/v1/auth/password-reset/request and shows a generic confirmation regardless of whether the email exists"
+  - "Given /auth/password-reset/confirm?token=prst_xxx is loaded with a valid token, when the user submits a password with zxcvbn score < 3, then the form shows the score-too-weak error returned by the backend (422) inline"
+  - "Given /auth/password-reset/confirm?token=prst_xxx is loaded, when the user submits a strong password, then on 200 the page redirects to /login with a success toast"
+  - "Given /auth/password-reset/confirm is loaded with an expired/invalid token, when the page renders, then it shows the token-invalid error returned by the backend (400) and offers a link back to /auth/password-reset/request"
+  - "Given /auth/email-verification/request is loaded, when the user submits their email, then the form POSTs to /api/v1/auth/email-verification/resend and shows a generic confirmation"
+  - "Given /auth/email-verification/confirm?token=evtk_xxx is loaded with a valid token, when the page mounts, then it auto-POSTs to confirm and on 200 redirects to /org/[slug]/dashboard with a verified toast"
+  - "Given the dashboard intercepts a 403 email-not-verified problem from POST /subscriptions/checkout, when the response is parsed, then a modal appears offering a 'Resend verification email' button that POSTs to /api/v1/auth/email-verification/resend"
+  - "Given each new auth page, when navigated to from the dashboard's nav, then the page is reachable via the existing app shell (no broken links)"
+
+scope: |
+  New SvelteKit routes under `web/src/routes/auth/password-reset/` (`request/+page.svelte`, `confirm/+page.svelte`) and `web/src/routes/auth/email-verification/` (`request/+page.svelte`, `confirm/+page.svelte`), each with a `+page.server.ts` handling the form action. Reuse existing form primitives in `web/src/lib/components/`. Add the dashboard-side 403 interceptor for `email_not_verified` problem detail in the existing checkout call site (`web/src/routes/(app)/org/[slug]/billing/`). Minimum-viable working pages — no visual polish required (per Open Decision 11); copy/aesthetics are not blocking review. Add a Playwright spec at `web/tests/e2e/auth-password-reset.spec.ts` and `web/tests/e2e/auth-email-verification.spec.ts` covering the happy paths plus the weak-password and invalid-token error paths.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Page accessible via dashboard nav; minimum-viable form works (no visual polish required)"
+  - "Playwright specs pass headlessly (`npm run test:e2e`)"
+
+complexity: medium
+estimated_effort: "3-6 hours"

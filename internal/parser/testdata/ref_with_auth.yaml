@@ -1,0 +1,4 @@
+name: ref-with-auth-test
+requests:
+  - path: requests/get-user.yaml
+    auth: admin_token

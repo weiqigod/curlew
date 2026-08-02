@@ -1,0 +1,28 @@
+id: M1-021
+title: "TAP output format (--format tap)"
+status: done
+priority: 21
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-019]
+observable: |
+  Run `./apitest run collection.yaml --format tap`. Verify valid TAP output
+  that can be consumed by TAP consumers.
+behaviors:
+  - "Given --format tap flag, when executed, then output follows TAP (Test Anything Protocol) format"
+  - "Given TAP output, when parsed, then it starts with 1..N plan line (N = total assertions)"
+  - "Given a passing assertion in TAP output, then line starts with ok"
+  - "Given a failing assertion in TAP output, then line starts with not ok with diagnostic info"
+  - "Given TAP output with no assertions, then plan is 1..0"
+scope: |
+  Create TAP output formatter in `internal/output/`. Follow TAP 13 specification.
+  Wire into `--format` flag.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: low
+estimated_effort: "1-3 hours"

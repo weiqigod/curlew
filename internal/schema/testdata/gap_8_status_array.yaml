@@ -1,0 +1,6 @@
+name: status-array
+requests:
+  - name: 2xx
+    request: { method: GET, url: "https://example.com/" }
+    assertions:
+      status: [200, 201, 204]

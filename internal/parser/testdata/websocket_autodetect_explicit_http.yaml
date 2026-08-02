@@ -1,0 +1,7 @@
+name: WebSocket Auto-detect Explicit HTTP
+requests:
+  - name: HTTP With WS URL
+    request:
+      protocol: http
+      method: GET
+      url: "ws://localhost:9999/echo"

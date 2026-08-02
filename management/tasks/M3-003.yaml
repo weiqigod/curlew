@@ -1,0 +1,56 @@
+id: M3-003
+title: "include directive: compose collections with snapshot variable scoping"
+status: done
+planned_date: 2026-04-14
+completed_date: 2026-04-14
+verified_by: ai
+branch: feature/M3-003-include-directive
+priority: 3
+created: 2026-04-10
+phase: "M3: Professional Tier"
+
+dependencies: []
+
+observable: |
+  Create `parent.yaml` with `variables: { base_url: https://api.example.com }`
+  and `include: [./shared/auth.yaml, ./shared/common.yaml]`. Create
+  `shared/auth.yaml` and `shared/common.yaml` each with their own `requests:`
+  blocks and a `variables:` block that references `{{base_url}}`. Run
+  `go build ./cmd/apitest && ./apitest run parent.yaml` at Professional tier and
+  verify all included requests execute with the parent's `base_url` interpolated.
+  Run at Free tier and verify exit code 6 with `include_directive` gate.
+  Run `go test ./internal/parser/...` (include tests) and verify all pass.
+
+behaviors:
+  - "Given a parent collection with `include: [./child.yaml]`, when parsed, then child.yaml's setup/requests/teardown items are appended into the parent's corresponding sections in include order"
+  - "Given a parent with variables `{a: 1, b: 2}` and an included child that defines `{b: 99, c: 3}`, when the child's requests execute, then `b == 99` (child local override) and `a == 1` and `c == 3` inside the child"
+  - "Given the same child that overrode `b`, when the parent's own requests (defined after the include) execute, then `b == 2` (child changes do NOT leak back to parent scope)"
+  - "Given a child collection that references `{{base_url}}` in its request URL and the parent defines `base_url`, when executed, then the child resolves `base_url` from the snapshot passed at include-time"
+  - "Given a parent that includes a child which itself includes a grandchild, when parsed, then transitive includes are resolved recursively with each level receiving its parent's snapshot"
+  - "Given a circular include (A -> B -> A), when parsed, then a structured error naming both files in the cycle is returned"
+  - "Given an include with a relative path, when parsed from a collection located in `tests/`, then the path is resolved relative to the including file's directory (not the CWD)"
+  - "Given an included file that does not exist, when parsed, then a structured parse error with the missing path and the line number of the include: entry is returned"
+  - "Given an `include:` directive at Free or Solo tier, when parsed, then exit code 6 and a feature gate for `include_directive` is returned"
+
+scope: |
+  Add `Include []string` field to `parser.Collection` with YAML tag `include`.
+  In `parser.ParseFile`, after the parent unmarshals, iterate the include list:
+  for each path, resolve it relative to the parent file, check cycles (visited
+  map threaded through recursion), parse the child with a derived parser call
+  that receives the parent's current variable map as an initial snapshot, then
+  append child setup/requests/teardown items into the parent's sections (in
+  order). Do NOT merge child-defined variables back into the parent's variable
+  map. Register `include_directive` as a Professional-tier feature in
+  `internal/auth/registry.go`. Extend `internal/schema/collection.json` to
+  allow the new top-level `include` field.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text updated (if user-facing)"
+  - "Smoke test updated (if new capability)"
+
+complexity: high
+estimated_effort: "6-9 hours"

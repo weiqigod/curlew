@@ -1,0 +1,6 @@
+name: out-json
+output:
+  format: json
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

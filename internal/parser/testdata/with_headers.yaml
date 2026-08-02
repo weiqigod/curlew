@@ -1,0 +1,9 @@
+name: Headers Test
+
+requests:
+  - name: Get With Headers
+    request:
+      method: GET
+      url: "https://example.com"
+      headers:
+        Accept: application/json

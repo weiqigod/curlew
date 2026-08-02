@@ -1,0 +1,11 @@
+name: section-retry
+setup:
+  retry:
+    enabled: true
+    max_attempts: 2
+  items:
+    - name: Warm
+      request: { method: GET, url: "https://example.com/warm" }
+requests:
+  - name: Main
+    request: { method: GET, url: "https://example.com/" }

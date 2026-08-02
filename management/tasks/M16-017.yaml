@@ -1,0 +1,45 @@
+id: M16-017
+title: "team_vaults table, endpoints, manifest validator, and web vault-config page"
+status: done
+priority: 3
+created: 2026-05-07
+planned_date: 2026-05-12
+completed_date: 2026-05-12
+verified_by: ai
+branch: feature/M16-017-team-vaults-config
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-001
+
+track: backend+web
+
+observable: |
+  Apply the migration via `dotnet ef database update` and `psql -c "\d team_vaults"` shows columns from the spec appendix (`id`, `org_id` UNIQUE, `template_jsonb`, `version`, `created_at`, `updated_at`). With the backend running, sign in as a Team-tier org admin and navigate to `http://localhost:5173/org/<slug>/vault-config`. Paste the spec example YAML; click Save. Observe a 200 response and the dashboard shows version=1. Now paste a YAML containing `password: "abcdefghij1234567890"` (16+ char alphanumeric → likely-secret heuristic match); in production mode the response is 422 with type `.../vault-template-suspicious-value`; in dev mode the save succeeds with a warning toast (per Open Decision 5). Free-tier org navigation returns a 402 prompt. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~VaultConfig"` and `cd web && npm run test:e2e -- --grep "vault-config"` — all pass.
+
+behaviors:
+  - "Given the migration is applied, when team_vaults is inspected, then it has columns id (UUID PK), org_id (UUID UNIQUE), template_jsonb (JSONB NOT NULL), version (INT NOT NULL DEFAULT 0), created_at, updated_at"
+  - "Given a Free-tier org calls PUT /api/v1/organizations/{orgId}/vault-config, when VaultConfigTierGate denies, then the response is 402 with the org's current tier in the problem detail"
+  - "Given a Team-tier admin with vault_config.manage permission calls PUT with a valid coordinate-only template, when the manifest validator runs, then the row is upserted with version incremented and the audit log records the actor + timestamp"
+  - "Given a Team-tier user without vault_config.manage but with vault_config.view, when GET /api/v1/organizations/{orgId}/vault-config is called, then the response is 200 with the template body and an ETag header"
+  - "Given the same client re-fetches with If-None-Match: <etag>, when the version is unchanged, then the response is 304"
+  - "Given a PUT submits a template with a field matching the literal-secret heuristic (^[A-Za-z0-9+/=._-]{16,}$ that is not a recognized provider coordinate pattern), when the validator runs in production mode, then the response is 422 with type .../vault-template-suspicious-value naming the offending key path"
+  - "Given the same submission in development mode (per Open Decision 5), when the validator runs, then the save succeeds with a warning logged and a 200 response"
+  - "Given DELETE /api/v1/organizations/{orgId}/vault-config is called by a vault_config.manage user, when the row exists, then it is removed and an audit-log entry recorded"
+  - "Given the web vault-config page renders, when the user clicks 'Generate CLI snippet', then the page produces the exact command `apitest license --refresh` to copy"
+  - "Given the YAML editor saves successfully, when the response is 200, then a versioned diff is shown ('updated to version N') and the audit-log entry timestamp is visible"
+
+scope: |
+  Backend half: EF Core migration adding `team_vaults` per the spec appendix. Entity `src/ApiTool.Backend/Data/Entities/TeamVault.cs` with JSONB column. Service `IVaultConfigService` / `VaultConfigService` plus three endpoints `GET/PUT/DELETE /api/v1/organizations/{orgId}/vault-config` gated by `vault_config.{view,manage}` RBAC and `VaultConfigTierGate.EnsureTeamOrAboveAsync`. Manifest validator at `src/ApiTool.Backend/VaultConfig/VaultManifestValidator.cs` implementing the literal-secret-detection heuristic from spec line 5658 (`^[A-Za-z0-9+/=._-]{16,}$` not matching a recognized provider coordinate); behaviour is `warn-on-suspicious` in dev and `reject-on-suspicious` in prod (per Open Decision 5; toggle via `VAULTCONFIG__VALIDATOR_MODE`). ETag header on GET. Audit logging on PUT/DELETE via existing audit infrastructure. Web half: new SvelteKit route `web/src/routes/(app)/org/[slug]/vault-config/` with `+page.svelte` (YAML editor with syntax highlighting via existing component or `monaco-editor`), `+page.server.ts` calling the three endpoints, an audit-log subsection, and a "Generate CLI snippet" button. Minimum-viable working page (per Open Decision 11).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc updated for the three vault-config endpoints"
+  - "Page accessible via dashboard nav; minimum-viable form works (no visual polish required)"
+
+complexity: high
+estimated_effort: "6-12 hours"

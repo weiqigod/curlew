@@ -1,0 +1,5 @@
+[
+  {"name": "r1", "method": "GET", "url": "__APITS__/a"},
+  {"name": "r2", "method": "GET", "url": "__APITS__/b"},
+  {"name": "r3", "method": "GET", "url": "__APITS__/c"}
+]

@@ -1,0 +1,1861 @@
+schema_version: "2.0"
+project: ApiTool
+
+completed:
+  - id: M1-001
+    completed_date: 2026-03-10
+    verified_by: ai
+  - id: M1-002
+    completed_date: 2026-03-10
+    verified_by: ai
+
+  - id: M1-003
+    completed_date: 2026-03-10
+    verified_by: ai
+
+  - id: M5-019
+    completed_date: 2026-04-21
+    verified_by: ai
+
+  - id: M6-001
+    completed_date: 2026-04-21
+    verified_by: ai
+
+  - id: M6-004
+    completed_date: 2026-04-21
+    verified_by: ai
+
+  - id: M6-005
+    completed_date: 2026-04-22
+    verified_by: ai
+
+  - id: M9-004
+    completed_date: 2026-04-25
+    verified_by: ai
+    merged_pr: 126
+
+  - id: M11-002
+    completed_date: 2026-04-26
+    verified_by: ai
+    merged_pr: 131
+
+  - id: M11-004
+    completed_date: 2026-04-26
+    verified_by: ai
+    merged_pr: 133
+
+  - id: M17-001
+    completed_date: 2026-04-29
+    verified_by: ai
+
+capabilities:
+  first_test:
+    description: "From zero to a running test — CLI, parsing, HTTP, basic output"
+    milestone: M1
+    tasks:
+      - M1-001
+      - M1-002
+      - M1-003
+
+  test_with_confidence:
+    description: "Assertions and error clarity — status, body, headers, timing"
+    milestone: M1
+    tasks:
+      - id: M1-004
+        status: done
+        planned_date: 2026-03-10
+        completed_date: 2026-03-10
+        verified_by: ai
+        branch: feature/M1-004-assert-status-code
+      - id: M1-005
+        status: done
+        planned_date: 2026-03-10
+        completed_date: 2026-03-10
+        verified_by: ai
+        branch: feature/M1-005-assert-jsonpath-body
+      - id: M1-006
+        status: done
+        planned_date: 2026-03-11
+        completed_date: 2026-03-11
+        verified_by: ai
+        branch: feature/M1-006-assert-headers-timing
+      - id: M1-007
+        status: done
+        planned_date: 2026-03-11
+        completed_date: 2026-03-11
+        verified_by: ai
+        branch: feature/M1-007-full-assertion-operators
+      - id: M1-008
+        status: done
+        planned_date: 2026-03-11
+        completed_date: 2026-03-11
+        verified_by: ai
+        branch: feature/M1-008-structured-errors
+
+  organize_and_reuse:
+    description: "Variables, environments, composition — interpolation, extraction, precedence"
+    milestone: M1
+    tasks:
+      - id: M1-009
+        status: done
+        planned_date: 2026-03-11
+        completed_date: 2026-03-11
+        verified_by: ai
+        branch: feature/M1-009-collection-variables
+      - id: M1-010
+        status: done
+        planned_date: 2026-03-11
+        completed_date: 2026-03-11
+        verified_by: ai
+        branch: feature/M1-010-variable-extraction
+      - id: M1-011
+        status: done
+        planned_date: 2026-03-11
+        completed_date: 2026-03-11
+        verified_by: ai
+        branch: feature/M1-011-cli-var-flag
+      - id: M1-012
+        status: done
+        planned_date: 2026-03-12
+        completed_date: 2026-03-12
+        verified_by: ai
+        branch: feature/M1-012-environment-files
+      - id: M1-013
+        status: done
+        planned_date: 2026-03-12
+        completed_date: 2026-03-12
+        verified_by: ai
+        branch: feature/M1-013-env-file-loading
+      - id: M1-014
+        status: done
+        planned_date: 2026-03-12
+        completed_date: 2026-03-12
+        verified_by: ai
+        branch: feature/M1-014-request-vars-env-var-precedence
+      - id: M1-015
+        status: done
+        planned_date: 2026-03-12
+        completed_date: 2026-03-12
+        verified_by: ai
+        branch: feature/M1-015-external-request-files
+      - id: M1-016
+        status: done
+        planned_date: 2026-03-14
+        completed_date: 2026-03-14
+        verified_by: ai
+        branch: feature/M1-016-setup-teardown
+      - id: M1-017
+        status: done
+        planned_date: 2026-03-14
+        completed_date: 2026-03-14
+        verified_by: ai
+        branch: feature/M1-017-global-project-config
+      - id: M1-018
+        status: done
+        planned_date: 2026-03-14
+        completed_date: 2026-03-14
+        verified_by: ai
+        branch: feature/M1-018-dynamic-variable-functions
+
+  output_and_ci:
+    description: "Output formats and redaction — terminal, JSON, TAP, verbosity, secrets"
+    milestone: M1
+    tasks:
+      - id: M1-019
+        status: done
+        planned_date: 2026-03-14
+        completed_date: 2026-03-14
+        verified_by: ai
+        branch: feature/M1-019-terminal-colors-formatting
+      - id: M1-020
+        status: done
+        planned_date: 2026-03-15
+        completed_date: 2026-03-15
+        verified_by: ai
+        branch: feature/M1-020-json-output-format
+      - id: M1-021
+        status: done
+        planned_date: 2026-03-16
+        completed_date: 2026-03-17
+        verified_by: ai
+        branch: feature/M1-021-tap-output-format
+      - id: M1-022
+        status: done
+        planned_date: 2026-03-17
+        completed_date: 2026-03-17
+        verified_by: ai
+        branch: feature/M1-022-verbosity-levels
+      - id: M1-023
+        status: done
+        planned_date: 2026-03-17
+        completed_date: 2026-03-17
+        verified_by: ai
+        branch: feature/M1-023-sensitive-redaction
+
+  project_commands:
+    description: "Init and validate — project scaffolding and pre-flight checks"
+    milestone: M1
+    tasks:
+      - id: M1-024
+        status: done
+        planned_date: 2026-03-17
+        completed_date: 2026-03-17
+        verified_by: ai
+        branch: feature/M1-024-init-command
+      - id: M1-025
+        status: done
+        planned_date: 2026-03-17
+        completed_date: 2026-03-17
+        verified_by: ai
+        branch: feature/M1-025-validate-command
+
+  ai_and_gating:
+    description: "AI commands and feature gates — exec, introspection, licensing, limits"
+    milestone: M1
+    tasks:
+      - id: M1-026
+        status: done
+        planned_date: 2026-03-19
+        completed_date: 2026-03-19
+        verified_by: ai
+        branch: feature/M1-026-ai-exec-command
+      - id: M1-027
+        status: done
+        planned_date: 2026-03-18
+        completed_date: 2026-03-19
+        verified_by: ai
+        branch: feature/M1-027-ai-introspection-commands
+      - id: M1-028
+        status: done
+        planned_date: 2026-03-19
+        completed_date: 2026-03-19
+        verified_by: ai
+        branch: feature/M1-028-feature-gate-framework
+      - id: M1-029
+        status: done
+        planned_date: 2026-03-19
+        completed_date: 2026-03-19
+        verified_by: ai
+        branch: feature/M1-029-guard-rail-request-limit
+
+  vault_commands:
+    description: "Vault commands — from_command variables, provider profiles, CLI subcommand"
+    milestone: M2
+    tasks:
+      - id: M2-001
+        status: done
+        planned_date: 2026-03-20
+        completed_date: 2026-03-20
+        verified_by: ai
+        branch: feature/M2-001-from-command-variable-source
+      - id: M2-002
+        status: done
+        planned_date: 2026-03-20
+        completed_date: 2026-03-24
+        verified_by: ai
+        branch: feature/M2-002-vault-provider-config
+      - id: M2-003
+        status: done
+        planned_date: 2026-03-26
+        completed_date: 2026-03-26
+        verified_by: ai
+        branch: feature/M2-003-vault-cli-subcommand
+
+  vault_storage:
+    description: "Vault storage — provider interface, AWS/Azure/HashiCorp/GCP/1Password, runner integration"
+    milestone: M2
+    tasks:
+      - id: M2-004
+        status: done
+        planned_date: 2026-03-26
+        completed_date: 2026-03-26
+        verified_by: ai
+        branch: feature/M2-004-vault-provider-aws
+      - id: M2-005
+        status: done
+        planned_date: 2026-03-26
+        completed_date: 2026-03-26
+        verified_by: ai
+        branch: feature/M2-005-azure-hashicorp-vault-providers
+      - id: M2-006
+        status: done
+        planned_date: 2026-03-27
+        completed_date: 2026-03-27
+        verified_by: ai
+        branch: feature/M2-006-gcp-onepassword-vault-providers
+      - id: M2-007
+        status: done
+        planned_date: 2026-03-27
+        completed_date: 2026-03-27
+        verified_by: ai
+        branch: feature/M2-007-vault-runner-integration
+
+  dynamic_auth:
+    description: "Dynamic auth — auth profiles, token caching/refresh, per-request references"
+    milestone: M2
+    tasks:
+      - id: M2-008
+        status: done
+        planned_date: 2026-03-27
+        completed_date: 2026-03-27
+        verified_by: ai
+        branch: feature/M2-008-auth-profile-config-execution
+      - id: M2-009
+        status: done
+        planned_date: 2026-03-29
+        started_date: 2026-03-29
+        completed_date: 2026-03-29
+        verified_by: ai
+        branch: feature/M2-009-auth-token-caching
+      - id: M2-010
+        status: done
+        planned_date: 2026-03-29
+        started_date: 2026-03-29
+        completed_date: 2026-03-29
+        verified_by: ai
+        branch: feature/M2-010-per-request-auth-profile
+
+  watch_mode:
+    description: "Watch mode — file system monitoring, terminal UX, incremental feedback"
+    milestone: M2
+    tasks:
+      - id: M2-011
+        status: done
+        planned_date: 2026-03-31
+        started_date: 2026-03-31
+        completed_date: 2026-04-01
+        verified_by: ai
+        branch: feature/M2-011-watch-mode
+      - id: M2-012
+        status: done
+        planned_date: 2026-04-01
+        started_date: 2026-04-01
+        completed_date: 2026-04-01
+        verified_by: ai
+        branch: feature/M2-012-watch-terminal-ux
+
+  retries:
+    description: "Retries — basic retry logic, configuration precedence"
+    milestone: M2
+    tasks:
+      - id: M2-013
+        status: done
+        planned_date: 2026-04-01
+        started_date: 2026-04-01
+        completed_date: 2026-04-02
+        verified_by: ai
+        branch: feature/M2-013-basic-retry-logic
+      - id: M2-014
+        status: done
+        planned_date: 2026-04-02
+        started_date: 2026-04-02
+        completed_date: 2026-04-02
+        verified_by: ai
+        branch: feature/M2-014-retry-config-precedence
+
+  parallel:
+    description: "Parallel execution — dependency analysis, wave scheduling, edge cases, output"
+    milestone: M2
+    tasks:
+      - id: M2-015
+        status: done
+        planned_date: 2026-04-07
+        started_date: 2026-04-07
+        completed_date: 2026-04-07
+        verified_by: ai
+        branch: feature/M2-015-dependency-analysis
+      - id: M2-016
+        status: done
+        planned_date: 2026-04-07
+        started_date: 2026-04-07
+        completed_date: 2026-04-07
+        verified_by: ai
+        branch: feature/M2-016-parallel-execution
+      - id: M2-017
+        status: done
+        planned_date: 2026-04-07
+        started_date: 2026-04-07
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-017-parallel-edge-cases
+      - id: M2-018
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-018-parallel-output-formatting
+
+  data_driven:
+    description: "Data-driven testing — CSV/JSON/YAML sources, filtering, output, parallel integration"
+    milestone: M2
+    tasks:
+      - id: M2-019
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-019-data-driven-testing
+      - id: M2-020
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-020-datadriven-yaml-filter-control
+      - id: M2-021
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-021-datadriven-output-formatting
+      - id: M2-022
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-022-datadriven-parallel-large-datasets
+
+  adv_retries:
+    description: "Advanced retries — backoff strategies, trigger conditions, parallel/data-driven integration"
+    milestone: M2
+    tasks:
+      - id: M2-023
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-023-backoff-strategies
+      - id: M2-024
+        status: done
+        planned_date: 2026-04-09
+        started_date: 2026-04-09
+        completed_date: 2026-04-09
+        verified_by: ai
+        branch: feature/M2-024-conditional-execution
+      - id: M2-025
+        status: done
+        planned_date: 2026-04-09
+        started_date: 2026-04-09
+        completed_date: 2026-04-09
+        verified_by: ai
+        branch: feature/M2-025-retry-output-integration
+
+  reporting:
+    description: "Reporting — JUnit XML, HTML reports, data-driven/parallel visualization"
+    milestone: M2
+    tasks:
+      - id: M2-026
+        status: done
+        planned_date: 2026-04-08
+        started_date: 2026-04-08
+        completed_date: 2026-04-08
+        verified_by: ai
+        branch: feature/M2-026-junit-xml-output
+      - id: M2-027
+        status: done
+        planned_date: 2026-04-09
+        started_date: 2026-04-09
+        completed_date: 2026-04-09
+        verified_by: ai
+        branch: feature/M2-027-html-report-generation
+      - id: M2-028
+        status: done
+        planned_date: 2026-04-10
+        started_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M2-028-html-report-datadriven-parallel
+
+  graphql:
+    description: "GraphQL — protocol adapter, external queries/fragments, error handling"
+    milestone: M2
+    tasks:
+      - id: M2-029
+        status: done
+        planned_date: 2026-04-09
+        started_date: 2026-04-09
+        completed_date: 2026-04-09
+        verified_by: ai
+        branch: feature/M2-029-dashboard-export-sharing
+      - id: M2-030
+        status: done
+        planned_date: 2026-04-10
+        started_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M2-030-graphql-external-files
+      - id: M2-031
+        status: done
+        planned_date: 2026-04-10
+        started_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M2-031-graphql-error-handling
+
+  websocket:
+    description: "WebSocket — protocol adapter, buffering/patterns, reconnection/heartbeat"
+    milestone: M2
+    tasks:
+      - id: M2-032
+        status: done
+        planned_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M2-032-websocket-adapter
+      - id: M2-033
+        status: done
+        planned_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M2-033-websocket-buffering-patterns
+      - id: M2-034
+        status: done
+        planned_date: 2026-04-10
+        started_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M2-034-websocket-reconnect-heartbeat-parallel
+
+  rate_limiting:
+    description: "Rate limiting — global RPS throttle across all requests"
+    milestone: M3
+    tasks:
+      - id: M3-001
+        status: done
+        planned_date: 2026-04-10
+        started_date: 2026-04-10
+        completed_date: 2026-04-10
+        verified_by: ai
+        branch: feature/M3-001-global-rate-limit-rps
+
+  test_discovery:
+    description: "Test discovery — glob pattern matching for apitest run"
+    milestone: M3
+    tasks:
+      - id: M3-002
+        status: done
+        planned_date: 2026-04-11
+        started_date: 2026-04-11
+        completed_date: 2026-04-11
+        verified_by: ai
+        branch: feature/M3-002-glob-discovery
+
+  composition:
+    description: "Collection composition — include directive with snapshot variable scoping"
+    milestone: M3
+    tasks:
+      - id: M3-003
+        status: done
+        planned_date: 2026-04-14
+        completed_date: 2026-04-14
+        verified_by: ai
+        branch: feature/M3-003-include-directive
+
+  schema_validation:
+    description: "Schema validation — JSON Schema response body assertions"
+    milestone: M3
+    tasks:
+      - id: M3-004
+        status: done
+        planned_date: 2026-04-14
+        completed_date: 2026-04-14
+        verified_by: ai
+        branch: feature/M3-004-json-schema-assertion
+
+  openapi_import:
+    description: "OpenAPI import — generate collections from OpenAPI 3.x specs"
+    milestone: M3
+    tasks:
+      - id: M3-005
+        status: done
+        planned_date: 2026-04-14
+        completed_date: 2026-04-14
+        verified_by: ai
+        branch: feature/M3-005-openapi-import
+      - id: M3-006
+        status: done
+        planned_date: 2026-04-14
+        completed_date: 2026-04-14
+        verified_by: ai
+        branch: feature/M3-006-openapi-headers-bodies-assertions
+
+  vault_templates:
+    description: "Shared vault configuration templates — team-scoped vault config file format and CLI consumption"
+    milestone: M4
+    tasks:
+      - id: M4-001
+        status: done
+        planned_date: 2026-04-14
+        completed_date: 2026-04-14
+        verified_by: ai
+        branch: feature/M4-001-shared-vault-template
+      - id: M4-002
+        status: done
+        planned_date: 2026-04-15
+        completed_date: 2026-04-15
+        verified_by: ai
+        branch: feature/M4-002-cli-consumes-shared-vault
+
+  team_dashboards:
+    description: "Team dashboards — backend RBAC, results ingestion, web results page"
+    milestone: M4
+    tasks:
+      - id: M4-003
+        status: done
+        planned_date: 2026-04-15
+        started_date: 2026-04-15
+        completed_date: 2026-04-15
+        verified_by: ai
+        branch: feature/M4-003-backend-org-rbac
+      - id: M4-004
+        status: done
+        planned_date: 2026-04-15
+        started_date: 2026-04-15
+        completed_date: 2026-04-15
+        verified_by: ai
+        branch: feature/M4-004-backend-results-api
+      - id: M4-005
+        status: done
+        planned_date: 2026-04-15
+        started_date: 2026-04-15
+        completed_date: 2026-04-15
+        verified_by: ai
+        branch: feature/M4-005-web-results-dashboard
+
+  scheduled_runs:
+    description: "Scheduled runs and PR status checks — backend scheduler and CLI pr-check subcommand"
+    milestone: M4
+    tasks:
+      - id: M4-006
+        status: done
+        planned_date: 2026-04-16
+        started_date: 2026-04-16
+        completed_date: 2026-04-16
+        verified_by: ai
+        branch: feature/M4-006-scheduled-run-trigger-service
+      - id: M4-007
+        status: done
+        planned_date: 2026-04-16
+        started_date: 2026-04-16
+        completed_date: 2026-04-16
+        verified_by: ai
+        branch: feature/M4-007-pr-check-subcommand
+
+  notifications:
+    description: "Notifications — backend Slack/email dispatcher and web rule configuration UI"
+    milestone: M4
+    tasks:
+      - id: M4-008
+        status: done
+        planned_date: 2026-04-17
+        started_date: 2026-04-17
+        completed_date: 2026-04-17
+        verified_by: ai
+        branch: feature/M4-008-backend-notifications
+      - id: M4-009
+        status: done
+        planned_date: 2026-04-17
+        started_date: 2026-04-17
+        completed_date: 2026-04-17
+        verified_by: ai
+        branch: feature/M4-009-web-notification-rule-ui
+
+  web_portal:
+    description: "Web portal — billing/seat API, billing portal UI, end-to-end CLI→backend→web convergence"
+    milestone: M4
+    tasks:
+      - id: M4-010
+        status: done
+        planned_date: 2026-04-17
+        started_date: 2026-04-17
+        completed_date: 2026-04-17
+        verified_by: ai
+        branch: feature/M4-010-billing-seats-invitations
+      - id: M4-011
+        status: done
+        planned_date: 2026-04-17
+        started_date: 2026-04-17
+        completed_date: 2026-04-17
+        verified_by: ai
+        branch: feature/M4-011-web-billing-members
+      - id: M4-012
+        status: done
+        planned_date: 2026-04-17
+        started_date: 2026-04-17
+        completed_date: 2026-04-17
+        verified_by: ai
+        branch: feature/M4-012-e2e-cli-backend-web
+
+  sso:
+    description: "SSO — SAML 2.0 and OIDC backend flows and web configuration UI"
+    milestone: M5
+    tasks:
+      - id: M5-001
+        status: done
+        planned_date: 2026-04-18
+        started_date: 2026-04-18
+        completed_date: 2026-04-18
+        verified_by: ai
+        branch: feature/M5-001-backend-saml-sso
+      - id: M5-002
+        status: done
+        planned_date: 2026-04-18
+        started_date: 2026-04-18
+        completed_date: 2026-04-18
+        verified_by: ai
+        branch: feature/M5-002-backend-oidc-sso
+      - id: M5-003
+        status: done
+        planned_date: 2026-04-18
+        started_date: 2026-04-18
+        completed_date: 2026-04-18
+        verified_by: ai
+        branch: feature/M5-003-web-sso-config-ui
+
+  audit_logging:
+    description: "Audit logging — backend capture middleware and web viewer with filter/export"
+    milestone: M5
+    tasks:
+      - id: M5-004
+        status: done
+        planned_date: 2026-04-18
+        started_date: 2026-04-18
+        completed_date: 2026-04-18
+        verified_by: ai
+        branch: feature/M5-004-audit-log-capture-middleware
+      - id: M5-005
+        status: done
+        planned_date: 2026-04-18
+        started_date: 2026-04-18
+        completed_date: 2026-04-18
+        verified_by: ai
+        branch: feature/M5-005-web-audit-log-viewer
+
+  rbac_granular:
+    description: "Granular RBAC — custom roles, per-permission matrix, web role editor"
+    milestone: M5
+    tasks:
+      - id: M5-006
+        status: done
+        planned_date: 2026-04-19
+        started_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: feature/M5-006-custom-roles-permissions
+      - id: M5-007
+        status: done
+        planned_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: feature/M5-007-web-custom-role-editor
+
+  distributed_exec:
+    description: "Distributed execution — backend coordinator, CLI worker agent, --workers run flag"
+    milestone: M5
+    tasks:
+      - id: M5-008
+        status: done
+        planned_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: feature/M5-008-distributed-worker-coordinator
+      - id: M5-009
+        status: done
+        planned_date: 2026-04-19
+        started_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: feature/M5-009-worker-protocol
+      - id: M5-010
+        status: done
+        planned_date: 2026-04-20
+        started_date: 2026-04-20
+        completed_date: 2026-04-20
+        verified_by: ai
+        branch: feature/M5-010-distributed-run-workers
+
+  perf_testing:
+    description: "Performance testing — load generation mode and perf metrics/report"
+    milestone: M5
+    tasks:
+      - id: M5-011
+        status: done
+        planned_date: 2026-04-20
+        completed_date: 2026-04-20
+        verified_by: ai
+        branch: feature/M5-011-perf-loadgen
+      - id: M5-012
+        status: done
+        planned_date: 2026-04-20
+        started_date: 2026-04-20
+        completed_date: 2026-04-20
+        verified_by: ai
+        branch: feature/M5-012-perf-metrics-report
+
+  offline_license:
+    description: "Offline license — JWT verify + grace period state machine and air-gapped export bundle"
+    milestone: M5
+    tasks:
+      - id: M5-013
+        status: done
+        planned_date: 2026-04-19
+        started_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: feature/M5-013-offline-license
+      - id: M5-014
+        status: done
+        planned_date: 2026-04-20
+        started_date: 2026-04-20
+        completed_date: 2026-04-20
+        verified_by: ai
+        branch: feature/M5-014-license-export-bundle
+
+  self_hosted:
+    description: "Self-hosted deployment — docker-compose bundle with admin bootstrap and migration runner"
+    milestone: M5
+    tasks:
+      - id: M5-015
+        status: done
+        planned_date: 2026-04-20
+        completed_date: 2026-04-20
+        verified_by: ai
+        branch: feature/M5-015-self-hosted-docker-bundle
+      - id: M5-016
+        status: done
+        planned_date: 2026-04-20
+        completed_date: 2026-04-20
+        verified_by: ai
+        branch: feature/M5-016-admin-bootstrap-migrations
+
+  plugin_system:
+    description: "Plugin system — external-process plugin loader, hook registry, example plugin + docs"
+    milestone: M5
+    tasks:
+      - id: M5-017
+        status: done
+        planned_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M5-017-plugin-interface
+      - id: M5-018
+        status: done
+        planned_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M5-018-plugin-hook-registry
+      - id: M5-019
+        status: done
+        planned_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M5-019-plugin-example-docs
+
+  enterprise_e2e:
+    description: "Enterprise end-to-end — SSO login, audit capture, and dashboard with custom role convergence"
+    milestone: M5
+    tasks:
+      - id: M5-020
+        status: done
+        planned_date: 2026-04-19
+        started_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: feature/M5-020-e2e-enterprise-full
+      - id: M5-021
+        status: done
+        planned_date: 2026-04-19
+        started_date: 2026-04-19
+        completed_date: 2026-04-19
+        verified_by: ai
+        branch: fix/M5-021-enterprise-full-ci-green
+
+  agent_event_stream:
+    description: "AI-agent-first output — structured NDJSON event stream with typed errors, source locations, and body redaction; schema promoted to v1.0 after validation harness passes"
+    milestone: M6
+    tasks:
+      - id: M6-001
+        status: done
+        planned_date: 2026-04-21
+        started_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M6-001-error-taxonomy
+      - id: M6-002
+        status: done
+        planned_date: 2026-04-21
+        started_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M6-002-source-location-plumbing
+      - id: M6-003
+        status: done
+        planned_date: 2026-04-21
+        started_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M6-003-body-redaction
+      - id: M6-004
+        status: done
+        planned_date: 2026-04-21
+        started_date: 2026-04-21
+        completed_date: 2026-04-21
+        verified_by: ai
+        branch: feature/M6-004-events-emitter-ndjson
+      - id: M6-005
+        status: done
+        planned_date: 2026-04-21
+        started_date: 2026-04-21
+        review_date: 2026-04-21
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M6-005-wire-events-flag
+      - id: M6-006
+        status: done
+        planned_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M6-006-event-schema-docs
+      - id: M6-007
+        status: done
+        planned_date: 2026-04-22
+        started_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M6-007-validation-harness
+
+  output_discipline:
+    description: "Stream discipline audit — stdout/stderr segregation; prerequisite for IMPROVEMENT W2 (YAML output: block). Decomposes recon findings F1–F6 into five tasks; four parallelizable plus one CI gate."
+    milestone: M7
+    tasks:
+      - id: M7-001
+        status: done
+        created: 2026-04-22
+        planned_date: 2026-04-22
+        started_date: 2026-04-22
+        review_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M7-001-stderr-color-flag
+      - id: M7-002
+        status: done
+        created: 2026-04-22
+        planned_date: 2026-04-22
+        started_date: 2026-04-22
+        review_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M7-002-progress-to-stderr
+      - id: M7-003
+        status: done
+        created: 2026-04-22
+        planned_date: 2026-04-22
+        started_date: 2026-04-22
+        review_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M7-003-usage-synopsis-on-stderr
+      - id: M7-004
+        status: done
+        created: 2026-04-22
+        planned_date: 2026-04-22
+        started_date: 2026-04-22
+        review_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M7-004-stream-discipline-matrix
+      - id: M7-005
+        status: done
+        created: 2026-04-22
+        planned_date: 2026-04-22
+        started_date: 2026-04-22
+        review_date: 2026-04-22
+        completed_date: 2026-04-22
+        verified_by: ai
+        branch: feature/M7-005-thread-writers-runcmdinner
+
+  editor_integration:
+    description: "Developer & agent exploration UX — publish collection JSON Schema at a stable in-repo path and wire editor integration (IMPROVEMENT.md W1). M8-001 ships the publishing pipeline; M8-002 closes schema-completeness gaps identified in the W1 audit."
+    milestone: M8
+    tasks:
+      - id: M8-001
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-24
+        started_date: 2026-04-24
+        review_date: 2026-04-24
+        completed_date: 2026-04-24
+        verified_by: ai
+        branch: feature/M8-001-publish-collection-schema
+        merged_pr: 117
+      - id: M8-002
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-24
+        started_date: 2026-04-24
+        review_date: 2026-04-24
+        completed_date: 2026-04-24
+        verified_by: ai
+        branch: feature/M8-002-schema-completeness
+        merged_pr: 118
+
+  output_declaration:
+    description: "YAML-declared output configuration (IMPROVEMENT.md W2) — output: block at project and collection levels with CLI>collection>project>built-in precedence so zero-flag invocation becomes the norm."
+    milestone: M8
+    tasks:
+      - id: M8-003
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-24
+        started_date: 2026-04-24
+        review_date: 2026-04-24
+        completed_date: 2026-04-24
+        verified_by: ai
+        branch: feature/M8-003-output-block
+        merged_pr: 119
+
+  request_selection:
+    description: "Request selection and execution discipline (IMPROVEMENT.md W3) — run --only <name> for single-request execution with duplicate-name rejection. The single biggest inner-loop improvement for humans and agents, and a prerequisite for W4's per-request markdown files (requires unique request names). M8-005 prunes the setup phase to the transitive closure of {{variable}} references for real inner-loop speedup."
+    milestone: M8
+    tasks:
+      - id: M8-004
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-24
+        started_date: 2026-04-24
+        review_date: 2026-04-24
+        completed_date: 2026-04-24
+        verified_by: ai
+        merged_pr: 120
+        branch: feature/M8-004-only-flag-and-duplicate-rejection
+      - id: M8-005
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-24
+        started_date: 2026-04-24
+        review_date: 2026-04-24
+        completed_date: 2026-04-24
+        verified_by: ai
+        merged_pr: 121
+        branch: feature/M8-005-only-prune-setup
+
+  markdown_response:
+    description: "Markdown response format with sentinel-delimited deterministic block (IMPROVEMENT.md W4) — one .md per main-phase request under --report <dir>, round-trippable CLI-owned region (BEGIN/END HTML-comment sentinels carrying run_id + request_id + request_slug), determinism tiers with volatile lines mask-friendly, full content-type matrix, 1 MiB body cap applied post-redaction, per-iteration files for data-driven requests, wave-grouped run.md index. M9-001 introduces request_slug and bumps events schema v1.1 -> v1.2; M9-002 ships the formatter foundation (JSON body, splice semantics, run.md); M9-003 the content-type matrix + volatile-header discipline + redaction invariant; M9-004 parallel + data-driven layout; M9-005 init --output flag + docs + CHANGELOG + IMPROVEMENT.md W4 status flip."
+    milestone: M9
+    tasks:
+      - id: M9-001
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        branch: feature/M9-001-request-slug
+      - id: M9-002
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        branch: feature/M9-002-markdown-formatter
+      - id: M9-003
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        merged_pr: 125
+        branch: feature/M9-003-content-type-matrix
+      - id: M9-004
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        merged_pr: 126
+        branch: feature/M9-004-markdown-parallel-datadriven
+      - id: M9-005
+        status: done
+        created: 2026-04-24
+        planned_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        merged_pr: 127
+        branch: feature/M9-005-markdown-shipment
+
+  agent_skill_template:
+    description: "Default Claude skill packaged with apitest (IMPROVEMENT.md W5) — opt-in apitest init --skill <name> scaffolds a SKILL.md template that teaches Claude Code agents how to invoke apitest, where artifacts land, what each exit code means, and how to narrate results. Init scaffold extensions make the skill's claims about default artifact paths self-true at scaffold time: --skill claude defaults output format to markdown, appends events: .apitest/run.ndjson to the output: block, and adds .apitest/ to .gitignore. SKILL.md content is shipped as an executable specification — a mock-agent-loop test asserts every exit code in the playbook matches the binary's actual behaviour, so skill drift fails CI. M10-001 ships the plumbing (--skill flag, embedded template via templates/templates.go, scaffold extensions, placeholder content); M10-002 ships the real SKILL.md content, the playbook test, SPECIFICATION + MANUAL + CHANGELOG updates, and the IMPROVEMENT.md §3 + §5 W5 status flip."
+    milestone: M10
+    tasks:
+      - id: M10-001
+        status: done
+        created: 2026-04-25
+        planned_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        merged_pr: 128
+        branch: feature/M10-001-init-skill-flag
+      - id: M10-002
+        status: done
+        created: 2026-04-25
+        planned_date: 2026-04-25
+        started_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        merged_pr: 129
+        branch: feature/M10-002-agent-skill-shipment
+
+  output_completeness:
+    description: "Output-format follow-ups (IMPROVEMENT.md §2.4 + §6 W5 bonus) — JUnit ungating, JSON per-iteration data-driven entries + root summary, TAP per-iteration data-driven test points + parallel speedup diagnostic, and exec --log run_id/request_id correlation. Closes the §2.4 list and the §6 W5 bonus; §8.6 schemastore.org publishing remains deferred until a tagged release."
+    milestone: M11
+    tasks:
+      - id: M11-001
+        status: done
+        created: 2026-04-25
+        planned_date: 2026-04-25
+        started_date: 2026-04-25
+        review_date: 2026-04-25
+        completed_date: 2026-04-25
+        verified_by: ai
+        branch: feature/M11-001-junit-ungating
+      - id: M11-002
+        status: done
+        created: 2026-04-25
+        planned_date: 2026-04-26
+        started_date: 2026-04-26
+        review_date: 2026-04-26
+        completed_date: 2026-04-26
+        verified_by: ai
+        merged_pr: 131
+        branch: feature/M11-002-json-summary-iterations
+      - id: M11-003
+        status: done
+        created: 2026-04-25
+        planned_date: 2026-04-26
+        started_date: 2026-04-26
+        review_date: 2026-04-26
+        completed_date: 2026-04-26
+        verified_by: ai
+        branch: feature/M11-003-tap-data-driven-iterations-parallel-speedup
+      - id: M11-004
+        status: done
+        created: 2026-04-25
+        planned_date: 2026-04-26
+        completed_date: 2026-04-26
+        verified_by: ai
+        merged_pr: 133
+        branch: feature/M11-004-exec-log-correlation-ids
+
+  dynamic_function_helpers:
+    description: "Foundational dynamic-function helpers (Phases 2 and 3 of the dynamic-function rollout, SPECIFICATION.md:746-747) — argument syntax foundation plus 13 helpers across encoding ($base64, $base64Decode, $urlEncode, $jsonEncode), hashing ($sha256, $md5, $hmacSha256), date arithmetic and formatting ($dateAdd, $dateSubtract, $formatDate, $parseDate), and advanced strings ($randomPassword, $randomBase64). $hmacSha256 includes sensitive-key propagation: when the key resolves from a sensitive variable, the resolved value is added to the run's SensitiveSet. Closes the documentation/implementation drift in MANUAL.md:694-699 (which already shows these functions as if available) and unblocks first-party signing plugins (Stripe / GitHub / Slack webhook signatures) in a later milestone."
+    milestone: M12
+    tasks:
+      - id: M12-001
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        branch: feature/M12-001-arg-parsing-foundation
+      - id: M12-002
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        merged_pr: 138
+        branch: feature/M12-002-base64-dynamic-functions
+      - id: M12-003
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        merged_pr: 139
+        branch: feature/M12-003-url-json-encode
+      - id: M12-004
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        merged_pr: 140
+        branch: feature/M12-004-sha256-md5-dynamic-functions
+      - id: M12-005
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        branch: feature/M12-005-hmac-sha256
+      - id: M12-006
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        branch: feature/M12-006-dateadd-datesubtract
+      - id: M12-007
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        branch: feature/M12-007-format-parse-date
+        merged_pr: 143
+      - id: M12-008
+        status: done
+        created: 2026-04-28
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        branch: feature/M12-008-random-password-base64
+        merged_pr: 144
+
+  faker_depth:
+    description: "Phase 4 of the dynamic-function rollout (SPECIFICATION.md:748): the $faker.* realistic-data family — 53 functions across personal, location, company, internet, content, financial, and file categories (SPECIFICATION.md:751-847). Fronted by a dotted-namespace syntax slice because the existing dynPattern at internal/variable/variable.go:96 does not admit dots in function names. Auto-sensitive functions ($faker.ssn, $faker.creditCard, $faker.creditCardCVV, $faker.iban) call SensitiveSet.AddValue at generation time, mirroring the M12-005 propagation pattern. Locale support (SPECIFICATION.md:859-904) is deferred from M13 — every category slice ships en-US only and the --locale flag is recognised-but-warns-and-ignores. Closes REVIEW.md gap 1c."
+    milestone: M13
+    tasks:
+      - id: M13-001
+        status: done
+        planned_date: 2026-04-28
+        completed_date: 2026-04-28
+        verified_by: ai
+        merged_pr: 148
+        branch: feature/M13-001-dotted-namespace-syntax
+      - id: M13-002
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        merged_pr: 149
+        branch: feature/M13-002-faker-personal-data
+      - id: M13-003
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M13-003-faker-location
+      - id: M13-004
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M13-004-faker-company-data
+      - id: M13-005
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M13-005-faker-internet-data
+      - id: M13-006
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M13-006-faker-content
+      - id: M13-007
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M13-007-faker-financial-data
+      - id: M13-008
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M13-008-faker-file-data
+
+  first_party_signing:
+    description: "First-party signers and signing helpers (M17 — closes REVIEW.md gap #4 at REVIEW.md:81). Originally framed as 'ship first-party plugins'; rescoped after a verification pass identified that the existing auth_profile machinery (internal/auth/profile.go:23) cannot host request-mutating signing and the right hook (RequestPayload at internal/plugin/hooks/hooks.go:36-42) is exposed only via JSON-RPC. M17 ships zero plugin binaries: a built-in signer registry plus a request-level `signing:` field (M17-001 foundation; AWS SigV4 in M17-002; OAuth1 1.0a in M17-003) sitting parallel to the runner's exec-wrap seam at runner.go:421-471, plus three webhook-signature dynamic functions ($webhookSign.stripe / .github / .slack — M17-004) and two JWT decode functions ($jwtDecodeHeader, $jwtDecodeClaims — M17-005). Sensitive-secret propagation reuses the M12-005 SensitiveSet.AddValue pattern across signers and webhook-sig functions. M17-004 depends on M13-001 for dotted-namespace syntax; if M13 sequencing slips, pull M13-001 forward."
+    milestone: M17
+    tasks:
+      - id: M17-001
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M17-001-signer-registry-foundation
+      - id: M17-002
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M17-002-aws-sigv4-signer
+      - id: M17-003
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M17-003-oauth1-signer
+      - id: M17-004
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M17-004-webhook-sign-stripe-github-slack
+      - id: M17-005
+        status: done
+        planned_date: 2026-04-29
+        completed_date: 2026-04-29
+        verified_by: ai
+        branch: feature/M17-005-jwt-decode-dynamic-functions
+
+  license_issuance:
+    description: "Backend signing infrastructure for the v4.2 ES256 token model — signing_keys table + IKeyProvider with FileKeyProvider (deploy/self-hosted/) and GoogleKmsKeyProvider (SaaS, EC_SIGN_P256_SHA256 HSM tier, 90/60-day rotation), the unified POST /api/v1/auth/refresh mint endpoint that returns License JWT + Access token + rotated refresh token in one round-trip per v4.2 §3, and the RFC 8615 GET /.well-known/jwks.json verification endpoint replacing the v4.1 bespoke /api/v1/public-key. Token claim shapes pinned per docs/SPECIFICATION.md 'Token Claim Shapes' (License JWT 17 claims, Access token 9 claims) including trial fields defaulting to none/null so M16's trial slices populate without claim-shape churn."
+    milestone: M14
+    tasks:
+      - id: M14-001
+        status: done
+        planned_date: 2026-05-04
+        completed_date: 2026-05-04
+        verified_by: ai
+        branch: feature/M14-001-signing-keys-key-provider
+      - id: M14-002
+        status: done
+        planned_date: 2026-05-04
+        completed_date: 2026-05-04
+        verified_by: ai
+        branch: feature/M14-002-auth-refresh-unified-mint
+      - id: M14-003
+        status: done
+        planned_date: 2026-05-04
+        started_date: 2026-05-04
+        review_date: 2026-05-04
+        completed_date: 2026-05-04
+        verified_by: ai
+        branch: feature/M14-003-jwks-endpoint
+
+  cli_backend:
+    description: "CLI side of the network boundary — new internal/backend/ package (Bearer auth, RFC 7807 error mapping, single-flight flock on ~/.config/apitesttool/refresh.lock, hybrid OS-keychain + AES-256-GCM encrypted-file fallback for refresh-token storage), apitest login device-code flow (RFC 8628) with browser auto-open when interactive TTY + default browser detected, apitest license --refresh (calls /auth/refresh, persists all three tokens) + --debug (prints decoded License JWT and cache state) with the full 8-code exit-code taxonomy per docs/SPECIFICATION.md 'CLI Exit-Code Taxonomy', and JWKS fetch + cache at ~/.config/apitesttool/jwks_cache.json for offline License JWT verification fallback."
+    milestone: M14
+    tasks:
+      - id: M14-004
+        status: done
+        planned_date: 2026-05-04
+        started_date: 2026-05-04
+        review_date: 2026-05-04
+        completed_date: 2026-05-04
+        verified_by: ai
+        branch: feature/M14-004-internal-backend-client
+      - id: M14-005
+        status: done
+        planned_date: 2026-05-05
+        started_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-005-cli-login-device-code
+      - id: M14-006
+        status: done
+        planned_date: 2026-05-05
+        started_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-006-license-refresh-and-debug
+      - id: M14-007
+        status: done
+        planned_date: 2026-05-05
+        started_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-007-jwks-fetch-cache
+
+  stripe_gateway:
+    description: "Live Stripe SDK integration replacing the placeholder StripeGateway.cs — SDK wiring + CreateCheckoutAsync against Stripe.Net 43.x with mandatory IdempotencyKey, CreateBillingPortalAsync (return_url from App:WebAppUrl + '/billing'), and ComputeProrationAsync via Stripe's upcoming-invoice preview (the interface shifts to async because Stripe computes proration server-side; FakeStripeGateway's local-math diverges from real Stripe and is preserved only for unit tests). Test strategy is three-layer per v4.2 §6: unit (FakeStripeGateway), integration (stripe-mock Docker container in CI on port 12111, [Trait('Category', 'stripe-integration')]), smoke (Stripe test mode + stripe listen pre-release)."
+    milestone: M14
+    tasks:
+      - id: M14-008
+        status: done
+        planned_date: 2026-05-05
+        started_date: 2026-05-05
+        review_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-008-stripe-live-wiring
+      - id: M14-009
+        status: done
+        planned_date: 2026-05-05
+        started_date: 2026-05-05
+        review_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-009-stripe-billing-portal
+      - id: M14-010
+        status: done
+        planned_date: 2026-05-05
+        started_date: 2026-05-05
+        review_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-010-stripe-proration-preview
+
+  stripe_webhooks:
+    description: "Stripe → backend event ingestion — signature-verify middleware via Stripe.Net.EventUtility.ConstructEvent (default 5-min tolerance — never set to 0; multi-secret rotation via STRIPE__WEBHOOK_SECRETS) + stripe_webhook_events table migration + INSERT ... ON CONFLICT (event_id) DO NOTHING idempotency pattern + 5-failure quarantine retry budget, customer.subscription.{created,updated,deleted} and customer.updated handlers (re-fetch from Stripe API rather than applying event-payload deltas — event-ordering defense; Stripe does not guarantee order), and invoice.{payment_succeeded,payment_failed,finalized} + payment_method.{attached,detached} handlers — payment-succeeded queues a billing_receipt email, payment-failed queues billing_payment_failed. Total events handled: 9."
+    milestone: M14
+    tasks:
+      - id: M14-011
+        status: done
+        planned_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-011-stripe-webhook-ingest
+      - id: M14-012
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-012-stripe-subscription-handlers
+      - id: M14-013
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-013-invoice-payment-method-handlers
+
+  transactional_email:
+    description: "SendGrid integration with in-repo MJML + manifest source-of-truth — ISmtpSender + SendGridSmtpSender + EmailQueueProcessor (consumes from System.Threading.Channels) + the MJML compile pipeline (apitest-backend dev email-preview <slug> renderer; CI upload job that posts compiled HTML to SendGrid on tagged release and writes SENDGRID__TEMPLATES__<SLUG> to secrets), plus the six M14 transactional templates with manifests: email_verification, auth_device_code, billing_receipt, billing_payment_failed, billing_subscription_canceled, account_security_alert. Templates password_reset and trial_expiring are explicitly NOT in M14 (they ship with M16's password-reset and trial cron slices). Template-injection prevention: at send time, SendGridSmtpSender rejects any variable name not in the template's manifest."
+    milestone: M14
+    tasks:
+      - id: M14-014
+        status: done
+        planned_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-014-sendgrid-mjml-pipeline
+      - id: M14-015
+        status: done
+        planned_date: 2026-05-05
+        completed_date: 2026-05-05
+        verified_by: ai
+        branch: feature/M14-015-email-template-inventory
+
+  github_checks_api:
+    description: "Outbound integration for posting PR-check results to GitHub's Checks API; folded into M14 from M16 per investigation Decision #11 — IGitHubAppKeyProvider + FileGitHubAppKeyProvider (deploy/self-hosted/) + GoogleKmsGitHubAppKeyProvider (SaaS, RSA_SIGN_PKCS1_2048_SHA256 HSM tier — RS256 mandated by GitHub for App JWTs; this is the one place RS256 lives in the system per v4.2.1's Decision #13) + JWT signing for installation-token requests, github_installations table + dashboard-initiated and webhook-first install/claim flows + UNIQUE (org_id) WHERE deleted_at IS NULL cross-tenant guardrail, outbound POST /repos/{owner}/{repo}/check-runs + pr_checks schema expansion + 6-state mapping (success/failure/cancelled/timed_out/neutral/skipped) + always-post-on-green + idempotency-on-retry via (head_sha, app_id) lookup + token-bucket rate-limit handling per installation_id + RFC 7807 PRCHECK_* error taxonomy, and POST /webhooks/github inbound webhook handler with X-Hub-Signature-256 HMAC-SHA256 verification (constant-time; raw body before JSON parse; legacy SHA-1 ignored) + github_webhook_events idempotency table + 5-failure quarantine + multi-secret rotation. Permission scope is pinned to metadata: read + checks: write only. GHES support is explicitly out of M14 scope. GitLab parity is explicitly NOT in M14."
+    milestone: M14
+    tasks:
+      - id: M14-016
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-016-github-app-key-provider
+      - id: M14-017
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-017-github-installations-and-claims
+      - id: M14-018
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-018-checkrun-poster-and-pr-checks-expansion
+      - id: M14-019
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-019-github-webhook-endpoint
+
+  web_integrations:
+    description: "Minimal web-track work for M14 — a single dashboard slice for the 'Connect GitHub' install entry point (/api/v1/integrations/github/install-url callback flow with signed state token containing org_id) and the install-state view (renders installed, repos covered, suspended, pending claim). Other web work — billing portal UI surfaces, organization SSO, dashboards beyond M4-005's existing results dashboard — is explicitly NOT in M14; those belong to later milestones."
+    milestone: M14
+    tasks:
+      - id: M14-020
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-020-github-integrations-page
+
+  revenue_e2e:
+    description: "Single convergence slice that proves the full revenue + integration loop end-to-end: apitest login (device code) → backend mints License JWT + Access token → apitest run --report-upload against a fixture API → backend persists results + posts a check run to a test-mode GitHub App on a real PR → SendGrid receipt email is queued (verified via stripe-mock's invoice.payment_succeeded simulation, not real charge). Mirrors M4-012's role. Happy-path only per Open Decision #1; failure-mode coverage lives in each cluster's own slice tests."
+    milestone: M14
+    tasks:
+      - id: M14-021
+        status: done
+        planned_date: 2026-05-06
+        completed_date: 2026-05-06
+        verified_by: ai
+        branch: feature/M14-021-e2e-revenue-loop
+
+  tier_matrix:
+    description: "Tier-matrix corrections (M15) — three independent registry/enforcement corrections that close documented revenue-leak and no-scripting-story line items in docs/REVIEW.md. M15-001 adds a plugin_loading Enterprise feature gate and wires it at both APITEST_PLUGINS load sites in cmd/apitest/plugins.go (closes REVIEW.md gap 3 — currently no entry exists, so plugin loading is free at every tier). M15-002 inserts an SSO Enterprise tier gate at SsoService that returns 402 Payment Required on authenticated config endpoints and 404 Not Found with Cache-Control: no-store on the public flow endpoints, treating no-subscription orgs as Free (closes REVIEW.md gap 16 — currently any subscription level can configure and use SSO). M15-003 retiers from_command from Solo to Free in internal/auth/registry.go with backwards-compatible behavior, plus a MANUAL.md sweep across all from_command [Solo] sites (closes REVIEW.md gap 23). M15 was originally three slices in REVIEW.md:189 (license --refresh, license --debug, plugin tier-gate); M14-006 absorbed the first two so M15 is rescoped to this coherent tier-matrix theme, pulling SSO gate and from_command retiering forward from M16's 'trivial subset' (REVIEW.md:191)."
+    milestone: M15
+    tasks:
+      - id: M15-001
+        status: done
+        planned_date: 2026-05-07
+        completed_date: 2026-05-07
+        verified_by: ai
+        branch: feature/M15-001-plugin-loading-gate
+      - id: M15-002
+        status: done
+        planned_date: 2026-05-07
+        completed_date: 2026-05-07
+        verified_by: ai
+        branch: feature/M15-002-sso-enterprise-tier-gate
+      - id: M15-003
+        status: done
+        planned_date: 2026-05-07
+        completed_date: 2026-05-07
+        verified_by: ai
+        branch: feature/M15-003-from-command-free-tier
+
+  tier_gate_generic:
+    description: "Tier-gate generic abstraction (M16) — single foundation slice that lifts SsoTierGate.EnsureEnterpriseAsync into a generic ITierGate.EnsureAsync(orgId, requiredTier, ct) under src/ApiTool.Backend/Internal/TierGates/ per docs/SPECIFICATION.md 'Tier-Gate Generic Abstraction (v4.3)'. The existing SsoTierGate becomes a thin call-site adapter; new ScheduleExecutorTierGate, VaultConfigTierGate, DashboardTierGate adapters land alongside. RFC 7807 mapping centralized: 402 Payment Required for authenticated org-scoped endpoints with the org's tier in the problem detail; 404 Not Found with Cache-Control: no-store for unauthenticated public-flow endpoints (mirrors M15-002). M16-001 is a strict prerequisite for the trial / schedule / vault / dashboard clusters. Verification: a unit test asserts every adapter delegates to a mocked ITierGate, plus a grep test asserting no db.Subscriptions.Where tier-checks remain outside Internal/TierGates/."
+    milestone: M16
+    tasks:
+      - id: M16-001
+        status: done
+        planned_date: 2026-05-07
+        completed_date: 2026-05-07
+        verified_by: ai
+        branch: feature/M16-001-tiergate-abstraction
+
+  password_reset_verification:
+    description: "Password reset and email verification (M16) — closes REVIEW.md gap 9 with the auth-model resolution from v4.3 (Argon2id + token-based reset, magic-link retired). Three slices. M16-002 lands migrations + entities for password_reset_tokens and email_verification_tokens, the users.email_verified column, and the password_reset / trial_expiring SendGrid templates explicitly deferred from M14-015's six-template inventory. M16-003 wires endpoints POST /api/v1/auth/password-reset/{request,confirm} and POST /api/v1/auth/email-verification/{resend,confirm} plus IPasswordResetService and IEmailVerificationService, per-email and per-IP rate limits via Internal/RateLimit (3 reset/24h, 5 verify/24h per email; 10/24h per IP), identical 200 responses regardless of email existence (enumeration defense), full refresh-token-family revocation on confirm-success per RFC 9700 §4.14, and a [RequireVerifiedEmail] filter that gates Stripe checkout and org-invite-acceptance only — free use is unblocked. M16-003 also ships AuthTokenCleanupService as a single IHostedService for both token tables (per Open Decision 8). M16-004 lands the SvelteKit pages at /auth/password-reset/{request,confirm} and /auth/email-verification/{request,confirm} with zxcvbn-based password-strength validation."
+    milestone: M16
+    tasks:
+      - id: M16-002
+        status: done
+        planned_date: 2026-05-07
+        completed_date: 2026-05-07
+        verified_by: ai
+        branch: feature/M16-002-password-reset-email-verification-tables
+      - id: M16-003
+        status: done
+        planned_date: 2026-05-10
+        completed_date: 2026-05-10
+        verified_by: ai
+        branch: feature/M16-003-password-reset-email-verification
+      - id: M16-004
+        status: done
+        planned_date: 2026-05-10
+        completed_date: 2026-05-10
+        verified_by: ai
+        branch: feature/M16-004-web-password-reset-email-verification
+
+  trial_resolver:
+    description: "Trial persistence and on-demand activation (M16) — closes REVIEW.md gap 10 per docs/SPECIFICATION.md 'Trial Persistence and Activation (v4.3)'. Four slices. M16-005 lands the trials table migration + entity with UNIQUE (user_id, feature) enforcing one-trial-per-feature globally and indexes on (user_id) and (expires_at) for the daily-cron path. M16-006 introduces ITrialStateResolver + DatabaseTrialStateResolver and wires LicenseTokenIssuer (replacing the M14 hardcoded 'none'/null defaults at LicenseTokenIssuer.cs:54-55) plus the customer.subscription.created Stripe webhook for tier-upgrade preemption per the v4.3 transition table. M16-007 ships POST /api/v1/trials/{feature} with 409 on already-consumed feature, re-mints all three tokens in the response, extends the CLI Claims struct in internal/license/jwt.go with TrialState/TrialExpiry fields and IsTrialActiveFor(feature), integrates at every premium-feature gate in internal/auth/registry.go, and adds the apitest license trial start <feature> subcommand (kept as one logical slice per Open Decision 1). M16-008 ships the TrialExpiryNotifier daily IHostedService at 09:00 UTC that queues trial_expiring SendGrid emails at 3-day and 1-day expiry marks using notified_*_at columns to prevent duplicates."
+    milestone: M16
+    tasks:
+      - id: M16-005
+        status: done
+        planned_date: 2026-05-10
+        completed_date: 2026-05-10
+        verified_by: ai
+        branch: feature/M16-005-trials-table
+      - id: M16-006
+        status: done
+        planned_date: 2026-05-10
+        completed_date: 2026-05-10
+        verified_by: ai
+        branch: feature/M16-006-trial-state-resolver
+      - id: M16-007
+        status: done
+        planned_date: 2026-05-10
+        completed_date: 2026-05-10
+        verified_by: ai
+        branch: feature/M16-007-trial-activation-endpoint
+      - id: M16-008
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-008-trial-expiry-notifier
+
+  schedule_executor:
+    description: "Schedule executor (M16) — closes REVIEW.md gap 11 with the v4.3 self-hosted runner architecture per docs/SPECIFICATION.md 'Schedule Execution Model'. Four slices. M16-009 lands the backend endpoints GET /api/v1/schedules/next-run, POST /api/v1/schedules/runs/{run_id}/heartbeat, POST /api/v1/schedules/runs/{run_id}/result, plus the claim_token mechanism that prevents two workers running the same scheduled_run, the ShardReaper extension that reaps stale runs after 5-minute heartbeat timeout, and SchedulerHost stack-up prevention. M16-010 adds the scheduled_runs.result_id FK migration (ON DELETE SET NULL) and the result-ingest atomicity guard. M16-011 ships apitest worker --schedule-pull mode in cmd/apitest/worker.go reusing M11's distributed-perf job/shard polling pattern with file: collection_ref support only (per Open Decision 4 — git: deferred), 5-min team-vault TTL, and ~/.config/apitesttool/pending-uploads/ queue on result-post failure. M16-012 lands the schedules.timezone migration with IANA TZ-aware Cronos invocation, plus the web schedules dashboard page at /org/[slug]/schedules with timezone picker, cron live-preview, run-now button, and per-schedule run history."
+    milestone: M16
+    tasks:
+      - id: M16-009
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-009-schedule-executor-endpoints
+      - id: M16-010
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-010-scheduled-runs-result-id-fk
+      - id: M16-011
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-011-worker-schedule-pull
+      - id: M16-012
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-012-schedules-timezone-dashboard
+
+  gitlab_pr_checks:
+    description: "GitLab Commit Status API parity (M16) — closes REVIEW.md gap 12 GitLab side with the v4.3 PAT-based architecture per docs/SPECIFICATION.md 'GitLab Commit Status API Integration'. Four slices. M16-013 lands the gitlab_installations table migration + IGitLabKeyProvider interface with FileGitLabKeyProvider (deploy/self-hosted/) and GoogleKmsGitLabKeyProvider (SaaS HSM tier) using per-row AES-256-GCM ciphertext for the PAT under a wrapped DEK, plus the gitlab_webhook_events table with idempotency on X-Gitlab-Event-UUID. M16-014 ships the outbound IGitLabCheckPoster against POST /projects/{id}/statuses/{commit_sha} with the lossy state mapping from v3-GL-4 (timed_out → failed, neutral/skipped → success+marker), pr_checks.provider discriminator, nullable gitlab_installation_id/gitlab_status_id columns, and HTTP-not-HTTPS rejection in prod absent GITLAB__ALLOW_HTTP=true (Open Decision 2). M16-015 ships the inbound POST /webhooks/gitlab handler with X-Gitlab-Token constant-time verification, 5-failure quarantine, single-secret rotation only (Open Decision 3 — multi-secret deferred), and the Pipeline Hook dispatcher (Push/Merge Request Hooks stored for debugging only). M16-016 lands the web /integrations/gitlab dashboard page with PAT submission form, project-path lookup, optional gitlab_base_url and gitlab_ca_bundle for self-managed GitLab, and the connection-health table."
+    milestone: M16
+    tasks:
+      - id: M16-013
+        status: done
+        planned_date: 2026-05-10
+        completed_date: 2026-05-10
+        verified_by: ai
+        branch: feature/M16-013-gitlab-installations-tables
+      - id: M16-014
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-014-gitlab-check-poster
+      - id: M16-015
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-015-gitlab-webhook-handler
+      - id: M16-016
+        status: done
+        planned_date: 2026-05-11
+        completed_date: 2026-05-11
+        verified_by: ai
+        branch: feature/M16-016-web-gitlab-integrations-page
+
+  shared_vault_propagation:
+    description: "Shared vault propagation for Team tier (M16) — closes REVIEW.md gap 14 with the v4.3 plaintext-with-coordinate-validation model per docs/SPECIFICATION.md 'Layer 4: Shared Vault Configuration Templates (Team Tier, $39/month)'. Two slices. M16-017 lands the team_vaults table migration + entity, VaultConfigService, manifest validator that rejects literal-secret-shaped values via the regex heuristic (warn-on-suspicious in dev, reject-on-suspicious in prod per Open Decision 5), GET/PUT/DELETE /api/v1/organizations/{orgId}/vault-config endpoints with vault_config.{view,manage} RBAC + VaultConfigTierGate.EnsureTeamOrAboveAsync, and the web /org/[slug]/vault-config YAML editor page with manifest-validator-on-save and 'generate CLI snippet' button. M16-018 ships the CLI side: backend.Client.GetTeamVault(ctx, orgId), cache file at ~/.config/apitesttool/team_vault.json with 5-min TTL + stale-while-revalidate fetch + --refresh-vault flag, integration in internal/vault/teamtemplate/ so the backend-fetched template is the base and APITEST_TEAM_CONFIG (if set) overlays per-key, and load-site enforcement at internal/auth/registry.go:126 that closes the registered-but-not-enforced revenue leak (exit code 5 when active JWT's tier is below team AND IsTrialActiveFor('shared_vault_templates') is false)."
+    milestone: M16
+    tasks:
+      - id: M16-017
+        status: done
+        planned_date: 2026-05-12
+        completed_date: 2026-05-12
+        verified_by: ai
+        branch: feature/M16-017-team-vaults-config
+      - id: M16-018
+        status: done
+        planned_date: 2026-05-12
+        completed_date: 2026-05-12
+        verified_by: ai
+        branch: feature/M16-018-cli-team-vault-cache
+
+  health_dashboard:
+    description: "Health metrics dashboard (M16) — closes REVIEW.md gap 15 with the v4.3 pinned response schemas per docs/SPECIFICATION.md 'Test Results Dashboard'. Two slices. M16-019 lands GET /api/v1/organizations/{orgId}/results/stats and /results/failures endpoints with on-demand SQL aggregation against (org_id, created_at) — no rollup table — window selector 7d|30d|90d (default 30d), failure grouping by (method, path_template) using the same path-template extraction the result-ingest pipeline already uses, default limit 10 max 50, ?window=<other> rejected with 400 (Open Decision 10), and DashboardTierGate.EnsureTeamOrAboveAsync. M16-020 ships the web /org/[slug]/dashboard SvelteKit page with overview cards (total runs, pass-rate %, avg duration, p50/p95), pass-rate trend line chart (daily aggregation), recent-runs table, and frequently-failing-endpoints list (top 10). Health metrics (p99 latency, error-rate trend) deferred to a future milestone per the v4.3 changelog."
+    milestone: M16
+    tasks:
+      - id: M16-019
+        status: done
+        planned_date: 2026-05-12
+        completed_date: 2026-05-12
+        verified_by: ai
+        branch: feature/M16-019-results-stats-failures
+      - id: M16-020
+        status: done
+        planned_date: 2026-05-12
+        completed_date: 2026-05-12
+        verified_by: ai
+        branch: feature/M16-020-web-dashboard-page
+
+  m16_e2e:
+    description: "M16 end-to-end happy-path workflow (M16) — single convergence slice that proves the full M16 workflow wires together end-to-end, mirroring M14-021's role. M16-021 runs the full happy path: registration with Argon2id password → email verification flow → 14-day full-trial JWT issued → schedule created via dashboard → apitest worker --schedule-pull claims and executes → result ingested + scheduled_runs.result_id linked → /results/stats reflects the new run → trial expiry notification queued at the 3-day mark → on-demand trial activated for one feature → password reset flow → all token families revoked. Happy-path only (Open Decision 9); failure modes covered in each cluster's own slice tests. New scripts/m16-e2e.sh and web/tests/e2e/m16-happy-path.spec.ts run against the existing ./scripts/ci-local.sh --full stack."
+    milestone: M16
+    tasks:
+      - id: M16-021
+        status: done
+        planned_date: 2026-05-12
+        completed_date: 2026-05-12
+        verified_by: ai
+        branch: feature/M16-021-e2e-happy-path
+
+  if_conditional:
+    description: "Conditional request execution via `if:` field (M19) — closes REVIEW.md gap #24 (Rung 1 of docs/SCRIPTING.md's ladder). New `if:` field on request items accepts a single CEL boolean expression (no string truthiness, no Go-template interpolation — one syntax across `if:` and CEL assertions). Standard activation: `previous`, `vars`, `env` (no `response` — the current request hasn't run). Falsy expressions mark the request `skipped` (not counted in assertion totals, no retry increment); dependents via `depends_on:` propagate as skip-on-skipped-parent. The `if:` gate runs BEFORE templating so skipped items never trigger templating side effects (`from_command:`, vault fetches, faker seeding). `apitest validate` runs CEL parse + boolean type-check at validate time. Six output formatters render `skipped`. Universally available — no tier gate."
+    milestone: M19
+    tasks:
+      - id: M19-001
+        status: done
+        planned_date: 2026-05-16
+        completed_date: 2026-05-16
+        verified_by: ai
+        branch: feature/M19-001-if-conditional
+
+  cel_expressions:
+    description: "CEL expression language surface (M19) — closes REVIEW.md gap #25 (Rung 2 of docs/SCRIPTING.md's ladder). Three slices: M19-002 introduces `internal/cel/` wrapping github.com/google/cel-go (Evaluator interface, standard activation `response`/`previous`/`vars`/`env`, Response bound as `dyn`, parse-time type checking, deterministic-only function set — standard library minus time-of-day `now()` and zero-arg `timestamp()`); M19-004 adds the `assertions: - cel: <expr>` shape (mutually exclusive with operator assertions, failure message includes resolved sub-values, sensitive-secret redaction via SensitiveSet); M19-005 wires `apitest validate` CEL parse/type-check over every `if:` and `cel:` site and adds the `Expression Language (CEL)` section to docs/MANUAL.md (new error codes `ERR_CEL_PARSE`, `ERR_CEL_TYPE`; source truncated to 200 chars). CEL is intentionally NOT surfaced at `extract:` (JSONPath remains the only extraction language; the no-duplicate-surfaces resolution of 2026-05-16). Universally available — no tier gate."
+    milestone: M19
+    tasks:
+      - id: M19-002
+        status: done
+        planned_date: 2026-05-16
+        completed_date: 2026-05-16
+        verified_by: ai
+        branch: feature/M19-002-cel-foundation
+      - id: M19-004
+        status: done
+        planned_date: 2026-05-16
+        completed_date: 2026-05-16
+        verified_by: ai
+        branch: feature/M19-004-cel-assertions
+      - id: M19-005
+        status: done
+        planned_date: 2026-05-16
+        completed_date: 2026-05-16
+        verified_by: ai
+        branch: feature/M19-005-validate-cel
+
+  manual_as_skill:
+    description: "Manual-as-skill skill expansion (M19) — closes REVIEW.md gap #21 and discharges the `Claude skill as operator manual` direction (project memory `project_dev_ux_direction.md`, agreed 2026-04-22 item 5). One slice (M19-006) restructures `templates/skills/claude/apitest/` from the existing single 134-line SKILL.md into a multi-file skill payload: a root SKILL.md (trigger phrases + topic index) plus per-topic reference files (variables, output formats, assertions, retry, parallel, vault, signing, expressions, exit codes, failure playbook). Content derived from docs/MANUAL.md but rewritten in second-person operator voice; no auto-sync (drift acceptable for v1). The failure-playbook gains entries for the new CEL error codes from M19-005. `apitest init --skill claude` continues to materialise the full skill directory."
+    milestone: M19
+    tasks:
+      - id: M19-006
+        status: done
+        planned_date: 2026-05-17
+        completed_date: 2026-05-17
+        verified_by: ai
+        branch: feature/M19-006-multi-file-skill
+
+  audit_log_export:
+    description: "Audit-log bulk export (M18) — closes REVIEW.md gap #17 per v4-1. Lifts the existing `?format=csv` handler at src/ApiTool.Backend/Audit/AuditLogEndpoints.cs:76-82 into a bulk-export shape: removes the MaxLimit=200 cap when `format ∈ {csv, jsonl}`, switches to `Transfer-Encoding: chunked` streaming, adds JSONL alongside CSV, applies `AuditLogExportTierGate.EnsureEnterpriseAsync` (using the M16 ITierGate foundation). Sync streaming covers ~1M rows comfortably; async-job model deferred per v4-1."
+    milestone: M18
+    tasks:
+      - id: M18-001
+        status: done
+        planned_date: 2026-05-17
+        completed_date: 2026-05-17
+        verified_by: ai
+        branch: feature/M18-001-audit-log-bulk-export
+
+  audit_log_retention_rbac:
+    description: "Audit-log retention + RBAC (M18) — per v4-2 and v4-3. (a) `audit_log.view` and `audit_log.export` permissions added to Rbac/Permissions.cs; hardcoded Owner/Admin gate at AuditLogQueryService.cs:24 lifted to permission check; new 'Security Auditor' custom-role template (audit_log.view only) carries separation-of-duties evidence for SOC 2. (b) `organizations.audit_log_retention_days` column (default 365, capped at 365 for non-Enterprise); `AuditLogCleanupHost : BackgroundService` runs daily at 02:00 UTC, hard-deletes rows older than `now() - retention_days` per org."
+    milestone: M18
+    tasks:
+      - id: M18-002
+        status: done
+        planned_date: 2026-05-17
+        completed_date: 2026-05-17
+        verified_by: ai
+        branch: feature/M18-002-audit-rbac-retention
+
+  gdpr_export:
+    description: "GDPR per-user data export (M18) — closes the export half of REVIEW.md gap #18 per v4-4. (1) Data inventory pass: decision matrix for each of the 13 user-attributable tables (RefreshToken, OrganizationMember, EmailVerificationToken, PasswordResetToken, NotificationRule, CustomRole, Schedule, CoordinatorJob, TeamVault, OrganizationAuditLogEntry, GithubInstallation, GitLabInstallation, User); `docs/security/data-inventory.md` + `[GdprIncluded]`/`[GdprAnonymise]` entity attributes wired into the assembly scanner. (2) Export endpoint: `POST /api/v1/users/me/export-requests` + `GET .../{id}` returns signed-URL pointer (24h expiry) to JSON bundle, backed by IObjectStore (S3/GCS); rate-limited 1/user/24h; new user-level account-settings page at web/src/routes/(app)/account/data/."
+    milestone: M18
+    tasks:
+      - id: M18-003
+        status: done
+        planned_date: 2026-05-18
+        completed_date: 2026-05-18
+        verified_by: ai
+        branch: feature/M18-003-gdpr-data-inventory
+      - id: M18-004
+        status: done
+        planned_date: 2026-05-18
+        completed_date: 2026-05-18
+        verified_by: ai
+        branch: feature/M18-004-user-data-export
+
+  gdpr_deletion:
+    description: "GDPR per-user deletion (M18) — closes the deletion half of REVIEW.md gap #18 per v4-5, v4-6, v4-7. (1) State machine + finalizer: `User.PendingDeletionAt` + `User.AnonymisedAt` columns; `POST /api/v1/users/me/deletion-requests` requires re-authentication (password re-entry token within last 5 minutes, single-use); `UserDeletionFinalizerHost : BackgroundService` runs daily at 03:00 UTC, finalizes past the 30-day cooldown; email notifications on initiation AND completion. (2) Anonymisation + last-admin protection + UX: `IUserAnonymiser` service replaces ActorId with NULL and ActorEmail with `deleted-user-{first8(sha256(user_id+org_id))}` across audit-log entries; hard-deletes the in-deletion-hard inventory set; emits `user.anonymised` audit event preserving the audit-of-audit trail; last-admin protection extends the existing OwnerCannotLeave check to the user-delete trigger site."
+    milestone: M18
+    tasks:
+      - id: M18-005
+        status: done
+        planned_date: 2026-05-18
+        completed_date: 2026-05-18
+        verified_by: ai
+        branch: feature/M18-005-gdpr-deletion-state-machine
+      - id: M18-006
+        status: done
+        planned_date: 2026-05-18
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-006-user-anonymiser-account-delete
+
+  telemetry_phase3_ingest:
+    description: "Telemetry Phase 3 implementation (M18) — closes REVIEW.md gap #19 per v4-8, v4-9, v4-10, v4-11. (1) Backend ingest: `telemetry_events` table; `POST /api/v1/telemetry/events` endpoint (anonymous, no Bearer; idempotency-key dedup; 64KB body cap; rate-limited 60/min per install_id); `telemetry_daily_aggregates` rollup built by `TelemetryAggregatorHost` daily; raw events purged after 90 days per spec :6604. (2) CLI emitter: new `internal/telemetry/` package (dedicated HTTP client per v4-11; no Bearer, idempotency key per event); `apitest telemetry {enable, disable, status, reset-id, export, delete-request}` subcommand per v4-8; persistent install_id at `~/.config/apitesttool/install_id` (mode 0600), regeneratable; opt-in only per v4-9. Phase 2 registration polish + team-side analytics dashboard split to post-M18 follow-ups per v4-10."
+    milestone: M18
+    tasks:
+      - id: M18-007
+        status: done
+        planned_date: 2026-05-19
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-007-telemetry-phase3-ingest
+      - id: M18-008
+        status: done
+        planned_date: 2026-05-19
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-008-cli-telemetry-emitter
+
+  encryption_at_rest_v2:
+    description: "Encryption-at-rest extension (M18) — per v4-12 closes the two open encryption-at-rest deferrals: `team_vaults.template_jsonb` (v3-10) and `schedules.env_vars` sensitive values (spec :11057). Reuses the existing IKmsClient envelope pattern at Licensing/Keys/IKmsClient.cs:8-43; new `TeamVaultKeyProvider` and `ScheduleEnvKeyProvider` clone GoogleKmsGitLabKeyProvider's per-row DEK + KMS-wrapped KEK pattern. Single migration adds ciphertext + DEK-ciphertext columns, backfills, drops plaintext after verification. For self-hosted without KMS, File-provider fallbacks mirror the GitLab pattern. v4-13's signing-key CI lint extension (`scripts/ci-local.sh --check-signing-keys`) lands here too."
+    milestone: M18
+    tasks:
+      - id: M18-009
+        status: done
+        planned_date: 2026-05-19
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-009-encryption-at-rest-v2
+
+  compliance_artifacts:
+    description: "Compliance artefact production (M18) — closes REVIEW.md gap #20 per v4-14. (1) Policies + docs: `docs/COMPLIANCE.md` umbrella + `docs/security/{info-sec-policy,access-review-policy,incident-response-runbook,data-classification-matrix}.md` plus the data-inventory.md emitted by gdpr_export. Vanta/Drata-compatible templates; access-review quarterly cadence; SEV-1/2/3/4 incident taxonomy; Public/Internal/Confidential/Restricted four-tier classification matrix. (2) Vendor inventory + DFD + pen-test orchestration: `docs/security/vendor-inventory.md` (Stripe, SendGrid, Google KMS, AWS, GitHub Apps, GitLab — data shared, retention, breach-notification SLA, vendor SOC 2 status); two data-flow diagrams (customer-PII paths and internal-secrets paths); first vendor pen-test engagement orchestrated, remediation log committed as `docs/security/pentest-YYYY-Q.md`. Pen-test cadence: annual per v4-15. The SOC 2 / ISO 27001 audit engagement itself is a business-process initiative outside the milestone framework."
+    milestone: M18
+    tasks:
+      - id: M18-010
+        status: done
+        planned_date: 2026-05-19
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-010-compliance-artefacts-policies
+      - id: M18-011
+        status: done
+        planned_date: 2026-05-19
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-011-compliance-evidence
+
+  m18_e2e:
+    description: "M18 end-to-end convergence — mirrors M14-021's and M16-021's role. Single Playwright spec orchestrating the full compliance workflow: user registers → opts in to telemetry → install_id created → events flow → user exports data (bundle includes telemetry events scoped to their install_id) → user requests deletion → re-auth → 30-day cooldown → cancellation tested → finalizer runs → audit-log rows anonymised → `user.anonymised` audit event lands → Enterprise admin exports audit log as JSONL via streaming → encrypted team_vaults and schedules columns round-trip cleanly. Release-readiness gate per project_milestone_release_model.md — passing this slice is the launch-blocking signal for the M14–M19 pre-launch set."
+    milestone: M18
+    tasks:
+      - id: M18-012
+        status: done
+        planned_date: 2026-05-19
+        completed_date: 2026-05-19
+        verified_by: ai
+        branch: feature/M18-012-e2e-convergence
+
+  faker_locale_completion:
+    description: "Faker locale support — close the documented-but-not-built drift surfaced during M18 design pass (2026-05-17). docs/SPECIFICATION.md:961–1026 documents 15 locales (en-US, en-GB, de-DE, fr-FR, es-ES, it-IT, pt-BR, ja-JP, zh-CN, ko-KR, nl-NL, pl-PL, ru-RU, sv-SE, tr-TR), --locale CLI flag, precedence chain (CLI > Collection > Environment > Project > default en-US), and fallback chain (en-GB → en → en-US, line 989). Implementation today: en-US only; no --locale parsing exists — the flag is silently ignored (verified 2026-06-12; REVIEW.md §1c's warn-and-ignore wording overstated the baseline). Four slices: M20-001 --locale flag + precedence + fallback + ERR_LOCALE_UNKNOWN shipped end-to-end with de-DE; M20-002 Latin-script European pools (9 locales); M20-003 CJK + Cyrillic pools (4 locales); M20-004 MANUAL.md locale reference + cross-locale seed reproducibility matrix. Not pre-launch (not in M14–M19 set); ships post-M18."
+    milestone: M20
+    tasks:
+      - id: M20-001
+        status: done
+        planned_date: 2026-06-12
+        completed_date: 2026-06-12
+        verified_by: ai
+        branch: feature/M20-001-locale-flag
+      - id: M20-002
+        status: done
+        planned_date: 2026-06-12
+        completed_date: 2026-06-12
+        verified_by: ai
+        branch: feature/M20-002-latin-script-locale-pools
+      - id: M20-003
+        status: done
+        planned_date: 2026-06-12
+        completed_date: 2026-06-12
+        verified_by: ai
+        branch: feature/M20-003-cjk-cyrillic-locales
+      - id: M20-004
+        status: done
+        planned_date: 2026-06-12
+        completed_date: 2026-06-12
+        verified_by: ai
+        branch: feature/M20-004-locale-manual-reproducibility-matrix

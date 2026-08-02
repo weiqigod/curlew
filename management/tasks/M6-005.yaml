@@ -1,0 +1,88 @@
+id: M6-005
+title: "Wire --events flag into the run subcommand end-to-end"
+status: done
+priority: 3
+created: 2026-04-21
+phase: "M6: AI Agent Integration"
+track: go-cli
+dependencies:
+  - M6-003
+  - M6-004
+observable: |
+  # Given a passing collection and a failing collection, running with
+  # --events produces a complete NDJSON stream. No existing output is
+  # modified.
+  cat > /tmp/events-happy.yaml <<'YAML'
+  name: happy
+  requests:
+    - name: ping
+      method: GET
+      url: http://127.0.0.1:18080/ok
+      assertions:
+        status: 200
+  YAML
+  ./apitest run /tmp/events-happy.yaml --events /tmp/events.jsonl
+  # Expected: existing terminal output unchanged; /tmp/events.jsonl contains:
+  #   run.start, request.start, request.end (outcome=passed),
+  #   assertion.result (passed), run.end (event_count matches lines).
+  wc -l /tmp/events.jsonl
+  # Expected line count == run.end.event_count.
+
+  cat > /tmp/events-fail.yaml <<'YAML'
+  name: unresolved
+  requests:
+    - name: needs-var
+      method: GET
+      url: "{{MISSING}}"
+  YAML
+  ./apitest run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl || true
+  # Expected: run.start then run.error event with category=input,
+  # code=VAR_UNDEFINED, file=/tmp/events-fail.yaml, line pointing at the
+  # request, and a non-empty hint. Then run.end with exit_code != 0.
+behaviors:
+  - "Given --events <path> with a valid writable path, when apitest run completes, then the file contains a well-formed NDJSON stream beginning with run.start and ending with run.end."
+  - "Given --events is not provided, when apitest run completes, then no events file is produced and all existing format outputs are byte-identical to pre-M6 output (verified by existing goldens)."
+  - "Given a passing collection, when run with --events, then every request emits paired request.start / request.end events with matching request_id and a request.end.outcome of passed, and every assertion emits an assertion.result event."
+  - "Given a pre-execution failure (feature-gate denial, undefined variable at interpolation, collection parse error), when run with --events, then a single run.error event is emitted with full (file, line, category, code, hint) before run.end."
+  - "Given parallel execution (--parallel), when run with --events, then event ids remain strictly monotonic across goroutines, and request.end.wave_index is populated."
+  - "Given a loadgen/worker/prcheck subcommand, when --events is passed, then the flag is rejected with a clear message ('--events is supported only on run; use --format jsonl for streaming samples'). No partial event file is created."
+  - "Given /dev/stdout as --events path, when run, then NDJSON lines are written to stdout interleaved with any existing stdout output; existing behaviours are not affected."
+  - "Given an invalid --events path (unwritable directory), when apitest run starts, then it exits with a clear error before executing any requests."
+scope: |
+  cmd/apitest/main.go:
+    - Add --events <path> flag to the run subcommand.
+    - Validate writability before the redaction pass so early failure doesn't
+      execute requests.
+    - Construct an events.Emitter. Emit run.start with apitest_version,
+      collection_file, cli_args, env_name.
+    - Pass a callback into runner via a new runner.Options.OnEvent so request
+      events fire as they happen (streaming, not post-hoc).
+    - On pre-run errors (feature gate, buildScope, team template config):
+      emit run.error with ClassifyError-populated metadata, then run.end
+      with the intended exit code and event_count.
+    - On normal completion: emit run.end unconditionally with totals from
+      runner.Summary.
+    - Explicitly reject --events on non-run subcommands (loadgen, worker,
+      prcheck) with a clear message; do not create a partial file.
+    - Do NOT modify the existing --format dispatch at main.go:779-988.
+
+  internal/runner/runner.go:
+    - Add Options.OnEvent func(events.Event) or a minimal emit-callback
+      abstraction so runner can notify per-request and per-assertion without
+      importing the events package (pass through an interface if needed to
+      avoid import cycles).
+    - Emit callbacks for RequestStart (before Execute), RequestEnd (after),
+      AssertionResult (after each assertion evaluation).
+
+  No changes to existing formatters; no changes to schema beyond what M6-004
+  already defined.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes with no changes to existing format goldens"
+  - "End-to-end CLI test under cmd/apitest drives a real ./apitest binary with --events against a fixture collection and asserts the stream shape"
+  - "golangci-lint run passes with 0 issues"
+  - "Test coverage does not regress below 80%"
+  - "Smoke test passes; smoke also exercises --events on the happy path"
+  - "./scripts/ci-local.sh passes"
+complexity: high
+estimated_effort: "2-3 days"

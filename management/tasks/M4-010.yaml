@@ -1,0 +1,55 @@
+id: M4-010
+title: "Backend: billing, seat management, and invitations API"
+status: done
+priority: 2
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies:
+  - M4-003
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Subscriptions|FullyQualifiedName~Invitations|FullyQualifiedName~Seats"
+  # Expected: Passed: >=15, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"tier":"team","seat_count":5,"success_url":"http://localhost/ok","cancel_url":"http://localhost/no"}' \
+    http://localhost:5000/api/v1/subscriptions/checkout
+  # Expected HTTP 200, body contains "checkout_url":"https://checkout.stripe.test/..."
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"email":"newuser@example.com","role":"member"}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/invitations"
+  # Expected HTTP 201, body contains "email":"newuser@example.com","role":"member"
+behaviors:
+  - "Given an owner, when POST /subscriptions/checkout is called with tier=team and seat_count=5, then the fake Stripe client returns a checkout_url and 200"
+  - "Given an owner, when GET /subscriptions is called with no active subscription, then the response is 200 with subscription=null and tier=free"
+  - "Given an active team subscription, when PATCH /subscriptions/{id} increases seat_count from 5 to 8, then the response includes a proration block and seat_limit updates immediately"
+  - "Given a downgrade attempt with active members beyond the target seat limit, when PATCH /subscriptions/{id} is called, then the response is 403 subscription_downgrade_blocked"
+  - "Given an admin, when POST /organizations/{id}/invitations is called with a new email and role=member, then seat_count increments, the invitation is 201, and an audit-log row member.invited is written"
+  - "Given a duplicate invitation for the same email while pending, when POST /invitations is called, then the response is 409 invitation_pending"
+  - "Given a non-member accepts an invitation via POST /invitations/accept with a valid token, then the invitation is marked accepted and the user becomes a member with the declared role"
+  - "Given an expired invitation token, when POST /invitations/accept is called, then the response is 410 invitation_expired"
+  - "Given a resend request beyond 3 previous sends, when POST /invitations/{id}/resend is called, then the response is 429 with resend_limit_reached"
+  - "Given Swagger is hit, when /swagger is loaded, then all subscription, invitation, and member endpoints from the spec table are listed"
+scope: |
+  Extend src/ApiTool.Backend with SubscriptionsController, InvitationsController,
+  and MembersController covering the endpoint table in spec lines 7215–7234 and
+  6738–6986. Fake Stripe client IStripeGateway with an in-memory implementation
+  for tests. New EF entities Subscription, Invitation, and extensions to
+  OrganizationMember. Migration 0005_billing_and_invitations. Rate limiters
+  matching spec tables at lines 6922 and 7291.
+definition_of_done:
+  - "dotnet test across Subscriptions, Invitations, Seats suites passes (>=15 tests)"
+  - "curl probes for checkout, invitation create, and accept verified"
+  - "EF migration 0005_billing_and_invitations committed"
+  - "Swagger lists all 15 endpoints from the org/sub API tables"
+  - "Seat counting rules (seat_count = members + pending invites) enforced with a unit test"
+  - "IStripeGateway has both FakeStripeGateway and a stub for real Stripe that throws NotImplemented so the config switch is explicit"
+complexity: high
+estimated_effort: "10-12 hours"
+track: backend

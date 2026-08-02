@@ -1,0 +1,13 @@
+name: GraphQL With Fragments
+requests:
+  - name: Get User With Posts
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query_file: graphql/queries/get_user.graphql
+        fragments:
+          - graphql/fragments/post_fields.graphql
+          - graphql/fragments/user_fields.graphql
+        variables:
+          id: "123"

@@ -1,0 +1,14 @@
+name: GraphQL Basic
+requests:
+  - name: Get Users
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query: |
+          query {
+            users {
+              id
+              name
+            }
+          }

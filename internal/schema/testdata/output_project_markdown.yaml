@@ -1,0 +1,5 @@
+project_name: demo
+output:
+  format: markdown
+  report: responses/
+  verbosity: normal

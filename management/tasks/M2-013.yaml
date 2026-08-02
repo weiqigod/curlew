@@ -1,0 +1,44 @@
+id: M2-013
+title: "Basic retry logic with configurable max attempts"
+status: done
+priority: 2
+created: 2026-03-20
+phase: "M2: Retries"
+
+dependencies:
+  - M1-001
+  - M1-028
+
+observable: |
+  Create a collection with `retry: { enabled: true, max_attempts: 3 }` targeting a flaky endpoint.
+  Run `apitest run tests.yaml` and confirm failed requests are retried up to max_attempts.
+  Run `go test ./internal/retry/...` to verify retry behavior.
+
+behaviors:
+  - "Given `retry: { enabled: true, max_attempts: 3 }` on a request, when the first attempt returns 503, then up to 2 more attempts are made"
+  - "Given retry enabled, when a request succeeds on the second attempt, then the request is marked as passed with retry count shown"
+  - "Given retry enabled, when all attempts fail, then the last failure is reported and exit code reflects the final status"
+  - "Given retry enabled with default settings, when a 429 response with Retry-After header is received, then the tool waits the specified duration"
+  - "Given retry enabled, when a 400 Bad Request is received, then no retry occurs (client errors not retriable by default)"
+  - "Given retry enabled, when a network error (DNS failure, connection refused) occurs, then the request is retried"
+  - "Given retry at Free tier, when the collection is parsed, then exit code 6 with feature gate message"
+  - "Given retry enabled with default method restrictions, when a POST request fails with 503, then no retry occurs (POST not idempotent)"
+
+scope: |
+  Create `internal/retry/` package with retry logic supporting enabled/disabled, max_attempts,
+  and default retriable conditions (status codes 429, 502, 503, 504; network errors; timeouts).
+  Implement Retry-After header handling. Integrate into `internal/runner/runner.go` request
+  execution loop. Register retry as Solo-tier feature. Parse `retry:` config from collection
+  YAML in `internal/parser/`. Default behavior: disabled, exponential backoff with fixed
+  initial_delay_ms=1000.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "6-10 hours"

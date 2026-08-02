@@ -1,0 +1,40 @@
+id: M2-033
+title: "WebSocket message buffering, expect patterns, and variable extraction"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: WebSocket"
+
+dependencies:
+  - M2-032
+
+observable: |
+  Create tests with out-of-order messages and confirm buffer handles them.
+  Use `any_of:` and `count:` expect patterns.
+  Run `go test ./internal/websocket/...` for advanced pattern tests.
+
+behaviors:
+  - "Given server messages arrive before an `expect` action, when expect runs, then the buffer is checked first (instant match without waiting)"
+  - "Given `any_of:` with multiple message patterns, when one matches, then the test passes regardless of which pattern matched"
+  - "Given `expect: { count: 5 }`, when 5 matching messages arrive, then all 5 are collected and variables extracted as array"
+  - "Given variable extraction in expect (`extract: { session_id: '$.sessionId' }`), when a matching message arrives, then the variable is available to subsequent steps"
+  - "Given message buffer exceeds 100 messages, then a warning is issued"
+  - "Given `message_template:` referencing an external JSON file, when sent, then the template is loaded with variable interpolation"
+  - "Given `message_raw:` with a plain text string, when sent, then the raw string is sent (not JSON-serialized)"
+
+scope: |
+  Extend `internal/websocket/` with message buffering (FIFO, buffer warning at 100),
+  `any_of:` multi-pattern expect, `count:` multi-message expect with array accumulation,
+  variable extraction from expect actions (available to subsequent steps),
+  `message_template:` external file loading, and `message_raw:` plain text sending.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

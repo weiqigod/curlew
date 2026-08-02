@@ -1,0 +1,12 @@
+name: Create User
+request:
+  method: POST
+  url: https://example.com/users
+  headers:
+    Content-Type: application/json
+  body:
+    email: test@example.com
+assertions:
+  status: 201
+extract:
+  user_id: "$.id"

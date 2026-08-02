@@ -1,0 +1,43 @@
+id: M18-004
+title: "GDPR export endpoint: queue + signed-URL + account/data web page"
+status: done
+priority: 2
+created: 2026-05-17
+phase: "M18: Compliance & launch"
+
+dependencies:
+  - M18-003
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~UserDataExport"` and see >= 12 tests pass. Then run `npm --prefix web run test:unit -- account-data-export.spec.ts` for the new account-data page. Start the stack and seed user `alice@example.com`:
+  `curl -i -X POST -H "Authorization: Bearer <alice_jwt>" http://localhost:5000/api/v1/users/me/export-requests`
+  expect `HTTP/1.1 202 Accepted` with body `{"id":"<uuid>","status":"queued"}`. Force the export builder via the test hook `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/run-export-builder` (gated APITEST_INTERNAL=1). Poll status:
+  `curl -i -H "Authorization: Bearer <alice_jwt>" http://localhost:5000/api/v1/users/me/export-requests/<id>`
+  expect `HTTP/1.1 200` with `{"status":"ready","signed_url":"https://...","expires_at":"..."}`. Download from the signed URL and pipe through `| jq '.tables | keys | length'` returns the InExport-subset count from M18-003's manifest. Re-issue the POST within 24h and expect `HTTP/1.1 429 Too Many Requests` (rate-limit 1/user/24h per v4-4). Visit `http://localhost:5173/account/data` and confirm the "Request data export" button + status list render and the e2e flow completes.
+
+behaviors:
+  - "Given an authenticated user, when POST /api/v1/users/me/export-requests is called, then a UserExportRequest row is inserted with status=queued and the response is 202 with the request id"
+  - "Given a queued UserExportRequest, when UserExportBuilderHost runs, then it consumes the GdprBundleManifest from M18-003, queries each InExport table filtered to UserId=requester, writes the JSON bundle to IObjectStore, and transitions the row to status=ready with the object key"
+  - "Given a ready UserExportRequest, when GET /api/v1/users/me/export-requests/{id} is called, then the response includes signed_url (24h expiry per v4-4) and expires_at"
+  - "Given a user with an export request younger than 24h, when POST /api/v1/users/me/export-requests is called again, then the response is 429 with a Retry-After header (rate-limit 1/user/24h)"
+  - "Given another user's request id, when GET /api/v1/users/me/export-requests/{id} is called, then the response is 404 (the request id is scoped to the authenticated user; no cross-user enumeration)"
+  - "Given the bundle is fetched from the signed URL, when its JSON is parsed, then it carries exactly the InExport subset of the M18-003 manifest as top-level table keys (no extras, no omissions)"
+  - "Given the web page /account/data renders, when the user clicks 'Request data export', then a POST is issued and the status list shows the new queued request without a page reload"
+  - "Given the IObjectStore implementation, when running in the SaaS profile, then GCS is used; when running self-hosted, then an S3-compatible store is used; both code paths are exercised by integration tests against MinIO"
+
+scope: |
+  Backend (primary): EF migration adds user_export_requests table (id, user_id, status enum, object_key, created_at, ready_at, expires_at). New src/ApiTool.Backend/Compliance/Gdpr/UserDataExportEndpoints.cs registers POST/GET routes. New src/ApiTool.Backend/Compliance/Gdpr/UserExportBuilderHost.cs : BackgroundService consumes the GdprBundleManifest from M18-003 and assembles per-table JSON. New IObjectStore abstraction under src/ApiTool.Backend/Storage/IObjectStore.cs with GcsObjectStore and S3ObjectStore implementations; signed URL TTL 24h. Per-user 24h rate limit via Internal/RateLimit. Web (secondary, in scope for this slice): new SvelteKit route web/src/routes/(app)/account/data/+page.svelte plus +page.server.ts loader and the export-request button + status list component. The /account/* surface is user-level (distinct from the org-scoped /settings/). Track is backend because the endpoint + builder + IObjectStore is the meatier half; the web piece is a thin client over the API and ships in the same slice for vertical-completeness.
+
+definition_of_done:
+  - "All behavior tests pass (>=12 backend tests + Svelte component tests)"
+  - "Observable curl + web flow works against the running stack"
+  - "Test coverage >= 80% on UserDataExportEndpoints.cs, UserExportBuilderHost.cs, both IObjectStore implementations"
+  - "No build warnings or lint errors (dotnet + svelte-check + eslint clean)"
+  - "OpenAPI documents both endpoints; the signed_url shape is specified"
+  - "CHANGELOG.md entry references v4-4"
+  - "Playwright smoke covers the happy-path web flow (defer full convergence to M18-012)"
+  - "docs/security/data-inventory.md cross-linked from the /account/data page footer"
+
+complexity: high
+estimated_effort: "large slice"
+track: backend

@@ -1,0 +1,57 @@
+id: M4-008
+title: "Backend: notification dispatcher (Slack + email)"
+status: done
+priority: 2
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies:
+  - M4-004
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Notifications"
+  # Expected: Passed: >=10, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"channel":"slack","target":"https://hooks.slack.test/xyz","on":["run_failed"]}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/notification-rules"
+  # Expected HTTP 201, body contains "id":"rule_..."
+  # Upload a failing result so dispatcher fires:
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary @testdata/backend/failing-result-upload.json \
+    "http://localhost:5000/api/v1/organizations/$ORG/results"
+  sleep 1
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    "http://localhost:5000/api/v1/organizations/$ORG/notification-deliveries"
+  # Expected HTTP 200, first row status=delivered, channel=slack
+behaviors:
+  - "Given an org admin, when POST /notification-rules is called with channel=slack, target=<webhook>, on=[run_failed], then the rule is persisted and returned with 201"
+  - "Given an org admin, when POST /notification-rules is called with channel=email, target=alerts@acme.com, on=[run_failed,flaky], then the rule is persisted and returned with 201"
+  - "Given an invalid channel value, when POST /notification-rules is called, then the response is 400 with code invalid_channel"
+  - "Given a slack rule exists for run_failed events, when a failing result is ingested through the M4-004 endpoint, then the dispatcher posts a JSON payload to the webhook and records delivery status"
+  - "Given a rule exists, when a passing result is ingested, then no delivery attempt is recorded"
+  - "Given the Slack endpoint returns 500, when the dispatcher attempts delivery, then the delivery row shows status=failed with the response code and the dispatcher retries twice with exponential backoff"
+  - "Given GET /notification-deliveries is called by an admin, when deliveries exist, then they are returned newest-first with rule_id, channel, status, response_code, attempted_at"
+  - "Given Swagger is hit, when /swagger is loaded, then notification-rules and notification-deliveries endpoints are listed"
+scope: |
+  Add NotificationRulesController, NotificationsDispatcher (hosted service or
+  synchronous in-process dispatcher triggered by results ingestion), and EF
+  entities NotificationRule + NotificationDelivery. Migration 0004_notifications.
+  Slack webhook posting uses IHttpClientFactory; email uses a pluggable ISmtpSender
+  with an in-memory fake in tests. Dispatcher reacts to a MediatR RunIngested
+  domain event raised by M4-004's controller.
+definition_of_done:
+  - "dotnet test Notifications suite passes (>=10 tests)"
+  - "curl probes for rule creation + delivery verification succeed"
+  - "EF migration 0004_notifications committed"
+  - "Swagger lists the new endpoints"
+  - "In-memory SMTP fake registered when ASPNETCORE_ENVIRONMENT=Testing"
+  - "Dispatcher retry policy (2 retries, 500ms/2s) implemented and covered by a test"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

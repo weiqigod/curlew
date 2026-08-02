@@ -1,0 +1,128 @@
+id: M13-007
+title: "$faker financial data — 8 functions including 3 auto-sensitive"
+status: done
+priority: 1
+created: 2026-04-28
+completed_date: 2026-04-29
+verified_by: ai
+phase: "M13: Faker depth"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FakerFinancial' -v ./internal/variable/...
+  # Expected: PASS — all 8 financial functions registered.
+  # $faker.price returns a 2-decimal float string in [1.00, 1000.00];
+  # $faker.price('5','50') returns a 2-decimal float in [5.00, 50.00];
+  # $faker.currencyCode returns one of {USD, EUR, GBP, JPY, ...};
+  # $faker.creditCard matches /^\d{16}$/ and passes the Luhn check;
+  # $faker.creditCardCVV matches /^\d{3,4}$/;
+  # $faker.iban matches /^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/ and passes mod-97;
+  # $faker.bic matches /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.
+
+  go test -run 'TestRegistry_FakerFinancial_AutoSensitive' -v ./internal/variable/...
+  # Expected: PASS — $faker.creditCard, $faker.creditCardCVV, and
+  # $faker.iban each call SensitiveSet.AddValue(generated) at generation
+  # time; the values are subsequently redacted as [REDACTED] in JSON
+  # request-body output and in the markdown report. Mirrors the
+  # M12-005 propagation pattern.
+
+  go test -run 'TestRegistry_FakerFinancial_PriceArgs' -v ./internal/variable/...
+  # Expected: PASS — `$faker.price('5','50')` is parsed by M12-001
+  # parseDynArgs into args=['5','50']; the registration body
+  # strconv.ParseFloat-converts each, validates min<=max, and clamps the
+  # output to [min, max].
+
+  go test -run 'TestRegistry_FakerFinancial_Seeded' -v ./internal/variable/...
+  # Expected: PASS — given --seed=42, two consecutive runs produce byte-equal output.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Body: {"card":"{{$faker.creditCard}}","cvv":"{{$faker.creditCardCVV}}","iban":"{{$faker.iban}}","price":{{$faker.price}}}
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: card/cvv/iban appear as [REDACTED] in the captured request-body
+  # of the JSON output; price is a 2-decimal numeric.
+  apitest run collections/sample.yaml --dry-run --format markdown
+  # Expected: card/cvv/iban appear as [REDACTED] in the markdown report.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$faker.price` is evaluated with no args, then the result is a 2-decimal-place float string in [1.00, 1000.00] (per SPECIFICATION.md:829 default)."
+  - "Given the registry, when `$faker.price('5','50')` is evaluated, then (a) M12-001's parseDynArgs parses the two quoted args into args=['5','50'] without modification, (b) the registration body strconv.ParseFloat-converts each, and (c) the result is a 2-decimal-place float string in [5.00, 50.00]."
+  - "Given the registry, when `$faker.price('100','5')` is evaluated (min > max), then it returns a structured CategoryInput error naming the inverted range."
+  - "Given the registry, when `$faker.currencyCode` is evaluated, then the result is a 3-letter ISO 4217 code from the shipped pool (per SPECIFICATION.md:830)."
+  - "Given the registry, when `$faker.currencyName` and `$faker.currencySymbol` are evaluated independently, then each returns the documented shape from a pool aligned 1:1:1 with currencyCode by index (so seeded-equal RNG state across the three functions yields a consistent triple — verified by an explicit pool-length-equality assertion in tests)."
+  - "Given the registry, when `$faker.creditCard` is evaluated, then (a) the result is a 16-digit string passing the Luhn checksum, (b) the registration calls SensitiveSet.AddValue with the produced number at generation time (mirroring the M12-005 pattern at internal/variable/sensitive.go:67), and (c) the value subsequently appears as `[REDACTED]` in JSON request-body output and in the markdown report."
+  - "Given the registry, when `$faker.creditCardCVV` is evaluated, then (a) the result matches `^\\d{3,4}$`, (b) the registration calls SensitiveSet.AddValue at generation time, and (c) the value appears as `[REDACTED]` in JSON and markdown output."
+  - "Given the registry, when `$faker.iban` is evaluated, then (a) the result matches `^[A-Z]{2}\\d{2}[A-Z0-9]{1,30}$` and passes the IBAN mod-97 checksum, (b) the registration calls SensitiveSet.AddValue at generation time, and (c) the value appears as `[REDACTED]` in JSON and markdown output."
+  - "Given the registry, when `$faker.bic` is evaluated, then the result matches `^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$` (per SPECIFICATION.md:836). Note: $faker.bic is NOT auto-sensitive (per SPECIFICATION.md:849–857)."
+  - "Given `--seed 42`, when any of the 8 financial functions are evaluated twice across two independent runs, then both outputs are byte-equal."
+  - "Given no `--seed`, when any of the 8 financial functions are evaluated twice across two independent runs, then both outputs differ."
+  - "Given `--locale de-DE` is passed on the CLI, when any financial function is evaluated, then the en-US data set is still used; locale support is deferred (see M13 Open Decision #1)."
+scope: |
+  Add 8 registrations to internal/variable/dynamic.go for the financial-data
+  family in SPECIFICATION.md:825–836: `$faker.price`, `$faker.currencyCode`,
+  `$faker.currencyName`, `$faker.currencySymbol`, `$faker.creditCard`,
+  `$faker.creditCardCVV`, `$faker.iban`, `$faker.bic`. Ship three parallel
+  pools (currency code + matching name + matching symbol) so the three
+  currency functions stay coherent within a single seeded RNG sequence.
+
+  Auto-sensitive (per SPECIFICATION.md:849–857): `$faker.creditCard`,
+  `$faker.creditCardCVV`, and `$faker.iban`. Each registration body must
+  call r.runtimeSensitive.AddValue(generated) at generation time before
+  returning, mirroring the runtime-sensitive plumbing established in
+  M12-005 (see internal/variable/sensitive.go:67 AddValue and
+  internal/variable/dynamic.go's existing sensitiveArgIdx convention).
+  $faker.bic is NOT auto-sensitive — BIC/SWIFT codes identify a bank, not
+  an account.
+
+  Argument-bearing: `$faker.price(min, max)`. Per M13 Open Decision #6,
+  M12-001's parseDynArgs is reused without modification — args travel in
+  as quoted strings and the registration body strconv.ParseFloat-converts
+  them. No new parser work.
+
+  Implementation notes:
+  - $faker.creditCard: pick a Visa-like prefix ('4'), generate 14 random
+    digits, compute the Luhn check digit, append.
+  - $faker.iban: pick a country code from a small pool ({DE, GB, FR, ...},
+    each with a known length), generate the BBAN as random alphanum,
+    compute the mod-97 check digits, prepend.
+  - $faker.bic: 6 uppercase letters (bank+country) + 2 alphanum (location)
+    + optional 3-char branch.
+
+  Locale: en-US only. Per M13 Open Decision #1, the `--locale` flag is
+  recognised-but-warns-and-ignores. Spec citation: SPECIFICATION.md:859–904
+  (deferred).
+
+  Files touched:
+  - internal/variable/dynamic.go (8 new registrations + 3 parallel
+    currency pools + a small IBAN-country-length table; Luhn and mod-97
+    checksums implemented as small helpers in this file)
+  - internal/variable/dynamic_test.go (new TestRegistry_FakerFinancial*
+    tests including Luhn-validity, IBAN mod-97 validity, three
+    sensitive-propagation cases, price-arg parsing, inverted-range error,
+    seeded-reproducibility, no-seed-entropy)
+  - docs/MANUAL.md §3.7 (8 new rows; the three auto-sensitive rows
+    explicitly call out [REDACTED] behaviour)
+  - smoke fixtures (one fixture demonstrates [REDACTED] redaction for
+    creditCard, creditCardCVV, and iban in a single request body)
+
+  Not in scope: locale-specific currency formatting; multiple credit-card
+  brands beyond Visa-like prefix; BIC validation against a registry;
+  $faker.bic auto-sensitivity (correct per spec — bank identifier is not
+  PII). Spec citations: SPECIFICATION.md:825–836, SPECIFICATION.md:849–857.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 dynamic-functions table includes 8 new rows for the financial-data family with example values matching SPECIFICATION.md:827–836; the three auto-sensitive rows visibly call out the [REDACTED] behaviour"
+  - "A smoke fixture demonstrates [REDACTED] redaction of creditCard, creditCardCVV, and iban in JSON and markdown output"
+  - "Seeded-reproducibility and no-seed-entropy tests both pass"
+  - "Luhn-validity test for $faker.creditCard and mod-97-validity test for $faker.iban both pass"
+complexity: medium
+estimated_effort: "5-8 hours"

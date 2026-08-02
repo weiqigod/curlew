@@ -1,0 +1,23 @@
+name: Collection Signing
+signing:
+  type: noop
+  params:
+    marker: collection
+requests:
+  - name: inherits
+    request:
+      method: GET
+      url: https://example.com/a
+  - name: overrides
+    request:
+      method: GET
+      url: https://example.com/b
+    signing:
+      type: other-noop
+      params:
+        marker: override
+  - name: nulled
+    request:
+      method: GET
+      url: https://example.com/c
+    signing: ~

@@ -1,0 +1,48 @@
+id: M5-021
+title: "Fix E2E M5 enterprise-full CI: externalize fake-idp ACS URL and stabilize seeded auth cookie"
+status: done
+priority: 1
+created: 2026-04-19
+phase: "M5: Enterprise Tier"
+track: web
+dependencies:
+  - M5-020
+observable: |
+  scripts/test-stack.sh up
+  APITEST_BACKEND_TOKEN=$(scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002) \
+    npx --prefix web playwright test tests/e2e/enterprise-full.spec.ts
+  # Expected: 7/7 tests pass (was 1/7 passing on CI run 24632535770).
+  scripts/test-stack.sh down
+behaviors:
+  - "Given fake-idp runs with FAKE_IDP_ACS_BASE=http://localhost:5000/api/v1/sso/saml, when /saml/sso is POSTed, the HTML form action and the signed SAML Destination/Recipient/Audience elements all resolve from the CI host browser"
+  - "Given no FAKE_IDP_ACS_BASE is set, fake-idp falls back to http://backend:5000/api/v1/sso/saml (preserves in-compose callers)"
+  - "Given seedAuthCookie is called for a canonically seeded email with no explicit userId, the JWT sub matches the user row created by scripts/seed-test-data.sh so downstream membership checks resolve"
+  - "Given the 7 enterprise-full specs run against ./scripts/test-stack.sh up, all 7 pass"
+scope: |
+  Bug-fix slice; no new endpoints, no schema changes. Touches:
+    - scripts/fake-idp/Program.cs (env-driven ACS URL)
+    - docker-compose.test.yml (pass FAKE_IDP_ACS_BASE host URL)
+    - web/tests/e2e/helpers/auth.ts (canonical-email → stable UUID map)
+    - src/ApiTool.Backend/Auth/CurrentUserAccessor.cs (map JWT email claim via
+      ClaimTypes.Email so the users.Email UNIQUE index is honoured)
+    - src/ApiTool.Backend.Tests/Invitations/AcceptInvitationPersistsEmailTests.cs
+      (regression test for the CurrentUserAccessor email-claim fix)
+    - scripts/test-stack.sh (dump compose logs on failure, pre-build)
+    - ROADMAP.md (sidecar workflow-hardening notes; kept on this branch because
+      the CI failure motivated the document — treat as the task's design-debrief
+      artefact, not a separate feature)
+    - management/tasks/M5-021.yaml, management/plans/M5-021-plan.md,
+      management/backlog.yaml, CHANGELOG.md
+  The CurrentUserAccessor email-claim mapping IS fixed here — it is the
+  root cause of behaviour 3 (empty-email UNIQUE collision). Only the
+  DbUpdateException-swallow fallback is intentionally preserved as-is and
+  tracked separately as a follow-up robustness fix.
+definition_of_done:
+  - "All 7 enterprise-full.spec.ts tests pass locally against ./scripts/test-stack.sh up"
+  - "dotnet test ApiTool.Backend.sln passes (565/565, no regression)"
+  - "go test ./... passes"
+  - "golangci-lint run passes (0 issues)"
+  - "./smoke/run.sh passes"
+  - "CI job 'E2E M5 enterprise-full' is green on the fix branch (link captured in verify report)"
+complexity: low
+estimated_effort: "1-2 hours"

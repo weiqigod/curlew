@@ -1,0 +1,8 @@
+name: Parent With Include Field
+include:
+  - ./shared/auth.yaml
+requests:
+  - name: Parent Request
+    request:
+      method: GET
+      url: https://api.example.com/ping

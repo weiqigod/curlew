@@ -1,0 +1,56 @@
+name: locale-reproducibility-matrix
+description: |
+  Worked example for the M20 seed/locale reproducibility guarantee. Run with a
+  fixed seed and a configured locale; the same seed always produces the same
+  localized faker values. Demonstrated here for de-DE (German):
+    ./apitest run testdata/locale/reproducibility-matrix.yaml --seed 12345
+  The exhaustive all-15-locale proof lives in
+  internal/variable TestLocale_ReproducibilityMatrix.
+config:
+  locale: de-DE
+requests:
+  items:
+    - name: full-name-de
+      request:
+        method: POST
+        url: https://httpbin.org/anything
+        headers:
+          Content-Type: application/json
+        body:
+          fullName: "{{$faker.fullName}}"
+      assertions:
+        status: 200
+        body:
+          # httpbin echoes the posted JSON under $.json. de-DE renders
+          # "First Last" (Latin script, given-name-first). Match the shape so
+          # the assertion is stable across future pool re-orderings.
+          $.json.fullName:
+            matches: "^[A-Za-zÀ-ÿ]+ [A-Za-zÀ-ÿ]+$"
+    - name: phone-de
+      request:
+        method: POST
+        url: https://httpbin.org/anything
+        headers:
+          Content-Type: application/json
+        body:
+          phone: "{{$faker.phone}}"
+      assertions:
+        status: 200
+        body:
+          # de-DE phoneFormat (locale.go): "+49 <10..99> <8 digits>".
+          $.json.phone:
+            matches: "^\\+49 \\d{2} \\d{8}$"
+    - name: city-de
+      request:
+        method: POST
+        url: https://httpbin.org/anything
+        headers:
+          Content-Type: application/json
+        body:
+          city: "{{$faker.city}}"
+      assertions:
+        status: 200
+        body:
+          # de-DE cities pool (Berlin, München, …) — assert non-empty Latin word(s).
+          $.json.city:
+            matches: "^[A-Za-zÀ-ÿ]+.*$"

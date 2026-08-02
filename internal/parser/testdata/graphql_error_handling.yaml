@@ -1,0 +1,9 @@
+name: GraphQL Error Handling
+requests:
+  - name: Warn Mode
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query: "query { users { id } }"
+        error_handling: warn

@@ -1,0 +1,34 @@
+id: M1-007
+title: "Full assertion operator set"
+status: done
+priority: 7
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-005]
+observable: |
+  Create collection exercising multiple operators. Run and see all assertions
+  evaluated.
+behaviors:
+  - "Given `operator: matches` with a regex pattern, when string value matches, then assertion passes"
+  - "Given `operator: contains` with a substring, when value contains it, then assertion passes"
+  - "Given `operator: contains_all` with a list, when all items present, then assertion passes"
+  - "Given `operator: length` with expected count, when array/string has matching length, then assertion passes"
+  - "Given `operator: greater_than` with a number, when value exceeds it, then assertion passes"
+  - "Given `operator: less_than` with a number, when value is below it, then assertion passes"
+  - "Given `operator: greater_than_or_equal/less_than_or_equal`, when value matches boundary, then assertion passes"
+  - "Given `operator: approximately` with value and tolerance, when within tolerance, then assertion passes"
+  - "Given `operator: in_range` with min and max, when value is within range, then assertion passes"
+  - "Given numeric string \"42\" compared with `equals: 42`, when type coercion is applied, then assertion passes"
+scope: |
+  Extend `internal/assertion/` with all operators. Implement type coercion
+  rules (numeric equality, boolean strictness, object deep equality, array
+  order preservation).
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

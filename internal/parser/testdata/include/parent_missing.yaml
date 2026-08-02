@@ -1,0 +1,8 @@
+name: Parent Missing
+include:
+  - ./does_not_exist.yaml
+requests:
+  - name: Parent Missing Request
+    request:
+      method: GET
+      url: https://api.example.com/parent-missing

@@ -1,0 +1,56 @@
+id: M8-002
+title: "Schema completeness: auth, retry, data_driven, section/variables object forms, status union"
+status: done
+priority: 2
+created: 2026-04-24
+phase: "M8: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M8-001]
+observable: |
+  # All parser-grammar features are now schema-covered.
+  go test -run TestSchema_accepts ./internal/schema/...
+  # Expected: PASS — sub-tests for auth, retry (3 levels), data_driven,
+  # section object form, variables object form, and status integer/array
+  # union.
+
+  # Every existing example collection still validates (no regression).
+  go test -run TestSchema_examples ./internal/schema/...
+  # Expected: PASS.
+behaviors:
+  - "The schema accepts requestItem.auth as a string referring to a named auth profile."
+  - "The schema accepts retry blocks at collection, section, and request scopes (matching internal/retry.FullConfig)."
+  - "The schema accepts data_driven at request scope (matching internal/datadriven.Config)."
+  - "The schema accepts setup/teardown as either an array of requestItems or an object { retry, items }."
+  - "The schema accepts variables values in the object form (from_command / value / sensitive / cache) in addition to the plain string map form."
+  - "The schema constrains assertions.status to oneOf[integer, array[integer]]."
+  - "Every fixture in examples/ validates against the updated schema."
+scope: |
+  Close the schema gaps identified in the W1 audit (IMPROVEMENT.md §5 Risks).
+  One fixture YAML per gap under internal/schema/testdata/. One parametric
+  sub-test per fixture in a new internal/schema/validate_coverage_test.go.
+
+  Gap list:
+    1. request.auth (string) — parser field: collection.go:51
+    2. collection-level retry — parser field: collection.go:32 (*retry.FullConfig)
+    3. section-level retry (setup/teardown object form) — parser field: collection.go:27
+    4. request-level retry — parser field: collection.go:52
+    5. data_driven (request scope) — parser field: collection.go:53 (*datadriven.Config)
+    6. section object form for setup/teardown — parser Section struct
+    7. variables object form (from_command/value/sensitive/cache) —
+       parser's custom SensitiveVars.UnmarshalYAML
+    8. assertions.status oneOf[integer, array[integer]] — current schema
+       leaves status type-unconstrained.
+
+  Implementation approach: one TDD pair per gap (RED fixture that fails
+  validation, GREEN schema addition, assertion the fixture now validates).
+  All additive changes — no breaking changes to the v1 schema; still
+  schemas/collection-v1.json (additive schema changes are backward-
+  compatible under JSON Schema semantics).
+definition_of_done:
+  - "All eight gap-closing sub-tests pass"
+  - "Every collection fixture under examples/ still validates (no regression)"
+  - "CHANGELOG.md updated with M8-002 entry"
+  - "go test -cover ./internal/schema/... ≥ 80%"
+  - "./scripts/ci-local.sh passes"
+complexity: medium
+estimated_effort: "1-2 days"

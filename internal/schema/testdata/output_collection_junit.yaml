@@ -1,0 +1,6 @@
+name: out-junit
+output:
+  format: junit
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

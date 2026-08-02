@@ -1,0 +1,12 @@
+name: locale-de-project
+description: Collection with project locale for precedence observable test
+config:
+  locale: en-US
+requests:
+  items:
+    - name: get-name
+      request:
+        url: https://httpbin.org/anything
+        method: GET
+      assert:
+        status: 200

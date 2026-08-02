@@ -1,0 +1,10 @@
+name: Header Assertion Equals
+requests:
+  - name: Check Header
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      headers:
+        Content-Type:
+          equals: "application/json"

@@ -1,0 +1,12 @@
+{
+  "repo": "acme/api",
+  "pr": 42,
+  "state": "success",
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "details_url": "https://dashboard.apitool.dev/runs/run_demo",
+  "output": {
+    "title": "ApiTool check run",
+    "summary": "All 12 API tests passed in 1.23 s.",
+    "text": "## Results\n\n| Test | Status |\n|------|--------|\n| GET /users | ✓ |\n| POST /users | ✓ |"
+  }
+}

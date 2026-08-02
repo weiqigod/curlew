@@ -1,0 +1,9 @@
+name: Object Form Value Test
+variables:
+  host:
+    value: "example.com"
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

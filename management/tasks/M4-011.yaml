@@ -1,0 +1,43 @@
+id: M4-011
+title: "Web: billing and seat management portal"
+status: done
+priority: 3
+created: 2026-04-14
+phase: "M4: Team Tier"
+dependencies:
+  - M4-010
+observable: |
+  cd web && npm run test:e2e -- tests/e2e/org-billing.spec.ts
+  # Expected: Playwright >=6 passing. Spec:
+  #   1. Signs in as owner
+  #   2. Navigates to /org/acme/billing
+  #   3. Asserts subscription card (tier, price, seats bar)
+  #   4. Clicks 'Add seats', picks +3, submits, sees proration preview
+  #   5. Navigates to /org/acme/members, invites newuser@example.com
+  #   6. Sees the pending invitation in the table
+behaviors:
+  - "Given an owner, when they load /org/[slug]/billing, then the page renders current tier, price, next renewal date, and a seats usage bar chart"
+  - "Given the owner clicks 'Add seats' and enters +3, when they confirm, then a PATCH /subscriptions/{id} request is sent and the seats bar chart updates"
+  - "Given the owner clicks 'Manage billing', when the click is handled, then a POST /subscriptions/portal call is made and the user is redirected to the returned portal_url"
+  - "Given an admin loads /org/[slug]/members, when the page loads, then members and pending invitations are listed in separate tables"
+  - "Given the admin clicks 'Invite' and submits email + role, when submitted, then a POST /invitations request is sent and the new pending invitation appears in the table"
+  - "Given an admin clicks 'Cancel' on a pending invitation, when confirmed, then a DELETE /invitations/{id} call is made and the row is removed"
+  - "Given a member (non-owner) navigates to /org/[slug]/billing, then they see a 403 access denied page, not a blank layout"
+  - "Given svelte-check runs on the new routes, then no type errors are reported"
+scope: |
+  New SvelteKit routes web/src/routes/(app)/org/[slug]/billing/+page.svelte
+  and web/src/routes/(app)/org/[slug]/members/+page.svelte plus modal
+  components AddSeatsModal.svelte and InviteMemberModal.svelte. Typed API
+  clients in web/src/lib/api/subscriptions.ts and invitations.ts. Guards:
+  RequireOrgOwner for billing, RequireOrgAdmin for members. Playwright spec
+  at web/tests/e2e/org-billing.spec.ts drives the docker-compose stack.
+definition_of_done:
+  - "Playwright spec passes with >=6 assertions"
+  - "svelte-check and npm run lint pass"
+  - "Billing and Members appear in the org sub-navigation with correct role guards"
+  - "Accessibility: forms have labels, Stripe portal redirect uses anchor with rel=noopener"
+  - "Types in web/src/lib/types/subscriptions.ts mirror backend OpenAPI"
+  - "README under web/ documents how to seed a team-tier org for local dev"
+complexity: high
+estimated_effort: "8-12 hours"
+track: web

@@ -1,0 +1,11 @@
+name: with_unknown_dep test collection
+requests:
+  - name: step-one
+    request:
+      method: GET
+      url: https://example.com/one
+  - name: step-two
+    depends_on: [nonexistent-step]
+    request:
+      method: GET
+      url: https://example.com/two

@@ -1,0 +1,42 @@
+id: M16-012
+title: "schedules.timezone migration and web schedules dashboard page"
+status: done
+priority: 3
+created: 2026-05-07
+completed_date: 2026-05-11
+verified_by: ai
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-001
+  - M16-009
+
+track: backend+web
+
+observable: |
+  Apply the migration via `dotnet ef database update` and `psql -c "\d schedules"` shows `timezone TEXT NOT NULL DEFAULT 'UTC'`. With the backend and portal running, sign in as a Team-tier org admin and navigate to `http://localhost:5173/org/<slug>/schedules`. Create a schedule with cron `0 9 * * *` and timezone `Europe/Stockholm`; the live preview shows the next 5 firings in CET. Click "Run now" — a `scheduled_runs` row appears in `queued`. Click into a schedule and view its run history. Run `cd web && npm run test:e2e -- --grep "schedules"` and `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~ScheduleTimezone"` — all pass.
+
+behaviors:
+  - "Given the migration is applied, when schedules table is inspected, then it has a timezone TEXT NOT NULL DEFAULT 'UTC' column"
+  - "Given a schedule with cron 0 9 * * * and timezone Europe/Stockholm, when SchedulerHost evaluates next-run, then it uses the IANA TZ-aware Cronos invocation and the result correctly accounts for DST (08:00 UTC in winter, 07:00 UTC in summer)"
+  - "Given a non-existent IANA timezone (e.g. 'Atlantis/Lost'), when POST /api/v1/schedules is called, then the response is 422 with type .../invalid-timezone and a list of valid IANA examples"
+  - "Given a Free-tier org, when navigating to /org/<slug>/schedules, then the page returns or redirects to the tier-gate 402 problem detail (via ScheduleExecutorTierGate)"
+  - "Given the schedules page renders for a Team-tier org, when the schedules list loads, then each row shows name, cron, timezone, next-run, last-run, last-status badge"
+  - "Given the create-schedule modal is open, when the user types a cron expression, then the live preview shows the next 5 firings in the selected timezone"
+  - "Given the schedule list page, when the user clicks 'Run now', then POST /api/v1/schedules/{id}/run-now is called and a 'queued' badge appears"
+  - "Given a schedule has run history, when the user clicks into the schedule, then a run-history page lists the most recent scheduled_runs with status, duration (computed from started_at/completed_at), and a link to the result page when result_id is populated"
+
+scope: |
+  Backend half: EF Core migration adding `timezone TEXT NOT NULL DEFAULT 'UTC'` to `schedules`. Update `SchedulesService` and `SchedulerHost` to pass the timezone to `Cronos`'s TZ-aware constructor. Validate the timezone in `CreateScheduleRequest` against `TimeZoneInfo.GetSystemTimeZones()` (or a curated IANA list). Web half: new SvelteKit route `web/src/routes/(app)/org/[slug]/schedules/` with `+page.svelte` (list + create/edit modal), a child route `[scheduleId]/+page.svelte` for run history, and a `+page.server.ts` calling the existing `GET/POST/PATCH/DELETE /api/v1/schedules` and `POST /api/v1/schedules/{id}/run-now`. Cron live-preview client-side via a JS cron parser (e.g., `cron-parser`). Tier-gated by `ScheduleExecutorTierGate` (the page must handle 402 from the API gracefully). Minimum-viable working page (per Open Decision 11).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc updated for the timezone field on schedules"
+  - "Page accessible via dashboard nav; minimum-viable form works (no visual polish required)"
+
+complexity: high
+estimated_effort: "6-12 hours"

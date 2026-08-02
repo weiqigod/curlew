@@ -1,0 +1,10 @@
+name: From Command Sensitive Yes Test
+variables:
+  secret:
+    from_command: "echo secret123"
+    sensitive: yes
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

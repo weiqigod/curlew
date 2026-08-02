@@ -1,0 +1,35 @@
+name: WebSocket Lifecycle
+requests:
+  - name: Full Lifecycle
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/ws"
+      headers:
+        X-Token: "abc"
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: subscribe
+              channel: orders
+          - action: expect
+            timeout_ms: 2000
+            message:
+              $.type:
+                equals: "subscribed"
+              $.channel:
+                equals: "orders"
+            extract:
+              sid: $.session_id
+          - action: wait
+            duration_ms: 50
+          - action: send
+            message_raw: "ping"
+          - action: expect
+            timeout_ms: 1000
+            message:
+              $.type:
+                equals: "pong"
+          - action: close
+            code: 1000
+            reason: done

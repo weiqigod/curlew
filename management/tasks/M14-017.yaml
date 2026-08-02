@@ -1,0 +1,61 @@
+id: M14-017
+title: "Backend: github_installations table + dashboard + webhook-first claim flows"
+status: done
+priority: 2
+created: 2026-05-03
+completed_date: 2026-05-06
+verified_by: ai
+phase: "M14: Revenue plumbing"
+dependencies:
+  - M14-016
+observable: |
+  docker compose -f docker-compose.test.yml up -d postgres
+  dotnet ef database update --project src/ApiTool.Backend
+  dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GitHubInstallation|FullyQualifiedName~InstallClaim"
+  # Expected: Passed: >=12, Failed: 0
+  ASPNETCORE_ENVIRONMENT=Testing dotnet run --project src/ApiTool.Backend &
+  sleep 3
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  # Dashboard-initiated install URL
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/integrations/github/install-url | jq .
+  # Expected: {"install_url":"https://github.com/apps/apitool-checks-test/installations/new?state=...","state_expires_at":"..."}
+  # Simulate GitHub callback with that state:
+  STATE=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/integrations/github/install-url | jq -r .state)
+  curl -sS "http://localhost:5000/api/v1/integrations/github/callback?installation_id=12345&state=$STATE"
+  # Expected: 302 redirect to /billing or /integrations with ?installed=true
+behaviors:
+  - "Given a logged-in user with admin/owner role, when GET /api/v1/integrations/github/install-url is called, then a signed state token containing org_id, user_id, expires_at (15min) is minted and the URL https://github.com/apps/<slug>/installations/new?state=<token> is returned"
+  - "Given the GitHub callback /api/v1/integrations/github/callback?installation_id=X&state=Y, when state validates and matches a non-deleted org with no other installation, then a github_installations row is inserted/updated with (app_id, installation_id, org_id, claimed_at, repo_set initially empty)"
+  - "Given a callback with a state whose signature fails, when invoked, then the response is 401 invalid_state and no row is touched"
+  - "Given an org already has a non-deleted github_installations row, when a second callback claims a different installation_id, then the partial unique index UNIQUE (org_id) WHERE deleted_at IS NULL AND org_id IS NOT NULL rejects with 23505 and the response is 409 install_already_linked"
+  - "Given a webhook-first install (installation.created arrives without a state-bound claim), when received, then a row is inserted with org_id=NULL and a 'pending claim' marker; the user later claims it via the dashboard after we verify they admin the GitHub account"
+  - "Given installation_repositories.added webhook arrives, when processed, then repo_set in the row is updated to include the new repos (idempotent set-union semantics)"
+  - "Given installation_repositories.removed arrives, when processed, then those repos are removed from repo_set; in-flight pr_checks for them are marked PRCHECK_REPO_NOT_COVERED"
+  - "Given a daily reconciliation hosted service, when it runs, then for each non-deleted, non-suspended installation it calls GET /installation/repositories (using the M14-016 App JWT → installation token exchange) and reconciles repo_set against the response, correcting any drift"
+scope: |
+  Adds the github_installations table per the v4.2.1 Database Schema appendix at
+  docs/SPECIFICATION.md:9268+ (id PK, app_id, installation_id, org_id nullable,
+  repo_set TEXT[], claimed_at, suspended_at, deleted_at, last_reconciled_at;
+  UNIQUE index idx_github_installations_org WHERE deleted_at IS NULL AND
+  org_id IS NOT NULL — the cross-tenant guardrail per :8427). Adds the
+  dashboard-initiated install-url endpoint and signed-state callback per
+  :8413–8416, plus the webhook-first claim path per :8416–8417. Repo-set
+  reconciliation handlers for installation_repositories.added/removed
+  (handlers wired in this slice; the inbound webhook signature verification
+  middleware is in M14-019). Daily reconciliation hosted service per :8425.
+  scope is bounded — no Checks-API outbound (M14-018), no full
+  /webhooks/github verification (M14-019).
+definition_of_done:
+  - "All behavior tests pass (>=12)"
+  - "Live HTTP probe of /api/v1/integrations/github/install-url returns a URL containing a base64url state token"
+  - "EF Core migration 0016_github_installations committed"
+  - "Migration 0016_github_installations applied to staging DB and rolled back cleanly"
+  - "Cross-tenant UNIQUE-index violation covered by a test (409 install_already_linked)"
+  - "Daily reconciliation hosted service tested with a fake GitHub API client"
+  - "deploy/self-hosted/README.md gains the App-installation runbook section"
+  - "docs/SPECIFICATION.md:8409–8427 cited in handler file headers"
+complexity: high
+estimated_effort: "8-12 hours"
+track: backend

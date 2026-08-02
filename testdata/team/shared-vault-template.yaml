@@ -1,0 +1,16 @@
+# Shared vault configuration template for the apitest team.
+# Validates via: apitest validate testdata/team/shared-vault-template.yaml
+team_secrets:
+  vault_configs:
+    production:
+      provider: aws-secrets-manager
+      region: eu-west-1
+      keys:
+        api_key: prod/api-key
+        db_password: prod/db-password
+    staging:
+      provider: azure-key-vault
+      vault_name: staging-vault
+      keys:
+        api_key: staging-api-key
+        db_password: staging-db-password

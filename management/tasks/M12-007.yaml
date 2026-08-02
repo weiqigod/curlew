@@ -1,0 +1,72 @@
+id: M12-007
+title: "$formatDate and $parseDate using Go reference-time layouts"
+status: done
+priority: 2
+created: 2026-04-28
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FormatDate_FromUnix' -v ./internal/variable/...
+  # Expected: PASS — $formatDate('1713701401', '2006-01-02') returns
+  # '2024-04-21'.
+
+  go test -run 'TestRegistry_FormatDate_FromIso' -v ./internal/variable/...
+  # Expected: PASS — $formatDate('2024-04-21T15:10:01Z', '02/01/2006')
+  # returns '21/04/2024'.
+
+  go test -run 'TestRegistry_ParseDate' -v ./internal/variable/...
+  # Expected: PASS — $parseDate('21/04/2024 15:10:01', '02/01/2006 15:04:05')
+  # returns '2024-04-21T15:10:01Z'.
+
+  go test -run 'TestRegistry_FormatDate_Now' -v ./internal/variable/...
+  # Expected: PASS — $formatDate('{{$timestamp}}', '2006-01-02')
+  # nests $timestamp inside the first arg (cooperates with M12-001
+  # nested interpolation).
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$formatDate(input, layout)` is invoked and `input` is a string of digits, then it is parsed as Unix seconds; the result is the time at that instant formatted using `layout` interpreted as a Go reference-time layout."
+  - "Given `$formatDate(input, layout)` and `input` is an ISO-8601 string parseable by time.RFC3339, when evaluated, then the result is that time formatted with `layout`."
+  - "Given `$formatDate(input, layout)` and `input` is neither digits-only nor RFC3339-parseable, when evaluated, then a structured error is returned naming the unrecognised input shape and pointing the user at MANUAL.md §3.7."
+  - "Given `$parseDate(s, layout)`, when evaluated, then `s` is parsed with `layout` interpreted as a Go reference-time layout, and the result is `t.UTC().Format(\"2006-01-02T15:04:05Z\")`."
+  - "Given an invalid layout `$formatDate('1713701401', 'bogus-layout')`, when evaluated, then the result is the literal string `bogus-layout` (this is Go's layout-as-template behaviour); document this in MANUAL.md so users know to validate layouts against time.Parse first."
+  - "Given a date in a non-UTC zone-tagged input `$parseDate('2024-04-21T17:10:01+02:00', time.RFC3339)`, when evaluated, then the output is `2024-04-21T15:10:01Z` (parsed and converted to UTC)."
+  - "Given `$formatDate` or `$parseDate` is invoked with zero, one, or three arguments, when evaluated, then an arity-mismatch error is returned naming arity 2."
+  - "Given empty inputs `$formatDate('', '2006-01-02')`, when evaluated, then a structured error is returned naming the empty input."
+scope: |
+  Add two registrations to internal/variable/dynamic.go:
+  - `$formatDate(input, layout)` — parse `input` (digits -> Unix
+    seconds via strconv.ParseInt, else time.Parse(time.RFC3339, input)),
+    format with `t.Format(layout)`.
+  - `$parseDate(s, layout)` — time.Parse(layout, s), format result with
+    the canonical ISO-8601 UTC layout `2006-01-02T15:04:05Z`.
+
+  Reuse the clock seam from M12-006 if the test plan needs it; for
+  these two functions the input timestamp is explicit so the system
+  clock is not consulted (no test injection needed for happy paths).
+
+  Files touched:
+  - internal/variable/dynamic.go (two registrations)
+  - internal/variable/dynamic_test.go (golden tests for happy paths,
+    zone-conversion test, unparseable-input test)
+  - docs/MANUAL.md §3.7 (two table rows + a short subsection
+    "Go reference-time layouts" linking to the stdlib pkg.go.dev page,
+    examples of common layouts: `2006-01-02`, `02 Jan 2006`,
+    `Mon Jan _2 15:04:05 2006`, time.RFC3339)
+
+  Not in scope: locale-aware formatting (`January` in French etc.);
+  a separate layout DSL.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 documents $formatDate, $parseDate, the Go reference-time layout convention, and the layout-as-template footgun"
+complexity: low

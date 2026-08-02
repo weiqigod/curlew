@@ -1,0 +1,156 @@
+id: M9-002
+title: "markdown formatter: --format markdown with sentinel splice, JSON body, run.md index"
+status: done
+priority: 1
+created: 2026-04-24
+completed_date: 2026-04-25
+verified_by: ai
+phase: "M9: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M9-001]
+observable: |
+  # --format markdown --report <dir> produces one .md per main request + run.md.
+  ./apitest run collections/sample.yaml --format markdown --report /tmp/resp
+  ls /tmp/resp/
+  # Expected: run.md get-user.md list-posts.md (slugs derived per M9-001).
+
+  # Fixed section order (10 required markers per file).
+  grep -c -E '^(# |## Notes$|<!-- BEGIN apitest:response|## Response \(deterministic\)$|### Request$|### Response |### Timing$|### Assertions$|<!-- END apitest:response|## Analysis$)' /tmp/resp/get-user.md
+  # Expected: 10.
+
+  # Sentinel opening tag carries all three correlation IDs.
+  grep -Eo 'BEGIN apitest:response id=req-[0-9]+ slug=[a-z0-9-]+ run=[0-9a-f]{32}' /tmp/resp/get-user.md
+  # Expected: one match per file.
+
+  # Splice: rewrite only sentinel region on re-run; preserve content outside.
+  printf '\nAGENT NOTE: hypothesis X\n' >> /tmp/resp/get-user.md
+  ./apitest run collections/sample.yaml --format markdown --report /tmp/resp
+  grep 'AGENT NOTE' /tmp/resp/get-user.md
+  # Expected: AGENT NOTE line preserved verbatim.
+
+  # Malformed sentinel (BEGIN without END) -> writes .md.new, original untouched.
+  printf '# Existing\n<!-- BEGIN apitest:response id=req-1 slug=ghost run=0 -->\n' > /tmp/resp/ghost.md
+  ./apitest run collections/with-ghost-slug.yaml --format markdown --report /tmp/resp 2>err.log
+  ls /tmp/resp/ghost.md /tmp/resp/ghost.md.new
+  grep 'malformed sentinel' err.log
+  # Expected: both files exist; original unchanged; stderr warning present.
+
+  # No-sentinel existing file -> writes .md.new; original untouched.
+  printf '# User handwrote this\n' > /tmp/resp/handwritten.md
+  ./apitest run collections/that-matches-handwritten-slug.yaml --format markdown --report /tmp/resp 2>err.log
+  ls /tmp/resp/handwritten.md /tmp/resp/handwritten.md.new
+  grep 'no sentinel pair' err.log
+  # Expected: both files exist; original unchanged; stderr warning present.
+
+  # Atomic write: two concurrent runs against the same --report dir.
+  go test -run 'TestMarkdown_Concurrent' ./internal/output/markdown/...
+  # Expected: PASS; no partial or corrupt sentinel regions.
+
+  # run.md links every per-request file.
+  grep -cE '\.md\)$' /tmp/resp/run.md
+  # Expected: count equals number of main-phase requests in the collection.
+
+  # Schema accepts format: markdown at collection and project levels.
+  ./apitest schema | jq -r '.properties.output.properties.format.enum' | grep -o markdown
+  ./apitest schema --project | jq -r '.properties.output.properties.format.enum' | grep -o markdown
+  # Expected: one match from each.
+
+  # Missing --report with --format markdown exits 3 at load time.
+  ./apitest run collections/sample.yaml --format markdown 2>err.log; echo $?
+  # Expected: exit 3; err.log says "format: markdown requires --report"
+
+  # Full unit + integration suite.
+  go test -run 'TestMarkdown_Render|TestMarkdown_Splice|TestMarkdown_RunMD|TestMarkdown_Concurrent|TestMarkdown_Newlines|TestMarkdown_EmptyAssertions|TestMarkdown_DeterminismRegression|TestConfig_RejectsMarkdownWithoutReport|TestSchema_AcceptsMarkdownFormat' ./...
+  # Expected: PASS.
+behaviors:
+  - "--format markdown requires --report <dir>; the config layer rejects `format: markdown` without a report path at load time with exit code 3 and an error naming the missing requirement."
+  - "SupportedFormats at internal/output/config.go:15 includes \"markdown\" (the pre-M9 \"excludes markdown per scope\" comment is removed); the JSON Schema at schemas/collection-v1.json and schemas/project-v1.json accepts \"markdown\" as a format enum value."
+  - "ensureReportDir(path string, subpath ...string) error creates the target directory via MkdirAll with mode 0755 and accepts an optional subpath so M9-004 can reuse it for `<slug>/iter-<n>.md` without a signature change."
+  - "Each main-phase request produces `<report>/<slug>.md` with the exact 10-section order: H1 name, ## Notes, BEGIN sentinel, ## Response (deterministic), ### Request, ### Response, ### Timing, ### Assertions, END sentinel, ## Analysis."
+  - "The sentinel opening tag is exactly `<!-- BEGIN apitest:response id=<request_id> slug=<slug> run=<run_id> -->` and the closing tag is its symmetric END form; both carry all three correlation IDs so tools can splice-match without parsing surrounding markdown."
+  - "Re-running against an existing file whose BEGIN/END sentinels match the current slug rewrites only the bytes between sentinels; all content above the BEGIN and below the END is preserved verbatim, including trailing newlines."
+  - "If an existing file has BEGIN/END whose slug differs from the current write (user renamed the request), the formatter APPENDS a new sentinel block below the existing content and emits a stderr warning naming the orphaned slug; the orphaned block is not deleted."
+  - "If an existing file has BEGIN without END (or END without BEGIN or nested sentinels), the formatter writes `<slug>.md.new` alongside and emits a stderr warning; the malformed file is never overwritten."
+  - "If an existing file has no sentinels at all, the formatter treats the file as user-owned: writes `<slug>.md.new` alongside and emits a stderr warning. Invariant: no code path may overwrite a file lacking the expected sentinel pair."
+  - "File writes are atomic: write to a temp file in the same directory with O_EXCL flags, then os.Rename to the final path; two concurrent `apitest run` invocations against the same --report directory produce no corrupt sentinels or half-written files."
+  - "Newlines inside the sentinel region are normalized to LF; content outside the sentinels preserves the user's existing line endings verbatim (CRLF survives above/below if the user's editor wrote CRLF)."
+  - "The Assertions subsection is always present. When no assertions are declared, the body is `_No assertions declared._` on its own line; otherwise a checklist with pass/fail markers (`- [x]` / `- [ ]`) and the assertion text."
+  - "JSON response bodies (Content-Type application/json or *+json) are pretty-printed via json.Indent with 2-space indentation inside a ```json fenced block; non-JSON rendering is deferred to M9-003."
+  - "The Timing subsection has three lines with fixed prefixes suitable for diff masking: `duration_ms: <N>`, `wave_index: <N>` (or `sequential`), `started_at: <RFC3339Nano>`. No trailing punctuation, no prose."
+  - "run.md is written alongside per-request files under the same sentinel discipline; body: run summary (pass/fail counts), run_id, ISO-8601 timestamp, environment name, and a bullet-list of links to per-request .md files in execution order."
+  - "Two runs against a deterministic mock server produce byte-identical sentinel regions modulo the three volatile lines (duration_ms, wave_index, started_at); a regression test captures the diff and asserts it is confined to those lines."
+scope: |
+  Foundation slice. Ships the full formatter machinery with JSON body
+  rendering only; content-type matrix (M9-003), parallel/data-driven
+  layout (M9-004), and documentation (M9-005) land in later slices.
+
+  1. New package internal/output/markdown/. Files:
+     - formatter.go: Writer + WriteReport(report *Report, dir string),
+       section renderers (renderNotes, renderRequest, renderResponse,
+       renderTiming, renderAssertions), and the Report type the builder
+       layer populates from []runner.RequestResult.
+     - splice.go: sentinel parsing + decision logic for the six cases
+       enumerated in behaviors, plus atomic-rename writer.
+     - writer.go: ensureReportDir + writeAtomic helpers (shared with
+       future multi-file formatters; extraction to internal/output/
+       fileio/ deferred).
+     - golden_test.go: copies compareOrUpdateGolden from
+       internal/output/events/schema_test.go:311-348; testdata/golden/
+       holds representative .md files.
+
+  2. Config + schema. Add \"markdown\" to SupportedFormats in
+     internal/output/config.go:15 and drop the excludes-markdown comment.
+     Extend the format enum in schemas/collection-v1.json and
+     schemas/project-v1.json. Config validator rejects format: markdown
+     without a report: value at load time.
+
+  3. CLI dispatch. cmd/apitest/main.go adds a new switch case between
+     the html branch (~line 1545) and the terminal default. The case
+     calls a local buildMarkdownReport(...) (shape like
+     buildJSONOutput) and invokes markdown.WriteReport. Redaction at
+     main.go:1407-1416 runs before the switch, so markdown inherits
+     redacted bytes automatically.
+
+  4. run.md index. Single file under <report>/run.md with its own
+     sentinel region; summary: name, env, run_id, timestamp, pass/fail
+     counts, links.
+
+  5. Tests. Golden-file tests for: JSON pass, JSON fail, empty
+     assertions, splice-preserves-outside, splice-append-on-rename,
+     malformed-sentinel-writes-dot-new, no-sentinel-writes-dot-new,
+     concurrent-writer-no-corruption, two-run-byte-identical-modulo-
+     volatile, config-rejects-markdown-without-report, schema-accepts-
+     markdown.
+
+  Not in scope.
+  - Content-type handling beyond JSON (M9-003).
+  - Parallel wave grouping in run.md (M9-004).
+  - Data-driven per-iteration files (M9-004).
+  - init --output flag (M9-005).
+  - SPECIFICATION.md / MANUAL.md / CHANGELOG.md (M9-005).
+  - IMPROVEMENT.md status (M9-005).
+  - --markdown-prune flag for orphaned sentinel cleanup (deferred; see
+    plan risks for future-work note).
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestMarkdown_Render passes: JSON pass case and JSON fail case produce goldens matching the fixed 10-section order"
+  - "TestMarkdown_EmptyAssertions passes: `_No assertions declared._` rendered when assertions list is empty"
+  - "TestMarkdown_Splice_MatchRewritesRegion passes: matching BEGIN/END rewrites only between sentinels; content above and below preserved verbatim"
+  - "TestMarkdown_Splice_RenameAppends passes: mismatched slug appends new block; orphan block preserved; stderr warning emitted"
+  - "TestMarkdown_Splice_MalformedWritesDotNew passes: BEGIN without END writes .md.new; original untouched"
+  - "TestMarkdown_Splice_NoSentinelWritesDotNew passes: file without sentinels writes .md.new; original untouched"
+  - "TestMarkdown_Splice_MismatchedRunStillSplices passes: matching slug+request_id but different run= splices (run= is volatile)"
+  - "TestMarkdown_Concurrent passes: two goroutines writing the same path via O_EXCL+rename produce no corrupt sentinels"
+  - "TestMarkdown_Newlines passes: LF inside sentinels; CRLF above/below preserved when present in existing file"
+  - "TestMarkdown_DeterminismRegression passes: two runs against deterministic mock produce byte-identical sentinel regions except duration_ms/wave_index/started_at lines"
+  - "TestMarkdown_RunMD passes: index file lists every per-request file with correct slug-derived links"
+  - "TestConfig_RejectsMarkdownWithoutReport passes: format: markdown without report: exits 3 at load time"
+  - "TestSchema_AcceptsMarkdownFormat passes: both schemas/collection-v1.json and schemas/project-v1.json accept format: markdown"
+  - "Regression: all M9-001 tests pass unmodified; all M8 tests pass unmodified"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/output/markdown/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: medium
+estimated_effort: "1-2 days"

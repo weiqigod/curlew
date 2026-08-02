@@ -1,0 +1,41 @@
+id: M2-023
+title: "Backoff strategies (exponential, linear, constant) with jitter"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Advanced Retries"
+
+dependencies:
+  - M2-013
+  - M1-028
+
+observable: |
+  Configure retries with `backoff_strategy: exponential` and confirm exponential delays.
+  Configure retries with `backoff_strategy: linear` and confirm linear delays.
+  Configure `jitter: true, jitter_factor: 0.1` and confirm +-10% delay variation.
+  Run `go test ./internal/retry/...` to verify backoff calculations.
+
+behaviors:
+  - "Given `backoff_strategy: exponential` with `initial_delay_ms: 1000`, when retrying, then delays are 1000ms, 2000ms, 4000ms, 8000ms..."
+  - "Given `backoff_strategy: linear` with `initial_delay_ms: 1000`, when retrying, then delays are 1000ms, 2000ms, 3000ms, 4000ms..."
+  - "Given `backoff_strategy: constant` with `initial_delay_ms: 2000`, when retrying, then all delays are 2000ms"
+  - "Given `max_delay_ms: 30000`, when exponential backoff exceeds 30s, then delay is capped at 30000ms"
+  - "Given `jitter: true, jitter_factor: 0.1`, when a 1000ms delay is calculated, then actual delay is between 900-1100ms"
+  - "Given custom backoff at Solo tier, when the collection runs, then exit code 6 with feature gate (custom backoff requires Professional)"
+
+scope: |
+  Extend `internal/retry/` with three backoff strategy implementations (exponential, linear,
+  constant), jitter calculation, and max_delay_ms capping. Register custom_backoff as a
+  Professional-tier feature. Solo tier gets exponential-only (hardcoded). Create pure
+  functions for delay calculation that are easily testable.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

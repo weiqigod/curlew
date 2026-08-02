@@ -1,0 +1,84 @@
+id: M12-008
+title: "$randomPassword and $randomBase64 generators"
+status: done
+priority: 2
+created: 2026-04-28
+phase: "M12: Foundational dynamic-function helpers"
+track: go-cli
+dependencies:
+  - M12-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_RandomPassword' -v ./internal/variable/...
+  # Expected: PASS — $randomPassword('16') returns a 16-char string
+  # containing at least one upper, one lower, one digit, one symbol.
+
+  go test -run 'TestRegistry_RandomPassword_Seeded' -v ./internal/variable/...
+  # Expected: PASS — with a fixed --seed, the same length always
+  # produces the same password (deterministic).
+
+  go test -run 'TestRegistry_RandomBase64' -v ./internal/variable/...
+  # Expected: PASS — $randomBase64('32') returns a string that
+  # base64-decodes to exactly 32 bytes; characters are within the
+  # standard-base64 alphabet.
+
+  go test -run 'TestRegistry_RandomPassword_TooShort' -v ./internal/variable/...
+  # Expected: PASS — length=3 returns a structured error (must be >= 4
+  # to satisfy the four-class requirement); length=0 also errors.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Add a body field temp_password: "{{$randomPassword('20')}}"
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: rendered temp_password is a 20-char string with mixed
+  # character classes.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given `$randomPassword('16')`, when evaluated, then the result is exactly 16 characters long."
+  - "Given `$randomPassword('n')` with n >= 4, when evaluated, then the result contains at least one ASCII uppercase, one lowercase, one digit, and one symbol from the set `!@#$%^&*()-_=+[]{}<>?,.`."
+  - "Given `$randomPassword('n')` with n in {0, 1, 2, 3}, when evaluated, then a structured error is returned (length must be >= 4 to satisfy all four character classes)."
+  - "Given a non-integer length `$randomPassword('xyz')`, when evaluated, then a structured error is returned naming the bad input."
+  - "Given `$randomBase64('32')`, when evaluated, then the result base64-decodes to exactly 32 bytes; the encoded string uses encoding/base64.StdEncoding."
+  - "Given `$randomBase64('0')` or a negative byteLength, when evaluated, then a structured error is returned (byteLength must be >= 1)."
+  - "Given a Registry constructed with --seed 42, when `$randomPassword('16')` is evaluated twice in independent runs (separate registries seeded with the same int), then both runs produce identical passwords (deterministic under seed)."
+  - "Given a Registry constructed without a seed, when `$randomBase64('16')` is evaluated, then the bytes come from crypto/rand (verifiable by injecting a counter wrapper around a test rand source — or simply asserting two consecutive calls produce different outputs)."
+  - "Given `$randomPassword` or `$randomBase64` is invoked with zero or two arguments, when evaluated, then an arity-mismatch error is returned naming arity 1."
+scope: |
+  Add two registrations to internal/variable/dynamic.go:
+  - `$randomPassword(length)` — reject length < 4; sample from four
+    classes (upper, lower, digit, symbol), guarantee one of each, then
+    fill the remainder uniformly across all classes; shuffle the result
+    so the guaranteed-class characters are not always positional.
+    Use the existing rng/intn helpers so seeded mode is deterministic.
+  - `$randomBase64(byteLength)` — read byteLength bytes from
+    crypto/rand (or the seeded rng for deterministic mode), then
+    base64.StdEncoding.EncodeToString.
+
+  When seeded, both functions must use the registry's seeded rng (the
+  same source that drives $uuid, $randomString, etc.) so --seed makes
+  them reproducible. When not seeded, $randomBase64 uses crypto/rand
+  directly (already the convention for the existing $uuid and
+  $randomString paths).
+
+  Files touched:
+  - internal/variable/dynamic.go (two registrations + a small
+    symbol-set constant; reuse randomString helper)
+  - internal/variable/dynamic_test.go (length/class invariants,
+    seeded-determinism test, error paths)
+  - docs/MANUAL.md §3.7 (two table rows + a one-paragraph note on the
+    symbol set used by $randomPassword and the seed-determinism rule)
+
+  Not in scope: configurable symbol set; passphrase generators; bcrypt
+  or argon2 hashing of the generated password (those would be
+  follow-up dynamic functions, not part of M12).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 documents $randomPassword, $randomBase64, the four-class guarantee, and the seed-determinism rule"
+complexity: low

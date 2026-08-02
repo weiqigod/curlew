@@ -1,0 +1,9 @@
+name: Invalid Status Type
+requests:
+  - name: Map Status
+    request:
+      method: GET
+      url: "https://example.com"
+    assertions:
+      status:
+        foo: bar

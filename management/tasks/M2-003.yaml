@@ -1,0 +1,40 @@
+id: M2-003
+title: "Vault CLI subcommand (gated placeholder)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Vault Commands"
+
+dependencies:
+  - M2-002
+  - M1-028
+
+observable: |
+  Run `apitest vault` at Free tier and confirm exit code 6 with feature gate message.
+  Run `apitest vault --format json` and confirm structured JSON gate output.
+  Run `apitest vault list` at Solo tier (simulated) and confirm it lists configured provider profiles.
+  Run `go test ./...` to verify all vault CLI paths.
+
+behaviors:
+  - "Given `apitest vault` at Free tier, when executed, then exit code 6 and feature gate message for vault_provider_profiles"
+  - "Given `apitest vault --format json` at Free tier, when executed, then structured JSON gate error with upgrade_url and workaround"
+  - "Given `apitest vault list` at Solo tier with configured profiles, when executed, then provider names and key counts are listed"
+  - "Given `apitest vault list --format json` at Solo tier, when executed, then JSON array of provider profiles is output"
+  - "Given `apitest vault list` with no profiles configured, when executed, then a helpful message indicates no vault profiles are configured"
+
+scope: |
+  Replace the current `gatedCmd` stub for vault in `cmd/apitest/main.go` with a proper
+  vault subcommand that supports `list` subcommand. At Solo tier, `vault list` reads
+  the parsed vault configuration from apitest.yaml and displays provider profiles.
+  Supports both terminal and JSON output formats.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: low
+estimated_effort: "2-3 hours"

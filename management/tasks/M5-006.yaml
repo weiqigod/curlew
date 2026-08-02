@@ -1,0 +1,53 @@
+id: M5-006
+title: "Backend: custom roles and granular permissions"
+status: done
+priority: 2
+created: 2026-04-18
+phase: "M5: Enterprise Tier"
+track: backend
+dependencies:
+  - M4-003
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Rbac&FullyQualifiedName~CustomRoles"
+  # Expected: Passed: >=12, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"results-only","permissions":["results.view","results.upload","dashboard.view"]}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/roles"
+  # Expected HTTP 201, body contains "id":"role_..."
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    "http://localhost:5000/api/v1/organizations/$ORG/roles"
+  # Expected HTTP 200, list includes the built-ins (owner/admin/member) + "results-only"
+behaviors:
+  - "Given an owner, when POST /organizations/{id}/roles is called with name=results-only and permissions=[results.view,results.upload,dashboard.view], then the role is persisted and returned with 201 and id role_..."
+  - "Given a duplicate role name within the same org, when POST /roles is called, then the response is 409 role_name_taken"
+  - "Given a permissions array containing an unknown key, when POST /roles is called, then the response is 400 invalid_permission with the offending key in the body"
+  - "Given three built-in roles (owner, admin, member) and one custom role, when GET /organizations/{id}/roles is called, then all four are returned and is_builtin=true on the first three"
+  - "Given a member assigned to the results-only custom role, when they call an endpoint that requires results.upload, then the response is 200; when they call an endpoint that requires members.invite, then the response is 403 permission_denied"
+  - "Given a custom role is deleted while members still reference it, when DELETE /organizations/{id}/roles/{role_id} is called, then the response is 409 role_in_use with member_count in the body"
+  - "Given a non-owner calls POST /organizations/{id}/roles, when the request is made, then the response is 403 permission_denied"
+  - "Given PATCH /organizations/{id}/members/{user_id} with role_id=role_..., when called by an owner, then the membership's role_id is updated and an organization_audit_log row role.changed is written"
+scope: |
+  Add a Rbac/CustomRoles/ folder under src/ApiTool.Backend with
+  CustomRolesController, CustomRole entity, and a RoleResolver that produces
+  an effective permission set (union of role permissions + direct overrides).
+  EF migration 0007_custom_roles adds organization_custom_roles table
+  (id, org_id, name, permissions JSONB, created_at, created_by). Extends
+  organization_members with role_id FK (nullable; null means built-in role).
+  Defines the full permission key catalogue as a static C# enum mirroring
+  the spec's permission matrix.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Swagger lists POST/GET/PATCH/DELETE /organizations/{id}/roles endpoints"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: high
+estimated_effort: "8-12 hours"

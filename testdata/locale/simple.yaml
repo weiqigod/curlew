@@ -1,0 +1,10 @@
+name: locale-simple
+description: Minimal collection for locale observable tests
+requests:
+  items:
+    - name: get-name
+      request:
+        url: https://httpbin.org/anything
+        method: GET
+      assert:
+        status: 200

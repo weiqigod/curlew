@@ -1,0 +1,126 @@
+id: M17-005
+title: "JWT decode dynamic functions: $jwtDecodeHeader / $jwtDecodeClaims"
+status: done
+priority: 2
+created: 2026-04-28
+completed_date: 2026-04-29
+verified_by: ai
+phase: "M17: First-party signers and signing helpers"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_JwtDecodeHeader_Vector' -v ./internal/variable/...
+  # Expected: PASS — using the JWT.io canonical example
+  # eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c,
+  # $jwtDecodeHeader returns {"alg":"HS256","typ":"JWT"} (compact JSON, no
+  # extra whitespace, key order preserved as base64-decoded bytes -> json
+  # roundtrip via the standard encoding/json marshaller).
+
+  go test -run 'TestRegistry_JwtDecodeClaims_Vector' -v ./internal/variable/...
+  # Expected: PASS — using the same token, $jwtDecodeClaims returns
+  # {"sub":"1234567890","name":"John Doe","iat":1516239022}.
+
+  go test -run 'TestRegistry_JwtDecode_BadFormat' -v ./internal/variable/...
+  # Expected: PASS — input "abc.def" (only two segments) returns a
+  # structured CategoryInput error with code DYNFN_JWT_DECODE_BAD_FORMAT;
+  # the error message includes the offending input truncated to 32 chars
+  # (per Open Decision #7).
+
+  go test -run 'TestRegistry_JwtDecode_BadBase64' -v ./internal/variable/...
+  # Expected: PASS — when the header or claims segment is not valid
+  # base64-url, the error code is DYNFN_JWT_DECODE_BAD_BASE64.
+
+  go test -run 'TestRegistry_JwtDecode_BadJSON' -v ./internal/variable/...
+  # Expected: PASS — when a segment base64-url-decodes successfully but
+  # the bytes are not valid JSON, the error code is
+  # DYNFN_JWT_DECODE_BAD_JSON.
+
+  go test -run 'TestRegistry_JwtDecode_NoSignatureVerification' -v ./internal/variable/...
+  # Expected: PASS — a token with a deliberately-mangled signature segment
+  # still decodes both header and claims successfully (this slice does NOT
+  # verify signatures — that is explicitly out of scope; documented in
+  # MANUAL.md as a security-relevant caveat).
+
+  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  # Add a request with extract:
+  #   token_alg: "{{$jsonpath('$.alg', $jwtDecodeHeader('{{access_token}}'))}}"
+  ./apitest run collections/sample.yaml --dry-run --format json | grep -F '"alg"'
+  # Expected: rendered request shows the alg field extracted from the
+  # decoded header (proves the function returns valid JSON consumable
+  # by $jsonpath).
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the JWT.io canonical example token (eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c), when $jwtDecodeHeader is evaluated, then it returns the JSON string `{\"alg\":\"HS256\",\"typ\":\"JWT\"}`."
+  - "Given the same token, when $jwtDecodeClaims is evaluated, then it returns the JSON string `{\"sub\":\"1234567890\",\"name\":\"John Doe\",\"iat\":1516239022}`."
+  - "Given an input that does not split into exactly three dot-separated segments (zero, one, two, or four segments), when either function is evaluated, then it returns a structured CategoryInput error with code DYNFN_JWT_DECODE_BAD_FORMAT; the message includes the offending input truncated to 32 chars to avoid leaking long tokens (per Open Decision #7)."
+  - "Given a three-segment input whose target segment (header or claims) is not valid base64-url, when the function is evaluated, then the error code is DYNFN_JWT_DECODE_BAD_BASE64; the input in the message is truncated to 32 chars."
+  - "Given a three-segment input whose target segment base64-url-decodes successfully but is not valid JSON, when the function is evaluated, then the error code is DYNFN_JWT_DECODE_BAD_JSON; the input in the message is truncated to 32 chars."
+  - "Given a token whose signature segment is deliberately invalid or mangled, when either function is evaluated, then both header and claims decode successfully — this slice performs no signature verification (documented in MANUAL.md as a security-relevant caveat: callers must verify signatures via a separate mechanism if needed)."
+  - "Given an arity other than one (zero or two-or-more args), when either function is evaluated, then a structured CategoryInput error with code DYNFN_ARITY is returned naming arity 1 (mirrors the existing oneArg wrapper in internal/variable/dynamic.go)."
+  - "Given a token with base64-url segments that include the standard URL-safe characters (- and _) but no padding (typical of JWTs), when decoded, then base64.RawURLEncoding is used (not StdEncoding) so the absence of `=` padding is correctly handled; a token whose claims include UTF-8 multi-byte characters (e.g. {\"name\":\"日本語\"}) round-trips correctly."
+scope: |
+  Two new dynamic-function registrations in internal/variable/dynamic.go.
+  Pure standard-library work — encoding/base64 (RawURLEncoding) plus
+  encoding/json round-trip.
+
+  Registered names:
+    - jwtDecodeHeader   (arity 1: token)
+    - jwtDecodeClaims   (arity 1: token)
+
+  Both functions share a private helper that:
+    1. Splits the input on `.` and validates exactly three segments.
+    2. Base64-url-decodes (no padding, RawURLEncoding) the requested
+       segment (segment[0] for header, segment[1] for claims).
+    3. Decodes the resulting bytes as JSON via encoding/json.Unmarshal
+       into an interface{} and re-marshals via encoding/json.Marshal
+       to produce a canonical compact JSON string for downstream
+       JSONPath / regex / equality assertions. (Re-marshalling, rather
+       than passing the raw decoded bytes through, ensures the output
+       is canonical and free of whitespace artefacts in the original
+       JWT.)
+    4. On any failure, returns a structured CategoryInput error with
+       one of three codes (per Open Decision #7):
+         - DYNFN_JWT_DECODE_BAD_FORMAT  (segment-count mismatch)
+         - DYNFN_JWT_DECODE_BAD_BASE64  (segment is not valid base64-url)
+         - DYNFN_JWT_DECODE_BAD_JSON    (decoded bytes are not valid JSON)
+       Error message format: `$jwtDecodeXxx: <reason>; input prefix=<first
+       32 chars>...` — the input truncation prevents long tokens from
+       flooding logs.
+
+  Sensitive-secret propagation: NOT applicable. JWT decode operates on
+  the token (typically a public bearer credential) and produces the
+  decoded segments. The token itself, if it resolves from a sensitive
+  variable, is already redacted by the existing M12-005 plumbing — no
+  new sensitive-arg-index registration is needed for these two functions.
+
+  Files touched:
+    - internal/variable/dynamic.go              (two new registrations + private decode helper)
+    - internal/variable/dynamic_test.go         (vector tests + three error-code cases + UTF-8 case + signature-not-verified case)
+    - docs/MANUAL.md §3.7                       (two new rows in the dynamic-functions table; one example block; a security callout that this is decode-only with no signature verification)
+
+  Files explicitly NOT touched:
+    - internal/variable/variable.go             (no parser changes; the standard arg parser handles single-quoted token literals fine)
+    - internal/signer/                          (unrelated to this slice)
+    - internal/auth/profile.go                  (unchanged across all of M17)
+
+  Not in scope: signature verification ($jwtVerify or similar — explicitly
+  rejected for this slice; if a verifier is later wanted it requires
+  per-algorithm key handling, which is a separate, larger design); JWT
+  encoding ($jwtEncode); JWE (encrypted JWTs); signature-algorithm
+  detection beyond what's already in the decoded header; SPECIFICATION.md
+  v4.2 update (separate follow-up).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80% (no regression from current baseline)"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "The JWT.io canonical example token decodes correctly with $jwtDecodeHeader and $jwtDecodeClaims; all three error codes (DYNFN_JWT_DECODE_BAD_FORMAT, DYNFN_JWT_DECODE_BAD_BASE64, DYNFN_JWT_DECODE_BAD_JSON) are exercised by separate test cases"
+  - "docs/MANUAL.md §3.7 has rows for $jwtDecodeHeader and $jwtDecodeClaims with one example each; a security callout reads that this is decode-only and performs NO signature verification"
+  - "A smoke fixture under smoke/ proves end-to-end that a JWT in a request variable can be decoded and a claim extracted via $jsonpath against the returned JSON"
+complexity: low

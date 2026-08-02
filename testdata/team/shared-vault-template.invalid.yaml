@@ -1,0 +1,7 @@
+team_secrets:
+  vault_configs:
+    production:
+      provider: foo
+      region: eu-west-1
+      keys:
+        api_key: prod/api-key

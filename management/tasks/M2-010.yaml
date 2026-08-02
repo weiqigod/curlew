@@ -1,0 +1,37 @@
+id: M2-010
+title: "Per-request auth profile reference"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Dynamic Auth"
+
+dependencies:
+  - M2-008
+
+observable: |
+  Create a collection with `auth: admin_token` on individual requests.
+  Run `apitest run tests.yaml` and confirm the auth profile headers are injected.
+  Run `go test ./internal/runner/...` to verify per-request auth injection.
+
+behaviors:
+  - "Given a request with `auth: admin_token`, when the request executes, then the Authorization header from the admin_token profile is injected"
+  - "Given two requests referencing different auth profiles, when executed, then each uses its own profile's credentials"
+  - "Given a request with an `auth:` field referencing a non-existent profile, when validated, then a clear error lists available profiles"
+  - "Given a request with both `auth:` and explicit `Authorization` header, when executed, then the explicit header takes precedence"
+
+scope: |
+  Extend `internal/parser/collection.go` to parse the `auth:` field on RequestItem.
+  In `internal/runner/runner.go`, resolve auth profile references to inject credentials
+  (headers or other auth mechanisms) into individual requests before execution.
+  This connects auth profiles defined in apitest.yaml to per-request usage in collections.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

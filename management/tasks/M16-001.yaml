@@ -1,0 +1,44 @@
+id: M16-001
+title: "ITierGate generic abstraction with per-feature adapters"
+status: done
+priority: 1
+created: 2026-05-07
+planned_date: 2026-05-07
+completed_date: 2026-05-07
+verified_by: ai
+branch: feature/M16-001-tiergate-abstraction
+phase: "M16: Workflow completion"
+
+dependencies: []
+
+track: backend
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~TierGate"` and see all unit tests pass (>= 12). Then start the backend via `docker-compose -f docker-compose.test.yml up -d` and `dotnet run --project src/ApiTool.Backend`, and probe a tier-gated endpoint as a Free-tier org:
+  `curl -i -H "Authorization: Bearer <free_org_jwt>" http://localhost:5000/api/v1/organizations/{orgId}/vault-config`
+  expecting `HTTP/1.1 402 Payment Required` with an RFC 7807 problem body containing `"current_tier":"free"` and `"required_tier":"team"`. For the same endpoint while unauthenticated/public-flow shape (e.g. `GET /sso/login` for a non-Enterprise org) confirm `404 Not Found` with `Cache-Control: no-store`. Run `grep -rn "db.Subscriptions.Where" src/ApiTool.Backend/ | grep -v Internal/TierGates/` and observe zero matches.
+
+behaviors:
+  - "Given an org with Team subscription, when ITierGate.EnsureAsync is called requiring Team, then it returns TierGateResult.Allowed"
+  - "Given an org with Free subscription, when ITierGate.EnsureAsync is called requiring Team, then it returns TierGateResult.TierIneligible"
+  - "Given a non-existent orgId, when ITierGate.EnsureAsync is called, then it returns TierGateResult.OrgNotFound"
+  - "Given a Free-tier org calling POST /api/v1/organizations/{orgId}/vault-config, when VaultConfigTierGate denies access, then the response is 402 with RFC 7807 detail including type, title, status, and current_tier fields"
+  - "Given an unauthenticated request to GET /sso/login for an org without Enterprise tier, when SsoTierGate denies access, then the response is 404 with Cache-Control: no-store header (no information leak)"
+  - "Given a non-existent orgId on a public-flow endpoint, when the gate runs, then the response is 404 (indistinguishable from tier-ineligible)"
+  - "Given the existing SsoService and OidcService call sites, when the refactor lands, then their public method signatures are unchanged and the internal implementation now delegates to ITierGate via SsoTierGate adapter"
+  - "Given a unit test injects a fake ITierGate returning Allowed, when an endpoint test runs, then the test does not require a live AppDbContext (proving the seam decouples endpoints from EF)"
+
+scope: |
+  New folder `src/ApiTool.Backend/Internal/TierGates/` containing `ITierGate.cs`, `TierGate.cs` (the AppDbContext-backed implementation), `TierGateResult.cs` enum, and a `TierGateProblemFactory.cs` that builds RFC 7807 responses (402 for authenticated org-scoped paths; 404 + `Cache-Control: no-store` for public-flow paths). Refactor the existing `src/ApiTool.Backend/Sso/SsoTierGate.cs` to a thin adapter calling `ITierGate.EnsureAsync(orgId, SubscriptionTier.Enterprise, ct)` and translating the result into the existing `SsoError`. Add three sibling adapters in `Internal/TierGates/`: `ScheduleExecutorTierGate`, `VaultConfigTierGate`, `DashboardTierGate`, each exposing a `EnsureTeamOrAboveAsync` static helper with its own per-feature error enum. Register `ITierGate` in DI in `Program.cs`. Verification step: a unit test asserts every adapter delegates to a mocked `ITierGate`, plus a grep test asserting no `db.Subscriptions.Where` tier-check exists outside `Internal/TierGates/`.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "All existing SsoService and OidcService tests still pass with the refactored SsoTierGate"
+  - "Grep verification confirms no remaining direct subscription tier-checks outside Internal/TierGates/"
+  - "OpenAPI/HTTP API doc updated where 402 problem detail shape is referenced"
+
+complexity: medium
+estimated_effort: "3-6 hours"

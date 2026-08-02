@@ -1,0 +1,31 @@
+id: M1-015
+title: "External request file references"
+status: done
+priority: 15
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-010]
+observable: |
+  Create requests/get-user.yaml external file. Reference it from collection.
+  Run and verify it executes.
+behaviors:
+  - "Given a request with path: requests/get-user.yaml, when collection runs, then external file is loaded and executed"
+  - "Given an external request file, when loaded, then it behaves identically to an inline request"
+  - "Given a reference with inline variable overrides, when executed, then overrides are applied to the external request"
+  - "Given path: pointing to a non-existent file, when loaded, then error includes the referenced path and collection file"
+  - "Given a relative path, when resolved, then it is relative to the collection file's directory"
+  - "Given an external file with its own extract: block, when executed, then extractions work normally"
+  - "Given circular file references (A references B which references A), when loaded, then error with circular reference message"
+scope: |
+  Add file reference resolution to internal/parser/. Handle path resolution relative to
+  collection file. Detect circular references. Support inline variable overrides at
+  reference site.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

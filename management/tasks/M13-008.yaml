@@ -1,0 +1,97 @@
+id: M13-008
+title: "$faker file data — 4 functions ($faker.imageUrl argument-bearing)"
+status: done
+priority: 1
+created: 2026-04-28
+completed_date: 2026-04-29
+verified_by: ai
+phase: "M13: Faker depth"
+track: go-cli
+dependencies:
+  - M13-001
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestRegistry_FakerFile' -v ./internal/variable/...
+  # Expected: PASS — all 4 file functions registered.
+  # $faker.fileName matches /^[a-z0-9_-]+\.[a-z0-9]+$/;
+  # $faker.fileExtension is a 2-4 char lowercase string with no leading dot;
+  # $faker.mimeType matches /^[a-z]+\/[a-z0-9.+-]+$/;
+  # $faker.imageUrl returns 'https://picsum.photos/640/480' by default.
+
+  go test -run 'TestRegistry_FakerImageUrl_Args' -v ./internal/variable/...
+  # Expected: PASS — `$faker.imageUrl('800','600')` is parsed by M12-001
+  # parseDynArgs into args=['800','600']; the registration body
+  # strconv.Atoi-converts each, validates positivity, and produces
+  # 'https://picsum.photos/800/600'.
+
+  go test -run 'TestRegistry_FakerFile_Seeded' -v ./internal/variable/...
+  # Expected: PASS — given --seed=42, two consecutive runs of $faker.fileName
+  # produce byte-equal output.
+
+  go test -run 'TestRegistry_FakerFile_Unseeded' -v ./internal/variable/...
+  # Expected: PASS — without --seed, two consecutive runs differ.
+
+  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  # Body: {"upload":"{{$faker.fileName}}","mime":"{{$faker.mimeType}}","thumb":"{{$faker.imageUrl('320','240')}}"}
+  apitest run collections/sample.yaml --dry-run --format json
+  # Expected: upload is filename.ext; mime is type/subtype; thumb is the picsum URL with 320x240.
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given the registry, when `$faker.fileName` is evaluated, then the result matches `^[a-z0-9_-]+\\.[a-z0-9]+$` (a base name with a dotted extension; per SPECIFICATION.md:842) and the extension is one drawn from the same pool used by $faker.fileExtension."
+  - "Given the registry, when `$faker.fileExtension` is evaluated, then the result is a 2 to 4 character lowercase string with no leading dot (e.g. `pdf`, `jpg`, `mp4`, `txt`; per SPECIFICATION.md:843)."
+  - "Given the registry, when `$faker.mimeType` is evaluated, then the result matches `^[a-z]+/[a-z0-9.+-]+$` and is one of a shipped MIME-type pool (e.g. `application/pdf`, `image/jpeg`, `text/plain`; per SPECIFICATION.md:844)."
+  - "Given the registry, when `$faker.imageUrl` is evaluated with no args, then the result is exactly `https://picsum.photos/640/480` (the default per SPECIFICATION.md:845)."
+  - "Given the registry, when `$faker.imageUrl('800','600')` is evaluated, then (a) M12-001's parseDynArgs parses the two quoted args into args=['800','600'] without modification, (b) the registration body strconv.Atoi-converts each, validates positivity, and (c) the result is exactly `https://picsum.photos/800/600`."
+  - "Given the registry, when `$faker.imageUrl('-100','480')` or `$faker.imageUrl('0','480')` is evaluated, then it returns a structured CategoryInput error naming the bad dimension (positive integers required)."
+  - "Given the registry, when `$faker.imageUrl('abc','480')` is evaluated, then it returns a structured CategoryInput error matching the existing $randomBase64 / $randomPassword error shape."
+  - "Given `--seed 42`, when any of the 4 file functions are evaluated twice across two independent runs, then both outputs are byte-equal."
+  - "Given no `--seed`, when $faker.fileName, $faker.fileExtension, or $faker.mimeType are evaluated twice across two independent runs, then both outputs differ. ($faker.imageUrl with fixed default args is intentionally deterministic — its output is the constant default URL — and is excluded from the unseeded-entropy assertion.)"
+  - "Given `--locale de-DE` is passed on the CLI, when any file function is evaluated, then the en-US data set is still used; locale support is deferred (see M13 Open Decision #1)."
+scope: |
+  Add 4 registrations to internal/variable/dynamic.go for the file-data
+  family in SPECIFICATION.md:838–845: `$faker.fileName`,
+  `$faker.fileExtension`, `$faker.mimeType`, `$faker.imageUrl`. Ship a
+  small extension pool (pdf, jpg, png, mp4, txt, csv, json, ...) and a
+  matching MIME-type pool. $faker.fileName composes a random base name
+  plus a random extension drawn from the same extension pool.
+
+  Argument-bearing: `$faker.imageUrl(width, height)`. Per M13 Open
+  Decision #6, M12-001's parseDynArgs is reused without modification —
+  args travel in as quoted strings and the registration body
+  strconv.Atoi-converts them, validates positivity, and formats the
+  picsum.photos URL. The no-arg form returns the constant default
+  URL `https://picsum.photos/640/480` per SPECIFICATION.md:845.
+
+  Locale: en-US only. Per M13 Open Decision #1, the `--locale` flag is
+  recognised-but-warns-and-ignores. Spec citation: SPECIFICATION.md:859–904
+  (deferred).
+
+  Files touched:
+  - internal/variable/dynamic.go (4 new registrations; $faker.imageUrl
+    uses the manual DynFunc form to handle the 0-or-2 arity, mirroring
+    $randomBase64 at internal/variable/dynamic.go:351; $faker.fileName
+    and $faker.fileExtension share an extension+mime parallel pool)
+  - internal/variable/dynamic_test.go (new TestRegistry_FakerFile* tests
+    including default-imageUrl, custom-imageUrl, bad-input cases,
+    seeded-reproducibility, no-seed-entropy)
+  - docs/MANUAL.md §3.7 (4 new rows; $faker.imageUrl row shows both
+    default and arg-bearing forms)
+
+  Not in scope: locale-specific filename conventions; image-URL
+  alternatives beyond picsum.photos; format-specific extension/MIME pairing
+  beyond the shipped pool. Spec citations: SPECIFICATION.md:838–845.
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/variable/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "docs/MANUAL.md §3.7 dynamic-functions table includes 4 new rows for the file-data family with example values matching SPECIFICATION.md:840–845 and both default/arg-bearing forms shown for $faker.imageUrl"
+  - "Seeded-reproducibility and no-seed-entropy tests both pass for the three RNG-bearing functions"
+  - "No changes to internal/variable/variable.go's parseDynArgs (M12-001 reuse)"
+complexity: low
+estimated_effort: "2-4 hours"

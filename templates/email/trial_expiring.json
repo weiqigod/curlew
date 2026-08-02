@@ -1,0 +1,16 @@
+{
+  "slug": "trial_expiring",
+  "subject": "Your trial of {feature} expires {when}",
+  "variables": {
+    "user_email":       "string",
+    "feature":          "string (feature slug, e.g. 'schedules')",
+    "expires_at_local": "string (e.g. '2026-05-07 14:30 UTC')",
+    "upgrade_url":      "string (HTTPS URL)"
+  },
+  "test_data": {
+    "user_email": "alex@example.com",
+    "feature": "schedules",
+    "expires_at_local": "2026-05-07 14:30 UTC",
+    "upgrade_url": "https://app.apitool.dev/billing"
+  }
+}

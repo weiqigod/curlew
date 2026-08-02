@@ -1,0 +1,6 @@
+name: out-terminal
+output:
+  format: terminal
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

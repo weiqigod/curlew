@@ -1,0 +1,97 @@
+id: M20-001
+title: "--locale flag, config precedence + fallback chain, ERR_LOCALE_UNKNOWN, shipped end-to-end with de-DE"
+status: done
+priority: 2
+created: 2026-06-12
+completed_date: 2026-06-12
+verified_by: ai
+phase: "M20: Faker locale completion"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  go build ./cmd/apitest
+
+  # 1. --locale selects a non-default locale pool end-to-end (de-DE ships in this slice).
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale de-DE --format json 2>&1 \
+    | grep -Ev 'Smith|Johnson|Williams'
+  # Expected: a German name (e.g. "Johann Schmidt") — proves the flag selects the de-DE pool,
+  # NOT the en-US firstNames/lastNames at dynamic.go:1321/1331.
+
+  # 2. Default (no flag) stays en-US — backward compatible.
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --format json
+  # Expected: identical output to `--locale en-US` (the en-US pool is the default).
+
+  # 3. Seed/locale independence (SPEC:1023-1026): same seed => same pool POSITION in each locale.
+  A=$(printf '{{$faker.firstName}}\n' | ./apitest exec --stdin --seed 7 --locale en-US --format json)
+  B=$(printf '{{$faker.firstName}}\n' | ./apitest exec --stdin --seed 7 --locale de-DE --format json)
+  # Expected: A is the en-US name at index k; B is the de-DE name at the SAME index k
+  # (verified by TestRegistry_Locale_SeedPositionInvariant in internal/variable).
+
+  # 4. Unknown locale => ERR_LOCALE_UNKNOWN, non-zero exit.
+  ./apitest run testdata/locale/simple.yaml --locale xx-YY; echo "exit=$?"
+  # Expected: stderr names ERR_LOCALE_UNKNOWN and lists supported locales; exit=non-zero.
+
+  # 5. Fallback chain (SPEC:989): en-GB resolves through en -> en-US when no en-GB pool exists yet.
+  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale en-GB -v 2>&1 \
+    | grep -F 'locale en-GB not available; falling back'
+  # Expected: verbose-mode warning logged; output is the en-US fallback value (en-GB pool lands in M20-002).
+
+  # 6. Precedence chain (SPEC:1006): CLI flag beats collection/env/project config.
+  ./apitest run testdata/locale/de-project.yaml --seed 42 --locale de-DE --dry-run -v 2>&1 \
+    | grep -F 'resolved locale: de-DE (source: --locale flag)'
+  # Expected: with project config locale: en-US and --locale de-DE, the flag wins.
+
+  go test ./internal/variable/... ./internal/config/... ./cmd/apitest/...
+  # Expected: PASS.
+
+behaviors:
+  - "Given `--locale de-DE` and `--seed 42`, when `$faker.fullName` is interpolated, then the value is drawn from the de-DE name pool (e.g. \"Johann Schmidt\"), not the en-US firstNames/lastNames pools."
+  - "Given no `--locale` flag and no config locale, when any `$faker.*` function runs, then the en-US pool is used and output is byte-identical to passing `--locale en-US` (backward compatibility)."
+  - "Given the same `--seed N`, when the same `$faker.firstName` is run once with `--locale en-US` and once with `--locale de-DE`, then both select the same zero-based pool index (seed/locale independence per SPEC:1023-1026)."
+  - "Given `--locale xx-YY` (not in the 15-locale table), when the command runs, then a structured ERR_LOCALE_UNKNOWN error is printed listing the supported locales and the process exits non-zero."
+  - "Given `--locale en-GB` while only en-US data exists, when run in verbose mode, then the fallback chain en-GB -> en -> en-US resolves to en-US, a fallback warning is logged to stderr, and the en-US value is emitted."
+  - "Given project config `config.locale: en-US`, environment config `config.locale: fr-FR`, and `--locale de-DE`, when the locale is resolved, then de-DE wins per the precedence chain Default < Project < Environment < Collection < CLI flag (SPEC:1006)."
+  - "Given a collection file with `config.locale: de-DE` and no `--locale` flag, when run, then faker output uses the de-DE pool (collection config is honored when the flag is absent)."
+  - "Given `apitest run --help`, when displayed, then the help text documents `--locale <code>` and names de-DE as a shipped example."
+
+scope: |
+  Adds the locale resolution subsystem and one proof locale (de-DE).
+  CLI: add `locale string` + `localeSet bool` to `runFlags`
+  (cmd/apitest/main.go:147) and a `case "--locale":` arm in
+  `parseRunArgs` (cmd/apitest/main.go:185); thread an equivalent flag
+  through the `exec` subcommand's `ExecOptions` (cmd/apitest/main.go:3220+).
+  Config: add a `config:` block with a `locale` field to
+  `config.ProjectConfig` (internal/config/project.go:38), the environment
+  loader (internal/config/environment.go), and the `Collection` struct
+  (internal/parser/collection.go:222). Add a `Locale string` field to
+  `runner.VarSources` (internal/runner/runner.go:280) and a
+  `resolveLocale` precedence function. Registry: extend
+  `variable.NewRegistry` (internal/variable/dynamic.go:43) to accept a
+  locale, add a `locale` field + a `localeData` lookup struct keyed by
+  locale code initialised behind `sync.Once`, a normalize/validate path
+  producing `ERR_LOCALE_UNKNOWN` (new code in internal/errors), and the
+  fallback chain (en-GB -> en -> en-US) with a verbose warning seam.
+  Refactor the personal/location closures (dynamic.go:451-566) to select
+  the active locale's pool by the SAME `intn` index. Ship de-DE name +
+  phone + city pools as the first non-en-US locale to prove the path
+  end-to-end. Correct REVIEW.md §1c (docs/REVIEW.md:75) and the ranking
+  row (docs/REVIEW.md:156): the flag was never "recognised-but-warns-and-
+  ignores" — no parsing existed; M20 builds it from zero.
+  Not in scope: the other 13 locale pools (M20-002, M20-003); the
+  MANUAL.md locale reference table (M20-004); telemetry `locale`
+  (out of scope per settled decision 5).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes with no regressions in existing faker/seed determinism tests"
+  - "go test -cover ./internal/variable/... ./internal/config/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "docs/REVIEW.md:75 and :156 corrected to state the --locale flag was unparsed (silently ignored), not warn-and-ignore"
+  - "apitest run --help and apitest exec --help document --locale"
+  - "Existing runs with no --locale flag produce byte-identical output to before this slice (default-en-US backward compatibility verified by a regression test)"
+
+complexity: high
+estimated_effort: "8-12 hours"

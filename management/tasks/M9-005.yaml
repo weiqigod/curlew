@@ -1,0 +1,142 @@
+id: M9-005
+title: "markdown shipment: init --output flag, docs, CHANGELOG, IMPROVEMENT.md W4 status"
+status: done
+completed_date: 2026-04-25
+verified_by: ai
+priority: 1
+created: 2026-04-24
+planned_date: 2026-04-25
+branch: feature/M9-005-markdown-shipment
+phase: "M9: Developer & Agent Exploration Experience"
+track: go-cli
+dependencies: [M9-004]
+observable: |
+  # init --output markdown scaffolds a project with the markdown output block.
+  TMP=$(mktemp -d)
+  cd "$TMP"
+  apitest init --output markdown
+  grep -A 3 '^output:' apitest.yaml
+  # Expected:
+  # output:
+  #   format: markdown
+  #   report: responses/
+
+  # Bare init stays on terminal (no backward-compat break).
+  TMP2=$(mktemp -d)
+  cd "$TMP2"
+  apitest init
+  grep 'markdown' apitest.yaml || echo 'no markdown reference'
+  # Expected: "no markdown reference" (terminal remains default).
+
+  # init --help documents the --output flag.
+  apitest init --help | grep -E '^\s*--output'
+  # Expected: one line documenting the flag + enum.
+
+  # init --output unknown exits 3 with clear error.
+  TMP3=$(mktemp -d)
+  cd "$TMP3"
+  apitest init --output madeup 2>err.log; echo $?
+  # Expected: exit 3; err.log names supported values including markdown.
+
+  # Schema surface at both levels shows markdown in the format enum.
+  ./apitest schema | jq -r '.properties.output.properties.format.enum[]' | grep '^markdown$'
+  ./apitest schema --project | jq -r '.properties.output.properties.format.enum[]' | grep '^markdown$'
+  # Expected: one match each.
+
+  # SPECIFICATION.md documents the Markdown output format.
+  grep -c 'Markdown Output Format' docs/SPECIFICATION.md
+  # Expected: at least 1.
+
+  # MANUAL.md has VS Code split-pane worked example.
+  grep -c 'split-pane' docs/MANUAL.md
+  # Expected: at least 1.
+
+  # CHANGELOG has Added + Changed entries under [Unreleased].
+  awk '/^## \[Unreleased\]/,/^## \[0/' CHANGELOG.md | grep -E '^- (Added|Changed).*markdown|^- Changed.*events schema v1\.2'
+  # Expected: at least two matching lines.
+
+  # IMPROVEMENT.md W4 status flipped to Shipped with M9-001..M9-005 references.
+  grep -A 2 '^### W4 — Markdown response format' IMPROVEMENT.md | head -3
+  # Expected: Status: Shipped with M9-001..M9-005 PR references.
+
+  # IMPROVEMENT.md §6 corrected: request_slug line references v1.2.
+  grep -B 1 -A 1 'request_slug' IMPROVEMENT.md | grep 'v1\.2'
+  # Expected: at least one match.
+
+  # Full unit + integration suite.
+  go test -run 'TestInit_OutputMarkdownFlag|TestInit_OutputAllFormats|TestInit_OutputUnknownFormat|TestInit_DefaultUnchanged' ./...
+  # Expected: PASS.
+behaviors:
+  - "apitest init gains a --output <format> flag; --output markdown scaffolds apitest.yaml with `output: { format: markdown, report: responses/ }`; --output terminal/json/tap/junit/html produce equivalent blocks pointing at default paths per format; --output with an unknown value exits 3 with an error naming the supported enum."
+  - "Bare apitest init (no --output flag) produces the same scaffold as the M8-003 baseline — `output: { format: terminal, verbosity: normal }` — preserving the pre-M9 terminal default and breaking no existing user's workflow. No markdown-related output: block is present."
+  - "apitest init --help documents the --output flag, lists the enum (terminal, json, tap, junit, html, markdown), and highlights markdown as the recommended default for VS Code + agent workflows."
+  - "docs/SPECIFICATION.md Output Formats and Redaction section gains a new ##### Markdown Output Format subsection documenting: sentinel format exactly as implemented (M9-002), the fixed 10-section order, the splice rules (six cases), per-iteration layout (M9-004), the content-type matrix (M9-003), the 1 MiB body cap, and the determinism tiers by reference to IMPROVEMENT.md §8.7."
+  - "docs/MANUAL.md run command section gains a worked example paragraph covering the VS Code split-pane workflow: open collection YAML on the left, open `responses/<slug>.md` on the right, run `apitest watch`, observe per-save updates."
+  - "CHANGELOG.md [Unreleased] gains two entries batched for W4: `Added: --format markdown output with sentinel-delimited deterministic block (M9-001..M9-005)`; `Changed: events schema v1.1 -> v1.2 (additive request_slug field)`."
+  - "IMPROVEMENT.md §5 W4 status block is flipped from Pending to Shipped and references the five merged PRs, matching the M8-001..M8-005 pattern: `Status: Shipped <date> — M9-001 (PR #<N>) + M9-002 (PR) + M9-003 (PR) + M9-004 (PR) + M9-005 (PR)`."
+  - "IMPROVEMENT.md §6 Correlation ID Scheme is corrected: the request_slug paragraph references events schema v1.2 (not v1.1). The correction is minimal and preserves surrounding wording."
+  - "IMPROVEMENT.md §8.1 is extended with a resolution note pointing at v1.2 for the request_slug addition; the existing v1.1 wording about the `selection` field (from M8-004) is preserved. No other wording is edited."
+  - "Schema parity check: `./apitest schema` and `./apitest schema --project` both include `markdown` in the output.format enum; the scaffolded apitest.yaml from `init --output markdown` validates against the schema without errors."
+scope: |
+  Shipment slice. Closes W4 by making the markdown format discoverable
+  via init + help, documented in SPECIFICATION and MANUAL, recorded in
+  CHANGELOG, and correctly reflected in IMPROVEMENT.md's status + scheme
+  blocks.
+
+  1. init --output flag. internal/scaffold/ is extended so
+     apitest.yaml rendering accepts a format parameter and emits an
+     output: block accordingly. Supported values: terminal, json, tap,
+     junit, html, markdown. Unknown values exit 3 via the same error
+     path that the output.Config validator uses (internal/output/config.go).
+
+  2. Help text. cmd/apitest/main.go init-subcommand help documents
+     --output with its enum. The help reads cleanly in both
+     `apitest init --help` and `apitest --help` output.
+
+  3. docs/SPECIFICATION.md. New ##### Markdown Output Format
+     subsection under ### Output Formats and Redaction (current section
+     starts near line 2991). Documents sentinel format, section order,
+     determinism tiers by reference, splice rules, per-iteration
+     layout, content-type matrix, 1 MiB cap.
+
+  4. docs/MANUAL.md. New worked example under the run command section:
+     VS Code split-pane workflow with apitest watch, showing how the
+     developer iterates on YAML on the left while the markdown updates
+     on the right.
+
+  5. CHANGELOG.md. [Unreleased] gets Added and Changed entries batched
+     for the full W4 shipment. Prior M9 slices (M9-001..M9-004) did not
+     add CHANGELOG entries individually; M9-005 consolidates.
+
+  6. IMPROVEMENT.md. §5 W4 status flipped to Shipped with the five
+     merged-PR references. §6 request_slug line corrected to v1.2.
+     §8.1 extended with a v1.2 note so future readers are not misled.
+
+  Not in scope.
+  - Default-format changes (terminal stays the bare-init default).
+  - IMPROVEMENT.md W5 decomposition (separate future planning action;
+    W5 was blocked on W4, which this slice closes).
+  - schemastore.org submission (deferred per IMPROVEMENT.md §8.6).
+  - Any formatter code additions: M9-002/003/004 must have shipped
+    everything the docs describe.
+definition_of_done:
+  - "All behavior tests pass"
+  - "TestInit_OutputMarkdownFlag passes: init --output markdown writes expected apitest.yaml with output: block pointing at responses/"
+  - "TestInit_OutputAllFormats passes: each of terminal/json/tap/junit/html/markdown produces a scaffold that the config validator accepts end-to-end"
+  - "TestInit_OutputUnknownFormat passes: init --output unknown exits 3 with an error naming supported values"
+  - "TestInit_DefaultUnchanged passes: bare init (no --output flag) produces the pre-M9 scaffold byte-for-byte"
+  - "TestInit_Help_DocumentsOutputFlag passes: --help text includes the --output flag and its enum"
+  - "docs/SPECIFICATION.md contains a Markdown Output Format subsection under Output Formats and Redaction"
+  - "docs/MANUAL.md contains a VS Code split-pane worked example under the run command section"
+  - "CHANGELOG.md [Unreleased] has Added (--format markdown) and Changed (events schema v1.2) entries"
+  - "IMPROVEMENT.md §5 W4 status block flipped to Shipped with M9-001..M9-005 + PR references"
+  - "IMPROVEMENT.md §6 request_slug paragraph references v1.2 (not v1.1)"
+  - "IMPROVEMENT.md §8.1 extended with a v1.2 note (or a new §8 resolved question on the v1.2 bump)"
+  - "Regression: all M9-001, M9-002, M9-003, and M9-004 tests pass unmodified"
+  - "go test ./... passes with no regressions"
+  - "go test -cover ./internal/scaffold/... ./cmd/apitest/... >= 80%"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+complexity: low
+estimated_effort: "3-5 hours"

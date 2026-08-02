@@ -1,0 +1,14 @@
+name: WebSocket Heartbeat Bad Interval
+requests:
+  - name: Bad Heartbeat
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/echo"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 0
+        steps:
+          - action: send
+            message:
+              type: ping

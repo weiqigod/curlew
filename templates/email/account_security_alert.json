@@ -1,0 +1,16 @@
+{
+  "slug": "account_security_alert",
+  "subject": "Security alert on your ApiTool account",
+  "variables": {
+    "first_name":  "string",
+    "event_time":  "string (e.g. '2026-05-05T14:30:00Z')",
+    "event_ip":    "string (e.g. '203.0.113.42')",
+    "relogin_url": "string (HTTPS URL)"
+  },
+  "test_data": {
+    "first_name": "Alex",
+    "event_time": "2026-05-05T14:30:00Z",
+    "event_ip": "203.0.113.42",
+    "relogin_url": "https://app.apitool.dev/relogin"
+  }
+}

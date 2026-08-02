@@ -1,0 +1,9 @@
+name: From Command Test
+variables:
+  secret:
+    from_command: "echo secret123"
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

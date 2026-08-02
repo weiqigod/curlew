@@ -1,0 +1,164 @@
+---
+title: End-to-end checkout flow
+intent: Log in once, seed a fixture, chain a multi-step order, assert a cross-field invariant, then clean up — all in one collection.
+group: core
+features: [auth, chaining, cel, setup-teardown]
+command: apitest run collections/checkout.yaml --env staging
+order: 10
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+A real flow is never a single request. You authenticate, create something, act on
+it, verify the result holds together, and tidy up afterwards. This scenario does all
+of that — and shows how a **dynamic auth profile**, **value extraction**, a
+**CEL invariant**, and **setup/teardown phases** compose into one readable file.
+
+## The auth profile
+
+Token handling lives in `apitest.yaml` as a named profile. The profile runs a login
+collection, caches the token, and re-runs on a 401 — so individual collections never
+deal with credentials.
+
+```yaml
+# apitest.yaml
+auth_profiles:
+  shopper:
+    type: dynamic
+    collection: "auth/shopper-login.yaml"
+    extract: "access_token"
+    cache_ttl: 600
+    refresh_on_failure: true
+```
+
+```yaml
+# auth/shopper-login.yaml
+name: Shopper login
+requests:
+  - name: Login
+    request:
+      method: POST
+      url: "{{base_url}}/auth/login"
+      body:
+        email: "{{shopper_email}}"
+        password: "{{shopper_password}}"   # name contains "password" → auto-redacted
+    assertions:
+      status: 200
+    extract:
+      access_token: "$.access_token"
+```
+
+## The collection
+
+`setup` runs first (and is the only place a failure aborts the main phase),
+`requests` is the body of the test, and `teardown` always runs — even if the
+main phase fails — so your fixtures don't leak.
+
+```yaml
+# collections/checkout.yaml
+name: Checkout flow
+description: Create a cart, place an order, verify totals, clean up.
+
+setup:
+  - name: Create cart
+    auth: shopper
+    request:
+      method: POST
+      url: "{{base_url}}/carts"
+      headers:
+        Authorization: "Bearer {{access_token}}"
+    assertions:
+      status: 201
+    extract:
+      cart_id: "$.id"
+
+requests:
+  - name: Add item to cart
+    auth: shopper
+    request:
+      method: POST
+      url: "{{base_url}}/carts/{{cart_id}}/items"
+      headers:
+        Authorization: "Bearer {{access_token}}"
+      body:
+        sku: "WIDGET-1"
+        qty: 2
+    assertions:
+      status: 200
+
+  - name: Place order
+    required: true                 # nothing downstream makes sense if this fails
+    auth: shopper
+    request:
+      method: POST
+      url: "{{base_url}}/carts/{{cart_id}}/checkout"
+      headers:
+        Authorization: "Bearer {{access_token}}"
+        Idempotency-Key: "{{$uuid}}"
+    assertions:
+      status: 201
+      body:
+        "$.status":
+          equals: "confirmed"
+        "$.line_items":
+          length: 1
+      cel:
+        # Cross-field invariant the operator catalogue can't express:
+        - "response.body.total == response.body.subtotal + response.body.tax"
+        - "response.body.line_items.all(i, i.qty > 0)"
+    extract:
+      order_id: "$.id"
+
+teardown:
+  - name: Cancel test order
+    auth: shopper
+    request:
+      method: POST
+      url: "{{base_url}}/orders/{{order_id}}/cancel"
+      headers:
+        Authorization: "Bearer {{access_token}}"
+    assertions:
+      status: 204
+```
+
+## Run it
+
+```bash
+apitest run collections/checkout.yaml --env staging
+```
+
+## What you get
+
+```
+Collection: Checkout flow
+
+Setup:
+  ✓ Create cart  201  181ms
+
+  ✓ Add item to cart  200  96ms
+  ✓ Place order  201  143ms
+
+Teardown:
+  ✓ Cancel test order  204  74ms
+
+────────────────────────────────
+  4 request(s): 4 passed, 0 failed (494ms)
+```
+
+<Callout type="output">
+	Output is modeled on ApiTool's documented terminal format — this flow targets a
+	private staging API, so it can't run against a public endpoint.
+</Callout>
+
+The token is fetched once and reused across every request via the `shopper` profile;
+`cart_id` and `order_id` flow forward through extraction; the CEL block catches a
+billing bug (`total` drifting from `subtotal + tax`) that no status code would reveal.
+
+<Callout type="tip">
+	Because <code>Place order</code> is <code>required: true</code>, a failure there
+	skips the rest of the main phase — but teardown still runs, so the test order is
+	always cleaned up.
+</Callout>

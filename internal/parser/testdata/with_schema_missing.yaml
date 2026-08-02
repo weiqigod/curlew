@@ -1,0 +1,8 @@
+name: Schema Missing Test
+requests:
+  - name: Get User
+    request:
+      method: GET
+      url: "https://example.com/users/1"
+    assertions:
+      schema: "./schema/nonexistent.json"

@@ -1,0 +1,9 @@
+name: GraphQL No Query
+requests:
+  - name: Missing Query
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        variables:
+          id: "123"

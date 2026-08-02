@@ -1,0 +1,32 @@
+id: M1-023
+title: "Sensitive variable detection and redaction"
+status: done
+priority: 23
+created: 2026-03-09
+phase: "M1: Core CLI"
+dependencies: [M1-022]
+observable: |
+  Create collection with `password: secret123` and `api_key: !sensitive abc`.
+  Run with `-vv` and verify values show `[REDACTED]`. Run with
+  `--allow-sensitive` and see actual values.
+behaviors:
+  - "Given a variable named password, token, secret, api_key, or authorization, when displayed in output, then value shows [REDACTED]"
+  - "Given a variable tagged with !sensitive, when displayed in output, then value shows [REDACTED]"
+  - "Given --allow-sensitive flag, when executed, then sensitive values are shown in plain text"
+  - "Given sensitive values in JSON output format, when present, then they are redacted the same way"
+  - "Given sensitive values in request headers (Authorization), when shown in verbose output, then they are redacted"
+  - "Given a variable with !sensitive tag in .env file, when loaded, then it is marked sensitive"
+  - "Given redaction in error messages, when a sensitive variable fails to resolve, then the value is not leaked"
+scope: |
+  Add sensitive detection heuristics to `internal/variable/`. Implement
+  `!sensitive` YAML tag parsing. Add redaction layer to all output formatters.
+  Add `--allow-sensitive` CLI flag.
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+complexity: medium
+estimated_effort: "3-6 hours"

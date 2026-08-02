@@ -1,0 +1,41 @@
+id: M2-004
+title: "Vault provider interface and AWS Secrets Manager provider"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Vault Storage"
+
+dependencies:
+  - M2-002
+
+observable: |
+  Configure an AWS Secrets Manager vault profile in apitest.yaml with real or mocked credentials.
+  Run `apitest run tests.yaml` and confirm secrets are fetched and available as variables.
+  Run `go test ./internal/vault/...` with mocked AWS SDK calls.
+
+behaviors:
+  - "Given a configured `aws-secrets-manager` provider with valid credentials, when secrets are requested, then values are fetched from AWS and available as variables"
+  - "Given a configured `aws-secrets-manager` provider with `cache_ttl: 300`, when the same secret is requested within 300s, then the cached value is returned"
+  - "Given a configured `aws-secrets-manager` provider with `refresh_on_failure: true`, when a cached credential fails authentication, then the secret is re-fetched"
+  - "Given a configured `aws-secrets-manager` provider with structured extraction (`prod/db#password`), when fetched, then the JSON secret is parsed and the password field extracted"
+  - "Given invalid AWS credentials, when secrets are requested, then a clear error references AWS CLI documentation"
+  - "Given the vault provider interface, when a new provider is implemented, then it only needs to satisfy the Provider interface (Fetch, BulkFetch, Name)"
+
+scope: |
+  Create `internal/vault/provider.go` with the Provider interface (Fetch, BulkFetch, Name,
+  ValidateConfig). Implement `internal/vault/aws.go` for AWS Secrets Manager integration
+  using shell execution of `aws secretsmanager get-secret-value`. Implement credential
+  caching with TTL in `internal/vault/cache.go`. Support structured extraction of JSON
+  secret values. All providers execute CLI commands rather than using SDK libraries directly
+  (keeping the binary dependency-free).
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: high
+estimated_effort: "6-8 hours"

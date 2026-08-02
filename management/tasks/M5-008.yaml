@@ -1,0 +1,56 @@
+id: M5-008
+title: "Backend: distributed worker coordinator service"
+status: done
+priority: 3
+created: 2026-04-18
+completed_date: 2026-04-19
+verified_by: ai
+phase: "M5: Enterprise Tier"
+track: backend
+dependencies:
+  - M4-004
+observable: |
+  dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
+    --filter "FullyQualifiedName~Coordinator"
+  # Expected: Passed: >=10, Failed: 0
+  dotnet run --project src/ApiTool.Backend &
+  sleep 2
+  TOKEN=$(./scripts/test-token.sh owner@example.com)
+  ORG=$(curl -sS -H "Authorization: Bearer $TOKEN" \
+    http://localhost:5000/api/v1/organizations | jq -r '.organizations[0].id')
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"collection_sha":"abc123","shard_count":4}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/coordinator/jobs"
+  # Expected HTTP 201, body contains "job_id":"job_...","shards":[{"shard_id":"shd_...","state":"pending"}, ...]
+  # Worker claims a shard:
+  curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"worker_id":"w1","capabilities":["http"]}' \
+    "http://localhost:5000/api/v1/organizations/$ORG/coordinator/jobs/$JOB/claim"
+  # Expected HTTP 200, body contains "shard_id":"shd_...","requests":[...]
+behaviors:
+  - "Given an org member, when POST /coordinator/jobs is called with collection_sha and shard_count=4, then the response is 201 with job_id and 4 shard rows in state=pending"
+  - "Given a pending job, when POST /coordinator/jobs/{job_id}/claim is called with worker_id=w1, then the response is 200 with one shard transitioned to state=running and assigned_worker=w1"
+  - "Given all shards are already claimed, when POST /claim is called, then the response is 204 no_shards_available"
+  - "Given a worker submits a shard result via POST /coordinator/jobs/{job_id}/shards/{shard_id}/result with per-request outcomes, when the request succeeds, then the shard transitions to state=completed and a row is appended to the aggregated result"
+  - "Given a worker's heartbeat has not been received in 60 seconds, when the reaper runs, then the shard transitions back to state=pending and becomes claimable"
+  - "Given all shards complete, when the last one finishes, then the job transitions to state=completed and a combined result row is written via the M4-004 ingestion path"
+  - "Given a non-member calls POST /coordinator/jobs, when the request is made, then the response is 403 permission_denied"
+  - "Given Swagger is hit, when /swagger is loaded, then coordinator endpoints (jobs, claim, result, heartbeat) are listed"
+scope: |
+  Add a Coordinator/ folder under src/ApiTool.Backend with CoordinatorController,
+  CoordinatorJob + CoordinatorShard EF entities, and a ShardReaper hosted
+  service that re-queues stale shards every 15 seconds. Migration
+  0008_coordinator_jobs adds both tables. Worker auth reuses org-scoped
+  service tokens from M4-010 (spec thin — flagged in ambiguities). Shard
+  assignment is greedy (first-claim-wins); advanced strategies deferred.
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Swagger lists the coordinator endpoints"
+  - "Smoke test or equivalent integration check updated (if new capability)"
+complexity: high
+estimated_effort: "10-12 hours"

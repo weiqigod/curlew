@@ -1,0 +1,6 @@
+name: Ignored (no _test suffix)
+requests:
+  - name: Get
+    request:
+      method: GET
+      url: "https://httpbin.org/get"

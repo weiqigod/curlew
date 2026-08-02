@@ -1,0 +1,8 @@
+name: B
+requests:
+  - name: Get
+    request:
+      method: GET
+      url: "https://httpbin.org/get"
+    assertions:
+      status: 200

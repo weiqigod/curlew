@@ -1,0 +1,7 @@
+name: Missing Body File
+requests:
+  - name: Missing
+    request:
+      method: POST
+      url: "https://example.com/api"
+      body_file: "bodies/does_not_exist.json"

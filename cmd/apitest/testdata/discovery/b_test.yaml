@@ -1,0 +1,8 @@
+name: B Test
+requests:
+  - name: GetB
+    request:
+      method: GET
+      url: "https://httpbin.org/get"
+    assertions:
+      status: 200

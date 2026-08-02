@@ -1,0 +1,9 @@
+name: Conflict
+requests:
+  - name: Both body and body_file
+    request:
+      method: POST
+      url: "https://example.com/api"
+      body:
+        inline: "value"
+      body_file: "bodies/payload.json"

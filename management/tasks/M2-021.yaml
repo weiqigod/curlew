@@ -1,0 +1,42 @@
+id: M2-021
+title: "Data-driven output formatting (terminal compact/verbose, JSON, TAP)"
+status: done
+priority: 3
+created: 2026-03-20
+phase: "M2: Data-Driven Testing"
+
+dependencies:
+  - M2-019
+  - M1-020
+  - M1-021
+
+observable: |
+  Run data-driven with 100 iterations and confirm compact terminal output with progress bar.
+  Run data-driven with 3 iterations and confirm verbose terminal output.
+  Run data-driven with `--format json` and confirm data-driven JSON schema.
+  Run `go test ./internal/output/...` for data-driven output tests.
+
+behaviors:
+  - "Given data-driven with >= 10 iterations in terminal mode, when running, then compact output with progress bar is shown"
+  - "Given data-driven with < 10 iterations in terminal mode, when running, then verbose per-iteration output is shown"
+  - "Given data-driven terminal output, when iterations fail, then failed iteration details (request, response, assertion failures) are always shown"
+  - "Given data-driven with JSON output, when generated, then type=data_driven with total_iterations, passed_iterations, failed_iterations, average_duration_ms"
+  - "Given data-driven with TAP output, when generated, then each iteration is a TAP test line"
+  - "Given data-driven summary, when displayed, then it shows total, passed, failed, average duration, and failed iteration numbers"
+
+scope: |
+  Extend `internal/output/` formatters to support data-driven results: compact terminal
+  with progress bar (>= 10 iterations), verbose terminal (< 10 iterations), JSON schema
+  with data-driven-specific fields, TAP output with per-iteration lines. Always show
+  failed iteration details regardless of mode.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "4-6 hours"

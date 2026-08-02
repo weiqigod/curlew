@@ -1,0 +1,10 @@
+name: Data Driven Simple
+requests:
+  - name: Get User
+    data_driven:
+      source: datadriven_simple.csv
+    request:
+      method: GET
+      url: "https://httpbin.org/get?name={{name}}"
+    assertions:
+      status: 200

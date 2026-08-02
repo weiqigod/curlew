@@ -1,0 +1,7 @@
+name: Unsupported Method Test
+
+requests:
+  - name: Bad Method
+    request:
+      method: FOOBAR
+      url: "https://example.com"

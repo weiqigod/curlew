@@ -1,0 +1,175 @@
+id: M17-001
+title: "Signer registry foundation and `signing:` request field"
+status: done
+priority: 1
+created: 2026-04-28
+phase: "M17: First-party signers and signing helpers"
+track: go-cli
+dependencies: []
+observable: |
+  go build ./cmd/apitest
+
+  go test -run 'TestSignerRegistry_RegisterAndLookup' -v ./internal/signer/...
+  # Expected: PASS — Register("test-noop", noopSignerFactory) succeeds;
+  # Lookup("test-noop") returns the registered factory; Lookup("missing")
+  # returns ErrUnknownSignerType wrapping the requested type name with the
+  # sorted list of registered types (mirrors resolveAuthProfile's available-list
+  # error in resolveAuthProfile in internal/runner/runner.go).
+
+  go test -run 'TestSignerRegistry_BuiltinTypesEmpty' -v ./internal/signer/...
+  # Expected: PASS — registry constructed via NewBuiltinRegistry() in M17-001
+  # contains zero registered concrete types; aws-sigv4 and oauth1 ship in
+  # M17-002 / M17-003 respectively.
+
+  go test -run 'TestParser_SigningField_RequestLevel' -v ./internal/parser/...
+  # Expected: PASS — a RequestItem with `signing: {type: noop, params: {}}`
+  # round-trips through ParseFile and surfaces as RequestItem.Signing
+  # (*SigningSpec) with Type="noop" and Params map populated.
+
+  go test -run 'TestParser_SigningField_CollectionDefault' -v ./internal/parser/...
+  # Expected: PASS — collection-level `signing:` applies to every request that
+  # does not set its own; per-request override wins; explicit per-request
+  # `signing: null` disables (mirrors auth_profile precedence in M2-008/M2-010).
+
+  go test -run 'TestRunner_SignerStep_InvokedBetweenTemplatingAndExec' -v ./internal/runner/...
+  # Expected: PASS — using a fake Signer that records the *httpexec.Request it
+  # received, the runner invokes Sign(ctx, req, sensitives) AFTER all variable
+  # interpolation completed and BEFORE the exec function runs (verified by
+  # asserting the URL/headers/body the signer saw match the post-templating
+  # values, and that any signer-injected header is present in the request the
+  # exec wrapper receives). The signer step sits parallel to the
+  # OnRequest hook-wrap path in internal/runner/runner.go's exec function.
+
+  go test -run 'TestRunner_SignerStep_NoSigning_FastPath' -v ./internal/runner/...
+  # Expected: PASS — when no request and no collection sets `signing:`, the
+  # exec function pointer is unchanged (no allocation, no wrap), mirroring the
+  # `vars.Hooks != nil` fast-path branch in internal/runner/runner.go's exec function.
+
+  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  # Add a request with `signing: {type: noop, params: {marker: "X-Signed-By"}}`
+  # using the test-only noop signer (registered behind a build-tag in
+  # internal/signer/noop_signer_test.go).
+  ./apitest run collections/sample.yaml --dry-run --format json
+  # Expected: --dry-run output shows the noop-signer-injected header
+  # `X-Signed-By: noop` on the rendered request, proving the registry +
+  # signing field + runner step compose end-to-end. Real signers ship in
+  # M17-002 / M17-003.
+
+  grep -nF 'apitest-sigv4' docs/MANUAL.md | grep -v '8\.[0-9]' || echo "doc-fix landed"
+  # Expected: "doc-fix landed" — the canonical-plugin-example reference at
+  # the canonical apitest-sigv4 plugin example in docs/MANUAL.md has been replaced with a built-in
+  # `signing: {type: aws-sigv4, ...}` example.
+
+  grep -nE 'plugin loading.*Enterprise|Enterprise.*plugin' docs/MANUAL.md | head -5
+  # Expected: the Enterprise plugin tier-gate paragraph in docs/MANUAL.md is unchanged in wording, but a
+  # one-paragraph clarification immediately above (or in a sibling subsection)
+  # disambiguates user-supplied plugins (Enterprise-gated) from built-in
+  # signers and dynamic functions (universally available across tiers).
+
+  go test ./...
+  # Expected: PASS.
+behaviors:
+  - "Given an empty registry, when Register(\"test-noop\", factory) is called, then Lookup(\"test-noop\") returns the registered factory and a nil error."
+  - "Given a registry with one type registered, when Lookup is called with a name that is not registered, then it returns ErrUnknownSignerType wrapping the requested name and listing the registered names sorted lexicographically (matching the available-list error shape in resolveAuthProfile in internal/runner/runner.go)."
+  - "Given a RequestItem YAML with `signing: {type: noop, params: {key: value}}`, when parsed by parser.ParseFile, then the resulting RequestItem.Signing field is *SigningSpec with Type=\"noop\" and Params is a map[string]any containing key=\"value\"."
+  - "Given a Collection with collection-level `signing:` and a request that does not set its own, when the runner builds the per-request signing decision, then the collection-level spec is used; given a request that sets its own `signing:`, then the per-request spec wins; given a request with explicit `signing: null` and a collection-level default, then no signing runs for that request (mirrors auth_profile precedence in M2-008/M2-010)."
+  - "Given a request whose resolved signing spec names a type unknown to the registry, when the runner attempts to invoke the signer, then it surfaces an ErrUnknownSignerType-wrapped error naming the requested type and the sorted list of available types, and the request is recorded as error (not fail)."
+  - "Given a Signer interface defined as `Sign(ctx context.Context, req *httpexec.Request, sensitives *variable.SensitiveSet) error` and a fake signer that injects header `X-Test-Signer: ok`, when the runner invokes the signer for a request that has finished templating, then the *httpexec.Request handed to the exec function carries the injected header (proving the signer step sits between templating and exec)."
+  - "Given no request and no collection in the run uses `signing:`, when the runner builds the exec chain, then the exec pointer is unchanged from the templating-only baseline (no signer wrap allocated), mirroring the `vars.Hooks != nil` fast-path branch inside internal/runner/runner.go's exec function."
+  - "Given a signer resolves a credential string from a sensitive variable (e.g. via signing-spec param `secret_key: \"{{aws_secret}}\"` where aws_secret is in the SensitiveSet) and calls sensitives.AddValue(resolved) inside Sign, when the run completes, then the resolved secret is registered as a redaction-trigger value on the run's SensitiveSet (verified using a noop-test signer that calls AddValue with a known string)."
+  - "Given the existing `auth_profile` machinery (the ProfileType \"dynamic\" constant in internal/auth/profile.go), when M17-001 lands, then auth/profile.go is unchanged: M17 introduces a sibling seam, never extends ProfileType (verified by `git diff internal/auth/profile.go` showing zero lines changed)."
+  - "Given the Signer interface defined as `Sign(ctx, *httpexec.Request, *variable.SensitiveSet) error`, when read by an M17-002 / M17-003 implementer, then the interface signature does NOT carry a clock argument; concrete signers that need a clock own it as a per-package Factory option `WithClock(now func() time.Time)` defaulting to time.Now (mirrors the Registry.now clock seam in internal/variable/dynamic.go)."
+  - "Given docs/MANUAL.md previously cited `apitest-sigv4` as the canonical plugin example, when the doc-fix in this slice lands, then the apitest-sigv4 plugin reference is replaced by a built-in `signing: {type: aws-sigv4, ...}` example, AND the Enterprise plugin tier-gate paragraph carries a one-paragraph clarification that built-in signers and dynamic functions are universally available across tiers (the gate applies only to user-supplied plugins loaded via `APITEST_PLUGINS`)."
+scope: |
+  Foundation-only milestone slice. Introduces the new `internal/signer/`
+  package (Signer interface, named registry, ErrUnknownSignerType sentinel,
+  NewBuiltinRegistry constructor returning an empty registry), the YAML
+  `signing:` field on RequestItem and Collection, and a runner step that
+  invokes the resolved signer between variable templating and the
+  exec/hook chain. NO concrete signer ships in this slice — aws-sigv4 lands
+  in M17-002 and oauth1 lands in M17-003. A test-only noop signer (behind
+  `_test.go` files or a `signer_test` build-tag fixture) demonstrates the
+  end-to-end wiring without bloating the production binary.
+
+  Signer interface shape (per Open Decision #5):
+
+      type Signer interface {
+          Sign(ctx context.Context, req *httpexec.Request, sensitives *variable.SensitiveSet) error
+      }
+
+  Each concrete signer is responsible for calling sensitives.AddValue(resolved)
+  for any credential it resolved from a sensitive variable, mirroring the
+  M12-005 $hmacSha256 pattern.
+
+  Clock seam: the Signer interface deliberately does NOT carry a clock
+  argument. Concrete signers that need a clock for testability (M17-002,
+  M17-003) own it inside their own package — the convention is a Factory
+  option `WithClock(now func() time.Time)` defaulting to time.Now. This
+  matches the M11/M12 dynamic-function clock pattern at
+  Registry.now in internal/variable/dynamic.go. Rationale: most signers will never
+  need a clock; threading it through the interface signature adds an
+  argument every implementer would have to ignore. Document this in
+  M17-001's package doc so M17-002 / M17-003 implementers do not
+  reverse-engineer the contract.
+
+  YAML field precedence (per Open Decision #1, mirroring the M2-008/M2-010
+  auth_profile model): collection-level `signing:` applies to every
+  request that does not set its own; per-request `signing:` overrides;
+  explicit per-request `signing: null` disables for that request.
+
+  Runner integration: a new wrap step sits parallel to the OnRequest plugin
+  hook in internal/runner/runner.go's exec function. The step is allocated only
+  when at least one request in the run resolves to a non-nil signing spec
+  (fast path mirrors the `vars.Hooks != nil` branch inside that same exec
+  function). The signer receives the *httpexec.Request post-templating and
+  may mutate Method, URL, Headers, Body, QueryParams in place (same surface
+  area as the RequestPayload type in internal/plugin/hooks/hooks.go).
+
+  Documentation cleanup (per Open Decision #8):
+    - the canonical `apitest-sigv4` plugin example in docs/MANUAL.md —
+      replace with a placeholder built-in `signing: {type: aws-sigv4, ...}`
+      example (the example body itself is finalised in M17-002, but the
+      old plugin reference is removed in this slice).
+    - the Enterprise plugin tier-gate paragraph in docs/MANUAL.md — add
+      a one-paragraph clarification (in a sibling
+      callout immediately preceding or following the env-var table) that
+      the Enterprise plugin gate applies to user-supplied plugins loaded
+      via `APITEST_PLUGINS`; built-in signers (M17-002, M17-003) and
+      built-in dynamic functions (M17-004, M17-005) are universally
+      available across tiers (Open Decision #6).
+
+  Files touched:
+    - internal/signer/signer.go            (new — Signer interface, registry, sentinel)
+    - internal/signer/signer_test.go       (new — registry tests, fake/noop signer)
+    - internal/parser/collection.go        (add Signing *SigningSpec to RequestItem and Collection; new SigningSpec type with Type string + Params map[string]any)
+    - internal/parser/collection_test.go   (new TestParser_SigningField_* cases)
+    - internal/parser/schema_test.go       (extend round-trip schema cases for the new field)
+    - internal/runner/runner.go            (new signer-resolution + wrap step parallel to the OnRequest hook block inside the exec function; precedence resolution mirroring resolveAuthProfile)
+    - internal/runner/runner_test.go       (TestRunner_SignerStep_*)
+    - docs/MANUAL.md                       (canonical-plugin-example doc-fix; Enterprise plugin tier-gate clarification)
+
+  Files explicitly NOT touched:
+    - internal/auth/profile.go             (the auth_profile machinery is unchanged; no new ProfileType)
+    - internal/plugin/hooks/*              (the JSON-RPC hooks dispatcher is unrelated; M17 is in-process)
+    - internal/variable/*                  (no changes to dynamic functions in this slice — M17-004 and M17-005 do that work)
+
+  Not in scope: any concrete signer implementation (aws-sigv4 → M17-002;
+  oauth1 → M17-003); SPECIFICATION.md update for the `signing:` field
+  (recommended as a separate v4.2 follow-up commit per Open Decision #8,
+  not blocking M17); any change to the user-supplied plugin loading path
+  or its Enterprise tier gate (the clarification is doc-only).
+definition_of_done:
+  - "All behavior tests pass"
+  - "go test ./... passes"
+  - "go test -cover ./internal/signer/... >= 80%"
+  - "go test -cover ./internal/parser/... >= 80% (no regression from current baseline)"
+  - "go test -cover ./internal/runner/... >= 80% (no regression from current baseline)"
+  - "golangci-lint run passes with 0 issues"
+  - "./smoke/run.sh passes"
+  - "./scripts/ci-local.sh passes"
+  - "internal/auth/profile.go is unchanged (verified via git diff producing zero lines for that path)"
+  - "internal/signer/signer.go's package doc explicitly states that the Signer interface does NOT carry a clock; concrete signers needing a clock own it as a per-package Factory `WithClock` option defaulting to time.Now"
+  - "docs/MANUAL.md no longer cites apitest-sigv4 as the canonical plugin example; a placeholder built-in `signing: {type: aws-sigv4, ...}` example is in its place"
+  - "docs/MANUAL.md's Enterprise plugin tier-gate paragraph carries a sibling one-paragraph clarification distinguishing user-supplied plugins (Enterprise-gated) from built-in signers and dynamic functions (universally available across tiers)"
+  - "A smoke or integration fixture under smoke/ or testdata/ exercises the registry + signing field + runner step end-to-end using a test-only noop signer, proving the wiring before any real signer lands"
+complexity: high

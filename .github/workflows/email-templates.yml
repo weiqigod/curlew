@@ -1,0 +1,73 @@
+name: Email templates upload (fake SendGrid)
+
+on:
+  # Auto-triggers disabled while GitHub Actions billing is paused.
+  # Re-enable by restoring the push/pull_request blocks once billing is resolved.
+  workflow_dispatch:
+
+concurrency:
+  group: email-templates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  upload:
+    name: Compile and upload templates against fake SendGrid
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Start fake SendGrid
+        run: |
+          python3 scripts/fake-sendgrid.py 18080 &
+          echo $! > /tmp/fake-sendgrid.pid
+          # Wait until the fake is ready (up to 10s).
+          for i in $(seq 1 20); do
+            if curl -fsS "http://localhost:18080/v3/templates?generations=dynamic" > /dev/null 2>&1; then
+              echo "fake-sendgrid is ready."
+              break
+            fi
+            sleep 0.5
+          done
+          # Final hard check — fail fast if still not up.
+          curl -fsS "http://localhost:18080/v3/templates?generations=dynamic"
+
+      - name: Upload templates against fake SendGrid
+        env:
+          SENDGRID_API_BASE: http://localhost:18080
+        run: |
+          dotnet run --project src/ApiTool.Backend -- \
+            dev upload-templates --api-key fake-ci-key \
+            > "${RUNNER_TEMP}/sendgrid-templates.env"
+          cat "${RUNNER_TEMP}/sendgrid-templates.env"
+
+      - name: Assert six per-slug template IDs were written
+        run: |
+          count=$(grep -c '^APITOOL__SENDGRID__TEMPLATES__' "${RUNNER_TEMP}/sendgrid-templates.env" || true)
+          if [ "$count" -ne 6 ]; then
+            echo "FAIL: expected 6 template IDs, got ${count}"
+            cat "${RUNNER_TEMP}/sendgrid-templates.env"
+            exit 1
+          fi
+          echo "All six template IDs written to secrets-store fixture."
+
+      - name: Stop fake SendGrid
+        if: always()
+        run: kill "$(cat /tmp/fake-sendgrid.pid)" || true
+
+      - name: Upload secrets-store fixture artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sendgrid-templates-env
+          path: ${{ runner.temp }}/sendgrid-templates.env
+          retention-days: 7

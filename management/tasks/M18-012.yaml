@@ -1,0 +1,52 @@
+id: M18-012
+title: "M18 end-to-end convergence: telemetry → export → deletion → anonymisation → audit-log export → encrypted columns"
+status: done
+priority: 5
+created: 2026-05-17
+completed_date: 2026-05-19
+verified_by: ai
+phase: "M18: Compliance & launch"
+
+dependencies:
+  - M18-001
+  - M18-002
+  - M18-003
+  - M18-004
+  - M18-005
+  - M18-006
+  - M18-007
+  - M18-008
+  - M18-009
+  - M18-010
+  - M18-011
+
+observable: |
+  Run `./scripts/ci-local.sh --full` to bring up Postgres, backend, web portal, sendgrid-fake, stripe-mock, MinIO (IObjectStore), and a fake-KMS shim. Then run `npm --prefix web run test:e2e -- m18-compliance.spec.ts` (a new Playwright spec orchestrating the full convergence). The spec exits 0 on success and produces a single-line summary `M18 e2e PASS in <duration>s`. The scenario covers, in order: (1) register a new user via /auth/register; (2) verify email; (3) `apitest telemetry enable` and confirm install_id created with mode 0600; (4) run a sample collection via `apitest run` and confirm a row appears in telemetry_events scoped to that install_id; (5) request data export via /account/data → confirm signed-URL JSON bundle contains telemetry_events rows for the user's install_id PLUS the InExport subset of the M18-003 manifest; (6) initiate account deletion via /account/data → re-auth prompt → 30-day cooldown countdown displayed → cancellation tested and verified mid-window; (7) re-initiate, advance the clock 30 days via the test hook, force UserDeletionFinalizerHost; (8) confirm audit-log rows for that user are anonymised (actor_id NULL, actor_email matches `deleted-user-[0-9a-f]{8}`); (9) confirm a `user.anonymised` audit-log row lands; (10) as an Enterprise admin in a separate org, export the audit log as JSONL via streaming chunked transfer and parse the response with `wc -l` matching the seeded row count; (11) write a team-vault config and a schedule with env_vars, read them back, and assert the raw DB columns are ciphertext (hex via `psql`) while the API response is cleartext (envelope round-trip); (12) `apitest telemetry delete-request` and confirm install_id file is removed and backend telemetry_events rows for that install_id are purged.
+
+behaviors:
+  - "Given a fresh stack from ./scripts/ci-local.sh --full, when the M18 convergence scenario runs end-to-end across all 12 ordered steps, then every step succeeds and the final exit code is 0"
+  - "Given the user registers, enables telemetry, and runs a collection, when telemetry_events is queried by install_id, then >=1 row exists carrying that install_id with event_type=run.completed"
+  - "Given the user requests data export, when the signed-URL bundle is downloaded and parsed, then it carries both the InExport tables from the M18-003 manifest AND the user's telemetry_events rows scoped to their install_id (cross-cluster integration proof)"
+  - "Given the user initiates account deletion and the finalizer runs past 30-day cooldown, when audit-log rows are queried for actor_id=<deleted user>, then every row shows actor_id IS NULL and actor_email matches `deleted-user-[0-9a-f]{8}` (anonymisation proof)"
+  - "Given anonymisation completes, when the audit-log is queried for event_type=user.anonymised, then a row exists carrying the deterministic token as target_id (audit-of-audit trail proof)"
+  - "Given an Enterprise admin exports the org's audit log as JSONL via streaming, when the response is parsed, then it carries the documented row count via chunked transfer (M18-001 streaming proof against a real Enterprise-tier org)"
+  - "Given team_vaults and schedules.env_vars rows are written and read back via the API, when the raw DB columns are inspected, then they contain ciphertext (not cleartext), and the API responses contain cleartext (M18-009 envelope round-trip proof)"
+  - "Given `apitest telemetry delete-request` is invoked, when the command completes, then the local install_id file is removed AND the backend telemetry_events rows for that install_id are scheduled for purge (cross-CLI/backend GDPR deletion proof)"
+  - "Given any individual slice's failure modes (covered in their own slices' tests), when the convergence scenario runs the happy path only, then the scenario does not assert on those — it only proves the parts wire together end-to-end (mirrors M16-021's posture)"
+
+scope: |
+  New Playwright spec web/tests/e2e/m18-compliance.spec.ts orchestrating web + CLI + backend across the full M18 happy path. New shell helper scripts/m18-e2e.sh wraps Playwright + CLI invocations + psql assertions + MinIO IObjectStore reads + fake-KMS shim. Reuses ./scripts/ci-local.sh --full to bring up the full stack including MinIO (for IObjectStore) and a fake-KMS shim (for M18-009 envelope encryption — production tests can run against real Google Cloud KMS via a separate nightly job). Happy-path only per the M16-021 pattern. Mirrors M14-021's and M16-021's convergence-slice role. Three new test fixtures: a sample collection YAML for the telemetry-emitting `apitest run`, a sendgrid-fake assertion harness for the two account_deletion_* templates, an Enterprise-tier seed for the audit-log streaming export step.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as documented (npm run test:e2e -- m18-compliance.spec.ts exits 0)"
+  - "Test coverage >= 80% on new e2e harness code"
+  - "No build warnings or lint errors"
+  - "Full happy-path scenario passes against ./scripts/ci-local.sh --full"
+  - "Playwright spec runs headlessly under CI"
+  - "CHANGELOG.md entry references the full v4.4 decision set"
+  - "Release-readiness gate: this slice passing is the launch-blocking signal per project_milestone_release_model.md"
+
+complexity: high
+estimated_effort: "large slice"
+track: e2e

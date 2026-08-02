@@ -1,0 +1,87 @@
+---
+title: AWS SigV4 with vault-backed credentials
+intent: Sign requests with AWS Signature V4 using credentials pulled from a vault — never a literal in the file — and watch them get redacted everywhere.
+group: security
+features: [signing, vault, redaction]
+command: apitest run collections/s3.yaml
+order: 90
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+ApiTool has built-in request signers — no plugin binary required. The `signing:`
+block applies between variable templating and dispatch, so you sign requests to AWS
+services with **Signature V4** using credentials that come from a vault, not from the
+YAML. Because those credentials are vault-resolved, they're redacted in every output.
+
+## Credentials from a vault
+
+```yaml
+# apitest.yaml
+secrets:
+  provider: aws-secrets-manager
+  region: us-east-1
+  keys:
+    aws_key: "prod/aws#access_key_id"        # #field extracts one key from the secret
+    aws_secret: "prod/aws#secret_access_key"
+  cache_ttl: 300
+  refresh_on_failure: true
+```
+
+ApiTool shells out to the provider's authenticated CLI (`aws` here) — it doesn't
+embed SDKs. The `#field` suffix pulls a single field out of a structured secret.
+
+## Sign the request
+
+```yaml
+# collections/s3.yaml
+name: S3 access
+requests:
+  - name: List bucket
+    request:
+      method: GET
+      url: "https://s3.us-east-1.amazonaws.com/my-bucket?list-type=2"
+    signing:
+      type: aws-sigv4
+      params:
+        region: us-east-1
+        service: s3
+        access_key: "{{aws_key}}"
+        secret_key: "{{aws_secret}}"   # vault-resolved → auto-redacted
+    assertions:
+      status: 200
+      headers:
+        Content-Type:
+          matches: "^application/xml"
+```
+
+STS-issued temporary credentials work too — add `session_token: "{{aws_session}}"`.
+
+## Run it
+
+```bash
+apitest run collections/s3.yaml
+```
+
+```
+Collection: S3 access
+  ✓ List bucket  200  208ms
+
+────────────────────────────────
+  1 request(s): 1 passed, 0 failed (208ms)
+```
+
+<Callout type="output">
+	Representative output — signing against your own AWS account. For local runs without
+	hitting a real vault, set <code>APITEST_VAULT_STUB=1</code> to use an in-memory stub.
+</Callout>
+
+<Callout type="warn">
+	Always reference credentials as <code>{'{{vars}}'}</code>, never as literal strings.
+	A literal <code>secret_key</code> has no source variable to trace back to, so
+	ApiTool can't add it to the redaction set — and it could leak into output. The
+	vault-backed approach above is redacted by construction.
+</Callout>

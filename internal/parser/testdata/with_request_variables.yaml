@@ -1,0 +1,9 @@
+name: Request Variables Test
+requests:
+  - name: With Variables
+    variables:
+      key: val
+      another: value2
+    request:
+      method: GET
+      url: "https://example.com"

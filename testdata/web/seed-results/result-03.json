@@ -1,0 +1,17 @@
+{
+  "collection_name": "auth-flow",
+  "run_at": "2026-04-13T09:15:00Z",
+  "duration_ms": 750,
+  "pass_count": 5,
+  "fail_count": 0,
+  "skipped_count": 0,
+  "triggered_by": "cli",
+  "git_sha": "ghi9012",
+  "items": [
+    { "name": "POST /auth/login",        "status": "passed", "duration_ms": 150, "message": null },
+    { "name": "GET /auth/me",            "status": "passed", "duration_ms": 100, "message": null },
+    { "name": "POST /auth/refresh",      "status": "passed", "duration_ms": 120, "message": null },
+    { "name": "POST /auth/logout",       "status": "passed", "duration_ms": 90,  "message": null },
+    { "name": "GET /auth/me (expired)",  "status": "passed", "duration_ms": 290, "message": null }
+  ]
+}

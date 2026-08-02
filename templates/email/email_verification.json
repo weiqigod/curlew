@@ -1,0 +1,12 @@
+{
+  "slug": "email_verification",
+  "subject": "Verify your ApiTool email",
+  "variables": {
+    "first_name":       "string",
+    "verification_url": "string (HTTPS URL)"
+  },
+  "test_data": {
+    "first_name": "Alex",
+    "verification_url": "https://app.apitool.dev/verify?t=test123"
+  }
+}

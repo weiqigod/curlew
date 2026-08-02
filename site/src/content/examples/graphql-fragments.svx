@@ -1,0 +1,113 @@
+---
+title: GraphQL with fragments & error modes
+intent: Test GraphQL as a first-class protocol — external queries, reusable fragments, typed variables, and explicit handling of partial errors.
+group: resilience
+features: [graphql, cel]
+command: apitest run collections/graphql.yaml
+order: 70
+runnable: false
+---
+
+<script>
+	import Callout from '$lib/components/Callout.svelte';
+</script>
+
+GraphQL shares ApiTool's request envelope — you just add `protocol: graphql` and a
+`graphql:` block. Queries can live in their own `.graphql` files, fragments are
+composed and topologically ordered for you, and because a GraphQL server can return
+`200 OK` with an `errors` array, you choose explicitly how partial failures are
+treated.
+
+## The query and fragments
+
+```graphql
+# graphql/list-users.graphql
+query ListUsers($limit: Int!) {
+  users(first: $limit) {
+    ...UserFields
+    ...Timestamps
+  }
+}
+```
+
+```graphql
+# graphql/fragments/user-fields.graphql
+fragment UserFields on User {
+  id
+  name
+  email
+}
+```
+
+```graphql
+# graphql/fragments/timestamps.graphql
+fragment Timestamps on Node {
+  createdAt
+  updatedAt
+}
+```
+
+## The collection
+
+```yaml
+# collections/graphql.yaml
+name: GraphQL API
+requests:
+  - name: List users
+    request:
+      protocol: graphql
+      url: "{{base_url}}/graphql"
+      graphql:
+        query_file: "graphql/list-users.graphql"
+        fragments:
+          - "graphql/fragments/user-fields.graphql"
+          - "graphql/fragments/timestamps.graphql"
+        variables:
+          limit: 10
+        error_handling: fail        # fail | warn | ignore
+    assertions:
+      status: 200
+      body:
+        "$.data.users":
+          type: "array"
+        "$.errors":
+          not_exists: true
+      cel:
+        - "response.body.data.users.size() <= 10"
+        - "response.body.data.users.all(u, u.email != '')"
+```
+
+The method is set to `POST` and `Content-Type: application/json` automatically; the
+body becomes `{"query": "...", "variables": {...}}` with the fragments concatenated
+ahead of the query.
+
+## Choosing how errors are treated
+
+A GraphQL response has four shapes, and `error_handling` decides each verdict:
+
+| Outcome | `data` / `errors` | `fail` | `warn` | `ignore` |
+|---|---|---|---|---|
+| success | data, no errors | pass | pass | pass |
+| partial | data **and** errors | fail | warn | pass |
+| full failure | no data, errors | fail | warn | pass |
+| empty | neither | pass | pass | pass |
+
+## Run it
+
+```bash
+apitest run collections/graphql.yaml
+```
+
+```
+Collection: GraphQL API
+  ✓ List users  200  134ms
+
+────────────────────────────────
+  1 request(s): 1 passed, 0 failed (134ms)
+```
+
+<Callout type="output">
+	Representative output — point <code>url</code> at any GraphQL endpoint to run it for
+	real. Circular fragment references and duplicate fragment names are rejected at
+	parse time.
+</Callout>

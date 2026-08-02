@@ -1,0 +1,6 @@
+name: status-integer
+requests:
+  - name: OK
+    request: { method: GET, url: "https://example.com/" }
+    assertions:
+      status: 200

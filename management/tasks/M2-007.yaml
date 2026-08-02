@@ -1,0 +1,41 @@
+id: M2-007
+title: "Vault integration with runner and variable precedence"
+status: done
+priority: 4
+created: 2026-03-20
+phase: "M2: Vault Storage"
+
+dependencies:
+  - M2-004
+  - M2-001
+  - M1-014
+
+observable: |
+  Create a collection using vault-sourced variables alongside CLI, env, and collection vars.
+  Run `apitest run tests.yaml --var api_key=override` and confirm CLI takes precedence.
+  Run `go test ./internal/runner/...` to verify vault variables at precedence 6.
+
+behaviors:
+  - "Given vault provider variables at precedence level 6, when a CLI --var override exists for the same name, then the CLI value wins"
+  - "Given vault provider variables at precedence level 6 and from_command at level 5, when both define the same variable, then vault value wins"
+  - "Given vault variables loaded during runner initialization, when requests reference them, then values are interpolated correctly"
+  - "Given vault fetch failure for a required variable, when the collection runs, then exit code 5 (configuration error) with clear message"
+  - "Given vault variables, when sensitivity is checked, then all vault variables are automatically sensitive"
+  - "Given bulk retrieval support for a provider, when multiple keys are configured, then a single vault API call fetches all values"
+
+scope: |
+  Integrate vault provider execution into `internal/runner/runner.go` variable setup.
+  Vault variables are resolved after from_command (precedence 5) and before collection
+  variables (precedence 7). Wire the vault provider registry into the Run function via
+  VarSources. Handle errors gracefully with structured messages.
+
+definition_of_done:
+  - All behavior tests pass
+  - Observable output works as specified
+  - Test coverage >= 80%
+  - No build warnings or lint errors
+  - Help text updated (if user-facing)
+  - Smoke test updated (if new capability)
+
+complexity: medium
+estimated_effort: "3-5 hours"

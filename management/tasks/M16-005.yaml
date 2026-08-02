@@ -1,0 +1,36 @@
+id: M16-005
+title: "trials table migration and entity"
+status: done
+priority: 2
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-001
+
+track: backend
+
+observable: |
+  Run `dotnet ef database update --project src/ApiTool.Backend` and verify `psql -c "\d trials"` shows the columns from the spec ("Trial Persistence and Activation"): `id`, `user_id`, `feature`, `kind` (`full_initial | ondemand | preempted_by_subscription`), `granted_at`, `expires_at`, `notified_3day_at` (nullable), `notified_1day_at` (nullable), `created_at`, `updated_at`. Run `psql -c "\d trials"` and confirm `UNIQUE (user_id, feature)`. Roll back with `dotnet ef migrations remove`. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~TrialEntity"` and observe all pass.
+
+behaviors:
+  - "Given the migration is applied to a fresh database, when the schema is inspected, then trials table exists with the columns listed in the scope and a UNIQUE constraint on (user_id, feature)"
+  - "Given the migration is applied, when the schema is inspected, then trials.kind is constrained to one of full_initial / ondemand / preempted_by_subscription via a CHECK constraint or enum"
+  - "Given two rows with the same (user_id, feature) are inserted, when the second insert is attempted, then the database raises a unique-violation error"
+  - "Given the migration is rolled back, when the schema is re-inspected, then the trials table is gone cleanly"
+  - "Given a Trial entity with kind = preempted_by_subscription, when read via AppDbContext, then EF Core deserializes the enum/string to the C# Trial.Kind enum value correctly"
+  - "Given the indexes documented in the spec appendix (covering (user_id) and (expires_at) WHERE notified_*_at IS NULL filters), when EXPLAIN is run on the daily-cron query, then the relevant index is used"
+
+scope: |
+  EF Core migration adding the `trials` table per the Database Schema Reference Appendix entry for `trials`. New entity `src/ApiTool.Backend/Data/Entities/Trial.cs` with a `TrialKind` enum (`FullInitial`, `OnDemand`, `PreemptedBySubscription`) mapped via a string converter. Wire into `AppDbContext` with the `UNIQUE (user_id, feature)` index, indexes on `(user_id)` and `(expires_at) WHERE notified_3day_at IS NULL`, and `(expires_at) WHERE notified_1day_at IS NULL`. No service or endpoint in this slice — those land in M16-006 and M16-007. Migration must NOT reset existing trial rows on roll-forward (per Open Decision 7 — preempted trials remain preempted on cancellation/re-migrate).
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc unchanged (no endpoints in this slice)"
+
+complexity: low
+estimated_effort: "1-3 hours"

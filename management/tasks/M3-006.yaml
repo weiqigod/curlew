@@ -1,0 +1,52 @@
+id: M3-006
+title: "openapi import: headers, request bodies, and status assertions"
+status: done
+priority: 4
+created: 2026-04-10
+phase: "M3: Professional Tier"
+
+dependencies:
+  - M3-005
+
+observable: |
+  Using a richer OpenAPI spec at `testdata/openapi/petstore-full.yaml` with
+  operations that declare query parameters, required headers (e.g. `X-API-Key`),
+  JSON request bodies with `$ref` schemas, and multiple response codes
+  (200, 201, 404). Run
+  `./apitest import openapi testdata/openapi/petstore-full.yaml --output out.yaml`
+  and verify out.yaml contains: request headers derived from parameters,
+  a JSON request body example matching the schema, and
+  `assertions: { status: [200, 201, 404] }` (the union of all documented response
+  codes). Run `apitest validate out.yaml` and verify it parses cleanly.
+  Run `go test ./internal/openapi/...` and verify all pass.
+
+behaviors:
+  - "Given an OpenAPI operation with `parameters: [{in: header, name: X-API-Key, required: true}]`, when imported, then the generated request includes `headers: { X-API-Key: '{{x_api_key}}' }` and a collection variable `x_api_key: ''` placeholder"
+  - "Given an OpenAPI operation with `parameters: [{in: query, name: limit}]`, when imported, then the generated URL includes `?limit={{limit}}` and the variable is added to the collection"
+  - "Given an operation with a JSON `requestBody` schema `{type: object, properties: {name: {type: string}}}`, when imported, then the generated request body contains `{name: 'string'}` as a placeholder"
+  - "Given a `requestBody` with an `example` or `examples` field, when imported, then the example values are used verbatim as the generated request body"
+  - "Given an operation with responses `{'200': ..., '201': ..., '404': ...}`, when imported, then `assertions.status` is `[200, 201, 404]`"
+  - "Given a `$ref` to a schema in `components/schemas/`, when imported, then references are resolved before body generation (no unresolved $ref in output)"
+  - "Given two operations that share a header parameter name, when imported, then the shared parameter becomes a single collection variable referenced by both requests"
+  - "Given a request body schema with a recursive `$ref` cycle, when imported, then body generation terminates gracefully with a placeholder and a warning is printed to stderr"
+
+scope: |
+  Extend `internal/openapi/` with: header and query parameter extraction (map
+  to request headers and URL query vars, using snake_case normalised variable
+  names), request body example/placeholder generation (prefer `example`/
+  `examples` values, otherwise walk the resolved schema and emit type-appropriate
+  defaults), $ref cycle detection during body synthesis, and response code
+  aggregation into `assertions.status`. De-duplicate collection variables across
+  operations that share parameter names. All changes build on top of the
+  `Import` function from M3-005.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable output works as specified"
+  - "Test coverage >= 80%"
+  - "No build warnings or lint errors"
+  - "Help text updated (if user-facing)"
+  - "Smoke test updated (if new capability)"
+
+complexity: high
+estimated_effort: "6-9 hours"

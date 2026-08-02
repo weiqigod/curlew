@@ -1,0 +1,7 @@
+{
+  "issuer_url": "https://idp.example.com",
+  "client_id": "apitool-client",
+  "client_secret": "s3cret",
+  "redirect_uri": "http://localhost:5000/api/v1/sso/oidc/00000000-0000-0000-0000-000000000000/callback",
+  "scopes": "openid email profile"
+}

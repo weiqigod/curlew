@@ -1,0 +1,9 @@
+name: Empty Command Test
+variables:
+  secret:
+    from_command: ""
+requests:
+  - name: Test
+    request:
+      method: GET
+      url: https://example.com

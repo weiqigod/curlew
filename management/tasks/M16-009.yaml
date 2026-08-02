@@ -1,0 +1,40 @@
+id: M16-009
+title: "Schedule executor backend endpoints with claim_token and ShardReaper extension"
+status: done
+priority: 2
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-001
+
+track: backend
+
+observable: |
+  With the backend running, seed a Team-tier org and an enabled `Schedule` row whose `next_run_at` is in the past. SchedulerHost will create a `scheduled_runs` row in `queued`. Then:
+  `curl -s -H "Authorization: Bearer <team_worker_jwt>" http://localhost:5000/api/v1/schedules/next-run` → expect 200 with body `{run_id, schedule_id, collection_ref, env_vars, claim_token, deadline}`; the row transitions to `running`. A second call with the same JWT → 204 (already claimed). Heartbeat: `curl -s -X POST -H "Content-Type: application/json" -d '{"claim_token":"…"}' http://localhost:5000/api/v1/schedules/runs/<run_id>/heartbeat` → 200. Wait 5+ minutes without heartbeat; ShardReaper transitions the row back to `queued`. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~ScheduleExecutor|NextRunEndpoint|HeartbeatEndpoint|ResultEndpoint|ShardReaper"` — all pass.
+
+behaviors:
+  - "Given the caller's JWT belongs to a Free-tier org, when GET /api/v1/schedules/next-run is called, then ScheduleExecutorTierGate denies and the response is 402 with the org's current tier"
+  - "Given a scheduled_run row exists with status = queued, when the first worker calls GET /api/v1/schedules/next-run, then the response is 200 with run_id, schedule_id, collection_ref, env_vars, claim_token (server-generated UUID), and deadline (now + 30s); the row transitions to status = running with claim_token persisted"
+  - "Given a row is already claimed, when a second worker calls GET /api/v1/schedules/next-run for the same org, then it gets the next eligible row OR 204 if none — the in-flight row is never handed out twice"
+  - "Given no rows are queued for the org, when GET /api/v1/schedules/next-run is called, then the response is 204 No Content"
+  - "Given a worker holds a valid claim_token, when POST /api/v1/schedules/runs/{run_id}/heartbeat with body {claim_token} is called, then last_heartbeat_at is updated and the response is 200"
+  - "Given a worker presents a stale claim_token (because the row was reaped), when heartbeat is called, then the response is 409 with type .../claim-reaped"
+  - "Given a worker posts a result, when POST /api/v1/schedules/runs/{run_id}/result is called with body {claim_token, ...result payload}, then the result is persisted into results, scheduled_runs.result_id is set (to be used by M16-010), status transitions to completed (or failed), and 200 is returned"
+  - "Given a running scheduled_run has not heartbeated for >5 minutes, when ShardReaper ticks, then the row transitions back to status = queued, claim_token is cleared, and a new worker can claim"
+  - "Given a schedule fires while its previous run is still running, when SchedulerHost.EnqueueDueAsync executes, then no new scheduled_runs row is created (stack-up prevention) and schedules.last_run_at is still updated for visibility"
+
+scope: |
+  Three new endpoints under `src/ApiTool.Backend/Schedules/`: `NextRunEndpoint`, `HeartbeatEndpoint`, `ResultEndpoint`. Extend `ScheduledRun` entity with `claim_token TEXT NULL`, `last_heartbeat_at TIMESTAMPTZ NULL`, and `claim_deadline TIMESTAMPTZ NULL` columns (migration). All three endpoints route through `ScheduleExecutorTierGate.EnsureTeamOrAboveAsync` from M16-001. Extend the existing `ShardReaper` (in `src/ApiTool.Backend/Coordinator/`) to additionally reap `scheduled_runs` rows with `status = 'running' AND last_heartbeat_at < now() - interval '5 minutes'` back to `queued`. Update `SchedulerHost.EnqueueDueAsync` to skip creating a new row when an in-flight row exists for the same schedule (stack-up prevention). Result endpoint inserts into `results` and stores the FK on `scheduled_runs.result_id` (column added in M16-010); for this slice the column may be added here as part of the same migration, but the ingest-path linkage check is M16-010.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations`"
+  - "OpenAPI/HTTP API doc updated with the three new endpoints and the claim_token contract"
+
+complexity: high
+estimated_effort: "6-12 hours"

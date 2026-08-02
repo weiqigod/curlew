@@ -1,0 +1,38 @@
+id: M16-006
+title: "ITrialStateResolver and LicenseTokenIssuer wiring with tier-upgrade preemption"
+status: done
+priority: 2
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-005
+
+track: backend
+
+observable: |
+  Start the backend, register a fresh user, observe a row inserted into `trials` per feature with `kind = full_initial` and `granted_at = registration_at`, then `curl -s -X POST -H "Authorization: Bearer <user_jwt>" http://localhost:5000/api/v1/auth/refresh` and decode the returned `license_jwt` (e.g., `apitest license --debug`). The decoded payload carries `"trial_state":"active"` and `"trial_expiry":<unix-seconds-14-days-from-registration>`. Trigger Stripe `customer.subscription.created` (via stripe-mock) for the same user and re-issue the license; the JWT now carries `"trial_state":"none"` (or `"expired"` if all initials preempted) and the affected trial rows are `kind = preempted_by_subscription` with `expires_at = now()`. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~TrialStateResolver|LicenseTokenIssuer"` and observe all pass.
+
+behaviors:
+  - "Given a brand-new user with no trials rows, when ITrialStateResolver.ResolveAsync is called, then it returns TrialState.None with TrialExpiry=null"
+  - "Given a user with active full_initial trial rows expiring in 14 days, when ITrialStateResolver.ResolveAsync is called, then it returns TrialState.Active with TrialExpiry equal to the soonest expires_at"
+  - "Given a user whose 14-day full_initial trial rows have all expired with no on-demand rows, when ITrialStateResolver.ResolveAsync is called, then it returns TrialState.Expired with TrialExpiry=null"
+  - "Given a user with at least one active on-demand trial row, when ITrialStateResolver.ResolveAsync is called, then it returns TrialState.Active with TrialExpiry equal to the earliest active on-demand expires_at and the trialed feature appears in features[] of the issued License JWT"
+  - "Given LicenseTokenIssuer issues a token, when the resolver is consulted, then trial_state and trial_expiry in the JWT payload are populated from the resolver (replacing the M14 hardcoded none/null at LicenseTokenIssuer.cs:54-55)"
+  - "Given Stripe webhook customer.subscription.created fires for a user, when the handler runs, then all of that user's active trials rows transition to kind = preempted_by_subscription with expires_at = now() and the next license issuance reflects trial_state in {none, expired}"
+  - "Given user registration completes, when the registration handler runs, then one trials row per known feature is inserted with kind = full_initial, granted_at = now(), expires_at = now() + 14 days"
+  - "Given a user with an active subscription (Solo+), when LicenseTokenIssuer issues a token, then trial_state is none regardless of underlying trial rows (tier handles authorization)"
+
+scope: |
+  New interface `src/ApiTool.Backend/Licensing/Trials/ITrialStateResolver.cs` and concrete `DatabaseTrialStateResolver` reading the `trials` table. Inject into `src/ApiTool.Backend/Licensing/Tokens/LicenseTokenIssuer.cs`, replacing the hardcoded `"none"`/`null` defaults at lines 54-55 with resolver calls. Implement the v4.3 trial-state transition rules from spec table 5808-5816. Add `TrialSeederService` (or extend the existing registration handler) to insert one full_initial row per registered feature on user registration. Hook the `customer.subscription.created` Stripe webhook handler in `src/ApiTool.Backend/Subscriptions/Webhook/` to UPDATE all active trial rows to `kind = preempted_by_subscription, expires_at = now()` for the upgrading user. The `features[]` claim in LicenseTokenIssuer must include any actively-trialing feature so the CLI's `IsTrialActiveFor` works without a separate claim.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Migration applies and rolls back cleanly via `dotnet ef migrations` (no schema change in this slice; pre-existing trials migration unchanged)"
+  - "OpenAPI/HTTP API doc updated where /auth/refresh response shape now reflects populated trial_state/trial_expiry"
+
+complexity: medium
+estimated_effort: "3-6 hours"

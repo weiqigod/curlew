@@ -1,0 +1,10 @@
+name: Query Params Test
+
+requests:
+  - name: Get With Query
+    request:
+      method: GET
+      url: "https://example.com"
+      query:
+        page: "1"
+        limit: "10"

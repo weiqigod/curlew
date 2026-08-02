@@ -1,0 +1,10 @@
+name: Signing Request
+requests:
+  - name: signed
+    request:
+      method: GET
+      url: https://example.com
+    signing:
+      type: noop
+      params:
+        key: value

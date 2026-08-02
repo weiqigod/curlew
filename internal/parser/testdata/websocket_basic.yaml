@@ -1,0 +1,11 @@
+name: WebSocket Basic
+requests:
+  - name: Echo
+    request:
+      protocol: websocket
+      url: "ws://localhost:9999/echo"
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: ping

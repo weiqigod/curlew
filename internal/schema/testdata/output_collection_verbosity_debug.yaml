@@ -1,0 +1,6 @@
+name: out-debug
+output:
+  verbosity: debug
+requests:
+  - name: r
+    request: { method: GET, url: "https://example.com" }

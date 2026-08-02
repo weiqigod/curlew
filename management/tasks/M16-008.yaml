@@ -1,0 +1,37 @@
+id: M16-008
+title: "TrialExpiryNotifier daily cron with 3-day and 1-day reminder emails"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-006
+
+track: backend
+
+observable: |
+  Seed a trial row expiring in 3 days for a known user, start the backend with a forced-tick configuration (`TrialExpiryNotifierOptions:RunAtUtc=now`), and observe within 1 minute that a `trial_expiring` SendGrid message is queued in the email outbox addressed to that user, and the row's `notified_3day_at` is set to the current timestamp. Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~TrialExpiryNotifier"` and confirm all tests pass. Re-run the cron tick within the same window and verify no duplicate email is sent and `notified_3day_at` is unchanged.
+
+behaviors:
+  - "Given an active trial row expiring in 3 days with notified_3day_at IS NULL, when TrialExpiryNotifier ticks, then a trial_expiring email is queued with variables {user_email, feature, expires_at_local, upgrade_url} and notified_3day_at is set to NOW()"
+  - "Given an active trial row expiring in 1 day with notified_1day_at IS NULL, when TrialExpiryNotifier ticks, then a trial_expiring email is queued and notified_1day_at is set to NOW()"
+  - "Given a trial row with notified_3day_at already set, when TrialExpiryNotifier re-runs within the same window, then no duplicate email is queued"
+  - "Given a trial row of kind = preempted_by_subscription, when TrialExpiryNotifier ticks, then it is skipped (only active full_initial / ondemand rows trigger reminders)"
+  - "Given the cron schedule is configured for 09:00 UTC daily, when the IHostedService is registered, then SchedulerHost (or the equivalent timer) fires at the configured UTC time with a fuzz tolerance of <= 60 seconds"
+  - "Given SendGrid template manifest validation, when TrialExpiryNotifier composes a message, then any unknown variable is rejected by SendGridSmtpSender (manifest-allowlist enforcement)"
+  - "Given SendGrid is unavailable when the cron tick runs, when the queue write fails, then the row's notified_*_at is NOT set and the next tick retries"
+
+scope: |
+  New `src/ApiTool.Backend/Notifications/Trials/TrialExpiryNotifier.cs` implementing `IHostedService` with a 09:00 UTC daily timer. Queries `trials` for rows matching `kind IN ('full_initial', 'ondemand') AND expires_at BETWEEN now AND now+3d AND notified_3day_at IS NULL` (and the 1-day equivalent) using the indexes added in M16-005. For each match, builds a `trial_expiring` email message via the existing `IEmailQueue`/`ChannelEmailQueue`, atomically sets the corresponding `notified_*_at` column on success. Configuration via `TrialExpiryNotifierOptions` (UTC time, batch size). Reuses existing manifest-allowlisted variables for the `trial_expiring` template added in M16-002.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "Hosted service registered in Program.cs; visible in startup log"
+  - "OpenAPI/HTTP API doc unchanged (background job)"
+
+complexity: medium
+estimated_effort: "3-6 hours"

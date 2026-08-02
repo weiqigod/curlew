@@ -1,0 +1,10 @@
+name: Reuse External File
+requests:
+  - name: Get User First
+    path: requests/get-user.yaml
+    variables:
+      token: "first"
+  - name: Get User Second
+    path: requests/get-user.yaml
+    variables:
+      token: "second"

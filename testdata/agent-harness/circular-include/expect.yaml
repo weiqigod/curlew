@@ -1,0 +1,15 @@
+description: |
+  Run a collection (a.yaml) that includes b.yaml which in turn includes a.yaml.
+  Should emit run.error with category=parse, code=PARSE_CIRCULAR_INCLUDE,
+  and file+line pointing at the circular reference.
+exit_code: 3
+events:
+  - kind: run.error
+    must_have:
+      error.category: parse
+      error.code: PARSE_CIRCULAR_INCLUDE
+      error.file_nonempty: true
+    hint_contains_any:
+      - Remove
+      - Check
+      - Verify

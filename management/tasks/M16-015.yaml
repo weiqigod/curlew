@@ -1,0 +1,39 @@
+id: M16-015
+title: "Inbound /webhooks/gitlab handler with X-Gitlab-Token verification and idempotency"
+status: done
+priority: 3
+created: 2026-05-07
+phase: "M16: Workflow completion"
+
+dependencies:
+  - M16-013
+
+track: backend
+
+observable: |
+  With the backend running and a `gitlab_installations` row seeded with `webhook_secret_ciphertext` for installation X, send a Pipeline Hook event via:
+  `curl -i -X POST -H "X-Gitlab-Event: Pipeline Hook" -H "X-Gitlab-Token: <correct-secret>" -H "X-Gitlab-Event-UUID: 11111111-1111-1111-1111-111111111111" -H "Content-Type: application/json" -d @testdata/gitlab-pipeline-hook.json http://localhost:5000/webhooks/gitlab`
+  expect `HTTP/1.1 200`. A row appears in `gitlab_webhook_events` with `event_uuid` set and `failure_count = 0`. Send the same UUID again → `HTTP 200` (idempotent no-op; same row). Send with a wrong `X-Gitlab-Token` → `HTTP 401`. Send a Push Hook → `HTTP 200` (stored, no business logic). After 5 consecutive verification failures from the same source, additional events return `HTTP 429` (quarantine). Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GitLabWebhook"` — all pass.
+
+behaviors:
+  - "Given a valid X-Gitlab-Token matching the decrypted webhook_secret_ciphertext (constant-time compare), when POST /webhooks/gitlab is called, then the event is accepted and a row is inserted into gitlab_webhook_events"
+  - "Given an invalid X-Gitlab-Token, when POST /webhooks/gitlab is called, then the response is 401, no row is inserted, and the failure counter increments"
+  - "Given the same X-Gitlab-Event-UUID is replayed, when the handler runs, then the second call returns 200 immediately (idempotency on event_uuid)"
+  - "Given X-Gitlab-Event = 'Pipeline Hook', when the handler runs, then the dispatcher invokes the pipeline-hook handler (status reconciliation logic)"
+  - "Given X-Gitlab-Event = 'Push Hook' or 'Merge Request Hook', when the handler runs, then the event is stored in gitlab_webhook_events but no business logic acts on it (M16 stores for debugging only, per the spec)"
+  - "Given 5 consecutive verification failures from the same source IP / installation, when the next request arrives, then it is quarantined (HTTP 429 + a quarantined_at timestamp) until manual reset"
+  - "Given the daily retention pruning task runs, when gitlab_webhook_events older than the configured retention window are encountered, then they are deleted (mirrors GitHub side)"
+  - "Given M16-015 ships with single-secret support per Open Decision 3, when documentation is read, then it explicitly states multi-secret rotation via GITLAB__WEBHOOK_SECRETS_<installation_id> is a follow-up"
+
+scope: |
+  New endpoint `POST /webhooks/gitlab` in `src/ApiTool.Backend/GitLab/Webhooks/GitLabWebhookEndpoint.cs`. Constant-time compare against `webhook_secret_ciphertext` decrypted via `IGitLabKeyProvider`. Idempotency on `X-Gitlab-Event-UUID` using `gitlab_webhook_events`. Per-installation 5-failure quarantine via `gitlab_webhook_events.failure_count` and `quarantined_at`. Pipeline Hook dispatcher: invoke status reconciliation (lookup the matching `pr_checks` row by `gitlab_status_id` and update `pr_checks.status` based on the pipeline state). Push Hook and Merge Request Hook are stored only — no business logic. Daily retention pruning hosted service (mirror the GitHub side's `GitHubWebhookEventCleanupService`). Per Open Decision 3: ship single-secret support only — multi-secret rotation via `GITLAB__WEBHOOK_SECRETS_<installation_id>` is a documented follow-up.
+
+definition_of_done:
+  - "All behavior tests pass"
+  - "Observable command works as specified"
+  - "Test coverage >= 80% on new code"
+  - "No build warnings or lint errors"
+  - "OpenAPI/HTTP API doc updated for POST /webhooks/gitlab"
+
+complexity: medium
+estimated_effort: "3-6 hours"

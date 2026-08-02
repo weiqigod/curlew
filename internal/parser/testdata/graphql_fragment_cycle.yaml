@@ -1,0 +1,11 @@
+name: GraphQL Fragment Cycle
+requests:
+  - name: Cyclic
+    request:
+      protocol: graphql
+      url: "https://api.example.com/graphql"
+      graphql:
+        query: "{ x { ...A } }"
+        fragments:
+          - graphql/fragments/cycle_a.graphql
+          - graphql/fragments/cycle_b.graphql

@@ -1,0 +1,41 @@
+id: M18-001
+title: "Audit-log bulk export: JSONL+CSV chunked streaming, Enterprise tier gate, cap removal"
+status: done
+priority: 1
+created: 2026-05-17
+planned_date: 2026-05-17
+branch: feature/M18-001-audit-log-bulk-export
+phase: "M18: Compliance & launch"
+
+dependencies: []
+
+observable: |
+  Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~AuditLogExport"` and see >= 10 tests pass. Then start the backend via `docker-compose -f docker-compose.test.yml up -d` and `dotnet run --project src/ApiTool.Backend`. Seed an Enterprise-tier org with 350 audit-log rows. Stream JSONL:
+  `curl -sN -i -H "Authorization: Bearer <enterprise_admin_jwt>" "http://localhost:5000/api/v1/organizations/{orgId}/audit-log?format=jsonl&from=2025-01-01"`
+  expect `HTTP/1.1 200`, `Transfer-Encoding: chunked`, `Content-Type: application/x-ndjson`, `Content-Disposition: attachment; filename="audit-log-{orgId}-{date}.jsonl"`, and 350 newline-delimited JSON rows in the body (line count via `| wc -l` returns 350 — the previous `MaxLimit=200` cap does NOT apply for export-format requests). Re-issue with `?format=csv` and observe the same 350-row body with a CSV header row. Re-issue against a Team-tier org and expect `HTTP/1.1 402 Payment Required` with RFC 7807 body `{"current_tier":"team","required_tier":"enterprise"}`. Re-issue without `?format` parameter and observe the existing JSON pagination response with `MaxLimit=200` enforced (regression guard).
+
+behaviors:
+  - "Given an Enterprise-tier org with 350 audit-log rows, when GET /audit-log?format=jsonl is called, then the response streams Transfer-Encoding: chunked with Content-Type: application/x-ndjson and all 350 rows are emitted as newline-delimited JSON"
+  - "Given an Enterprise-tier org with 350 audit-log rows, when GET /audit-log?format=csv is called, then the response streams chunked with Content-Type: text/csv and contains a header row plus 350 data rows (the prior MaxLimit=200 cap does not apply)"
+  - "Given a Team-tier org, when GET /audit-log?format=jsonl is called, then AuditLogExportTierGate returns 402 with RFC 7807 body naming required_tier=enterprise"
+  - "Given a request without ?format= (or with format=json), when the endpoint runs, then the existing JSON pagination shape is preserved and MaxLimit=200 still applies (regression guard for the existing CSV-via-query-param path's non-export callers)"
+  - "Given a streaming export is in progress and the client disconnects mid-stream, when the next chunk is written, then the writer detects cancellation via HttpContext.RequestAborted and the EF query enumerator is disposed without leaking a database connection"
+  - "Given an export request with from/to/event_type/user_id filters, when streaming runs, then filters are applied identically to the paginated path (same AuditLogQueryService filter expression, just without the .Take(limit) clause)"
+  - "Given the export response, when the Content-Disposition header is set, then it carries an attachment filename of the form audit-log-{orgId}-{yyyyMMddTHHmmss}.{ext}"
+  - "Given the AuditLogExportTierGate denies access for a Free-tier org via a UI download trigger (web flow), when the response arrives, then the existing audit-log page surfaces an upgrade prompt without leaking the underlying 402 detail to the page DOM (web wiring referenced; web slice deferred to M18-012 e2e proof)"
+
+scope: |
+  Modify src/ApiTool.Backend/Audit/AuditLogEndpoints.cs to detect format ∈ {csv, jsonl} and dispatch to a new streaming writer (AuditLogExportStreamer) instead of the existing in-memory CSV path at :76-82. New src/ApiTool.Backend/Audit/AuditLogExportStreamer.cs implements row-at-a-time IAsyncEnumerable<OrganizationAuditLogEntry> → HttpResponse.BodyWriter with Transfer-Encoding: chunked. New src/ApiTool.Backend/Audit/AuditLogExportTierGate.cs reuses the M16 ITierGate via EnsureEnterpriseAsync; called at endpoint entry before any DB enumeration. AuditLogQueryService.cs gains a StreamForExport(orgId, filters, ct) overload that omits the .Take(limit) clause for export-format callers; the existing paginated path keeps MaxLimit=200. JSONL serialization uses System.Text.Json with the same property names as the paginated JSON response (no shape drift). CHANGELOG and OpenAPI updated. RBAC permission check (audit_log.export) is added by M18-002; this slice asserts the tier gate only, and an interim Owner/Admin check stays in place at endpoint entry.
+
+definition_of_done:
+  - "All behavior tests pass (>=10 unit + integration tests)"
+  - "Observable curl commands return the documented responses (manually verified against running stack)"
+  - "Test coverage >= 80% on src/ApiTool.Backend/Audit/AuditLogExportStreamer.cs and AuditLogExportTierGate.cs"
+  - "No build warnings or lint errors (dotnet build /warnaserror succeeds)"
+  - "OpenAPI spec for GET /audit-log documents the new format=jsonl value and the chunked streaming shape"
+  - "CHANGELOG.md entry under [Unreleased] references v4-1"
+  - "Existing web audit-log/export download path continues to work (no regression in the CSV button)"
+
+complexity: medium
+estimated_effort: "medium slice"
+track: backend
