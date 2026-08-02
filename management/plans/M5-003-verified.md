@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke tests clean |

@@ -1,6 +1,6 @@
 name: m18-e2e-telemetry
 description: |
-  M18-012 happy-path E2E collection. Consumed by `apitest run` so the runner
+  M18-012 happy-path E2E collection. Consumed by `curlew run` so the runner
   emits a `run.completed` telemetry event with `success=true`. Identical shape
   to testdata/m16/e2e-collection.yaml — single GET against the backend's
   /healthz endpoint (known-good, available in dev) so the run is green without

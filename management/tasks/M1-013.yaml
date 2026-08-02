@@ -17,7 +17,7 @@ behaviors:
   - "Given .env with KEY= (empty value), when parsed, then variable is set to empty string"
 scope: |
   Add .env file parsing in internal/variable/ or internal/config/. Auto-detect project
-  root (directory containing apitest.yaml or .env). Load at precedence level 4.
+  root (directory containing curlew.yaml or .env). Load at precedence level 4.
 definition_of_done:
   - All behavior tests pass
   - Observable output works as specified

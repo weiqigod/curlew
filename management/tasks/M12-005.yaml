@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_HmacSha256' -v ./internal/variable/...
   # Expected: PASS — $hmacSha256('The quick brown fox jumps over the lazy dog', 'key')
@@ -20,11 +20,11 @@ observable: |
   # variable that is in the SensitiveSet, the resolved key string is
   # also added as a redaction-trigger value (SensitiveSet.AddValue).
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Set env var STRIPE_SIGNING_SECRET in env file (auto-sensitive by
   # name heuristic — it contains 'secret').
   # Add header: X-Signature: "{{$hmacSha256('{{payload}}', '{{stripe_signing_secret}}')}}"
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: rendered header is the correct hex MAC; the secret string
   # itself never appears in any --log/--format output (replaced by [REDACTED]
   # in serialised request and response bodies if it were to leak).

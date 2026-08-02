@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // Sentinel errors for auth profile failures.
@@ -22,7 +22,7 @@ type ProfileType string
 // ProfileDynamic executes a collection to obtain credentials.
 const ProfileDynamic ProfileType = "dynamic"
 
-// Profile represents a single auth profile entry from apitest.yaml.
+// Profile represents a single auth profile entry from curlew.yaml.
 type Profile struct {
 	Name             string      // profile key name (e.g., "admin_token")
 	Type             ProfileType // "dynamic"

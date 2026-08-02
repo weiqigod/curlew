@@ -25,7 +25,7 @@ No findings. Code meets all standards.
 ## Test Coverage
 
 - `internal/loadgen`: **95.9%** — above the 80% threshold
-- `cmd/apitest`: **81.4%** — above the 80% threshold
+- `cmd/curlew`: **81.4%** — above the 80% threshold
 - `internal/auth`: **89.2%** — above the 80% threshold
 
 Missing coverage areas within M5-011 scope: none significant. The uncovered lines in `run.go` (6.7%) and `loadgen/request.go` (7.1%) are minor error paths well within tolerance.

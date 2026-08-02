@@ -49,7 +49,7 @@ No findings. All 4 findings from the previous review have been resolved:
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `go test -race ./internal/retry/...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |

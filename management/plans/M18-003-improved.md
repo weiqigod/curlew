@@ -30,7 +30,7 @@ No findings deferred. All ten findings resolved.
 | `dotnet build ApiTool.Backend.sln` | PASS (0 warnings, 0 errors) |
 | `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~Gdpr"` | PASS (76/76; was 69/69 — 7 new tests added) |
 | `dotnet test src/ApiTool.Backend.Tests` (full backend suite) | PASS (2020 passed, 0 failed, 10 skipped — external deps) |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `~/go/bin/golangci-lint run` | PASS (0 issues) |
 | Coverage `GdprAttributeScanner.cs` | 98.41% line / 78.04% branch (≥ 80% line) |

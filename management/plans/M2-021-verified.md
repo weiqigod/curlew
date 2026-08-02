@@ -26,7 +26,7 @@ go test ./internal/output/... -run DataDriven -v
 --- PASS: TestPrinter_DataDrivenVerboseResult (5 subtests)
 --- PASS: TestPrinter_DataDrivenSummary (4 subtests)
 
-go test ./cmd/apitest/... -run DataDriven -v
+go test ./cmd/curlew/... -run DataDriven -v
 --- PASS: TestRunCmdDirect_DataDriven_TerminalVerbose
 --- PASS: TestRunCmdDirect_DataDriven_TerminalCompact
 --- PASS: TestRunCmdDirect_DataDriven_JSONFormat
@@ -108,8 +108,8 @@ Review PASS trusted (management/reviews/M2-021-review.md, iteration 2), spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +157/-0 |
-| `cmd/apitest/main_test.go` | modified | +472/-0 |
+| `cmd/curlew/main.go` | modified | +157/-0 |
+| `cmd/curlew/main_test.go` | modified | +472/-0 |
 | `internal/output/json.go` | modified | +12/-0 |
 | `internal/output/json_test.go` | modified | +56/-0 |
 | `internal/output/tap.go` | modified | +24/-9 |

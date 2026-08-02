@@ -10,34 +10,34 @@ track: go-cli
 dependencies: [M9-001]
 observable: |
   # --format markdown --report <dir> produces one .md per main request + run.md.
-  ./apitest run collections/sample.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/sample.yaml --format markdown --report /tmp/resp
   ls /tmp/resp/
   # Expected: run.md get-user.md list-posts.md (slugs derived per M9-001).
 
   # Fixed section order (10 required markers per file).
-  grep -c -E '^(# |## Notes$|<!-- BEGIN apitest:response|## Response \(deterministic\)$|### Request$|### Response |### Timing$|### Assertions$|<!-- END apitest:response|## Analysis$)' /tmp/resp/get-user.md
+  grep -c -E '^(# |## Notes$|<!-- BEGIN curlew:response|## Response \(deterministic\)$|### Request$|### Response |### Timing$|### Assertions$|<!-- END curlew:response|## Analysis$)' /tmp/resp/get-user.md
   # Expected: 10.
 
   # Sentinel opening tag carries all three correlation IDs.
-  grep -Eo 'BEGIN apitest:response id=req-[0-9]+ slug=[a-z0-9-]+ run=[0-9a-f]{32}' /tmp/resp/get-user.md
+  grep -Eo 'BEGIN curlew:response id=req-[0-9]+ slug=[a-z0-9-]+ run=[0-9a-f]{32}' /tmp/resp/get-user.md
   # Expected: one match per file.
 
   # Splice: rewrite only sentinel region on re-run; preserve content outside.
   printf '\nAGENT NOTE: hypothesis X\n' >> /tmp/resp/get-user.md
-  ./apitest run collections/sample.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/sample.yaml --format markdown --report /tmp/resp
   grep 'AGENT NOTE' /tmp/resp/get-user.md
   # Expected: AGENT NOTE line preserved verbatim.
 
   # Malformed sentinel (BEGIN without END) -> writes .md.new, original untouched.
-  printf '# Existing\n<!-- BEGIN apitest:response id=req-1 slug=ghost run=0 -->\n' > /tmp/resp/ghost.md
-  ./apitest run collections/with-ghost-slug.yaml --format markdown --report /tmp/resp 2>err.log
+  printf '# Existing\n<!-- BEGIN curlew:response id=req-1 slug=ghost run=0 -->\n' > /tmp/resp/ghost.md
+  ./curlew run collections/with-ghost-slug.yaml --format markdown --report /tmp/resp 2>err.log
   ls /tmp/resp/ghost.md /tmp/resp/ghost.md.new
   grep 'malformed sentinel' err.log
   # Expected: both files exist; original unchanged; stderr warning present.
 
   # No-sentinel existing file -> writes .md.new; original untouched.
   printf '# User handwrote this\n' > /tmp/resp/handwritten.md
-  ./apitest run collections/that-matches-handwritten-slug.yaml --format markdown --report /tmp/resp 2>err.log
+  ./curlew run collections/that-matches-handwritten-slug.yaml --format markdown --report /tmp/resp 2>err.log
   ls /tmp/resp/handwritten.md /tmp/resp/handwritten.md.new
   grep 'no sentinel pair' err.log
   # Expected: both files exist; original unchanged; stderr warning present.
@@ -51,12 +51,12 @@ observable: |
   # Expected: count equals number of main-phase requests in the collection.
 
   # Schema accepts format: markdown at collection and project levels.
-  ./apitest schema | jq -r '.properties.output.properties.format.enum' | grep -o markdown
-  ./apitest schema --project | jq -r '.properties.output.properties.format.enum' | grep -o markdown
+  ./curlew schema | jq -r '.properties.output.properties.format.enum' | grep -o markdown
+  ./curlew schema --project | jq -r '.properties.output.properties.format.enum' | grep -o markdown
   # Expected: one match from each.
 
   # Missing --report with --format markdown exits 3 at load time.
-  ./apitest run collections/sample.yaml --format markdown 2>err.log; echo $?
+  ./curlew run collections/sample.yaml --format markdown 2>err.log; echo $?
   # Expected: exit 3; err.log says "format: markdown requires --report"
 
   # Full unit + integration suite.
@@ -67,12 +67,12 @@ behaviors:
   - "SupportedFormats at internal/output/config.go:15 includes \"markdown\" (the pre-M9 \"excludes markdown per scope\" comment is removed); the JSON Schema at schemas/collection-v1.json and schemas/project-v1.json accepts \"markdown\" as a format enum value."
   - "ensureReportDir(path string, subpath ...string) error creates the target directory via MkdirAll with mode 0755 and accepts an optional subpath so M9-004 can reuse it for `<slug>/iter-<n>.md` without a signature change."
   - "Each main-phase request produces `<report>/<slug>.md` with the exact 10-section order: H1 name, ## Notes, BEGIN sentinel, ## Response (deterministic), ### Request, ### Response, ### Timing, ### Assertions, END sentinel, ## Analysis."
-  - "The sentinel opening tag is exactly `<!-- BEGIN apitest:response id=<request_id> slug=<slug> run=<run_id> -->` and the closing tag is its symmetric END form; both carry all three correlation IDs so tools can splice-match without parsing surrounding markdown."
+  - "The sentinel opening tag is exactly `<!-- BEGIN curlew:response id=<request_id> slug=<slug> run=<run_id> -->` and the closing tag is its symmetric END form; both carry all three correlation IDs so tools can splice-match without parsing surrounding markdown."
   - "Re-running against an existing file whose BEGIN/END sentinels match the current slug rewrites only the bytes between sentinels; all content above the BEGIN and below the END is preserved verbatim, including trailing newlines."
   - "If an existing file has BEGIN/END whose slug differs from the current write (user renamed the request), the formatter APPENDS a new sentinel block below the existing content and emits a stderr warning naming the orphaned slug; the orphaned block is not deleted."
   - "If an existing file has BEGIN without END (or END without BEGIN or nested sentinels), the formatter writes `<slug>.md.new` alongside and emits a stderr warning; the malformed file is never overwritten."
   - "If an existing file has no sentinels at all, the formatter treats the file as user-owned: writes `<slug>.md.new` alongside and emits a stderr warning. Invariant: no code path may overwrite a file lacking the expected sentinel pair."
-  - "File writes are atomic: write to a temp file in the same directory with O_EXCL flags, then os.Rename to the final path; two concurrent `apitest run` invocations against the same --report directory produce no corrupt sentinels or half-written files."
+  - "File writes are atomic: write to a temp file in the same directory with O_EXCL flags, then os.Rename to the final path; two concurrent `curlew run` invocations against the same --report directory produce no corrupt sentinels or half-written files."
   - "Newlines inside the sentinel region are normalized to LF; content outside the sentinels preserves the user's existing line endings verbatim (CRLF survives above/below if the user's editor wrote CRLF)."
   - "The Assertions subsection is always present. When no assertions are declared, the body is `_No assertions declared._` on its own line; otherwise a checklist with pass/fail markers (`- [x]` / `- [ ]`) and the assertion text."
   - "JSON response bodies (Content-Type application/json or *+json) are pretty-printed via json.Indent with 2-space indentation inside a ```json fenced block; non-JSON rendering is deferred to M9-003."
@@ -104,7 +104,7 @@ scope: |
      schemas/project-v1.json. Config validator rejects format: markdown
      without a report: value at load time.
 
-  3. CLI dispatch. cmd/apitest/main.go adds a new switch case between
+  3. CLI dispatch. cmd/curlew/main.go adds a new switch case between
      the html branch (~line 1545) and the terminal default. The case
      calls a local buildMarkdownReport(...) (shape like
      buildJSONOutput) and invokes markdown.WriteReport. Redaction at

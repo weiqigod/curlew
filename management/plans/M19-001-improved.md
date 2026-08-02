@@ -14,7 +14,7 @@
 | 4 | Medium | No JUnit test verifying `message=` attribute on `<skipped>` element carries the reason string | Added `TestWriteJUnitXML_SkipReasonInMessage` to `internal/output/junit_test.go`: asserts XML round-trips cleanly and `message="if: false"` / `message="parent skipped: ..."` appear | ✓ tests pass |
 | 5 | Low | Misleading nil guard `vars.CelEvaluator != nil` in `executePhase` (runner.go:1746) — implied CelEvaluator could be nil mid-run when it cannot | Removed second conjunct; replaced with doc comment explaining the invariant: `runPhases` guarantees CelEvaluator is set whenever `collectionHasIf(col)` is true, which is the only path that sets `item.If` non-empty | ✓ tests pass |
 | 6 | Low | Missing `TestIfConditional_DataDriven_SkipsAllRows` — gate fires before data-driven expansion, not per row | Added test in `internal/runner/runner_test.go`: creates a 3-row CSV, sets `if: "1 + 1 == 3"` (always false), asserts one skipped result (not three), zero exec calls, and `summary.Skipped == 1` | ✓ tests pass |
-| 7 | Low | Help text not updated for `if:` and `depends_on:` as request-item fields | Added "Request Item Fields" section to `printHelpTo` in `cmd/apitest/main.go` describing `if: <CEL bool>` and `depends_on: [<name>]` with examples | ✓ build pass |
+| 7 | Low | Help text not updated for `if:` and `depends_on:` as request-item fields | Added "Request Item Fields" section to `printHelpTo` in `cmd/curlew/main.go` describing `if: <CEL bool>` and `depends_on: [<name>]` with examples | ✓ build pass |
 
 ## Resolved Findings (Iteration 2 — 2 findings)
 
@@ -43,7 +43,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage `internal/parser` | 90.3% |

@@ -9,7 +9,7 @@
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
 | 1 | Critical | `smoke/run.sh` lines 873-875: assertion `grep -q '"ssn".*"\[REDACTED\]"'` against `--format json` output can never pass — `JSONRequest` has no `request_body` field, so no `ssn` field ever appears in the JSON output | Removed the broken positive-redaction assertion from the `--format json` smoke block. Retained the negative check (SSN must not appear at all in JSON output). The positive-redaction contract (`[REDACTED]` in the body) is proved by the `-vv` terminal block and the `--format markdown` block, both of which already passed. | ✓ `./smoke/run.sh` exits 0; all three FAKER blocks pass |
-| 2 | Critical | `mktemp /tmp/apitest_faker_ssnXXXXXX.yaml` creates a literal filename on macOS (suffix after X-placeholder block is not supported), causing `mkstemp failed: File exists` on the second CI run when a prior failed run left the file behind | Changed to `mktemp -t apitest_faker_ssn` (macOS-portable; produces a randomly suffixed file in `$TMPDIR`). Added `trap 'rm -f "$FAKER_FILE"; ...' EXIT` so the temp file is always cleaned up even when the script exits early via `exit 1`. Removed redundant inline `kill` calls from each assertion branch (trap handles it). | ✓ `./smoke/run.sh` exits 0; confirmed cleanup on all exit paths |
+| 2 | Critical | `mktemp /tmp/curlew_faker_ssnXXXXXX.yaml` creates a literal filename on macOS (suffix after X-placeholder block is not supported), causing `mkstemp failed: File exists` on the second CI run when a prior failed run left the file behind | Changed to `mktemp -t curlew_faker_ssn` (macOS-portable; produces a randomly suffixed file in `$TMPDIR`). Added `trap 'rm -f "$FAKER_FILE"; ...' EXIT` so the temp file is always cleaned up even when the script exits early via `exit 1`. Removed redundant inline `kill` calls from each assertion branch (trap handles it). | ✓ `./smoke/run.sh` exits 0; confirmed cleanup on all exit paths |
 | 3 | High | `docs/MANUAL.md` lines 1088-1099 stated SSN appears as `[REDACTED]` in "the captured request-body field" of `--format json`. This is factually incorrect — `JSONRequest` has no `request_body` field | Corrected the documentation to state that the SSN is redacted in the `-vv` terminal body dump, the markdown report body section, the events stream, and `--log` output. Explicitly notes that `--format json` has no `request_body` field so the SSN simply does not appear there. | ✓ Documentation now matches implementation |
 
 ## Out of Scope (Deferred)
@@ -20,7 +20,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | `./smoke/run.sh` | PASS |

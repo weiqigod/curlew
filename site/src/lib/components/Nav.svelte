@@ -17,7 +17,7 @@
 	<nav class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
 		<a href="/" class="flex items-center gap-2.5 font-semibold text-[var(--text)]">
 			<img src="/favicon.svg" alt="" width="26" height="26" class="rounded-md" />
-			<span>ApiTool</span>
+			<span>Curlew</span>
 			<span class="hidden text-xs font-normal text-[var(--text-faint)] sm:inline">cookbook</span>
 		</a>
 

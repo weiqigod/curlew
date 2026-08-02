@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/uiserver"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/uiserver"
 )
 
 // fakeExec returns canned responses; /fail fails its status assertion
@@ -579,8 +579,8 @@ requests:
 		t.Errorf("history list = %d/%d, want empty", len(listOut.Runs), listOut.Total)
 	}
 
-	if _, err := os.Stat(filepath.Join(root, ".apitest", "ui")); !os.IsNotExist(err) {
-		t.Error(".apitest/ui exists with history disabled — nothing must ever be written")
+	if _, err := os.Stat(filepath.Join(root, ".curlew", "ui")); !os.IsNotExist(err) {
+		t.Error(".curlew/ui exists with history disabled — nothing must ever be written")
 	}
 }
 
@@ -597,12 +597,12 @@ func TestHistory_PersistListDeleteCompare(t *testing.T) {
 	waitTerminal(t, ts, second)
 
 	// Store layout + self-ignoring gitignore.
-	if data, err := os.ReadFile(filepath.Join(root, ".apitest", "ui", ".gitignore")); err != nil || string(data) != "*\n" {
+	if data, err := os.ReadFile(filepath.Join(root, ".curlew", "ui", ".gitignore")); err != nil || string(data) != "*\n" {
 		t.Errorf("store .gitignore = %q, %v", data, err)
 	}
 	for _, id := range []string{first, second} {
 		for _, f := range []string{"meta.json", "events.ndjson", "detail.json"} {
-			if _, err := os.Stat(filepath.Join(root, ".apitest", "ui", "runs", id, f)); err != nil {
+			if _, err := os.Stat(filepath.Join(root, ".curlew", "ui", "runs", id, f)); err != nil {
 				t.Errorf("missing %s for %s: %v", f, id, err)
 			}
 		}
@@ -659,7 +659,7 @@ func TestHistory_PersistListDeleteCompare(t *testing.T) {
 	if dresp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete = %d, want 204", dresp.StatusCode)
 	}
-	if _, err := os.Stat(filepath.Join(root, ".apitest", "ui", "runs", first)); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, ".curlew", "ui", "runs", first)); !os.IsNotExist(err) {
 		t.Error("deleted run directory still exists")
 	}
 }

@@ -23,7 +23,7 @@ No findings.
 | Test Quality | PASS | Table-driven with `t.Run()`, error paths and edge cases covered, integration tests with real binary via `os/exec`, httptest servers, testdata fixtures, multi-wrap verification tests |
 
 ## Test Coverage
-- Coverage: 94.8% overall (cmd/apitest 95.8%, internal/httpexec 92.9%, internal/output 100%, internal/parser 90.9%)
+- Coverage: 94.8% overall (cmd/curlew 95.8%, internal/httpexec 92.9%, internal/output 100%, internal/parser 90.9%)
 - Missing coverage: `main()` (untestable `os.Exit` wrapper — acceptable), one branch in `ParseFile` (non-`ErrNotExist` file read error), one branch in `Execute` (request build error — only reachable with malformed URL)
 
 ## Behavior Coverage

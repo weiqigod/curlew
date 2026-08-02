@@ -617,7 +617,7 @@ No new runner-level tests needed for just wiring warnings through. The condition
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh

@@ -22,7 +22,7 @@ No findings deferred. All findings resolved.
 |-------|--------|
 | `dotnet build ApiTool.Backend.sln` | PASS |
 | `dotnet test ApiTool.Backend.sln` | PASS (1689 passed, 8 skipped) |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Backend test count | 1689 passed (45 GitLab webhook tests) |

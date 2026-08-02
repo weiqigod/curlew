@@ -1,4 +1,4 @@
-/** Represents a typed error returned by the ApiTool backend API. */
+/** Represents a typed error returned by the Curlew backend API. */
 export class ApiError extends Error {
 	/** Machine-readable error code from the backend (e.g. "permission_denied"). */
 	readonly code: string;

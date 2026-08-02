@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.meta.title} — ApiTool cookbook</title>
+	<title>{data.meta.title} — Curlew cookbook</title>
 	<meta name="description" content={data.meta.intent} />
 </svelte:head>
 

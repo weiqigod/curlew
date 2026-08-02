@@ -1,6 +1,6 @@
 package telemetry
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("telemetry",
@@ -10,7 +10,7 @@ func init() {
 			Hint: apierrors.ClassifiedHint{
 				Category: apierrors.CategoryConfig,
 				Code:     "TELEMETRY_NOT_ENABLED",
-				Hint:     "Run `apitest telemetry enable` to generate a persistent install_id and opt in to telemetry.",
+				Hint:     "Run `curlew telemetry enable` to generate a persistent install_id and opt in to telemetry.",
 			},
 		},
 	)

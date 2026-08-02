@@ -10,8 +10,8 @@
  * Prerequisites (handled by scripts/ci-local.sh --full or manual test-stack.sh up):
  *   - Backend:  http://localhost:5000
  *   - Web:      http://localhost:3000
- *   - APITEST_BACKEND_URL env var set
- *   - APITEST_BACKEND_TOKEN env var set (minted by test-token.sh owner@example.com)
+ *   - CURLEW_BACKEND_URL env var set
+ *   - CURLEW_BACKEND_TOKEN env var set (minted by test-token.sh owner@example.com)
  *   - The shell script scripts/m16-e2e.sh has already completed the CLI + backend steps
  *     (schedule create, worker pull, run result ingest, password-reset request) by the
  *     time these Playwright tests execute. The spec drives web assertions only.
@@ -24,8 +24,8 @@ import { SEEDED_ORG_SLUG, OWNER_EMAIL, OWNER_USER_ID } from './helpers/fixtures'
 import { waitForEmailAuditEntry } from './helpers/m14-seed';
 import { extractTokenFromAuditEntry, decodeJwtPayload } from './helpers/m16-seed';
 
-const BACKEND_URL = process.env.APITEST_BACKEND_URL ?? 'http://localhost:5000';
-const BACKEND_TOKEN = process.env.APITEST_BACKEND_TOKEN ?? '';
+const BACKEND_URL = process.env.CURLEW_BACKEND_URL ?? 'http://localhost:5000';
+const BACKEND_TOKEN = process.env.CURLEW_BACKEND_TOKEN ?? '';
 const TRIAL_EMAIL = process.env.M16_E2E_TRIAL_EMAIL ?? 'm16-trial@example.com';
 
 test.describe('M16 happy path', () => {
@@ -40,7 +40,7 @@ test.describe('M16 happy path', () => {
 	 * navigate the confirm page, and assert the redirect.
 	 */
 	test('1. Email verification confirm page redirects to dashboard', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		// Wait for the email_verification email to appear in the audit log.
 		await waitForEmailAuditEntry('email_verification', 10_000, TRIAL_EMAIL);
@@ -69,11 +69,11 @@ test.describe('M16 happy path', () => {
 
 	/**
 	 * Assertion 2: Dashboard reflects the scheduled-run result_id.
-	 * The shell script has already run apitest worker --schedule-pull --once.
+	 * The shell script has already run curlew worker --schedule-pull --once.
 	 * The overview card total-runs should be >= 1.
 	 */
 	test('2. Dashboard overview shows at least one run', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		await page.goto(`/org/${SEEDED_ORG_SLUG}/dashboard`);
 		const card = page.getByTestId('dashboard-total-runs');
@@ -93,7 +93,7 @@ test.describe('M16 happy path', () => {
 	 * a new strong password, and assert the redirect to /login.
 	 */
 	test('3. Password reset confirm page redirects to login', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		// Wait for the password_reset email to appear in the audit log.
 		await waitForEmailAuditEntry('password_reset', 10_000, TRIAL_EMAIL);
@@ -132,7 +132,7 @@ test.describe('M16 happy path', () => {
 	 * to the Enterprise fixture and paid subscriptions intentionally suppress trial state.
 	 */
 	test('4. License JWT trial_state=active after seed-refresh', async () => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		// Mint a fresh token trio for an isolated free-tier user.
 		const seedRes = await fetch(`${BACKEND_URL}/internal/test/seed-refresh`, {

@@ -16,7 +16,7 @@ encryption, refresh-token storage) are documented separately in
 ```mermaid
 flowchart LR
     subgraph CustomerEdge["Customer edge"]
-        CLI["CLI\n(cmd/apitest/)"]
+        CLI["CLI\n(cmd/curlew/)"]
         Browser["Customer browser"]
     end
 
@@ -55,7 +55,7 @@ to the implementing directory.
 
 ### CLI to backend (license and telemetry)
 
-- **Codepath:** `cmd/apitest/`, `internal/backend/`, `internal/telemetry/`.
+- **Codepath:** `cmd/curlew/`, `internal/backend/`, `internal/telemetry/`.
 - **Data shared:** install_id (UUIDv4, anonymous per v4-9), session_id, run
   duration, collection size, exit code. License check additionally carries the
   License JWT (signed by `signing_keys.private_key`).

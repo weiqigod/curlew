@@ -16,7 +16,7 @@
 | `./smoke/run.sh` | PASS | Smoke test clean (via ci-local.sh --go) |
 | `dotnet test --filter GitLabWebhook` | PASS | 45 passed, 0 failed |
 | `dotnet test` (full suite) | PASS | 1689 passed, 0 failed, 8 skipped (Stripe integration, need stripe-mock) |
-| Coverage (Go) | 81.5% (cmd/apitest) | Meets >= 80% threshold |
+| Coverage (Go) | 81.5% (cmd/curlew) | Meets >= 80% threshold |
 | `./scripts/ci-local.sh --go` | PASS | Go gate exit 0 |
 | `./scripts/ci-local.sh` (full) | FAIL (infrastructure) | E2E gate fails: `docker compose` plugin not installed on this machine; pre-existing environment issue unrelated to M16-015 changes |
 

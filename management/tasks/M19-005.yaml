@@ -1,5 +1,5 @@
 id: M19-005
-title: "apitest validate CEL parse/type-check + MANUAL.md section"
+title: "curlew validate CEL parse/type-check + MANUAL.md section"
 status: done
 priority: 1
 created: 2026-05-16
@@ -11,9 +11,9 @@ dependencies:
   - M19-004
 
 observable: |
-  go build ./cmd/apitest && \
-    ./apitest validate smoke/fixtures/cel_validate_bad.yaml; echo "exit=$?" && \
-    ./apitest validate smoke/fixtures/cel_validate_good.yaml; echo "exit=$?" && \
+  go build ./cmd/curlew && \
+    ./curlew validate smoke/fixtures/cel_validate_bad.yaml; echo "exit=$?" && \
+    ./curlew validate smoke/fixtures/cel_validate_good.yaml; echo "exit=$?" && \
     go test ./internal/validator/... -run TestValidateCel -count=1
   Expected: the bad fixture exits non-zero and prints two error lines,
   one with `ERR_CEL_PARSE` and field path `assertions[0].cel`, and one with
@@ -27,11 +27,11 @@ observable: |
   at least 1).
 
 behaviors:
-  - "Given a collection file with one `if:` site and two `assertions: - cel:` sites, when `apitest validate` runs, then it invokes CEL parse + type-check on every site and reports any parse or type error with the precise field path (`if`, `requests[2].if`, `assertions[0].cel`, etc.)."
-  - "Given an `if:` site whose CEL expression compiles to type `int`, when `apitest validate` runs, then it emits `ERR_CEL_TYPE` for that site and includes both the actual type (`int`) and the expected type (`bool`) in the message."
-  - "Given an `assertions: - cel:` site with a syntactically invalid expression, when `apitest validate` runs, then it emits `ERR_CEL_PARSE` for that site with the field path and the 200-char-truncated source excerpt."
+  - "Given a collection file with one `if:` site and two `assertions: - cel:` sites, when `curlew validate` runs, then it invokes CEL parse + type-check on every site and reports any parse or type error with the precise field path (`if`, `requests[2].if`, `assertions[0].cel`, etc.)."
+  - "Given an `if:` site whose CEL expression compiles to type `int`, when `curlew validate` runs, then it emits `ERR_CEL_TYPE` for that site and includes both the actual type (`int`) and the expected type (`bool`) in the message."
+  - "Given an `assertions: - cel:` site with a syntactically invalid expression, when `curlew validate` runs, then it emits `ERR_CEL_PARSE` for that site with the field path and the 200-char-truncated source excerpt."
   - "Given a CEL site whose source is longer than 200 characters and triggers an error, when validate prints the error, then the printed source excerpt is exactly 200 characters with a trailing ellipsis marker."
-  - "Given any collection file (with or without CEL sites), when `apitest validate` runs, then no HTTP request is sent (verified by running validate against a fixture whose URL points to an unreachable host; validate still exits 0 on a valid file)."
+  - "Given any collection file (with or without CEL sites), when `curlew validate` runs, then no HTTP request is sent (verified by running validate against a fixture whose URL points to an unreachable host; validate still exits 0 on a valid file)."
   - "Given the project documentation, when `docs/MANUAL.md` is rendered, then it contains a new section titled `Expression Language (CEL)` under `Variable System and Precedence` with: the standard activation reference (`response`, `previous`, `vars`, `env`), the `if:` field reference, the `assertions: - cel:` shape, a `when to use CEL vs operators` decision table, the list of disabled functions (`now`, zero-arg `timestamp`), and the error codes `ERR_CEL_PARSE` and `ERR_CEL_TYPE`."
 
 scope: |
@@ -42,7 +42,7 @@ scope: |
   existing validate error catalogue with two new codes `ERR_CEL_PARSE` and
   `ERR_CEL_TYPE`, populate the field path (`if`, `requests[i].if`,
   `requests[i].assertions[j].cel`), and truncate source excerpts to 200 chars
-  with a trailing ellipsis. Wire the call from `cmd/apitest/main.go`'s
+  with a trailing ellipsis. Wire the call from `cmd/curlew/main.go`'s
   validate subcommand. Add fixtures `smoke/fixtures/cel_validate_good.yaml`
   and `smoke/fixtures/cel_validate_bad.yaml` and extend `./smoke/run.sh` to
   cover both. Edit `docs/MANUAL.md`: add a new section `Expression Language
@@ -51,7 +51,7 @@ scope: |
   decision table (operator assertions for simple field comparisons; CEL for
   cross-field invariants, aggregations, and predicates spanning multiple
   paths), the disabled-function list, and the new error codes. NOT in scope:
-  any edits to `templates/skills/claude/apitest/` — that surface is owned by
+  any edits to `templates/skills/claude/curlew/` — that surface is owned by
   M19-006; M19-005 deliberately does not touch the bundled skill to avoid
   double-edit collisions. NOT in scope: any edits to `docs/SPECIFICATION.md`
   — v4.4 spec edition is a follow-up commit, not blocking M19. NOT in
@@ -66,7 +66,7 @@ definition_of_done:
   - "Validate error catalogue documents `ERR_CEL_PARSE` and `ERR_CEL_TYPE` with field-path semantics and the 200-char source-truncation rule"
   - "docs/MANUAL.md contains a new `Expression Language (CEL)` section with the standard activation, both integration sites, the decision table, disabled-function list, and error codes"
   - "Smoke fixtures `cel_validate_good.yaml` and `cel_validate_bad.yaml` exercised by `./smoke/run.sh`"
-  - "templates/skills/claude/apitest/ is untouched by this commit (collision guard with M19-006)"
+  - "templates/skills/claude/curlew/ is untouched by this commit (collision guard with M19-006)"
 
 complexity: medium
 estimated_effort: "medium slice"

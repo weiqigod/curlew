@@ -37,7 +37,7 @@ Show the current project status.
 7. **Output Dashboard**:
 
 ```
-## Project Status: ApiTool
+## Project Status: Curlew
 
 Progress: [████████░░░░░░░░░░░░] 40% (12/30 tasks done)
 

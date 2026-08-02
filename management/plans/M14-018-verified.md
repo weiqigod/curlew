@@ -81,7 +81,7 @@ Branch A: Review PASS trusted (iteration 4, post-improve x3). Spot-check clean:
 | 1f1f677f | test(pr-checks): add missing test infrastructure files |
 | 3937437e | docs(review): add passing review for M14-018 |
 | 59b05fdf | docs(review): add iteration-3 improvement report for M14-018 |
-| 3c8f51c8 | test(pr-checks): add PrChecksUploadEndpointTests + GitHubInstallationsApiTests |
+| 3c8f51c8 | test(pr-checks): add PrChecksUploadEndpointTests + GitHubInstallationsCurlews |
 | 5017612a | fix(pr-checks): extract ICheckRunPoster, internal EscapeUserContent, multi-org log warning |
 | 1650365c | docs(review): add review with findings for M14-018 |
 | 26ecc273 | docs(review): update improvement report for M14-018 iteration 2 |

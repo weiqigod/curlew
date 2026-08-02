@@ -1,6 +1,6 @@
 {
   "slug": "auth_device_code",
-  "subject": "Your ApiTool device-login code",
+  "subject": "Your Curlew device-login code",
   "variables": {
     "user_code":          "string (e.g. 'WDJB-MJHT')",
     "verification_url":   "string (HTTPS URL)",

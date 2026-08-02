@@ -180,7 +180,7 @@ If no changes needed, skip this commit.
 After EACH RED+GREEN+REFACTOR cycle, run the full quality gate:
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ```
@@ -247,7 +247,7 @@ After all plan steps are implemented:
 
 Run full quality gate:
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out
 ~/go/bin/golangci-lint run
@@ -276,11 +276,11 @@ Output: "Implementation complete. Run `/review <TASK-ID>` for code review."
 
 ---
 
-## Commit Scopes (ApiTool-specific)
+## Commit Scopes (Curlew-specific)
 
 | Scope | Package / Area |
 |-------|---------------|
-| `cli` | `cmd/apitest/`, CLI wiring |
+| `cli` | `cmd/curlew/`, CLI wiring |
 | `parser` | `internal/parser/` |
 | `http` | `internal/http/` |
 | `variable` | `internal/variable/` |

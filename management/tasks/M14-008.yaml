@@ -11,9 +11,9 @@ observable: |
   dotnet test src/ApiTool.Backend.Tests --filter "Category=stripe-integration|FullyQualifiedName~StripeCheckout"
   # Expected: Passed: >=8, Failed: 0
   ASPNETCORE_ENVIRONMENT=Testing \
-    APITOOL__STRIPE__MODE=live \
-    APITOOL__STRIPE__APIBASE=http://localhost:12111 \
-    APITOOL__STRIPE__APIKEY=sk_test_stripe_mock \
+    CURLEW__STRIPE__MODE=live \
+    CURLEW__STRIPE__APIBASE=http://localhost:12111 \
+    CURLEW__STRIPE__APIKEY=sk_test_stripe_mock \
     dotnet run --project src/ApiTool.Backend &
   sleep 3
   TOKEN=$(./scripts/test-token.sh owner@example.com)
@@ -34,8 +34,8 @@ scope: |
   Replaces src/ApiTool.Backend/Subscriptions/StripeGateway.cs's
   NotImplementedException with the live Stripe.Net 43.x integration. Adds the
   Stripe NuGet package reference. Implements CreateCheckoutAsync with mandatory
-  IdempotencyKey per call. Configuration via APITOOL__STRIPE__APIKEY,
-  APITOOL__STRIPE__APIBASE (for stripe-mock), APITOOL__STRIPE__MODE (live|fake).
+  IdempotencyKey per call. Configuration via CURLEW__STRIPE__APIKEY,
+  CURLEW__STRIPE__APIBASE (for stripe-mock), CURLEW__STRIPE__MODE (live|fake).
   FakeStripeGateway is preserved per investigation Decision #9 for unit tests
   only. Three-layer test strategy per docs/SPECIFICATION.md:6856–6870 — unit
   via fake, integration via stripe-mock with [Trait("Category",

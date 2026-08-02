@@ -1,8 +1,8 @@
 package runner
 
 import (
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/signer"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/signer"
 )
 
 // resolveSigningSpec folds collection-level + per-request precedence to

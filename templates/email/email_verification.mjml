@@ -4,7 +4,7 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Welcome to ApiTool, {{first_name}}!
+          Welcome to Curlew, {{first_name}}!
         </mj-text>
         <mj-text>
           Click the button below to verify your email address and activate your account.
@@ -21,7 +21,7 @@
         </mj-text>
         <mj-divider border-color="#eeeeee" />
         <mj-text font-size="12px" color="#999999">
-          If you did not create an ApiTool account, you can safely ignore this email.
+          If you did not create an Curlew account, you can safely ignore this email.
         </mj-text>
       </mj-column>
     </mj-section>

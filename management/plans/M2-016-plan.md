@@ -38,11 +38,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // RequestOutcome holds the result of executing a single request within a wave.
@@ -264,8 +264,8 @@ The key design decisions:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add --parallel flag to parseRunArgs; add feature gate check in runCmdInner |
-| `cmd/apitest/run_test.go` | modify | Add tests for --parallel flag |
+| `cmd/curlew/main.go` | modify | Add --parallel flag to parseRunArgs; add feature gate check in runCmdInner |
+| `cmd/curlew/run_test.go` | modify | Add tests for --parallel flag |
 
 #### Current Code
 ```go
@@ -317,9 +317,9 @@ func TestParseRunArgs_parallel_flag(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | In runCmdInner, when --parallel is set: analyze deps, execute waves for main phase |
+| `cmd/curlew/main.go` | modify | In runCmdInner, when --parallel is set: analyze deps, execute waves for main phase |
 | `internal/parallel/executor.go` | modify | Add helper to convert RequestOutcome to runner.RequestResult |
-| `cmd/apitest/run_test.go` | modify | Integration tests for parallel execution |
+| `cmd/curlew/run_test.go` | modify | Integration tests for parallel execution |
 
 #### Current Code (runCmdInner main execution path)
 ```go
@@ -498,7 +498,7 @@ func TestExecuteWaves_VariableExtraction_WithinWave_NoRace(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/run_test.go` | modify | Add integration tests for parallel execution |
+| `cmd/curlew/run_test.go` | modify | Add integration tests for parallel execution |
 | `smoke/run.sh` | modify | Add parallel execution smoke test |
 
 #### Tests to Write FIRST (RED phase)
@@ -536,8 +536,8 @@ func TestRunCmd_parallel_guard_rail(t *testing.T) {
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | All existing | minor | Update parseRunArgs call sites for new `parallel` return value |
-| `cmd/apitest/run_test.go` | All existing | none | No changes needed |
+| `cmd/curlew/main_test.go` | All existing | minor | Update parseRunArgs call sites for new `parallel` return value |
+| `cmd/curlew/run_test.go` | All existing | none | No changes needed |
 | `internal/runner/runner_test.go` | All existing | none | VarSources.Parallel defaults to false |
 | `internal/parallel/*_test.go` | All existing | none | No changes needed |
 
@@ -576,7 +576,7 @@ func TestRunCmd_parallel_guard_rail(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 go test -race ./internal/parallel/...
 go test -race ./internal/runner/...
@@ -587,10 +587,10 @@ go test -race ./internal/runner/...
 Observable verification:
 ```bash
 # Feature gate check (Free tier)
-./apitest run --parallel sample/hello.yaml
+./curlew run --parallel sample/hello.yaml
 # Should exit with code 6 and feature gate message
 
 # Run tests
 go test ./internal/parallel/... -v
-go test ./cmd/apitest/... -v -run TestRunCmd_parallel
+go test ./cmd/curlew/... -v -run TestRunCmd_parallel
 ```

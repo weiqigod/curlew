@@ -3,7 +3,7 @@ title: OAuth 1.0a signed requests
 intent: Sign requests with OAuth 1.0a (HMAC-SHA1 or HMAC-SHA256) using the built-in signer — credentials kept out of the file and out of the logs.
 group: security
 features: [signing, redaction]
-command: apitest run collections/oauth1.yaml
+command: curlew run collections/oauth1.yaml
 order: 100
 runnable: false
 ---
@@ -13,7 +13,7 @@ runnable: false
 </script>
 
 Plenty of APIs still speak OAuth 1.0a — and getting the signature base string right
-by hand is miserable. ApiTool's built-in `oauth1` signer handles the nonce,
+by hand is miserable. Curlew's built-in `oauth1` signer handles the nonce,
 timestamp, parameter normalization, and HMAC for you.
 
 ## The collection
@@ -40,7 +40,7 @@ requests:
       method: POST
       url: "https://api.example.com/1.1/statuses/update.json"
       query:
-        status: "hello from apitest"
+        status: "hello from curlew"
     signing:
       type: oauth1
       params:
@@ -56,14 +56,14 @@ requests:
           exists: true
 ```
 
-ApiTool folds the query parameters into the OAuth signature base string, builds the
+Curlew folds the query parameters into the OAuth signature base string, builds the
 `Authorization: OAuth ...` header, and dispatches — RSA-SHA1 and PLAINTEXT are
 deliberately not supported.
 
 ## Run it
 
 ```bash
-apitest run collections/oauth1.yaml
+curlew run collections/oauth1.yaml
 ```
 
 ```

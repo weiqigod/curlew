@@ -20,13 +20,13 @@ No findings.
 | Error Handling | PASS | All I/O errors in `WriteTAP`/`writeTAPDiagnostics` returned. Pre-exec bail-outs consistent with JSON pattern. Empty-collection write error now logged to stderr. |
 | Input Validation | PASS | `sanitizeTAPName` strips `#`, collapses whitespace runs via `strings.Fields`. `WriteTAP` handles nil/empty slice correctly. |
 | Naming | PASS | No stuttering; all exported types have doc comments; unexported helpers clearly named. |
-| Code Organization | PASS | TAP formatter isolated in `internal/output/tap.go`; wiring in `cmd/apitest/main.go`; no circular deps; minimal exported surface. |
+| Code Organization | PASS | TAP formatter isolated in `internal/output/tap.go`; wiring in `cmd/curlew/main.go`; no circular deps; minimal exported surface. |
 | Correctness | PASS | TAP 13 format correct (version, plan, ok/not ok, YAML diagnostics, bail-out, SKIP). Exit codes correct. Empty collection emits `1..0`. Summary nil-check consistent with JSON block. |
 | Test Quality | PASS | All 5 behaviors covered; table-driven; integration tests cover pass/fail/parse-error/empty collection; `buildTAPOutput` has dedicated unit test; smoke test updated. |
 
 ## Test Coverage
 - `internal/output`: **87.6%** (above 80% threshold)
-- `cmd/apitest`: **85.1%** (above 80% threshold)
+- `cmd/curlew`: **85.1%** (above 80% threshold)
 - Overall: **85.7%**
 - Uncovered lines: I/O error return paths in `WriteTAP`/`writeTAPDiagnostics`/`writeTAPBailout` — acceptable (require error-injecting mock writer)
 

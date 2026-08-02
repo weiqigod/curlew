@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // ExecuteFunc is the injectable request-execution seam (tests swap this for

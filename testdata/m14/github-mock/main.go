@@ -1,5 +1,5 @@
 // github-mock is a minimal HTTP stub that simulates the GitHub API endpoints
-// used by the ApiTool backend for GitHub App integration (M14-018).
+// used by the Curlew backend for GitHub App integration (M14-018).
 //
 // Routes implemented:
 //
@@ -68,7 +68,7 @@ func main() {
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"id":  id,
 				"url": fmt.Sprintf("https://api.github.com%s/%d", r.URL.Path, id),
-				"name": "ApiTool",
+				"name": "Curlew",
 				"status": "completed",
 			})
 		case http.MethodGet:

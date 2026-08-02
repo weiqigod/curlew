@@ -51,7 +51,7 @@ the new Professional-tier feature `rate_limit_global`.
    "before any request dispatches" — i.e., immediately after `ParseFile`
    succeeds, at the entry of `runner.Run`. This matches the existing
    pattern used by `data_driven`, `dynamic_auth_profiles`, `vault`, etc.
-   The CLI observable (exit code 6) is produced by `cmd/apitest/main.go`
+   The CLI observable (exit code 6) is produced by `cmd/curlew/main.go`
    already mapping `*auth.GateError` from `runner.Run` → exit 6.
 
 5. **Parse-time validation of negative `rate_limit_rps`.** The parser
@@ -213,7 +213,7 @@ if err := rl.wait(runCtx); err != nil { break }
 #### New Code
 ```go
 // internal/datadriven/parallel.go
-import "github.com/peterlindqvist/apitest/internal/ratelimit"
+import "github.com/weiqigod/curlew/internal/ratelimit"
 
 // usage
 rl := ratelimit.New(cfg.RateLimitRPS)
@@ -576,7 +576,7 @@ Test fixtures reuse an inline stub exec that returns 200 OK immediately.
 ### Step 6: Update JSON schema
 
 **Rationale:** Last. A schema update has the smallest impact: it affects
-only the `validator` and `apitest validate` paths and would otherwise
+only the `validator` and `curlew validate` paths and would otherwise
 reject the new field.
 
 #### Files to Modify
@@ -673,7 +673,7 @@ rejected by the JSON schema validator.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/ratelimit/... ./internal/parser/... ./internal/datadriven/... \
         ./internal/auth/... ./internal/runner/... ./internal/schema/...
 go test ./...
@@ -685,11 +685,11 @@ Observable verification (from task YAML):
 
 ```bash
 # Professional tier: 10 requests at 5 rps should take >= ~1.8s wall-clock
-go build ./cmd/apitest
-APITEST_TIER=professional ./apitest run smoke/rate_limit_global.yaml  # >= ~1.8s
+go build ./cmd/curlew
+CURLEW_TIER=professional ./curlew run smoke/rate_limit_global.yaml  # >= ~1.8s
 
 # Free tier: same collection exits 6 with "rate_limit_global requires Professional tier"
-APITEST_TIER=free ./apitest run smoke/rate_limit_global.yaml          # exit code 6
+CURLEW_TIER=free ./curlew run smoke/rate_limit_global.yaml          # exit code 6
 echo $?
 
 go test ./internal/runner/... ./internal/parser/...

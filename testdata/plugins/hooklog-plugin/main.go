@@ -1,8 +1,8 @@
-// hooklog-plugin is a test fixture plugin that responds to the apitest hello
+// hooklog-plugin is a test fixture plugin that responds to the curlew hello
 // handshake and all three lifecycle hooks, logging each invocation to stderr.
 //
 // Use this plugin in tests and smoke tests to verify that on_request,
-// on_response, and on_result are called by apitest run.
+// on_response, and on_result are called by curlew run.
 package main
 
 import (
@@ -31,14 +31,14 @@ func main() {
 
 		var result any
 		switch req.Method {
-		case "apitest/hello":
+		case "curlew/hello":
 			result = map[string]any{
 				"name":             "hooklog",
 				"version":          "0.1.0",
 				"hooks":            []string{"on_request", "on_response", "on_result"},
 				"protocol_version": 1,
 			}
-		case "apitest/on_request":
+		case "curlew/on_request":
 			var p struct {
 				Method string `json:"method"`
 				URL    string `json:"url"`
@@ -46,7 +46,7 @@ func main() {
 			_ = json.Unmarshal(req.Params, &p)
 			_, _ = fmt.Fprintf(os.Stderr, "[plugin:hooklog] on_request %s %s\n", p.Method, p.URL)
 			result = map[string]any{} // no mutation — return empty to keep original
-		case "apitest/on_response":
+		case "curlew/on_response":
 			var p struct {
 				StatusCode int   `json:"status_code"`
 				DurationMs int64 `json:"duration_ms"`
@@ -54,7 +54,7 @@ func main() {
 			_ = json.Unmarshal(req.Params, &p)
 			_, _ = fmt.Fprintf(os.Stderr, "[plugin:hooklog] on_response %d %dms\n", p.StatusCode, p.DurationMs)
 			result = map[string]any{}
-		case "apitest/on_result":
+		case "curlew/on_result":
 			var p struct {
 				PassCount int `json:"pass_count"`
 				FailCount int `json:"fail_count"`

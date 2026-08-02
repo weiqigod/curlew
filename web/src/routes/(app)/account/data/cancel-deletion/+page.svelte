@@ -36,7 +36,7 @@
 </script>
 
 <svelte:head>
-	<title>Cancel Account Deletion — ApiTool</title>
+	<title>Cancel Account Deletion — Curlew</title>
 </svelte:head>
 
 <main class="cancel-deletion">

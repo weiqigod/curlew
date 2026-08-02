@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 func TestInterpolateRequest_graphql_nil(t *testing.T) {

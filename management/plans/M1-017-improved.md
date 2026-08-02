@@ -1,6 +1,6 @@
 # Improvement Report: M1-017
 
-**Task:** Global project config (apitest.yaml)
+**Task:** Global project config (curlew.yaml)
 **Date:** 2026-03-14
 **Review:** management/reviews/M1-017-review.md
 
@@ -20,7 +20,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage | 92.4% |

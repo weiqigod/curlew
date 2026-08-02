@@ -11,11 +11,11 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // --- REST JSON shapes (spec §4.8, §4.9) ---

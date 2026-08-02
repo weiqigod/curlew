@@ -3,7 +3,7 @@ title: End-to-end checkout flow
 intent: Log in once, seed a fixture, chain a multi-step order, assert a cross-field invariant, then clean up — all in one collection.
 group: core
 features: [auth, chaining, cel, setup-teardown]
-command: apitest run collections/checkout.yaml --env staging
+command: curlew run collections/checkout.yaml --env staging
 order: 10
 runnable: false
 ---
@@ -19,12 +19,12 @@ of that — and shows how a **dynamic auth profile**, **value extraction**, a
 
 ## The auth profile
 
-Token handling lives in `apitest.yaml` as a named profile. The profile runs a login
+Token handling lives in `curlew.yaml` as a named profile. The profile runs a login
 collection, caches the token, and re-runs on a 401 — so individual collections never
 deal with credentials.
 
 ```yaml
-# apitest.yaml
+# curlew.yaml
 auth_profiles:
   shopper:
     type: dynamic
@@ -127,7 +127,7 @@ teardown:
 ## Run it
 
 ```bash
-apitest run collections/checkout.yaml --env staging
+curlew run collections/checkout.yaml --env staging
 ```
 
 ## What you get
@@ -149,7 +149,7 @@ Teardown:
 ```
 
 <Callout type="output">
-	Output is modeled on ApiTool's documented terminal format — this flow targets a
+	Output is modeled on Curlew's documented terminal format — this flow targets a
 	private staging API, so it can't run against a public endpoint.
 </Callout>
 

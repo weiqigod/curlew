@@ -14,7 +14,7 @@
 | `go test -race ./...` | PASS | No races detected (confirmed in review) |
 | `golangci-lint run` | PASS | 0 findings |
 | `./smoke/run.sh` | PASS | Smoke test clean |
-| Coverage `cmd/apitest` | 80.3% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 80.3% | Meets >= 80% threshold |
 | Coverage `internal/worker` | 92.7% | Meets >= 80% threshold |
 | Coverage total | 86.2% | Meets >= 80% threshold |
 | `./scripts/ci-local.sh --go` | PASS | All gates passed |
@@ -22,8 +22,8 @@
 ## Observable Output
 
 ```
-go test -run TestStreamProgress ./cmd/apitest/...
-ok      github.com/peterlindqvist/apitest/cmd/apitest   1.174s
+go test -run TestStreamProgress ./cmd/curlew/...
+ok      github.com/weiqigod/curlew/cmd/curlew   1.174s
 
 grep -n '"warning:' internal/worker/run.go
 137:            _, _ = fmt.Fprintf(stderr, "warning: submit failed for %s: %v (shard will be reaped)\n", ...)
@@ -49,11 +49,11 @@ Result: MATCH
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all packages pass | PASS |
-| 2 | `cmd/apitest/stream_progress_test.go` covers perf, license, worker, and exec --dry-run | File exists with 4 subtests; `TestStreamProgress` passes | PASS |
+| 2 | `cmd/curlew/stream_progress_test.go` covers perf, license, worker, and exec --dry-run | File exists with 4 subtests; `TestStreamProgress` passes | PASS |
 | 3 | `Running...` in perf.go → stderr; `Validating license` in license.go → stderr; `Claimed shard` in run.go → stderr | Source grep confirms all in `fmt.Fprintf(stderr, ...)` | PASS |
 | 4 | exec --dry-run uses `output.Printer.RequestDetail`; no raw `fmt.Fprintln(os.Stdout, ...)` | Confirmed in main.go dry-run branch | PASS |
 | 5 | `go test ./...` passes with no regressions | All packages pass | PASS |
-| 6 | Test coverage does not regress below 80% | `cmd/apitest`=80.3%, `internal/worker`=92.7% | PASS |
+| 6 | Test coverage does not regress below 80% | `cmd/curlew`=80.3%, `internal/worker`=92.7% | PASS |
 | 7 | `golangci-lint run` passes with 0 issues | Confirmed in review and ci-local.sh | PASS |
 | 8 | `./smoke/run.sh` passes | ci-local.sh includes smoke; PASS | PASS |
 | 9 | `./scripts/ci-local.sh` passes | PASS (ci-local PASS output) | PASS |
@@ -110,14 +110,14 @@ Branch A: Review PASS (ec04a0a) trusted; spot-check clean. Spot-checks: (1) `gre
 
 | File | Action | Notes |
 |------|--------|-------|
-| `cmd/apitest/license.go` | modified | Progress lines → stderr |
-| `cmd/apitest/license_test.go` | modified | Assertions updated to stderr |
-| `cmd/apitest/main.go` | modified | exec --dry-run → output.Printer.RequestDetail |
-| `cmd/apitest/main_test.go` | modified | Added TestExecCmd_DryRun_UsesPrinterRequestDetail |
-| `cmd/apitest/perf.go` | modified | Progress lines → stderr |
-| `cmd/apitest/perf_test.go` | modified | Assertions updated to stderr; TestPerfCmd_RPSHeaderInStdout → TestPerfCmd_RPSHeaderInStderr |
-| `cmd/apitest/stream_progress_test.go` | created | TestStreamProgress binary-level regression guard |
-| `cmd/apitest/worker.go` | modified | Pass Stderr: stderr into worker.RunOptions |
+| `cmd/curlew/license.go` | modified | Progress lines → stderr |
+| `cmd/curlew/license_test.go` | modified | Assertions updated to stderr |
+| `cmd/curlew/main.go` | modified | exec --dry-run → output.Printer.RequestDetail |
+| `cmd/curlew/main_test.go` | modified | Added TestExecCmd_DryRun_UsesPrinterRequestDetail |
+| `cmd/curlew/perf.go` | modified | Progress lines → stderr |
+| `cmd/curlew/perf_test.go` | modified | Assertions updated to stderr; TestPerfCmd_RPSHeaderInStdout → TestPerfCmd_RPSHeaderInStderr |
+| `cmd/curlew/stream_progress_test.go` | created | TestStreamProgress binary-level regression guard |
+| `cmd/curlew/worker.go` | modified | Pass Stderr: stderr into worker.RunOptions |
 | `internal/worker/integration_test.go` | modified | Progress assertions moved to stderr buffers |
 | `internal/worker/run.go` | modified | Added Stderr seam; all progress lines → stderr |
 | `internal/worker/run_test.go` | modified | All subtests pass Stderr buffers; syncBuffer for concurrent tests |

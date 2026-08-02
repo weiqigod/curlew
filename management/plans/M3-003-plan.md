@@ -324,7 +324,7 @@ import (
     "os"
     "path/filepath"
 
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
     "gopkg.in/yaml.v3"
 )
 
@@ -780,16 +780,16 @@ func TestDefaultRegistry_include_directive_registered(t *testing.T) {
 
 ### Step 6: Wire `IncludeGate` from the CLI entry points
 
-**Rationale:** Hook the new gate callback into both `cmd/apitest/main.go` and
+**Rationale:** Hook the new gate callback into both `cmd/curlew/main.go` and
 `internal/watch/paths.go` so real users hit the Professional-tier check.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Replace `parser.ParseFile(file)` at line 275 with `parser.ParseFileWithOptions(file, parser.ParseOptions{IncludeGate: includeGateFor(currentTier())})` |
+| `cmd/curlew/main.go` | modify | Replace `parser.ParseFile(file)` at line 275 with `parser.ParseFileWithOptions(file, parser.ParseOptions{IncludeGate: includeGateFor(currentTier())})` |
 | `internal/watch/paths.go` | modify | Same swap at line 76, using `currentTier()` from the watch caller (or accept a tier arg) |
-| `cmd/apitest/main.go` | modify | Add `includeGateFor(tier auth.Tier) func() error` helper that returns nil when allowed or a `*auth.GateError` otherwise |
+| `cmd/curlew/main.go` | modify | Add `includeGateFor(tier auth.Tier) func() error` helper that returns nil when allowed or a `*auth.GateError` otherwise |
 
 #### New Code (in `main.go`)
 
@@ -852,13 +852,13 @@ if err != nil {
 
 ```go
 func TestRunCmd_include_gate_blocks_at_free_tier(t *testing.T) {
-    // Override currentTier() to TierFree. Run apitest run on a parent file
+    // Override currentTier() to TierFree. Run curlew run on a parent file
     // with `include: [./child.yaml]`. Expect exit code 6 and that stderr
     // contains "include_directive".
 }
 
 func TestRunCmd_include_runs_at_professional_tier(t *testing.T) {
-    // Override currentTier() to TierProfessional. Run apitest run on a
+    // Override currentTier() to TierProfessional. Run curlew run on a
     // parent that includes a child with one request hitting an httptest
     // server. Expect exit 0 and the request to have actually been sent.
 }
@@ -870,10 +870,10 @@ func TestWatch_include_gate_blocks_at_free_tier(t *testing.T) {
 
 #### Impact on Existing Tests
 
-- Existing `cmd/apitest/main_test.go` tests that use `parser.ParseFile` via
+- Existing `cmd/curlew/main_test.go` tests that use `parser.ParseFile` via
   the CLI will now go through `ParseFileWithOptions`. As long as none of
   those collections declare `include:`, behavior is unchanged.
-- `cmd/apitest/main_test.go:5297` uses `parser.ParseFile` directly in a test
+- `cmd/curlew/main_test.go:5297` uses `parser.ParseFile` directly in a test
   — leave it alone (it's a test helper, no gate needed).
 - `internal/watch/paths.go:76` (and its tests) — sweep call sites; those that
   already work without includes are unaffected.
@@ -935,7 +935,7 @@ func TestSchema_rejects_non_string_include_item(t *testing.T) {
 
 The smoke test will create a small `parent.yaml` that includes a
 `shared/auth.yaml` and a `shared/common.yaml`, run it, and assert exit 0. It
-will then re-run with `APITEST_TIER=free` and assert exit 6.
+will then re-run with `CURLEW_TIER=free` and assert exit 6.
 
 #### Impact on Existing Tests
 
@@ -956,7 +956,7 @@ will then re-run with `APITEST_TIER=free` and assert exit 6.
 | `internal/parser/external_test.go` | `TestParseFile_ExternalReferences` | none — `path:` resolution path unchanged when no `include:` is present | none |
 | `internal/auth/registry_test.go` | feature-list assertion (if any) | likely needs +1 to count | update |
 | `internal/auth/registry_test.go` | new `TestDefaultRegistry_include_directive_registered` | new | write |
-| `cmd/apitest/main_test.go` | new `TestRunCmd_include_gate_*`, `TestRunCmd_include_runs_*` | new | write |
+| `cmd/curlew/main_test.go` | new `TestRunCmd_include_gate_*`, `TestRunCmd_include_runs_*` | new | write |
 | `internal/watch/paths_test.go` | new `TestWatch_include_gate_*` | new | write |
 | `internal/schema/schema_test.go` | new `TestSchema_validates_include_directive`, `TestSchema_rejects_non_string_include_item` | new | write |
 | `internal/runner/runner.go` | (no changes) | none | — |
@@ -1043,7 +1043,7 @@ No open questions remain.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1087,12 +1087,12 @@ requests:
 YAML
 
 # Build and run at Professional tier (default in dev)
-go build -o /tmp/apitest ./cmd/apitest
-APITEST_TIER=professional /tmp/apitest run /tmp/m3-003-obs/parent.yaml
+go build -o /tmp/curlew ./cmd/curlew
+CURLEW_TIER=professional /tmp/curlew run /tmp/m3-003-obs/parent.yaml
 # expect: exit 0, three requests interpolating https://api.example.com/...
 
 # Re-run at Free tier
-APITEST_TIER=free /tmp/apitest run /tmp/m3-003-obs/parent.yaml
+CURLEW_TIER=free /tmp/curlew run /tmp/m3-003-obs/parent.yaml
 echo "exit=$?"
 # expect: exit 6 with feature_gated message naming "include_directive"
 

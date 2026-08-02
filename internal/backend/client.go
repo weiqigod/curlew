@@ -15,7 +15,7 @@ import (
 // before falling through to ProblemDetails decoding.
 var (
 	// ErrNetworkFailure is returned when the backend is unreachable. Mapped
-	// to CLI exit code 3 by the apitest license --refresh handler.
+	// to CLI exit code 3 by the curlew license --refresh handler.
 	ErrNetworkFailure = errors.New("backend: network failure")
 	// ErrServerError is returned when the backend responds with 5xx after
 	// problem-details decoding fails (i.e., 5xx without a proper RFC 7807
@@ -23,7 +23,7 @@ var (
 	ErrServerError = errors.New("backend: server error")
 )
 
-// Client is the apitest CLI's HTTP client for the apitool backend. The
+// Client is the curlew CLI's HTTP client for the curlew backend. The
 // zero value is not usable; construct via NewClient. Safe for concurrent
 // use — every method creates a fresh *http.Request and reads the response
 // body to completion before returning.
@@ -37,7 +37,7 @@ type Client struct {
 type Options struct {
 	BaseURL    string        // required, e.g. "https://api.apitool.dev"
 	HTTPClient *http.Client  // nil = http.Client{Timeout: 30s}
-	UserAgent  string        // empty = "apitest-cli"
+	UserAgent  string        // empty = "curlew-cli"
 	Timeout    time.Duration // applied to default http.Client when HTTPClient is nil
 }
 
@@ -56,7 +56,7 @@ func NewClient(opts Options) (*Client, error) {
 	}
 	ua := opts.UserAgent
 	if ua == "" {
-		ua = "apitest-cli"
+		ua = "curlew-cli"
 	}
 	return &Client{baseURL: opts.BaseURL, httpClient: hc, userAgent: ua}, nil
 }

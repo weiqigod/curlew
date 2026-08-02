@@ -23,7 +23,7 @@ behaviors:
 
 scope: |
   Extend `internal/graphql/` with comprehensive error handling per spec: three modes
-  (fail, warn, ignore), global configuration via apitest.yaml, per-request override,
+  (fail, warn, ignore), global configuration via curlew.yaml, per-request override,
   partial success detection, and clear terminal/JSON output showing GraphQL error details.
   Support assertions on the `$.errors` array and its nested fields.
 

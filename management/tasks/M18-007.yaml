@@ -9,7 +9,7 @@ dependencies: []
 
 observable: |
   Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~Telemetry"` and see >= 14 tests pass. Apply migration and verify:
-  `psql -d apitool -c "\dt telemetry*"` lists telemetry_events and telemetry_daily_aggregates. Without any auth header:
+  `psql -d curlew -c "\dt telemetry*"` lists telemetry_events and telemetry_daily_aggregates. Without any auth header:
   `curl -i -X POST -H "Content-Type: application/json" -H "Idempotency-Key: 11111111-1111-1111-1111-111111111111" -d '{"install_id":"22222222-2222-2222-2222-222222222222","event_type":"run.completed","event_payload":{"collection_size":12,"duration_ms":420}}' http://localhost:5000/api/v1/telemetry/events`
   expect `HTTP/1.1 202 Accepted` with empty body. Replay with the same Idempotency-Key returns `HTTP/1.1 202` no-op. Issue 61 distinct requests with the same install_id in under a minute and observe the 61st return `HTTP/1.1 429 Too Many Requests` (per-install_id rate limit 60/min). POST a body > 64KB and expect `HTTP/1.1 413 Payload Too Large`. Force aggregator: `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/run-telemetry-aggregator` and confirm a row appears in telemetry_daily_aggregates with the day's per-event-type count. Force purge: `curl -X POST http://localhost:5000/api/v1/internal/test-hooks/purge-telemetry-events` after backdating a row to 91 days old; confirm it is hard-deleted.
 
@@ -24,7 +24,7 @@ behaviors:
   - "Given the endpoint receives an event with an unknown event_type, when stored, then the row is accepted (forward-compat with future CLI versions emitting new event types)"
 
 scope: |
-  EF migration adds telemetry_events and telemetry_daily_aggregates tables. New src/ApiTool.Backend/Telemetry/TelemetryIngestEndpoint.cs registers POST /api/v1/telemetry/events as anonymous (allows pipeline to skip JwtBearer). Idempotency dedup via UNIQUE(idempotency_key). Body-size cap 64KB enforced before model binding. Per-install_id rate limit (60/min) via Internal/RateLimit. New src/ApiTool.Backend/Telemetry/TelemetryAggregatorHost.cs : BackgroundService runs daily at 04:00 UTC; emits telemetry_daily_aggregates rows. New src/ApiTool.Backend/Telemetry/TelemetryPurgeHost.cs : BackgroundService runs daily and hard-deletes telemetry_events older than 90 days per spec :6604. Two test-only hooks gated behind APITEST_INTERNAL=1 for deterministic aggregator/purge triggering. The endpoint is the CLI's HTTP contract that M18-008 implements against — both must agree on the wire shape before M18-008 can ship.
+  EF migration adds telemetry_events and telemetry_daily_aggregates tables. New src/ApiTool.Backend/Telemetry/TelemetryIngestEndpoint.cs registers POST /api/v1/telemetry/events as anonymous (allows pipeline to skip JwtBearer). Idempotency dedup via UNIQUE(idempotency_key). Body-size cap 64KB enforced before model binding. Per-install_id rate limit (60/min) via Internal/RateLimit. New src/ApiTool.Backend/Telemetry/TelemetryAggregatorHost.cs : BackgroundService runs daily at 04:00 UTC; emits telemetry_daily_aggregates rows. New src/ApiTool.Backend/Telemetry/TelemetryPurgeHost.cs : BackgroundService runs daily and hard-deletes telemetry_events older than 90 days per spec :6604. Two test-only hooks gated behind CURLEW_INTERNAL=1 for deterministic aggregator/purge triggering. The endpoint is the CLI's HTTP contract that M18-008 implements against — both must agree on the wire shape before M18-008 can ship.
 
 definition_of_done:
   - "All behavior tests pass (>=14 tests)"

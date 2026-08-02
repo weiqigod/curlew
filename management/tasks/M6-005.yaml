@@ -21,7 +21,7 @@ observable: |
       assertions:
         status: 200
   YAML
-  ./apitest run /tmp/events-happy.yaml --events /tmp/events.jsonl
+  ./curlew run /tmp/events-happy.yaml --events /tmp/events.jsonl
   # Expected: existing terminal output unchanged; /tmp/events.jsonl contains:
   #   run.start, request.start, request.end (outcome=passed),
   #   assertion.result (passed), run.end (event_count matches lines).
@@ -35,25 +35,25 @@ observable: |
       method: GET
       url: "{{MISSING}}"
   YAML
-  ./apitest run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl || true
+  ./curlew run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl || true
   # Expected: run.start then run.error event with category=input,
   # code=VAR_UNDEFINED, file=/tmp/events-fail.yaml, line pointing at the
   # request, and a non-empty hint. Then run.end with exit_code != 0.
 behaviors:
-  - "Given --events <path> with a valid writable path, when apitest run completes, then the file contains a well-formed NDJSON stream beginning with run.start and ending with run.end."
-  - "Given --events is not provided, when apitest run completes, then no events file is produced and all existing format outputs are byte-identical to pre-M6 output (verified by existing goldens)."
+  - "Given --events <path> with a valid writable path, when curlew run completes, then the file contains a well-formed NDJSON stream beginning with run.start and ending with run.end."
+  - "Given --events is not provided, when curlew run completes, then no events file is produced and all existing format outputs are byte-identical to pre-M6 output (verified by existing goldens)."
   - "Given a passing collection, when run with --events, then every request emits paired request.start / request.end events with matching request_id and a request.end.outcome of passed, and every assertion emits an assertion.result event."
   - "Given a pre-execution failure (feature-gate denial, undefined variable at interpolation, collection parse error), when run with --events, then a single run.error event is emitted with full (file, line, category, code, hint) before run.end."
   - "Given parallel execution (--parallel), when run with --events, then event ids remain strictly monotonic across goroutines, and request.end.wave_index is populated."
   - "Given a loadgen/worker/prcheck subcommand, when --events is passed, then the flag is rejected with a clear message ('--events is supported only on run; use --format jsonl for streaming samples'). No partial event file is created."
   - "Given /dev/stdout as --events path, when run, then NDJSON lines are written to stdout interleaved with any existing stdout output; existing behaviours are not affected."
-  - "Given an invalid --events path (unwritable directory), when apitest run starts, then it exits with a clear error before executing any requests."
+  - "Given an invalid --events path (unwritable directory), when curlew run starts, then it exits with a clear error before executing any requests."
 scope: |
-  cmd/apitest/main.go:
+  cmd/curlew/main.go:
     - Add --events <path> flag to the run subcommand.
     - Validate writability before the redaction pass so early failure doesn't
       execute requests.
-    - Construct an events.Emitter. Emit run.start with apitest_version,
+    - Construct an events.Emitter. Emit run.start with curlew_version,
       collection_file, cli_args, env_name.
     - Pass a callback into runner via a new runner.Options.OnEvent so request
       events fire as they happen (streaming, not post-hoc).
@@ -79,7 +79,7 @@ scope: |
 definition_of_done:
   - "All behavior tests pass"
   - "go test ./... passes with no changes to existing format goldens"
-  - "End-to-end CLI test under cmd/apitest drives a real ./apitest binary with --events against a fixture collection and asserts the stream shape"
+  - "End-to-end CLI test under cmd/curlew drives a real ./curlew binary with --events against a fixture collection and asserts the stream shape"
   - "golangci-lint run passes with 0 issues"
   - "Test coverage does not regress below 80%"
   - "Smoke test passes; smoke also exercises --events on the happy path"

@@ -44,7 +44,7 @@ No findings.
 
 ## Test Coverage
 
-- `cmd/apitest`: **86.6%** (≥80% ✓)
+- `cmd/curlew`: **86.6%** (≥80% ✓)
 - `internal/output`: **100.0%** (up from 91.8% ✓)
 - `IsTerminal` function: **100.0%** (up from 42.9% ✓)
 

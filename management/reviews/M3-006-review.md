@@ -66,7 +66,7 @@ No findings.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./internal/openapi/...` | PASS |
 | `go test -race ./internal/openapi/...` | PASS |
 | `golangci-lint run ./internal/openapi/...` | PASS — 0 issues |

@@ -10,13 +10,13 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 10 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke scenarios pass (two bugs fixed during verification) |
 | Coverage `internal/variable` | 95.8% | Meets >= 80% threshold |
 | Coverage `internal/runner` | 91.2% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 85.5% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 85.5% | Meets >= 80% threshold |
 | Coverage total | 92.9% | Meets >= 80% threshold |
 
 ## Smoke Test Fixes During Verification
@@ -63,7 +63,7 @@ Result: MATCH
 | 2 | Observable output works | Two `--seed 42` runs produce identical output | PASS |
 | 3 | Test coverage >= 80% | Total 92.9%; variable 95.8%, runner 91.2%, cmd 85.5% | PASS |
 | 4 | No build warnings or lint errors | Clean `go build`; `golangci-lint` 0 issues | PASS |
-| 5 | Help text updated | `--seed <number>` visible in `apitest --help` | PASS |
+| 5 | Help text updated | `--seed <number>` visible in `curlew --help` | PASS |
 | 6 | Smoke test updated | Dynamic UUID and seed determinism cases added to `smoke/run.sh` | PASS |
 
 ## Code Review
@@ -116,8 +116,8 @@ TDD pattern: all `test(...)` commits precede corresponding `feat(...)` commits.
 | `internal/variable/variable_test.go` | modified (dynamic interpolation tests) |
 | `internal/runner/runner.go` | modified (Seed field, registry wiring, BeginRequest/EndRequest) |
 | `internal/runner/runner_test.go` | modified (dynamic function integration tests) |
-| `cmd/apitest/main.go` | modified (--seed flag, parseRunArgs, runCmd, help text) |
-| `cmd/apitest/main_test.go` | modified (seed parsing tests, integration tests) |
+| `cmd/curlew/main.go` | modified (--seed flag, parseRunArgs, runCmd, help text) |
+| `cmd/curlew/main_test.go` | modified (seed parsing tests, integration tests) |
 | `smoke/run.sh` | modified (dynamic UUID and seed smoke cases; two bug fixes) |
 | `management/tasks/M1-018.yaml` | modified (status progression) |
 | `management/plans/M1-018-plan.md` | created |

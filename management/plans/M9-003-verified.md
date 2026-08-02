@@ -21,7 +21,7 @@
 
 The task observable references `collections/` fixture files run against live
 HTTP endpoints. These do not exist as static files — the plan (§ Verification)
-states that integration tests in `cmd/apitest/run_test.go` spin up
+states that integration tests in `cmd/curlew/run_test.go` spin up
 `httptest.NewServer` instances to cover each Kind. All DoD-named tests (see
 table below) serve as the authoritative observable verification. The full unit
 + integration test run command from the task YAML:
@@ -125,8 +125,8 @@ Branch A: Review PASS trusted (verdict PASS in `management/reviews/M9-003-review
 | `internal/output/markdown/formatter.go` | modified | renderBody dispatch, renderResponse, renderResponseMetadata, volatile filter in renderRequest |
 | `internal/output/markdown/formatter_test.go` | modified | 9 new test functions + golden regen |
 | `internal/output/markdown/testdata/golden/*.md` | modified | Regenerated to include ### Response metadata section |
-| `cmd/apitest/main.go` | modified | Body cap integration in buildMarkdownReport |
-| `cmd/apitest/run_test.go` | modified | TestRun_MarkdownFormat_RedactionInvariant added, HappyPath updated |
+| `cmd/curlew/main.go` | modified | Body cap integration in buildMarkdownReport |
+| `cmd/curlew/run_test.go` | modified | TestRun_MarkdownFormat_RedactionInvariant added, HappyPath updated |
 
 ## Issues Found
 

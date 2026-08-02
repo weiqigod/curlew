@@ -24,7 +24,7 @@
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (all 21 packages) |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage | 89.4% total; graphql 97.3%; parser 90.7%; runner 86.5%; requtil 58.5% |

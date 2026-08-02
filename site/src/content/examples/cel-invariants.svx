@@ -3,7 +3,7 @@ title: CEL invariants & conditional requests
 intent: Reach past the operator catalogue with Google CEL — assert cross-field aggregates over a list, and run a request only when the data warrants it.
 group: core
 features: [cel, chaining]
-command: apitest run collections/catalog.yaml
+command: curlew run collections/catalog.yaml
 order: 50
 runnable: false
 ---
@@ -14,7 +14,7 @@ runnable: false
 
 Most checks are a single field against a literal — that's what the operator
 catalogue is for. But some truths span a whole response: *every* item is in stock,
-the page count *matches* the array length, totals *add up*. For those, ApiTool
+the page count *matches* the array length, totals *add up*. For those, Curlew
 embeds **Google's CEL**. It appears in exactly two places — `assertions.cel` (a list
 of boolean expressions) and `if:` (conditional execution) — and it's type-checked at
 `validate` time, so a broken expression fails before any HTTP request fires.
@@ -60,7 +60,7 @@ Every expression evaluates against four bindings: `response` (this request),
 CEL is parse- and type-checked offline. A typo never reaches the network:
 
 ```bash
-apitest validate collections/catalog.yaml
+curlew validate collections/catalog.yaml
 ```
 
 ```
@@ -71,7 +71,7 @@ collections/catalog.yaml: line 9: assertions[0].cel:
 ## Run it
 
 ```bash
-apitest run collections/catalog.yaml
+curlew run collections/catalog.yaml
 ```
 
 ```
@@ -85,7 +85,7 @@ Collection: Catalog invariants
 
 <Callout type="output">
 	Representative output — the collection targets a catalog API. The
-	<code>ERR_CEL_TYPE</code> diagnostic matches ApiTool's documented validation
+	<code>ERR_CEL_TYPE</code> diagnostic matches Curlew's documented validation
 	error format.
 </Callout>
 

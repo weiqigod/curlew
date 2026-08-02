@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // TestRun_Parallel_ResultsCarryRequestIDs locks the contract that parallel
 // RequestResults carry the same RequestID/RequestSlug pairing as the events
-// stream — consumers (apitest ui) reconcile authoritative results against
+// stream — consumers (curlew ui) reconcile authoritative results against
 // event-collected state by request id, and an empty id creates phantom
 // entries.
 func TestRun_Parallel_ResultsCarryRequestIDs(t *testing.T) {

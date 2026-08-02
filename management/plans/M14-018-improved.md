@@ -9,7 +9,7 @@
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
 | 1 | Critical | `PrChecksUploadEndpoint` had 0% line/branch coverage; `PrChecksUploadEndpointTests.cs` was never created | Extracted `ICheckRunPoster` interface; updated `CheckRunPoster` to implement it; changed `Program.cs` to register `AddScoped<ICheckRunPoster, CheckRunPoster>()`; created `FakeCheckRunPoster` test double; wrote `PrChecksUploadEndpointTests.cs` (11 cases) covering happy path, 401, 400 token-leak, 400 invalid state, 400 action_required, all 6 valid states, 400 missing/short head_sha, 404 no-installation, 403 repo-not-covered, 429 rate-limited | ✓ 11 tests pass |
-| 2 | Critical | `GitHubInstallationsApi` had 0% line/branch coverage; `GitHubInstallationsApiTests.cs` was never created | Created `GitHubInstallationsApiTests.cs` (4 cases) verifying: Authorization header uses installation token not App JWT, full_name parsed into Owner/Name, malformed full_name (no slash) silently skipped, exactly one HTTP request per invocation | ✓ 4 tests pass |
+| 2 | Critical | `GitHubInstallationsApi` had 0% line/branch coverage; `GitHubInstallationsCurlews.cs` was never created | Created `GitHubInstallationsCurlews.cs` (4 cases) verifying: Authorization header uses installation token not App JWT, full_name parsed into Owner/Name, malformed full_name (no slash) silently skipped, exactly one HTTP request per invocation | ✓ 4 tests pass |
 | 3 | Medium | Multi-org user silently picks `memberships[0]` with no observable log signal for production misrouting | Added `log.LogWarning` in `PrChecksUploadEndpoint.HandleAsync` when `memberships.Count > 1` | ✓ build + lint pass |
 | 4 | Low | `EscapeUserContent` declared `public` with no production callers | Changed to `internal static string EscapeUserContent(...)` — `InternalsVisibleTo("ApiTool.Backend.Tests")` already in `ApiTool.Backend.csproj` so existing `MarkdownSafetyTests` remain accessible | ✓ tests pass unchanged |
 
@@ -48,7 +48,7 @@ No findings deferred. All 4 iteration-3 findings resolved.
 | Commit | Message | Findings Resolved |
 |--------|---------|-------------------|
 | `5017612a` | fix(pr-checks): extract ICheckRunPoster, internal EscapeUserContent, multi-org log warning | #3, #4 (+ structural enabler for #1) |
-| `3c8f51c8` | test(pr-checks): add PrChecksUploadEndpointTests + GitHubInstallationsApiTests | #1, #2 |
+| `3c8f51c8` | test(pr-checks): add PrChecksUploadEndpointTests + GitHubInstallationsCurlews | #1, #2 |
 
 ## Summary
 

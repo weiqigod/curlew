@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 // LoadTeamTemplate reads, parses, and validates the shared vault template at
@@ -23,7 +23,7 @@ func LoadTeamTemplate(path string) (*teamtemplate.TeamTemplate, error) {
 			return nil, &apierrors.Structured{
 				Category: apierrors.CategoryConfig,
 				Message:  fmt.Sprintf("shared vault template not found: %s", path),
-				Hint:     "Check APITEST_TEAM_CONFIG or remove it to disable team templates",
+				Hint:     "Check CURLEW_TEAM_CONFIG or remove it to disable team templates",
 				Inner:    teamtemplate.ErrTemplateNotFound,
 			}
 		}

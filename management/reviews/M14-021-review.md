@@ -17,7 +17,7 @@ No findings. All previous findings resolved.
 | Category | Status | Notes |
 |----------|--------|-------|
 | Error Handling | PASS | Go errors wrapped with `%w`; sentinel `ErrNetworkFailure` used for caller-matchable network failure. C# uses typed error enum returns (`PrCheckError`). `EmailQueueProcessor` resolves `IRecentlySentEmailLog` via nullable `GetService<>()?.Record()` — no-op when unregistered in production. No swallowed errors. |
-| Input Validation | PASS | `SeedM14Request`: `body is null` → 400, `OrgId == Guid.Empty` → 400, subscription not found → 404. `handleReportUpload`: missing `APITEST_BACKEND_URL` → exit 2; missing `--org` → exit 1 at parse time; `--pr` without `--repo` (and vice versa) → error at parse time. `InMemoryRecentlySentEmailLog`: capacity ≤ 0 throws `ArgumentOutOfRangeException`; `Recent(0)` returns empty. |
+| Input Validation | PASS | `SeedM14Request`: `body is null` → 400, `OrgId == Guid.Empty` → 400, subscription not found → 404. `handleReportUpload`: missing `CURLEW_BACKEND_URL` → exit 2; missing `--org` → exit 1 at parse time; `--pr` without `--repo` (and vice versa) → error at parse time. `InMemoryRecentlySentEmailLog`: capacity ≤ 0 throws `ArgumentOutOfRangeException`; `Recent(0)` returns empty. |
 | Naming | PASS | No stuttering. Doc comments on all exported Go functions and all C# public types. `IRecentlySentEmailLog` follows the `-er` interface-naming convention. Package names are lowercase single-word. `SeedM14Request` is `internal sealed record` — correctly scoped to the assembly. |
 | Code Organization | PASS | `internal/` package boundaries respected. New web routes in correct SvelteKit route-tree location. `IRecentlySentEmailLog` separated from production `IEmailQueue`. Dev/Testing env-gating is consistent with the `seed-refresh` precedent. `InternalAccessFilter` (defined in `ApiTool.Backend.Licensing.Keys`) is a second-layer security guard on both new internal endpoints. |
 | Correctness | PASS | `{{ GITHUB_MOCK_URL }}` (plain identifier) in `testdata/m14/e2e-collection.yaml` resolves correctly via `--env-var GITHUB_MOCK_URL` which reads from the process environment set by the Playwright spec. `InMemoryRecentlySentEmailLog` ring-buffer eviction under `lock(_lock)` is race-safe. `JsonSerializer.Serialize` used for `RepoSetJson` (repo names with special chars handled). `handleReportUpload` stdout conditioned on `flags.pr > 0 && flags.repo != ""`. `ci-local.sh --down` is idempotent via `|| true` on both stack-down calls. |
@@ -35,7 +35,7 @@ No findings. All previous findings resolved.
 ## Test Coverage
 - Go coverage: **87.3%** (project total); `handleReportUpload` path 100%.
 - C# (M14-021 scope): 23/23 tests pass — `RecentlySentEmailLogTests` (4), `InternalEmailAuditEndpointTests` (3), `InternalSeedM14EndpointTests` (4), `PrChecksServiceTests` additive cases (2), plus pre-existing `PrChecksServiceTests` (10).
-- Playwright spec: 5 assertions present, guarded by `APITEST_BACKEND_TOKEN` skip-guard for non-E2E runs.
+- Playwright spec: 5 assertions present, guarded by `CURLEW_BACKEND_TOKEN` skip-guard for non-E2E runs.
 
 ## Summary
 

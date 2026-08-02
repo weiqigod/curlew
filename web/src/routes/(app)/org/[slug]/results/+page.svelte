@@ -27,7 +27,7 @@
 			retryUrl={$page.url.pathname + $page.url.search}
 		/>
 	{:else if data.summary.total_runs === 0}
-		<EmptyState message="Run apitest and upload results to get started" />
+		<EmptyState message="Run curlew and upload results to get started" />
 	{:else}
 		<div class="space-y-6">
 			<SummaryCards summary={data.summary} />

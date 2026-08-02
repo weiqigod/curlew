@@ -9,13 +9,13 @@ phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   TMP=$(mktemp -d); cd "$TMP"
-  apitest init demo && cd demo
+  curlew init demo && cd demo
   REPO=$(git -C "$OLDPWD" rev-parse --show-toplevel 2>/dev/null || pwd)
 
   # Per-iteration TAP test points.
-  apitest run "$REPO/cmd/apitest/testdata/datadriven_simple.yaml" --format tap > dd.tap
+  curlew run "$REPO/cmd/curlew/testdata/datadriven_simple.yaml" --format tap > dd.tap
   ITER_LINES=$(grep -cE '^(ok|not ok) [0-9]+ - .+ \[[0-9]+/[0-9]+\]' dd.tap)
   test "$ITER_LINES" -gt 0
   # Expected: exit 0; at least one test-point line carries an [i/N] iteration suffix.
@@ -27,11 +27,11 @@ observable: |
   # Expected: exit 0; plan number equals actual test-point count.
 
   # Parallel speedup YAML diagnostic.
-  apitest run "$REPO/cmd/apitest/testdata/parallel_simple.yaml" --format tap > p.tap
+  curlew run "$REPO/cmd/curlew/testdata/parallel_simple.yaml" --format tap > p.tap
   awk '/^# Parallel execution:/{flag=1} flag{print} /^  ---$/{if(flag>1) exit; flag++}' p.tap | grep -E 'speedup_factor:'
   # Expected: at least 1 match (YAML diagnostic block carries speedup_factor).
 
-  go test -run 'TestTAPOutput_DataDrivenIterations|TestTAPOutput_ParallelSpeedup' -v ./cmd/apitest/...
+  go test -run 'TestTAPOutput_DataDrivenIterations|TestTAPOutput_ParallelSpeedup' -v ./cmd/curlew/...
   # Expected: PASS.
 
   go test ./...
@@ -67,7 +67,7 @@ scope: |
 
   Files:
   - internal/output/tap.go (per-iteration emission + speedup block)
-  - internal/output/tap_test.go and cmd/apitest/main_test.go (new + updated tests)
+  - internal/output/tap_test.go and cmd/curlew/main_test.go (new + updated tests)
   - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
 
   Not in scope:
@@ -80,7 +80,7 @@ definition_of_done:
   - "TAP plan count matches actual test-point count for data-driven runs"
   - "speedup_factor in TAP YAML diagnostic equals the JSON formatter's value for the same run (parity test)"
   - "go test ./... passes"
-  - "go test -cover ./internal/output/... ./cmd/apitest/... >= 80%"
+  - "go test -cover ./internal/output/... ./cmd/curlew/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"

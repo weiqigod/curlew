@@ -3,7 +3,7 @@ title: Scripted WebSocket order stream
 intent: Drive a real-time subscription as a sequence of steps — subscribe, expect N events, extract a value, then close cleanly — with heartbeats and reconnect.
 group: resilience
 features: [websocket, chaining]
-command: apitest run collections/orders-ws.yaml
+command: curlew run collections/orders-ws.yaml
 order: 80
 runnable: false
 ---
@@ -12,7 +12,7 @@ runnable: false
 	import Callout from '$lib/components/Callout.svelte';
 </script>
 
-WebSocket testing isn't a single request/response — it's a conversation. ApiTool
+WebSocket testing isn't a single request/response — it's a conversation. Curlew
 models it as an ordered list of steps: `send` a message, `expect` one or more
 replies (with JSONPath assertions and extraction), `wait`, and `close`. Heartbeats
 and transparent reconnect keep long-lived subscriptions alive.
@@ -76,7 +76,7 @@ available to any request that runs afterwards.
 ## Run it
 
 ```bash
-apitest run collections/orders-ws.yaml --var ws_host=stream.example.com
+curlew run collections/orders-ws.yaml --var ws_host=stream.example.com
 ```
 
 ```

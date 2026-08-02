@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/output/ids"
+	"github.com/weiqigod/curlew/internal/output/ids"
 )
 
 var runIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)

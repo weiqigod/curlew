@@ -9,8 +9,8 @@ dependencies:
   - M2-002
 
 observable: |
-  Configure an AWS Secrets Manager vault profile in apitest.yaml with real or mocked credentials.
-  Run `apitest run tests.yaml` and confirm secrets are fetched and available as variables.
+  Configure an AWS Secrets Manager vault profile in curlew.yaml with real or mocked credentials.
+  Run `curlew run tests.yaml` and confirm secrets are fetched and available as variables.
   Run `go test ./internal/vault/...` with mocked AWS SDK calls.
 
 behaviors:

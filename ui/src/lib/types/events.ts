@@ -25,7 +25,7 @@ export interface EventError {
 export interface RunStartEvent extends EventHeader {
   kind: 'run.start';
   started_at: string;
-  apitest_version: string;
+  curlew_version: string;
   cli_args: string[];
   collection_file?: string;
   env_name?: string;

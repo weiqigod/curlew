@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/ratelimit"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/ratelimit"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // IterationResult holds the outcome of a single parallel data-driven iteration.

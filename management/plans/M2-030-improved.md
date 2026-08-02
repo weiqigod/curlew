@@ -22,7 +22,7 @@ No findings deferred. All five Low-severity findings were resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | `internal/graphql/files` coverage | 94.8% (was 93.7%) |

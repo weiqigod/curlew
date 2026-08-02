@@ -270,7 +270,7 @@ func TestRun_ParallelMode_SkipReasonPropagated(t *testing.T) {
 | `internal/output/terminal.go` | modify | Add `SkippedWithReason` method to `Printer` |
 | `internal/output/terminal_test.go` | modify | Add test for `SkippedWithReason` output |
 | `internal/output/json.go` | modify | Add `SkipReason` field to `JSONRequest` |
-| `cmd/apitest/main.go` | modify | Use `SkippedWithReason` when reason is available; set `skip_reason` in JSON |
+| `cmd/curlew/main.go` | modify | Use `SkippedWithReason` when reason is available; set `skip_reason` in JSON |
 
 #### New Code (terminal.go)
 ```go
@@ -746,7 +746,7 @@ func TestAnalyze_NestedVariableResolutionWarning(t *testing.T) {
 | `internal/output/terminal_test.go` | modify | Add test for impact summary rendering |
 | `internal/output/json.go` | modify | Add `ImpactJSON` to `JSONOutput` |
 | `internal/runner/runner.go` | modify | Add `Impact` field to `Summary`; populate from parallel execution |
-| `cmd/apitest/main.go` | modify | Render impact summary when available |
+| `cmd/curlew/main.go` | modify | Render impact summary when available |
 
 #### New Code (terminal.go)
 ```go
@@ -877,7 +877,7 @@ func TestRun_ParallelEdgeCases(t *testing.T) {
 | `internal/runner/runner_test.go` | all tests | no impact | new field is additive |
 | `internal/output/terminal_test.go` | all tests | no impact | new methods are additive |
 | `internal/output/json_test.go` | all tests | no impact | new field is additive |
-| `cmd/apitest/main.go` | all tests | no impact | output changes are additive |
+| `cmd/curlew/main.go` | all tests | no impact | output changes are additive |
 
 ## Risks and Edge Cases
 - **Risk:** Changing `checkDependencyFailure` message format could break any code parsing the skip reason string. **Mitigation:** Only `executor_test.go` checks the exact string — update the one test.
@@ -890,7 +890,7 @@ func TestRun_ParallelEdgeCases(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh

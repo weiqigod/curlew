@@ -40,13 +40,13 @@
 
 <div class="disc at-root" data-theme="dark">
   <div class="panel">
-    <div class="title">apitest ui is not running</div>
+    <div class="title">curlew ui is not running</div>
     <div class="body">
       the server at <span class="at-mono">{location.host}</span> stopped or this tab's session
       expired. Restart it and reopen the printed URL:
     </div>
     <div class="term at-mono">
-      <span class="prompt">$ </span><span>apitest ui</span>
+      <span class="prompt">$ </span><span>curlew ui</span>
     </div>
     <div class="actions">
       <button class="at-btn ghost" on:click={() => void probe()} disabled={probing}>

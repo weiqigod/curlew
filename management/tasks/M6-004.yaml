@@ -22,7 +22,7 @@ observable: |
   go test -cover ./internal/output/events/...
   # Expected coverage >= 80%.
 behaviors:
-  - "Given a freshly constructed Emitter, when RunStart is called, then exactly one NDJSON line is written containing kind=run.start, schema_version=0.1, a non-empty run_id, id=1, at_ms=0, started_at, apitest_version, and cli_args."
+  - "Given a freshly constructed Emitter, when RunStart is called, then exactly one NDJSON line is written containing kind=run.start, schema_version=0.1, a non-empty run_id, id=1, at_ms=0, started_at, curlew_version, and cli_args."
   - "Given an Emitter mid-run, when RequestStart followed by RequestEnd are called, then two lines are emitted with monotonically increasing ids, the same run_id, both referencing the same request_id, and at_ms values that are non-decreasing."
   - "Given a failed request whose chain contains a registered sentinel, when RequestEnd is called, then the emitted error object carries category, code, and hint sourced from the ClassifyError result (verified against the M6-001 registry)."
   - "Given a request whose chain contains a *NetworkError, when RequestEnd is called, then the emitted error carries category=network and a Code in {NETWORK_DNS, NETWORK_TIMEOUT, NETWORK_TLS, NETWORK_CONNECTION_REFUSED, NETWORK_OTHER}."

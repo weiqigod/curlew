@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -coverprofile=coverage.out ./...` | PASS | See coverage below |
 | `golangci-lint run` | PASS | 0 issues |
@@ -22,10 +22,10 @@
 
 The end-to-end `./smoke/run.sh` script exhibits a pre-existing, flaky
 `SIGPIPE`-related failure on the `Help text lists tap` check
-(`./apitest --help | grep -q "tap"`). This reproduces on `main` as well
+(`./curlew --help | grep -q "tap"`). This reproduces on `main` as well
 (observed ~40% failure rate across repeated runs with the `main` binary)
 and is unrelated to M2-030. The failure is caused by `grep -q` closing
-stdin after its first match while `apitest` is still writing the rest
+stdin after its first match while `curlew` is still writing the rest
 of its help output, resulting in a non-zero exit that `set -o pipefail`
 propagates.
 
@@ -153,7 +153,7 @@ None that affect M2-030.
 A pre-existing flaky `SIGPIPE` smoke failure in the `Help text lists tap`
 check reproduces on `main` and is unrelated to this task. Recommend
 filing a follow-up to either drop `-q` from `grep` or pipe through
-`head` to avoid SIGPIPE racing `apitest --help`.
+`head` to avoid SIGPIPE racing `curlew --help`.
 
 ## Recommendation
 

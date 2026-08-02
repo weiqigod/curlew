@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/httpbody"
+	"github.com/weiqigod/curlew/internal/httpbody"
 )
 
 func TestLoadBody_Relative(t *testing.T) {

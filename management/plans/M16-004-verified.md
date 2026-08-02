@@ -35,7 +35,7 @@ Playwright specs exist at:
 - `web/tests/e2e/auth-password-reset.spec.ts`
 - `web/tests/e2e/auth-email-verification.spec.ts`
 
-Build: `go build -o /tmp/apitest ./cmd/apitest` — clean, BUILD OK.
+Build: `go build -o /tmp/curlew ./cmd/curlew` — clean, BUILD OK.
 
 Expected: All four pages exist; Playwright specs cover happy + error paths.
 Result: MATCH

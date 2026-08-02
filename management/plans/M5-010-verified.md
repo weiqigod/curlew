@@ -14,7 +14,7 @@
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | All M5-010 smoke checks pass |
-| Coverage — `cmd/apitest` | 81.2% | Meets >= 80% threshold |
+| Coverage — `cmd/curlew` | 81.2% | Meets >= 80% threshold |
 | Coverage — `internal/runner/distributed` | 84.5% | Meets >= 80% threshold |
 | Coverage — `internal/runner/shard` | 100.0% | Meets >= 80% threshold |
 | Coverage — `internal/auth` | 89.1% | Meets >= 80% threshold |
@@ -27,7 +27,7 @@ The task's observable is fully covered by `TestRunCmd_WorkersObservableE2E` whic
 === RUN   TestRunCmd_WorkersObservableE2E
 --- PASS: TestRunCmd_WorkersObservableE2E (0.00s)
 PASS
-ok  	github.com/peterlindqvist/apitest/cmd/apitest	0.365s
+ok  	github.com/weiqigod/curlew/cmd/curlew	0.365s
 ```
 
 The smoke test section confirms binary-level observable:
@@ -36,8 +36,8 @@ The smoke test section confirms binary-level observable:
 PASS: --help documents --workers
 PASS: --help documents --coordinator-url
 PASS: --help mentions Enterprise tier for --workers
-PASS: --workers without APITEST_COORDINATOR_URL exits 2
-PASS: error message mentions APITEST_COORDINATOR_URL
+PASS: --workers without CURLEW_COORDINATOR_URL exits 2
+PASS: error message mentions CURLEW_COORDINATOR_URL
 PASS: --workers 1 warns and falls back to local
 ```
 
@@ -53,7 +53,7 @@ Result: MATCH (verified by `TestRunCmd_WorkersObservableE2E` and all distributed
 | 3 | All shards complete → prints "All shards complete: N/M pass", exits 0/1 | `TestRun_HappyPath12Requests4Shards`, `TestRun_AggregatedFailurePropagates` | PASS |
 | 4 | Worker timeout → reassignment notice, final result includes shard outcomes | `TestRun_ShardReassignment` (Total=6, Passed=6, Failed=0 asserted) | PASS |
 | 5 | --workers omitted → local pipeline unchanged | All pre-existing run tests unchanged | PASS |
-| 6 | --workers 4 without APITEST_COORDINATOR_URL → exit 2 + message | `TestRunCmd_WorkersMissingCoordinatorURL` + smoke | PASS |
+| 6 | --workers 4 without CURLEW_COORDINATOR_URL → exit 2 + message | `TestRunCmd_WorkersMissingCoordinatorURL` + smoke | PASS |
 | 7 | --workers 1 → fallback warning to stderr | `TestRunCmd_Workers1WarnsAndFallsBack` + smoke | PASS |
 | 8 | --help documents --workers, --coordinator-url, Enterprise tier | `TestRunCmd_HelpMentionsWorkers` + smoke | PASS |
 
@@ -63,7 +63,7 @@ Result: MATCH (verified by `TestRunCmd_WorkersObservableE2E` and all distributed
 |---|------|----------|--------|
 | 1 | All behavior tests pass | 6 distributed tests + 5 cmd tests, all PASS | PASS |
 | 2 | Observable output works as specified | `TestRunCmd_WorkersObservableE2E` PASS; smoke PASS | PASS |
-| 3 | Test coverage >= 80% | `cmd/apitest` 81.2%, `distributed` 84.5%, `shard` 100% | PASS |
+| 3 | Test coverage >= 80% | `cmd/curlew` 81.2%, `distributed` 84.5%, `shard` 100% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean; `golangci-lint run` no findings | PASS |
 | 5 | Help text documents --workers flag and env vars | `TestRunCmd_HelpMentionsWorkers` + smoke checks | PASS |
 | 6 | Smoke test covers --workers end-to-end | `smoke/run.sh` === Run --workers (M5-010) block PASS | PASS |
@@ -106,8 +106,8 @@ Branch A: Review PASS (Iteration 2) trusted; spot-check confirmed.
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — `--workers`, `--coordinator-url` flag wiring, help text, distributed dispatch |
-| `cmd/apitest/run_test.go` | modified — 7 new test functions for workers flag and E2E |
+| `cmd/curlew/main.go` | modified — `--workers`, `--coordinator-url` flag wiring, help text, distributed dispatch |
+| `cmd/curlew/run_test.go` | modified — 7 new test functions for workers flag and E2E |
 | `internal/auth/registry.go` | modified — `distributed_execution` → TierEnterprise |
 | `internal/auth/registry_test.go` | modified — new table row |
 | `internal/runner/distributed/distributed.go` | created — `Run()` orchestrator |

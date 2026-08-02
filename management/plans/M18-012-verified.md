@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Binary builds clean, no warnings |
+| `go build ./cmd/curlew` | PASS | Binary builds clean, no warnings |
 | `go test ./...` | PASS | All packages pass (cached + fresh) |
 | `go test -race ./...` | PASS | No data races detected |
 | `golangci-lint run` | PASS | No lint findings |
@@ -43,7 +43,7 @@ Result: DEFERRED TO CI (stack not running; Go gate confirms all non-stack behavi
 | 5 | `user.anonymised` audit-log row present | `m18-e2e.sh` step 9 | COVERED |
 | 6 | Enterprise JSONL streaming export is `chunked + application/x-ndjson` | `m18-e2e.sh` step 10 + Playwright assertion 5 via `streamAuditJsonl` | COVERED |
 | 7 | `team_vaults`/`schedules.env_vars` raw columns are ciphertext, API response is cleartext | `m18-e2e.sh` step 11 (sqlite3 `quote()` + API round-trip) | COVERED |
-| 8 | `apitest telemetry delete-request` removes install_id + posts marker | `m18-e2e.sh` step 12 + smoke test M18-008 | COVERED |
+| 8 | `curlew telemetry delete-request` removes install_id + posts marker | `m18-e2e.sh` step 12 + smoke test M18-008 | COVERED |
 | 9 | Happy-path only; individual failure modes not asserted | Test structure + skip guards | COVERED |
 
 ## Definition of Done

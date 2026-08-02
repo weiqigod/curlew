@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
-	"github.com/peterlindqvist/apitest/internal/worker/schedule"
+	"github.com/weiqigod/curlew/internal/backend"
+	"github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 // fakeHTTPClient is a fake that implements HTTPClient with scripted responses.

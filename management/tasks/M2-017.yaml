@@ -9,8 +9,8 @@ dependencies:
   - M2-016
 
 observable: |
-  Run `apitest run --parallel tests.yaml` with a request that fails, and confirm dependents are skipped.
-  Run `apitest run --parallel tests.yaml` with auth profiles and confirm pre-execution variable handling.
+  Run `curlew run --parallel tests.yaml` with a request that fails, and confirm dependents are skipped.
+  Run `curlew run --parallel tests.yaml` with auth profiles and confirm pre-execution variable handling.
   Run `go test ./internal/parallel/...` for edge case tests.
 
 behaviors:

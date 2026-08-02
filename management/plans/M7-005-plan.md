@@ -2,7 +2,7 @@
 
 ## Overview
 
-Replace the process-global `os.Stdout` hijack in `captureJSONCollection` with a clean writer-injection architecture: thread explicit `stdout, stderr io.Writer` parameters through `runCmdInner`, extend `watch.Config.RunFunc` to carry writers, and migrate all affected in-process tests to use `bytes.Buffer` injection instead of `os.Pipe` fd-swaps. Adds two anti-regression test gates: `TestConcurrentDiscovery` (proves two goroutines can run with separate writer buffers without interleaving) and `TestNoOsStdoutAssignment` (a `go/ast` scan that fails if any source file in `cmd/apitest/` ever reassigns `os.Stdout` or `os.Stderr` again).
+Replace the process-global `os.Stdout` hijack in `captureJSONCollection` with a clean writer-injection architecture: thread explicit `stdout, stderr io.Writer` parameters through `runCmdInner`, extend `watch.Config.RunFunc` to carry writers, and migrate all affected in-process tests to use `bytes.Buffer` injection instead of `os.Pipe` fd-swaps. Adds two anti-regression test gates: `TestConcurrentDiscovery` (proves two goroutines can run with separate writer buffers without interleaving) and `TestNoOsStdoutAssignment` (a `go/ast` scan that fails if any source file in `cmd/curlew/` ever reassigns `os.Stdout` or `os.Stderr` again).
 
 ## Task Details
 - **ID:** M7-005
@@ -23,20 +23,20 @@ None. Task is explicitly orthogonal to M7-001/002/003/004 and ships independentl
 
 Two interpretive calls drive the plan. Both are recorded here so the execute phase and the reviewer can evaluate the tradeoffs:
 
-1. **DoD grep scope broader than "Tests to migrate" list.** The scope names only three test files (`main_test.go`, `run_test.go`, `discovery_run_test.go`) as requiring migration, but the DoD demands `grep -rn 'os.Stdout = ' cmd/apitest/` return zero matches. An audit shows 66 total `os.Stdout = `/`os.Stderr = ` assignments spread across five files:
+1. **DoD grep scope broader than "Tests to migrate" list.** The scope names only three test files (`main_test.go`, `run_test.go`, `discovery_run_test.go`) as requiring migration, but the DoD demands `grep -rn 'os.Stdout = ' cmd/curlew/` return zero matches. An audit shows 66 total `os.Stdout = `/`os.Stderr = ` assignments spread across five files:
    - `main_test.go` (20), `run_test.go` (16), `discovery_run_test.go` (0 — relies on subprocess runs), `plugins_test.go` (4), `perf_test.go` (24), `discovery_run.go` (2, production code).
    - To satisfy the DoD literally we must also migrate `plugins_test.go` and `perf_test.go`. We honor this by extending `pluginsCmd`, `perfCmd`, `printHelp`, `printPerfHelp`, and `printPluginsHelp` with writer parameters — a pure mechanical change that mirrors the `runCmdInner` pattern and costs little beyond the primary refactor.
    - This interpretation matches the M7 milestone intent ("Stream discipline audit — stdout/stderr segregation"): the task is systemic; the named-file list in scope is a non-exhaustive starting point.
 
 2. **`watch.Config.RunFunc` signature change vs. closure capture.** Scope suggests two options: "extend RunFunc to accept writers, or use a closure that captures them." Chosen: extend the signature to `func([]string, io.Writer, io.Writer) RunResult`. Rationale — (a) the closure approach works today but hides the requirement; downstream readers must reverse-engineer why the closure doesn't just call `runCmdInner(a)`; (b) the explicit signature mirrors the underlying change, makes the test helper `watch_test.go` straightforwardly adaptable, and protects against future watch callers reintroducing the hidden-global pattern; (c) `watch_test.go` call sites all pass `func(_ []string) RunResult{...}` — trivial mechanical update to `func(_ []string, _, _ io.Writer) RunResult{...}`.
 
-3. **`TestConcurrentDiscovery` location.** Placed in `cmd/apitest/discovery_run_test.go` (co-located with the target it exercises). The test calls `runCmdInner` directly from two goroutines with separate buffers; no subprocess needed.
+3. **`TestConcurrentDiscovery` location.** Placed in `cmd/curlew/discovery_run_test.go` (co-located with the target it exercises). The test calls `runCmdInner` directly from two goroutines with separate buffers; no subprocess needed.
 
-4. **`TestNoOsStdoutAssignment` location and scope.** Placed in `cmd/apitest/main_test.go` (alongside other process-wide gate tests). The AST scan walks every `.go` file in the same directory via `os.ReadDir(".")`, parses each with `parser.ParseFile`, and rejects any `*ast.AssignStmt` whose LHS is the selector expression `os.Stdout` or `os.Stderr`. Test files are included — the whole point is that tests are the current offender list.
+4. **`TestNoOsStdoutAssignment` location and scope.** Placed in `cmd/curlew/main_test.go` (alongside other process-wide gate tests). The AST scan walks every `.go` file in the same directory via `os.ReadDir(".")`, parses each with `parser.ParseFile`, and rejects any `*ast.AssignStmt` whose LHS is the selector expression `os.Stdout` or `os.Stderr`. Test files are included — the whole point is that tests are the current offender list.
 
 ## Implementation Steps
 
-Steps are ordered by blast radius: tests/helpers first, then the core function, then dependent callers, then regression gates. Each step keeps the tree green (`go build ./cmd/apitest` and `go test ./cmd/apitest/...` must pass between steps).
+Steps are ordered by blast radius: tests/helpers first, then the core function, then dependent callers, then regression gates. Each step keeps the tree green (`go build ./cmd/curlew` and `go test ./cmd/curlew/...` must pass between steps).
 
 ### Step 1: Add `printHelpTo(w io.Writer)` helpers (low blast radius)
 
@@ -46,15 +46,15 @@ Steps are ordered by blast radius: tests/helpers first, then the core function, 
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Split `printHelp()` into `printHelpTo(w io.Writer)` + a one-line `printHelp()` that calls it with `os.Stdout`. |
-| `cmd/apitest/perf.go` | modify | Same split for `printPerfHelp()` → `printPerfHelpTo(w io.Writer)`. |
-| `cmd/apitest/plugins.go` | modify | Same split for `printPluginsHelp()` → `printPluginsHelpTo(w io.Writer)`. |
+| `cmd/curlew/main.go` | modify | Split `printHelp()` into `printHelpTo(w io.Writer)` + a one-line `printHelp()` that calls it with `os.Stdout`. |
+| `cmd/curlew/perf.go` | modify | Same split for `printPerfHelp()` → `printPerfHelpTo(w io.Writer)`. |
+| `cmd/curlew/plugins.go` | modify | Same split for `printPluginsHelp()` → `printPluginsHelpTo(w io.Writer)`. |
 
 #### Current Code
 ```go
 // main.go
 func printHelp() {
-    fmt.Println("Usage: apitest <command> [args...]")
+    fmt.Println("Usage: curlew <command> [args...]")
     // ...many lines of fmt.Println...
 }
 ```
@@ -67,7 +67,7 @@ func printHelp() {
 }
 
 func printHelpTo(w io.Writer) {
-    _, _ = fmt.Fprintln(w, "Usage: apitest <command> [args...]")
+    _, _ = fmt.Fprintln(w, "Usage: curlew <command> [args...]")
     // ...convert every fmt.Println(...) to fmt.Fprintln(w, ...)...
 }
 ```
@@ -75,7 +75,7 @@ func printHelpTo(w io.Writer) {
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/main_test.go — new test added before changing printHelp:
+// cmd/curlew/main_test.go — new test added before changing printHelp:
 func TestPrintHelpTo_WritesToProvidedWriter(t *testing.T) {
     var buf bytes.Buffer
     printHelpTo(&buf)
@@ -96,9 +96,9 @@ func TestPrintHelpTo_WritesToProvidedWriter(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/perf.go` | modify | Add `perfCmdOut(args []string, stdout, stderr io.Writer) int`. `perfCmd(args)` becomes `return perfCmdOut(args, os.Stdout, os.Stderr)`. Replace every `os.Stdout`/`os.Stderr` inside the function with the parameters. |
-| `cmd/apitest/plugins.go` | modify | Add `pluginsCmdOut(args []string, stdout, stderr io.Writer) int` and `pluginsListCmdOut(args []string, stdout, stderr io.Writer) int`. Existing `pluginsCmd` / `pluginsListCmd` become one-line wrappers. |
-| `cmd/apitest/main.go` | modify | Dispatcher in `run()` continues calling `perfCmd(args[1:])` / `pluginsCmd(args[1:])` — no change needed. |
+| `cmd/curlew/perf.go` | modify | Add `perfCmdOut(args []string, stdout, stderr io.Writer) int`. `perfCmd(args)` becomes `return perfCmdOut(args, os.Stdout, os.Stderr)`. Replace every `os.Stdout`/`os.Stderr` inside the function with the parameters. |
+| `cmd/curlew/plugins.go` | modify | Add `pluginsCmdOut(args []string, stdout, stderr io.Writer) int` and `pluginsListCmdOut(args []string, stdout, stderr io.Writer) int`. Existing `pluginsCmd` / `pluginsListCmd` become one-line wrappers. |
+| `cmd/curlew/main.go` | modify | Dispatcher in `run()` continues calling `perfCmd(args[1:])` / `pluginsCmd(args[1:])` — no change needed. |
 
 #### Current Code
 ```go
@@ -129,7 +129,7 @@ func TestPerfCmdOut_RoutesToProvidedWriters(t *testing.T) {
         w.WriteHeader(200)
     }))
     defer srv.Close()
-    t.Setenv("APITEST_TIER", "enterprise")
+    t.Setenv("CURLEW_TIER", "enterprise")
     f := writePerfRequestFile(t, srv.URL)
 
     var stdout, stderr bytes.Buffer
@@ -155,9 +155,9 @@ func TestPerfCmdOut_RoutesToProvidedWriters(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | `captureRunCmd(t, args...)` — drop pipe machinery; allocate two `bytes.Buffer`s; call a new helper `runCmdWithWriters(args, stdout, stderr)` (see Step 4). |
-| `cmd/apitest/main_test.go` | modify | `captureRun(t, args...)` — same treatment but for `run(args)`. This is trickier because `run` dispatches to many subcommands. See Step 5. |
-| `cmd/apitest/main_test.go` | modify | `captureExecCmd(t, stdin, args...)` — rewrite to call `execCmdOut(args, stdout, stderr, stdinReader)` (new wrapper in Step 2 style). |
+| `cmd/curlew/main_test.go` | modify | `captureRunCmd(t, args...)` — drop pipe machinery; allocate two `bytes.Buffer`s; call a new helper `runCmdWithWriters(args, stdout, stderr)` (see Step 4). |
+| `cmd/curlew/main_test.go` | modify | `captureRun(t, args...)` — same treatment but for `run(args)`. This is trickier because `run` dispatches to many subcommands. See Step 5. |
+| `cmd/curlew/main_test.go` | modify | `captureExecCmd(t, stdin, args...)` — rewrite to call `execCmdOut(args, stdout, stderr, stdinReader)` (new wrapper in Step 2 style). |
 
 #### Current Code
 ```go
@@ -199,17 +199,17 @@ func captureRunCmd(t *testing.T, args ...string) (stdout, stderr string, exitCod
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Change `runCmdInner(args []string) (int, *runner.Summary)` → `runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)`. |
-| `cmd/apitest/main.go` | modify | Inside `runCmdInner`: replace every bare `os.Stdout` with `stdout`; every bare `os.Stderr` with `stderr`. Audit: ~50+ call sites (not "20+" as the scope estimates — recount confirms more). |
-| `cmd/apitest/main.go` | modify | `runCmd(args)` becomes `return runCmdWithWriters(args, os.Stdout, os.Stderr)` where `runCmdWithWriters` is a thin wrapper used by both production entry and tests. (Alternative: have `runCmd` pass `os.Stdout`/`os.Stderr` directly. We add `runCmdWithWriters` as the test-friendly seam.) |
-| `cmd/apitest/main.go` | modify | `newStderrPrinter(noColor)` is bound to `os.Stderr` today. Add `newStderrPrinterTo(w io.Writer, noColor bool)` that takes a writer; call it as `newStderrPrinterTo(stderr, noColor)` inside `runCmdInner`. Preserve the old helper for M7-001 compatibility — it remains the call site of last resort for `os.Stderr`-derived color. |
-| `cmd/apitest/main.go` | modify | `stdoutUseColor := shouldUseColor(os.Stdout, noColor)` → `shouldUseColor(stdout, noColor)`. The `shouldUseColor` helper already accepts a writer. |
-| `cmd/apitest/main.go` | modify | `newEventsAdapter(em, os.Stderr, ...)` at `main.go:497` and `:1050` → `newEventsAdapter(em, stderr, ...)`. |
-| `cmd/apitest/main.go` | modify | `buildHookDispatcher(ctx, os.Stderr)` at `main.go:1005` → `buildHookDispatcher(ctx, stderr)`. (No signature change to `buildHookDispatcher` — it already takes `io.Writer`.) |
-| `cmd/apitest/main.go` | modify | `distributed.Run(ctx, distributed.Config{..., Stdout: os.Stdout}, ...)` at `main.go:982` → `Stdout: stdout`. |
-| `cmd/apitest/main.go` | modify | Inside `runCmdInner`, the `_, _ = fmt.Fprintln(os.Stderr, "Usage: apitest run …")` at `main.go:443` → `fmt.Fprintln(stderr, "Usage: …")`. Parse-error pre-flag case: writer is always the passed `stderr`. |
-| `cmd/apitest/main.go` | modify | Terminal summary path: `output.NewPrinter(os.Stdout, stdoutUseColor, verbosity)` at `:994` and `:1056` → `output.NewPrinter(stdout, stdoutUseColor, verbosity)`. |
-| `cmd/apitest/main.go` | modify | All `writeGateForFormat(os.Stdout, os.Stderr, ...)` calls → `writeGateForFormat(stdout, stderr, ...)`. |
+| `cmd/curlew/main.go` | modify | Change `runCmdInner(args []string) (int, *runner.Summary)` → `runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)`. |
+| `cmd/curlew/main.go` | modify | Inside `runCmdInner`: replace every bare `os.Stdout` with `stdout`; every bare `os.Stderr` with `stderr`. Audit: ~50+ call sites (not "20+" as the scope estimates — recount confirms more). |
+| `cmd/curlew/main.go` | modify | `runCmd(args)` becomes `return runCmdWithWriters(args, os.Stdout, os.Stderr)` where `runCmdWithWriters` is a thin wrapper used by both production entry and tests. (Alternative: have `runCmd` pass `os.Stdout`/`os.Stderr` directly. We add `runCmdWithWriters` as the test-friendly seam.) |
+| `cmd/curlew/main.go` | modify | `newStderrPrinter(noColor)` is bound to `os.Stderr` today. Add `newStderrPrinterTo(w io.Writer, noColor bool)` that takes a writer; call it as `newStderrPrinterTo(stderr, noColor)` inside `runCmdInner`. Preserve the old helper for M7-001 compatibility — it remains the call site of last resort for `os.Stderr`-derived color. |
+| `cmd/curlew/main.go` | modify | `stdoutUseColor := shouldUseColor(os.Stdout, noColor)` → `shouldUseColor(stdout, noColor)`. The `shouldUseColor` helper already accepts a writer. |
+| `cmd/curlew/main.go` | modify | `newEventsAdapter(em, os.Stderr, ...)` at `main.go:497` and `:1050` → `newEventsAdapter(em, stderr, ...)`. |
+| `cmd/curlew/main.go` | modify | `buildHookDispatcher(ctx, os.Stderr)` at `main.go:1005` → `buildHookDispatcher(ctx, stderr)`. (No signature change to `buildHookDispatcher` — it already takes `io.Writer`.) |
+| `cmd/curlew/main.go` | modify | `distributed.Run(ctx, distributed.Config{..., Stdout: os.Stdout}, ...)` at `main.go:982` → `Stdout: stdout`. |
+| `cmd/curlew/main.go` | modify | Inside `runCmdInner`, the `_, _ = fmt.Fprintln(os.Stderr, "Usage: curlew run …")` at `main.go:443` → `fmt.Fprintln(stderr, "Usage: …")`. Parse-error pre-flag case: writer is always the passed `stderr`. |
+| `cmd/curlew/main.go` | modify | Terminal summary path: `output.NewPrinter(os.Stdout, stdoutUseColor, verbosity)` at `:994` and `:1056` → `output.NewPrinter(stdout, stdoutUseColor, verbosity)`. |
+| `cmd/curlew/main.go` | modify | All `writeGateForFormat(os.Stdout, os.Stderr, ...)` calls → `writeGateForFormat(stdout, stderr, ...)`. |
 
 #### Current Code
 ```go
@@ -217,7 +217,7 @@ func captureRunCmd(t *testing.T, args ...string) (stdout, stderr string, exitCod
 func runCmdInner(args []string) (int, *runner.Summary) {
     flags, parseErr := parseRunArgs(args)
     if parseErr != nil {
-        _, _ = fmt.Fprintln(os.Stderr, "Usage: apitest run ...")
+        _, _ = fmt.Fprintln(os.Stderr, "Usage: curlew run ...")
         errOut := newStderrPrinter(flags.noColor)
         errOut.StructuredError(parseErr)
         return 1, nil
@@ -241,7 +241,7 @@ func runCmd(args []string) int {
 func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary) {
     flags, parseErr := parseRunArgs(args)
     if parseErr != nil {
-        _, _ = fmt.Fprintln(stderr, "Usage: apitest run ...")
+        _, _ = fmt.Fprintln(stderr, "Usage: curlew run ...")
         errOut := newStderrPrinterTo(stderr, flags.noColor)
         errOut.StructuredError(parseErr)
         return 1, nil
@@ -331,8 +331,8 @@ func TestRunCmdInner_StdoutUntouched_OnParseError(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/discovery_run.go` | modify | Rewrite `captureJSONCollection`: construct a `bytes.Buffer`, pass it to `runCmdInner`, parse the buffer bytes. Drop `os.Pipe`, `os.Stdout = w`, `os.Stdout = origStdout`. Drop `io.Copy(&buf, r)` — redundant. |
-| `cmd/apitest/discovery_run.go` | modify | Update `runDiscoveredCollections` signature to accept `stdout, stderr io.Writer`; thread through. For JSON branch, pass per-iteration buffers. For non-JSON branch, pass the discovery-wide `stdout`/`stderr`. |
+| `cmd/curlew/discovery_run.go` | modify | Rewrite `captureJSONCollection`: construct a `bytes.Buffer`, pass it to `runCmdInner`, parse the buffer bytes. Drop `os.Pipe`, `os.Stdout = w`, `os.Stdout = origStdout`. Drop `io.Copy(&buf, r)` — redundant. |
+| `cmd/curlew/discovery_run.go` | modify | Update `runDiscoveredCollections` signature to accept `stdout, stderr io.Writer`; thread through. For JSON branch, pass per-iteration buffers. For non-JSON branch, pass the discovery-wide `stdout`/`stderr`. |
 
 #### Current Code
 ```go
@@ -512,7 +512,7 @@ func TestConcurrentDiscovery(t *testing.T) {
 |------|--------|-------------|
 | `internal/watch/watch.go` | modify | Change `RunFunc` type to `func([]string, io.Writer, io.Writer) RunResult`. Update call sites `cfg.RunFunc(cfg.Args)` → `cfg.RunFunc(cfg.Args, cfg.Stdout, cfg.Stderr)` at `watch.go:67` and `:139`. |
 | `internal/watch/watch_test.go` | modify | All 20+ `RunFunc: func(_ []string) RunResult{...}` → `RunFunc: func(_ []string, _, _ io.Writer) RunResult{...}`. |
-| `cmd/apitest/main.go` | modify | Inside `watchCmd`, update `RunFunc: func(a []string) watch.RunResult { exitCode, summary := runCmdInner(a); ... }` → `RunFunc: func(a []string, stdout, stderr io.Writer) watch.RunResult { exitCode, summary := runCmdInner(a, stdout, stderr); ... }`. |
+| `cmd/curlew/main.go` | modify | Inside `watchCmd`, update `RunFunc: func(a []string) watch.RunResult { exitCode, summary := runCmdInner(a); ... }` → `RunFunc: func(a []string, stdout, stderr io.Writer) watch.RunResult { exitCode, summary := runCmdInner(a, stdout, stderr); ... }`. |
 
 #### Current Code
 ```go
@@ -522,7 +522,7 @@ RunFunc func([]string) RunResult
 // internal/watch/watch.go:67
 result := cfg.RunFunc(cfg.Args)
 
-// cmd/apitest/main.go:1570
+// cmd/curlew/main.go:1570
 RunFunc: func(a []string) watch.RunResult {
     exitCode, summary := runCmdInner(a)
     ...
@@ -537,7 +537,7 @@ RunFunc func([]string, io.Writer, io.Writer) RunResult
 // internal/watch/watch.go:67
 result := cfg.RunFunc(cfg.Args, cfg.Stdout, cfg.Stderr)
 
-// cmd/apitest/main.go:1570
+// cmd/curlew/main.go:1570
 RunFunc: func(a []string, stdout, stderr io.Writer) watch.RunResult {
     exitCode, summary := runCmdInner(a, stdout, stderr)
     ...
@@ -581,13 +581,13 @@ func TestRun_PassesConfigWritersToRunFunc(t *testing.T) {
 
 ### Step 7: Anti-regression AST gate — `TestNoOsStdoutAssignment`
 
-**Rationale:** The final ratchet. Parses every `.go` file in `cmd/apitest/` and fails if any `*ast.AssignStmt` reassigns `os.Stdout` or `os.Stderr`. Prevents future reintroduction of the fd-swap pattern.
+**Rationale:** The final ratchet. Parses every `.go` file in `cmd/curlew/` and fails if any `*ast.AssignStmt` reassigns `os.Stdout` or `os.Stderr`. Prevents future reintroduction of the fd-swap pattern.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add `TestNoOsStdoutAssignment`. |
+| `cmd/curlew/main_test.go` | modify | Add `TestNoOsStdoutAssignment`. |
 
 #### New Code
 ```go
@@ -600,7 +600,7 @@ import (
 )
 
 // TestNoOsStdoutAssignment is an anti-regression gate: it walks every .go file
-// in the current (cmd/apitest) directory and fails if any source assigns to
+// in the current (cmd/curlew) directory and fails if any source assigns to
 // os.Stdout or os.Stderr. Reassigning these process globals corrupts streams
 // shared by concurrent goroutines (M7-005 removed the last offender in
 // discovery_run.go). Keep this test green — if you need to redirect output,
@@ -681,18 +681,18 @@ Alternative considered and rejected: add the test at Step 1 without skip — the
 
 | Test File | Test / Helper | Impact | Action Required |
 |-----------|---------------|--------|-----------------|
-| `cmd/apitest/main_test.go` | `captureRunCmd`, `captureRun`, `captureExecCmd` | breaks | Rewrite to allocate `bytes.Buffer`s; invoke `runCmdWithWriters` / `execCmdOut`. |
-| `cmd/apitest/main_test.go` | `TestHelpText_noColor`, `TestHelpText_format`, `TestHelpText_VerbosityFlags`, `TestHelpText_ContainsExec` | breaks | Switch to `printHelpTo(&buf)`. |
-| `cmd/apitest/main_test.go` | `TestNewStderrPrinter_NoColorEnv` | none | `newStderrPrinter` retained. |
-| `cmd/apitest/main_test.go` | `TestRunCmdInner_RoutesOutputToInjectedWriters` (new) | adds | RED→GREEN gate for Step 4. |
-| `cmd/apitest/main_test.go` | `TestRunCmdInner_StdoutUntouched_OnParseError` (new) | adds | RED→GREEN gate for stderr discipline. |
-| `cmd/apitest/main_test.go` | `TestNoOsStdoutAssignment` (new) | adds | Added-then-skipped in Step 1; unskipped in Step 7. |
-| `cmd/apitest/run_test.go` | `TestRunCmd_*_TeamTemplate_*`, `TestRunCmd_Workers*` | breaks | Replace `os.Stderr = w` swaps with `runCmdWithWriters(args, &stdout, &stderr)`. |
-| `cmd/apitest/run_test.go` | `TestRunCmd_Help_MentionsTeamTemplate`, `TestRunCmd_HelpMentionsWorkers`, `TestRunCmd_WorkersObservableE2E` | breaks | Use `printHelpTo(&buf)` / `runCmdWithWriters`. |
-| `cmd/apitest/discovery_run_test.go` | `TestCaptureJSONCollection_DoesNotTouchOsStdout` (new) | adds | Verifies the fd-swap is gone. |
-| `cmd/apitest/discovery_run_test.go` | `TestConcurrentDiscovery` (new) | adds | The primary observable regression gate. |
-| `cmd/apitest/perf_test.go` | `TestPrintPerfHelp_MentionsAllFlags`, `TestPerfCmd_Run_HTTPTestServer_Success`, `TestPerfCmd_RPSHeaderInStdout`, `TestPerfCmd_OutputJSON_WritesFile`, `TestPerfCmd_Run_HTTPTestServer_AllFailures`, `TestPerfCmd_ContextCancelExitCode130`, `TestPerfCmd_TierGate`, and all other swap sites | breaks | Replace 24 swap sites with `perfCmdOut(args, &stdout, &stderr)` / `printPerfHelpTo(&buf)`. |
-| `cmd/apitest/plugins_test.go` | `capturePluginsOutput` | breaks | Rewrite helper to take `fn func(stdout, stderr io.Writer) int` and allocate buffers internally. 11 call sites updated. |
+| `cmd/curlew/main_test.go` | `captureRunCmd`, `captureRun`, `captureExecCmd` | breaks | Rewrite to allocate `bytes.Buffer`s; invoke `runCmdWithWriters` / `execCmdOut`. |
+| `cmd/curlew/main_test.go` | `TestHelpText_noColor`, `TestHelpText_format`, `TestHelpText_VerbosityFlags`, `TestHelpText_ContainsExec` | breaks | Switch to `printHelpTo(&buf)`. |
+| `cmd/curlew/main_test.go` | `TestNewStderrPrinter_NoColorEnv` | none | `newStderrPrinter` retained. |
+| `cmd/curlew/main_test.go` | `TestRunCmdInner_RoutesOutputToInjectedWriters` (new) | adds | RED→GREEN gate for Step 4. |
+| `cmd/curlew/main_test.go` | `TestRunCmdInner_StdoutUntouched_OnParseError` (new) | adds | RED→GREEN gate for stderr discipline. |
+| `cmd/curlew/main_test.go` | `TestNoOsStdoutAssignment` (new) | adds | Added-then-skipped in Step 1; unskipped in Step 7. |
+| `cmd/curlew/run_test.go` | `TestRunCmd_*_TeamTemplate_*`, `TestRunCmd_Workers*` | breaks | Replace `os.Stderr = w` swaps with `runCmdWithWriters(args, &stdout, &stderr)`. |
+| `cmd/curlew/run_test.go` | `TestRunCmd_Help_MentionsTeamTemplate`, `TestRunCmd_HelpMentionsWorkers`, `TestRunCmd_WorkersObservableE2E` | breaks | Use `printHelpTo(&buf)` / `runCmdWithWriters`. |
+| `cmd/curlew/discovery_run_test.go` | `TestCaptureJSONCollection_DoesNotTouchOsStdout` (new) | adds | Verifies the fd-swap is gone. |
+| `cmd/curlew/discovery_run_test.go` | `TestConcurrentDiscovery` (new) | adds | The primary observable regression gate. |
+| `cmd/curlew/perf_test.go` | `TestPrintPerfHelp_MentionsAllFlags`, `TestPerfCmd_Run_HTTPTestServer_Success`, `TestPerfCmd_RPSHeaderInStdout`, `TestPerfCmd_OutputJSON_WritesFile`, `TestPerfCmd_Run_HTTPTestServer_AllFailures`, `TestPerfCmd_ContextCancelExitCode130`, `TestPerfCmd_TierGate`, and all other swap sites | breaks | Replace 24 swap sites with `perfCmdOut(args, &stdout, &stderr)` / `printPerfHelpTo(&buf)`. |
+| `cmd/curlew/plugins_test.go` | `capturePluginsOutput` | breaks | Rewrite helper to take `fn func(stdout, stderr io.Writer) int` and allocate buffers internally. 11 call sites updated. |
 | `internal/watch/watch_test.go` | all `RunFunc:` closures (20+) | breaks | Add two unused `io.Writer` parameters. |
 | `internal/watch/watch_test.go` | `TestRun_PassesConfigWritersToRunFunc` (new) | adds | Verifies RunFunc receives Config writers. |
 
@@ -701,19 +701,19 @@ Total: ~90 test migrations, 5 new test functions, zero test deletions.
 ## Risks and Edge Cases
 
 - **Risk:** Some `os.Stdout`/`os.Stderr` references inside `runCmdInner` are deep-nested (e.g. feature-gate branches at 527, 541; distributed path at 975–1000; hookDispatcher at 1005; events adapter construction at 497 and 1050). Missing one leaves a split-brain state where part of the output goes to the buffer and part goes to the real stdout.
-  → **Mitigation:** Step 4 includes `TestRunCmdInner_StdoutUntouched_OnParseError` which asserts `stdout.Len() == 0` on error paths. Add three more coverage tests (feature-gate, events-file-error, hook-error) as micro-cases under the same parent Test — ensures every exit-path writer is correctly parameterised. After the bulk replace, run `grep -n "os\\.Stdout\\|os\\.Stderr" cmd/apitest/main.go | grep -v "_test\\.go"` and audit every remaining hit — only `runCmd`, `watchCmd`, the dispatcher in `run()`, and out-of-scope commands (execCmd, validateCmd, etc.) may legitimately reference `os.Stdout`/`os.Stderr`.
+  → **Mitigation:** Step 4 includes `TestRunCmdInner_StdoutUntouched_OnParseError` which asserts `stdout.Len() == 0` on error paths. Add three more coverage tests (feature-gate, events-file-error, hook-error) as micro-cases under the same parent Test — ensures every exit-path writer is correctly parameterised. After the bulk replace, run `grep -n "os\\.Stdout\\|os\\.Stderr" cmd/curlew/main.go | grep -v "_test\\.go"` and audit every remaining hit — only `runCmd`, `watchCmd`, the dispatcher in `run()`, and out-of-scope commands (execCmd, validateCmd, etc.) may legitimately reference `os.Stdout`/`os.Stderr`.
 
 - **Risk:** `captureJSONCollection`'s behaviour change (fd-swap → buffer) might alter byte ordering if previous runs relied on OS pipe buffering to serialise interleaved writes. Today the function returns the full JSON doc only after the run finishes — no streaming. Safe.
   → **Mitigation:** golden-file tests already cover multi-collection JSON output. If any goldens shift, the bytes should be byte-identical (same writer, same formatter) — a diff implies a bug to fix, not an acceptable goldens update.
 
 - **Risk:** `TestConcurrentDiscovery` touches the real filesystem and spawns an `httptest.NewServer` — flaky if the goroutines deadlock on a shared resource. Neither `runCmdInner` nor `httpexec.Execute` owns shared mutable state today (after the removal of the fd-swap), so this should be clean. Race detector must pass (`go test -race`).
-  → **Mitigation:** Run `go test -race -run TestConcurrentDiscovery ./cmd/apitest/...` locally as part of verification. `ci-local.sh` already runs with `-race`.
+  → **Mitigation:** Run `go test -race -run TestConcurrentDiscovery ./cmd/curlew/...` locally as part of verification. `ci-local.sh` already runs with `-race`.
 
 - **Risk:** The `--events` emitter at `main.go:478` opens a file and writes NDJSON to it. If an instance of `runCmdInner` is called with the same `--events` path from two goroutines (concurrent events file writes), the file will corrupt. This risk exists today and is not introduced by the task; note it here so the review phase can confirm that concurrent usage is not a supported scenario and the `TestConcurrentDiscovery` test does not use `--events`.
   → **Mitigation:** The new test avoids `--events`. Add a doc comment on `runCmdInner` noting that the `--events` path is not safe for concurrent invocation with the same file.
 
-- **Edge case:** `runCmdInner` calls `os.Getenv("APITEST_TEAM_CONFIG")` and `os.Getenv("APITEST_VAULT_STUB")` — those are process globals, not writer globals. The plan does not change them.
-  → **Handling:** `TestConcurrentDiscovery` uses a temp dir with no `APITEST_TEAM_CONFIG` set; no risk.
+- **Edge case:** `runCmdInner` calls `os.Getenv("CURLEW_TEAM_CONFIG")` and `os.Getenv("CURLEW_VAULT_STUB")` — those are process globals, not writer globals. The plan does not change them.
+  → **Handling:** `TestConcurrentDiscovery` uses a temp dir with no `CURLEW_TEAM_CONFIG` set; no risk.
 
 - **Edge case:** `os.Stdin` is swapped in `captureExecCmd`. The task is about stdout/stderr only. `os.Stdin` swaps remain (they do not match the grep `os.Stdout = ` / `os.Stderr = `).
   → **Handling:** Out of scope. No action.
@@ -726,15 +726,15 @@ Total: ~90 test migrations, 5 new test functions, zero test deletions.
 - **Edge case:** Two-phase migration for tests (Step 3 + Step 4): during the inter-commit interval, tests may temporarily reference a helper that does not exist yet. Keep both steps in a single commit to avoid a broken intermediate state, OR land Step 3 with a stub `runCmdWithWriters` that delegates to the old `runCmdInner` before Step 4 flips the signature.
   → **Mitigation:** Execute phase lands Steps 3 and 4 in one atomic commit.
 
-- **Risk:** `TestNoOsStdoutAssignment` uses `os.ReadDir(".")` which depends on the `go test` invocation being run from `cmd/apitest/`. `go test ./...` invokes tests with the package directory as CWD, so this works. Document the dependency.
+- **Risk:** `TestNoOsStdoutAssignment` uses `os.ReadDir(".")` which depends on the `go test` invocation being run from `cmd/curlew/`. `go test ./...` invokes tests with the package directory as CWD, so this works. Document the dependency.
   → **Mitigation:** Add comment on the test.
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
-go test -race ./cmd/apitest/...
+go test -race ./cmd/curlew/...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
 ./scripts/ci-local.sh --go
@@ -744,22 +744,22 @@ Observable verification (matches task YAML):
 
 ```bash
 # 1. captureJSONCollection no longer hijacks os.Stdout at the process level.
-grep -rn "os.Stdout = " cmd/apitest/
+grep -rn "os.Stdout = " cmd/curlew/
 # Expected: zero matches.
 
-grep -rn "os.Stderr = " cmd/apitest/
+grep -rn "os.Stderr = " cmd/curlew/
 # Expected: zero matches.
 
 # 2. runCmdInner takes explicit writer parameters.
-grep -n "^func runCmdInner" cmd/apitest/main.go
+grep -n "^func runCmdInner" cmd/curlew/main.go
 # Expected: func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 
 # 3. Concurrent glob discovery works without stream corruption.
-go test -run TestConcurrentDiscovery ./cmd/apitest/...
+go test -run TestConcurrentDiscovery ./cmd/curlew/...
 # Expected: PASS.
 
 # 4. Static-analysis gate rejects future reassignment of os.Stdout.
-go test -run TestNoOsStdoutAssignment ./cmd/apitest/...
+go test -run TestNoOsStdoutAssignment ./cmd/curlew/...
 # Expected: PASS.
 
 # 5. Existing test suite is green.

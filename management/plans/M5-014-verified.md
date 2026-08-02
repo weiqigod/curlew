@@ -16,7 +16,7 @@
 | `./smoke/run.sh` | PASS | M5-014 smoke section PASS |
 | Coverage — `internal/license/export` | 80.6% | Meets >= 80% threshold |
 | Coverage — `internal/license` | 88.0% | Above threshold |
-| Coverage — `cmd/apitest` | 81.2% | Above threshold |
+| Coverage — `cmd/curlew` | 81.2% | Above threshold |
 | Coverage — total | 86.7% | Well above threshold |
 
 ## Observable Output
@@ -39,12 +39,12 @@ Result: MATCH
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
 | 1 | Valid license → export → tarball with license.json/jwks.json/README.txt | `TestLicenseExport_HappyPath` + smoke | PASS |
-| 2 | Extract bundle + APITEST_LICENSE_BUNDLE → validate succeeds offline | `TestLicenseExportThenValidate_RoundTrip` + smoke | PASS |
+| 2 | Extract bundle + CURLEW_LICENSE_BUNDLE → validate succeeds offline | `TestLicenseExportThenValidate_RoundTrip` + smoke | PASS |
 | 3 | Bundle older than 30 days → "Bundle grace period expires in N days" warning | `TestLicenseBundleGraceWarning` (day25 + day31 sub-tests) | PASS |
-| 4 | No license → exit 2 + "no license to export; run apitest login first" | `TestLicenseExport_NoLicense` | PASS |
+| 4 | No license → exit 2 + "no license to export; run curlew login first" | `TestLicenseExport_NoLicense` | PASS |
 | 5 | --output parent dir missing → exit 2 + "output directory does not exist" | `TestLicenseExport_OutputParentMissing` | PASS |
 | 6 | Tampered bundle signature → exit 6 + "signature_invalid" | `TestLicenseExport_TamperedBundle` | PASS |
-| 7 | --help documents export --output and APITEST_LICENSE_BUNDLE env var | `TestLicenseHelp_DocumentsExport` | PASS |
+| 7 | --help documents export --output and CURLEW_LICENSE_BUNDLE env var | `TestLicenseHelp_DocumentsExport` | PASS |
 
 ## Definition of Done
 
@@ -52,9 +52,9 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | 7/7 behavior tests pass | PASS |
 | 2 | Observable output works as specified | Command output matches expected format | PASS |
-| 3 | Test coverage >= 80% | export: 80.6%, license: 88.0%, cmd/apitest: 81.2% | PASS |
+| 3 | Test coverage >= 80% | export: 80.6%, license: 88.0%, cmd/curlew: 81.2% | PASS |
 | 4 | No build warnings or lint errors | `golangci-lint run` → 0 issues | PASS |
-| 5 | Help text documents license export and APITEST_LICENSE_BUNDLE env var | `TestLicenseHelp_DocumentsExport` passes, confirmed in binary output | PASS |
+| 5 | Help text documents license export and CURLEW_LICENSE_BUNDLE env var | `TestLicenseHelp_DocumentsExport` passes, confirmed in binary output | PASS |
 | 6 | Smoke test covers export → import → validate cycle | Smoke M5-014 section: PASS | PASS |
 
 ## Code Review
@@ -102,8 +102,8 @@ Result: MATCH
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/license.go` | modified — added `licenseExport`, `humanBytes`, updated help text |
-| `cmd/apitest/license_test.go` | modified — added 7 new tests, bundle env isolation |
+| `cmd/curlew/license.go` | modified — added `licenseExport`, `humanBytes`, updated help text |
+| `cmd/curlew/license_test.go` | modified — added 7 new tests, bundle env isolation |
 | `internal/license/export/archive.go` | created — tar/gzip writer and reader |
 | `internal/license/export/archive_test.go` | created — round-trip tests |
 | `internal/license/export/bundle.go` | created — Bundle type, sentinels |

@@ -96,7 +96,7 @@ test.describe('vault-config', () => {
 		await expect(page.getByText('Updated to version 1')).toBeVisible();
 	});
 
-	test('Generate CLI snippet button shows apitest license --refresh command', async ({
+	test('Generate CLI snippet button shows curlew license --refresh command', async ({
 		page,
 		context,
 	}) => {
@@ -117,7 +117,7 @@ test.describe('vault-config', () => {
 
 		await page.goto(`/org/${SEEDED_ORG_SLUG}/vault-config`);
 		await page.getByTestId('vault-cli-snippet-button').click();
-		await expect(page.getByText('apitest license --refresh')).toBeVisible();
+		await expect(page.getByText('curlew license --refresh')).toBeVisible();
 	});
 
 	test('non-team-tier org redirects with team_tier_required toast', async ({

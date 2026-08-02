@@ -1,7 +1,7 @@
 # Implementation Plan: M6-006
 
 ## Overview
-Ship a self-contained, agent-grade reference for the ApiTool v0.1 event stream: a prose document (`docs/EVENTS_SCHEMA_v0.1.md`) that covers every event kind, field semantics, ordering/timing guarantees, body-truncation rules, error taxonomy, and the v0.x → v1.0 stability policy — plus two sync tests in `internal/output/events` that keep the checked-in JSON Schema and the doc's examples structurally pinned to the Go struct definitions.
+Ship a self-contained, agent-grade reference for the Curlew v0.1 event stream: a prose document (`docs/EVENTS_SCHEMA_v0.1.md`) that covers every event kind, field semantics, ordering/timing guarantees, body-truncation rules, error taxonomy, and the v0.x → v1.0 stability policy — plus two sync tests in `internal/output/events` that keep the checked-in JSON Schema and the doc's examples structurally pinned to the Go struct definitions.
 
 ## Task Details
 - **ID:** M6-006
@@ -42,7 +42,7 @@ Ship a self-contained, agent-grade reference for the ApiTool v0.1 event stream: 
 #### Section outline (mandatory — tests verify this structure exists)
 
 ```markdown
-# ApiTool Agent Event Stream — v0.1
+# Curlew Agent Event Stream — v0.1
 
 ## Audience and scope
 <one paragraph: who reads this, what stream is, when emitted>
@@ -311,7 +311,7 @@ func eventSchemaDocPath(t *testing.T) string {
 **Rationale:** Run the full event-package test suite plus build and lint before committing, so the RED-GREEN state is always committed atomically.
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/output/events/...
 ~/go/bin/golangci-lint run ./internal/output/events/...
 ./smoke/run.sh
@@ -368,7 +368,7 @@ No new exports from the `events` package itself. No changes to `events.go`, `emi
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh

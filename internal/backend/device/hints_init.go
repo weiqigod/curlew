@@ -1,6 +1,6 @@
 package device
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("backend/device",
@@ -10,7 +10,7 @@ func init() {
 			Hint: apierrors.ClassifiedHint{
 				Category: apierrors.CategoryAuth,
 				Code:     "BACKEND_DEVICE_NOT_FOUND",
-				Hint:     "No device identity found. Authenticate via apitest login.",
+				Hint:     "No device identity found. Authenticate via curlew login.",
 			},
 		},
 	)

@@ -3,7 +3,7 @@ title: AWS SigV4 with vault-backed credentials
 intent: Sign requests with AWS Signature V4 using credentials pulled from a vault — never a literal in the file — and watch them get redacted everywhere.
 group: security
 features: [signing, vault, redaction]
-command: apitest run collections/s3.yaml
+command: curlew run collections/s3.yaml
 order: 90
 runnable: false
 ---
@@ -12,7 +12,7 @@ runnable: false
 	import Callout from '$lib/components/Callout.svelte';
 </script>
 
-ApiTool has built-in request signers — no plugin binary required. The `signing:`
+Curlew has built-in request signers — no plugin binary required. The `signing:`
 block applies between variable templating and dispatch, so you sign requests to AWS
 services with **Signature V4** using credentials that come from a vault, not from the
 YAML. Because those credentials are vault-resolved, they're redacted in every output.
@@ -20,7 +20,7 @@ YAML. Because those credentials are vault-resolved, they're redacted in every ou
 ## Credentials from a vault
 
 ```yaml
-# apitest.yaml
+# curlew.yaml
 secrets:
   provider: aws-secrets-manager
   region: us-east-1
@@ -31,7 +31,7 @@ secrets:
   refresh_on_failure: true
 ```
 
-ApiTool shells out to the provider's authenticated CLI (`aws` here) — it doesn't
+Curlew shells out to the provider's authenticated CLI (`aws` here) — it doesn't
 embed SDKs. The `#field` suffix pulls a single field out of a structured secret.
 
 ## Sign the request
@@ -63,7 +63,7 @@ STS-issued temporary credentials work too — add `session_token: "{{aws_session
 ## Run it
 
 ```bash
-apitest run collections/s3.yaml
+curlew run collections/s3.yaml
 ```
 
 ```
@@ -76,12 +76,12 @@ Collection: S3 access
 
 <Callout type="output">
 	Representative output — signing against your own AWS account. For local runs without
-	hitting a real vault, set <code>APITEST_VAULT_STUB=1</code> to use an in-memory stub.
+	hitting a real vault, set <code>CURLEW_VAULT_STUB=1</code> to use an in-memory stub.
 </Callout>
 
 <Callout type="warn">
 	Always reference credentials as <code>{'{{vars}}'}</code>, never as literal strings.
 	A literal <code>secret_key</code> has no source variable to trace back to, so
-	ApiTool can't add it to the redaction set — and it could leak into output. The
+	Curlew can't add it to the redaction set — and it could leak into output. The
 	vault-backed approach above is redacted by construction.
 </Callout>

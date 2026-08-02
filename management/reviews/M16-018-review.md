@@ -16,7 +16,7 @@ No findings. All three findings from iteration 2 have been resolved:
 
 2. **Finding #2 (Medium) — FIXED**: `orgIDRE` path-traversal guard is now tested via the `"invalid orgId format rejects path traversal"` table row with `orgID: "org/evil"`. The test verifies the error message contains `"invalid orgId"` via a substring check, which is appropriate for a non-sentinel fmt.Errorf-produced error.
 
-3. **Finding #3 (Low) — FIXED**: `vaultCache.Refresh(...)` in `cmd/apitest/license.go:412` now passes `stderr` as the warn writer instead of `io.Discard`, so failures during the team vault cache refresh are surfaced to the user via stderr.
+3. **Finding #3 (Low) — FIXED**: `vaultCache.Refresh(...)` in `cmd/curlew/license.go:412` now passes `stderr` as the warn writer instead of `io.Discard`, so failures during the team vault cache refresh are surfaced to the user via stderr.
 
 ## Standards Compliance
 
@@ -25,7 +25,7 @@ No findings. All three findings from iteration 2 have been resolved:
 | Error Handling | PASS | All errors wrapped with `%w`. Sentinels `ErrTeamVaultNotFound` and `ErrOrgIDRequired` defined and registered in `hints_init.go`. Non-fatal vault fetch paths (stale cache, license --refresh) handled correctly. |
 | Input Validation | PASS | `orgIDRE` guard present, tested, and correct. Empty-orgId guard uses the `ErrOrgIDRequired` sentinel. `Fetcher` nil-safe for TTL-hit path. |
 | Naming | PASS | No stuttering. Exported symbols have doc comments. `Fetcher` interface uses `-er` suffix. `backendVaultFetcher` adapter is unexported as appropriate. |
-| Code Organization | PASS | `internal/` boundaries respected. `backendVaultFetcher` adapter in `cmd/apitest` keeps `teamtemplate` decoupled from `internal/backend`. Loader, cache, and transport are cleanly separated. |
+| Code Organization | PASS | `internal/` boundaries respected. `backendVaultFetcher` adapter in `cmd/curlew` keeps `teamtemplate` decoupled from `internal/backend`. Loader, cache, and transport are cleanly separated. |
 | Correctness | PASS | `--refresh-vault` wired in both `run` and `worker`. `Claims` threaded into `LoadOptions`. Runner gate upgraded to `CheckFeatureWithClaims`. Flock serializes concurrent cache writes. `fetchCtx` 2s timeout applied only to the network fetch, not the lock acquisition (correct). |
 | Test Quality | PASS | All 10 task behaviors covered by at least one test. Table-driven tests throughout. Concurrent flock test mirrors the JWKS cache pattern. File-mode test for 0600. Integration test verifies `team_vault.json` shape + mode. |
 
@@ -35,7 +35,7 @@ No findings. All three findings from iteration 2 have been resolved:
 - `internal/vault/teamtemplate`: 88.3% ✓
 - `internal/license`: 88.7% ✓
 - `internal/runner`: 84.8% ✓
-- `cmd/apitest`: 81.4% ✓
+- `cmd/curlew`: 81.4% ✓
 - All changed packages above 80% floor ✓
 
 ## Behavior Coverage

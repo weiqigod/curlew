@@ -9,38 +9,38 @@ phase: "M4: Team Tier"
 dependencies:
   - M4-001
 observable: |
-  go build ./cmd/apitest && \
-    APITEST_TEAM_CONFIG=testdata/team/shared-vault-template.yaml \
-    APITEST_VAULT_STUB=1 \
-    ./apitest run testdata/team/uses-team-vault.yaml --env production
+  go build ./cmd/curlew && \
+    CURLEW_TEAM_CONFIG=testdata/team/shared-vault-template.yaml \
+    CURLEW_VAULT_STUB=1 \
+    ./curlew run testdata/team/uses-team-vault.yaml --env production
   # Expected: test passes; stdout shows "Resolved 2 secrets from shared template (production)"
   # and the request body contains the resolved api_key value from the stubbed vault.
   go test ./internal/vault/teamtemplate/... ./internal/runner/... \
     -run 'TeamTemplate|TeamSecrets' -count=1
   # Expected: ok; >=6 tests passing across both packages
 behaviors:
-  - "Given APITEST_TEAM_CONFIG points to a valid shared template and a collection file uses {{secrets.api_key}}, when apitest run is invoked with --env production, then the request is sent with the resolved production value"
+  - "Given CURLEW_TEAM_CONFIG points to a valid shared template and a collection file uses {{secrets.api_key}}, when curlew run is invoked with --env production, then the request is sent with the resolved production value"
   - "Given the same collection is run with --env staging, when executed, then the staging provider is used instead and secrets resolve to staging values"
-  - "Given APITEST_TEAM_CONFIG is set to a missing file, when apitest run starts, then it exits with a clear 'shared vault template not found' error and does not send HTTP traffic"
+  - "Given CURLEW_TEAM_CONFIG is set to a missing file, when curlew run starts, then it exits with a clear 'shared vault template not found' error and does not send HTTP traffic"
   - "Given a collection references a secret alias not declared in the active environment of the template, when executed, then the runner fails with 'unknown secret alias {name} for environment {env}' and does not emit the request"
-  - "Given the stub vault provider is enabled via APITEST_VAULT_STUB=1, when a secret is resolved, then the runner logs 'Resolved N secrets from shared template (<env>)' exactly once per run"
-  - "Given --env is omitted, when apitest run executes a collection that uses shared secrets, then the runner fails with an explicit 'shared template requires --env <name>' message"
-  - "Given apitest run --help, when invoked, then the help text documents the new --env behavior with shared vault templates and the APITEST_TEAM_CONFIG environment variable"
+  - "Given the stub vault provider is enabled via CURLEW_VAULT_STUB=1, when a secret is resolved, then the runner logs 'Resolved N secrets from shared template (<env>)' exactly once per run"
+  - "Given --env is omitted, when curlew run executes a collection that uses shared secrets, then the runner fails with an explicit 'shared template requires --env <name>' message"
+  - "Given curlew run --help, when invoked, then the help text documents the new --env behavior with shared vault templates and the CURLEW_TEAM_CONFIG environment variable"
   - "Given a production environment definition, when resolve is called twice in the same run, then the vault provider is queried once and the second call is served from in-memory cache"
 scope: |
   Wire the teamtemplate package into internal/runner and internal/variable so
   that {{secrets.NAME}} lookups in a collection go through the shared template
-  when APITEST_TEAM_CONFIG is set. Add a stub vault provider in
-  internal/vault/teamtemplate/stub.go, enabled by APITEST_VAULT_STUB=1, so the
-  slice is runnable without real AWS/Azure credentials. Update cmd/apitest run
+  when CURLEW_TEAM_CONFIG is set. Add a stub vault provider in
+  internal/vault/teamtemplate/stub.go, enabled by CURLEW_VAULT_STUB=1, so the
+  slice is runnable without real AWS/Azure credentials. Update cmd/curlew run
   to accept and forward --env and expose the new error exit codes. Ship the
   testdata/team/uses-team-vault.yaml fixture.
 definition_of_done:
   - "Behavior tests pass for internal/vault/teamtemplate and internal/runner"
-  - "apitest run produces the expected resolved request against a local test server"
+  - "curlew run produces the expected resolved request against a local test server"
   - "Stub provider covers aws-secrets-manager and azure-key-vault shapes"
   - "Error paths exercised by red-path fixtures and asserted on"
-  - "Help text for apitest run mentions --env + shared template"
+  - "Help text for curlew run mentions --env + shared template"
   - "smoke/run.sh adds an end-to-end team template scenario"
 complexity: high
 estimated_effort: "6-10 hours"

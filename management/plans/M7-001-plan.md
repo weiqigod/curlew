@@ -2,7 +2,7 @@
 
 ## Overview
 
-Fix a latent bug where `apitest run`, `apitest watch`, and `apitest exec` derive the color flag for `stderr` printers from `os.Stdout`'s TTY state. When stdout is a pipe and stderr is a pipe too, the code path at `main.go:552-553`, `main.go:1545`, and `main.go:2710-2828` still emits ANSI escape sequences into piped stderr. This task introduces a `newStderrPrinter` helper, renames the stdout-derived flag to `stdoutUseColor`, switches all affected call sites, and adds a four-case (TTY x pipe) regression test.
+Fix a latent bug where `curlew run`, `curlew watch`, and `curlew exec` derive the color flag for `stderr` printers from `os.Stdout`'s TTY state. When stdout is a pipe and stderr is a pipe too, the code path at `main.go:552-553`, `main.go:1545`, and `main.go:2710-2828` still emits ANSI escape sequences into piped stderr. This task introduces a `newStderrPrinter` helper, renames the stdout-derived flag to `stdoutUseColor`, switches all affected call sites, and adds a four-case (TTY x pipe) regression test.
 
 ## Task Details
 
@@ -22,7 +22,7 @@ The task YAML defines no `dependencies:` key. M7-001 is one of four parallelizab
 
 ## Code Exploration Findings
 
-### Current state of stderr printer construction in `cmd/apitest/main.go`
+### Current state of stderr printer construction in `cmd/curlew/main.go`
 
 Twenty call sites currently construct a printer on `os.Stderr`. Three categories:
 
@@ -32,7 +32,7 @@ Twenty call sites currently construct a printer on `os.Stderr`. Three categories
 | **Already correct — stderr-derived** | 432, 453, 469, 477, 531, 542, 1537, 2699, 2705, 2927, 3244, 3251 | `shouldUseColor(os.Stderr, ...)` | Adopt helper for uniformity |
 | **stdout-bound (correct)** | 982, 1044, 2864 | `useColor` for `os.Stdout` printer | **Do not change** the stdout sites; only rename the variable to `stdoutUseColor` |
 
-Additionally, `cmd/apitest/perf.go:61` has one `shouldUseColor(os.Stderr, false)` call — already correct, but should adopt the helper for uniformity and test coverage.
+Additionally, `cmd/curlew/perf.go:61` has one `shouldUseColor(os.Stderr, false)` call — already correct, but should adopt the helper for uniformity and test coverage.
 
 ### Watch integration (`main.go:1545` + `internal/watch`)
 
@@ -42,10 +42,10 @@ Additionally, `cmd/apitest/perf.go:61` has one `shouldUseColor(os.Stderr, false)
 
 `execCmd` computes `useColor := shouldUseColor(os.Stdout, opts.NoColor)` at line 2710, then reuses it for both stdout (`main.go:2864`) and five stderr error paths (2722, 2754, 2761, 2769, 2828). The fix: rename to `stdoutUseColor`, route each stderr site through `newStderrPrinter`.
 
-### Test patterns available in cmd/apitest
+### Test patterns available in cmd/curlew
 
 - `main_test.go:32-67` defines `captureRunCmd` which replaces `os.Stdout`/`os.Stderr` with pipes. Perfect for testing the non-TTY case (pipes force `IsTerminal` to false). Cannot synthesize a TTY.
-- `main_test.go:78-88` defines `buildBinary(t *testing.T) string` — builds the real `apitest` binary. Used by the TTY regression variants via `creack/pty`.
+- `main_test.go:78-88` defines `buildBinary(t *testing.T) string` — builds the real `curlew` binary. Used by the TTY regression variants via `creack/pty`.
 - No existing test exercises the stdout-TTY + stderr-pipe combination.
 
 ### PTY dependency decision
@@ -78,7 +78,7 @@ This avoids introducing `creack/pty`. If later M7 tasks warrant PTY infrastructu
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `newStderrPrinter` next to `shouldUseColor` at line 319; no behaviour change elsewhere yet |
+| `cmd/curlew/main.go` | modify | Add `newStderrPrinter` next to `shouldUseColor` at line 319; no behaviour change elsewhere yet |
 
 #### Current Code (main.go:317-327)
 
@@ -126,7 +126,7 @@ func newStderrPrinter(noColor bool) *output.Printer {
 
 #### Tests to Write FIRST (RED phase)
 
-Add to `cmd/apitest/main_test.go` (extends `TestShouldUseColor` area):
+Add to `cmd/curlew/main_test.go` (extends `TestShouldUseColor` area):
 
 ```go
 func TestNewStderrPrinter_NoColorFlag(t *testing.T) {
@@ -177,7 +177,7 @@ The real regression coverage lives in Step 4's `stream_color_test.go`; these two
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | (a) Rename `useColor` -> `stdoutUseColor` at line 552 (runCmdInner) and line 1545 (watchCmd); (b) replace `errOut := output.NewPrinter(os.Stderr, useColor)` at line 553 with `errOut := newStderrPrinter(noColor)`; (c) adopt `newStderrPrinter` at the twelve already-correct stderr sites (432, 453, 469, 477, 531, 542, 1537) for uniformity |
+| `cmd/curlew/main.go` | modify | (a) Rename `useColor` -> `stdoutUseColor` at line 552 (runCmdInner) and line 1545 (watchCmd); (b) replace `errOut := output.NewPrinter(os.Stderr, useColor)` at line 553 with `errOut := newStderrPrinter(noColor)`; (c) adopt `newStderrPrinter` at the twelve already-correct stderr sites (432, 453, 469, 477, 531, 542, 1537) for uniformity |
 
 #### Current Code (main.go:550-554)
 
@@ -244,7 +244,7 @@ No new tests at this step (tests are in Step 4). The existing test suite in `mai
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Rename `useColor` -> `stdoutUseColor` at line 2710; switch the five stderr printer constructions at 2722, 2754, 2761, 2769, 2828 to `newStderrPrinter(opts.NoColor)`; adopt `newStderrPrinter` at lines 2699, 2705, 2927, 3244, 3251 for uniformity |
+| `cmd/curlew/main.go` | modify | Rename `useColor` -> `stdoutUseColor` at line 2710; switch the five stderr printer constructions at 2722, 2754, 2761, 2769, 2828 to `newStderrPrinter(opts.NoColor)`; adopt `newStderrPrinter` at lines 2699, 2705, 2927, 3244, 3251 for uniformity |
 
 #### Current Code (main.go:2710 and 2722)
 
@@ -306,13 +306,13 @@ No new unit tests at this step beyond those added in Step 4 (integration-level r
 
 ### Step 4: Regression test — four TTY/pipe combinations
 
-**Rationale:** The observable contract from the task YAML. Written as a sibling file `cmd/apitest/stream_color_test.go` per scope. Covers the bug directly.
+**Rationale:** The observable contract from the task YAML. Written as a sibling file `cmd/curlew/stream_color_test.go` per scope. Covers the bug directly.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/stream_color_test.go` | create | Table-driven test building the real binary via `buildBinary`, running against a deliberately broken collection (`{{UNDEFINED}}`), asserting presence/absence of `\x1b[` ANSI escape markers in stderr |
+| `cmd/curlew/stream_color_test.go` | create | Table-driven test building the real binary via `buildBinary`, running against a deliberately broken collection (`{{UNDEFINED}}`), asserting presence/absence of `\x1b[` ANSI escape markers in stderr |
 
 #### Test Structure
 
@@ -330,7 +330,7 @@ import (
 )
 
 // TestStderrColorFlag is the primary regression gate for M7-001. It exercises
-// four stdout/stderr TTY-vs-pipe combinations through the real apitest binary
+// four stdout/stderr TTY-vs-pipe combinations through the real curlew binary
 // and asserts whether stderr contains ANSI escape sequences.
 //
 // The TTY cases require /dev/tty. When unavailable (CI containers, sandboxes)
@@ -473,11 +473,11 @@ Note: `stdoutTTY:true, stderrTTY:false` is the central regression case — stder
 
 ### Fixed
 
-- `apitest run`/`watch`/`exec`: stderr printers now derive their color flag
+- `curlew run`/`watch`/`exec`: stderr printers now derive their color flag
   from `os.Stderr`'s own TTY state. Previously, when stdout was a TTY and
   stderr was a pipe, ANSI escape sequences leaked into piped stderr. A new
   `newStderrPrinter` helper centralizes the pattern across every call site
-  in `cmd/apitest/`. (M7-001)
+  in `cmd/curlew/`. (M7-001)
 ```
 
 ---
@@ -486,13 +486,13 @@ Note: `stdoutTTY:true, stderrTTY:false` is the central regression case — stder
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestShouldUseColor` | none | unchanged (already tests the underlying function) |
-| `cmd/apitest/main_test.go` | `TestRunCmdDirect_*` (28 tests) | none | harness uses piped stdout/stderr, so behaviour is identical before and after the rename |
-| `cmd/apitest/main_test.go` | `TestNewStderrPrinter_NoColorFlag` | new | assert helper composes correctly |
-| `cmd/apitest/main_test.go` | `TestNewStderrPrinter_NoColorEnv` | new | assert NO_COLOR env suppresses color |
-| `cmd/apitest/stream_color_test.go` | `TestStderrColorFlag` | new | four-combination regression |
-| `cmd/apitest/run_test.go` | (all tests) | none | no assertion on ANSI content of stderr |
-| `cmd/apitest/perf_test.go` | (all tests) | none | `perf.go:61` is an uniformity rewrite only |
+| `cmd/curlew/main_test.go` | `TestShouldUseColor` | none | unchanged (already tests the underlying function) |
+| `cmd/curlew/main_test.go` | `TestRunCmdDirect_*` (28 tests) | none | harness uses piped stdout/stderr, so behaviour is identical before and after the rename |
+| `cmd/curlew/main_test.go` | `TestNewStderrPrinter_NoColorFlag` | new | assert helper composes correctly |
+| `cmd/curlew/main_test.go` | `TestNewStderrPrinter_NoColorEnv` | new | assert NO_COLOR env suppresses color |
+| `cmd/curlew/stream_color_test.go` | `TestStderrColorFlag` | new | four-combination regression |
+| `cmd/curlew/run_test.go` | (all tests) | none | no assertion on ANSI content of stderr |
+| `cmd/curlew/perf_test.go` | (all tests) | none | `perf.go:61` is an uniformity rewrite only |
 
 ## Risks and Edge Cases
 
@@ -503,7 +503,7 @@ Note: `stdoutTTY:true, stderrTTY:false` is the central regression case — stder
   **Mitigation:** `//go:build !windows` at the top of `stream_color_test.go`. Documented in the file's doc comment. Not a regression — Windows users already did not get TTY-specific color detection; `output.IsTerminal` uses a `*os.File`/`Stat` path that is Windows-compatible at runtime.
 
 - **Risk:** `runCmdInner` has 552+ lines between the `useColor` declaration (line 552) and its last use (line 1044). Missing a rename causes a compile error — not a silent regression.
-  **Mitigation:** `go build ./cmd/apitest` is the first verification gate. Compile errors surface immediately.
+  **Mitigation:** `go build ./cmd/curlew` is the first verification gate. Compile errors surface immediately.
 
 - **Edge case:** `watch.Config.UseColor` consumer.
   **Handling:** That field drives stdout-facing terminal output *inside* the watch package. Its value must remain stdout-derived — we only rename the variable, not change the flow. Documented inline in Step 2.
@@ -514,17 +514,17 @@ Note: `stdoutTTY:true, stderrTTY:false` is the central regression case — stder
 
 - **Edge case:** NO_COLOR env var takes precedence over TTY detection. Already handled inside `shouldUseColor`; no change needed in the helper.
 
-- **Risk:** `cmd/apitest/main.go` has call sites at lines 2927, 3244, 3251 outside the task's named functions (vaultCmd, openapiImport). Task scope lists the early-exit sites "stay as-is or adopt the new helper for uniformity."
+- **Risk:** `cmd/curlew/main.go` has call sites at lines 2927, 3244, 3251 outside the task's named functions (vaultCmd, openapiImport). Task scope lists the early-exit sites "stay as-is or adopt the new helper for uniformity."
   **Mitigation:** Adopt the helper for uniformity so the DoD grep (`NewPrinter(os.Stderr, useColor)` returns zero matches) is trivially satisfied and future call sites gravitate toward the helper. Non-behavioural change.
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
-grep -n 'NewPrinter(os.Stderr, useColor)' cmd/apitest/*.go || echo "clean"
+grep -n 'NewPrinter(os.Stderr, useColor)' cmd/curlew/*.go || echo "clean"
 ./scripts/ci-local.sh --go
 ```
 
@@ -538,9 +538,9 @@ requests:
     method: GET
     url: "{{UNDEFINED}}"
 YAML
-./apitest run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt || true
+./curlew run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt || true
 grep -c $'\033\[' /tmp/err.txt   # Expected: 0
-go test -run TestStderrColorFlag ./cmd/apitest/...  # Expected: PASS
+go test -run TestStderrColorFlag ./cmd/curlew/...  # Expected: PASS
 ```
 
 ## Decisions Recorded

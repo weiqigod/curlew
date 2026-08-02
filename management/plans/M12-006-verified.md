@@ -37,7 +37,7 @@ PASS
 PASS
 ```
 
-Dry-run observable (`apitest run --dry-run --format json` with `$dateAdd('7', 'day')` in request body):
+Dry-run observable (`curlew run --dry-run --format json` with `$dateAdd('7', 'day')` in request body):
 - Run produced `"status": "passed"` with `expires_at` interpolated as ISO-8601 UTC seven days in the future.
 
 Expected: ISO-8601 UTC string seven days in the future.

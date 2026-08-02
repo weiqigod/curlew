@@ -24,7 +24,7 @@ No findings. All issues from rounds 1 and 2 have been resolved.
 | Test Quality | PASS | Table-driven tests with descriptive `t.Run` names. Integration tests exercise real binary with stdin pipe. JSONL tests verify create, append, valid JSON, newline termination, omitempty. 13 `execCmd` test cases covering happy and error paths. `TestExecCmd_dryRunJsonSchema` regression test covers the round 2 fix. |
 
 ## Test Coverage
-- Package coverage: 84.9% for `cmd/apitest`, 91.2% for `internal/output`
+- Package coverage: 84.9% for `cmd/curlew`, 91.2% for `internal/output`
 - `AppendJSONL`: 85.7%
 - `parseExecArgs`: 91.1%
 - `parseStdinRequest`: 92.9%

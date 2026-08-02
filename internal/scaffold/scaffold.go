@@ -1,4 +1,4 @@
-// Package scaffold creates a new apitest project directory structure.
+// Package scaffold creates a new curlew project directory structure.
 package scaffold
 
 import (
@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/peterlindqvist/apitest/templates"
+	"github.com/weiqigod/curlew/templates"
 )
 
-// ErrProjectExists indicates that an apitest.yaml or apitest.yml already exists
+// ErrProjectExists indicates that an curlew.yaml or curlew.yml already exists
 // in the target directory.
-var ErrProjectExists = errors.New("project already exists: apitest.yaml found in target directory")
+var ErrProjectExists = errors.New("project already exists: curlew.yaml found in target directory")
 
 // Options configures project initialization.
 type Options struct {
@@ -21,28 +21,28 @@ type Options struct {
 	Dir string
 	// ProjectName overrides the project name. Empty defaults to the directory basename.
 	ProjectName string
-	// OutputFormat selects the output: block emitted in apitest.yaml. Empty
+	// OutputFormat selects the output: block emitted in curlew.yaml. Empty
 	// selects the M8-003 default (format: terminal, verbosity: normal).
 	// Validated by the caller against output.SupportedFormats.
 	OutputFormat string
 	// SkillName, when non-empty, scaffolds an agent skill template at
-	// .claude/skills/apitest/SKILL.md, defaults the output: block format to
+	// .claude/skills/curlew/SKILL.md, defaults the output: block format to
 	// markdown when OutputFormat is empty, appends the events line to the
-	// output: block, and adds .apitest/ to .gitignore. Empty preserves the
+	// output: block, and adds .curlew/ to .gitignore. Empty preserves the
 	// pre-M10 byte-identical scaffold. Validated by the caller against
 	// templates.SupportedSkills.
 	SkillName string
-	// ApitestVersion is substituted into the SKILL.md template at the
-	// {{apitest_version}} token. Required when SkillName is non-empty;
-	// ignored otherwise. The CLI layer threads cmd/apitest/main.go's
+	// CurlewVersion is substituted into the SKILL.md template at the
+	// {{curlew_version}} token. Required when SkillName is non-empty;
+	// ignored otherwise. The CLI layer threads cmd/curlew/main.go's
 	// version const into this field.
-	ApitestVersion string
+	CurlewVersion string
 }
 
-// Init creates a new apitest project in the specified directory.
-// It creates apitest.yaml, .gitignore (or appends .env if it exists),
+// Init creates a new curlew project in the specified directory.
+// It creates curlew.yaml, .gitignore (or appends .env if it exists),
 // .env.example, environments/dev.yaml, and collections/sample.yaml.
-// Returns ErrProjectExists if apitest.yaml or apitest.yml already exists.
+// Returns ErrProjectExists if curlew.yaml or curlew.yml already exists.
 func Init(opts Options) error {
 	dir := opts.Dir
 	if dir == "" {
@@ -50,7 +50,7 @@ func Init(opts Options) error {
 	}
 
 	// Detect existing project
-	for _, name := range []string{"apitest.yaml", "apitest.yml"} {
+	for _, name := range []string{"curlew.yaml", "curlew.yml"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
 			return ErrProjectExists
 		}
@@ -77,7 +77,7 @@ func Init(opts Options) error {
 
 	gitignoreEntries := []string{".env"}
 	if opts.SkillName != "" {
-		gitignoreEntries = append(gitignoreEntries, ".apitest/")
+		gitignoreEntries = append(gitignoreEntries, ".curlew/")
 	}
 
 	// Create subdirectories
@@ -87,7 +87,7 @@ func Init(opts Options) error {
 		}
 	}
 
-	if err := writeFile(filepath.Join(dir, "apitest.yaml"), apitestYAML(projectName, formatForBlock, enableEvents)); err != nil {
+	if err := writeFile(filepath.Join(dir, "curlew.yaml"), curlewYAML(projectName, formatForBlock, enableEvents)); err != nil {
 		return err
 	}
 	if err := ensureGitignore(filepath.Join(dir, ".gitignore"), gitignoreEntries); err != nil {
@@ -104,7 +104,7 @@ func Init(opts Options) error {
 	}
 
 	if opts.SkillName != "" {
-		if err := installSkill(dir, opts.SkillName, opts.ApitestVersion); err != nil {
+		if err := installSkill(dir, opts.SkillName, opts.CurlewVersion); err != nil {
 			return err
 		}
 	}
@@ -122,7 +122,7 @@ func installSkill(dir, skillName, version string) error {
 	if err != nil {
 		return fmt.Errorf("walking skill %q: %w", skillName, err)
 	}
-	rootRel := templates.SkillRootDir(skillName) // e.g. ".claude/skills/apitest"
+	rootRel := templates.SkillRootDir(skillName) // e.g. ".claude/skills/curlew"
 	for rel, body := range seq {
 		dest := filepath.Join(dir, filepath.FromSlash(rootRel), filepath.FromSlash(rel))
 		if _, statErr := os.Stat(dest); statErr == nil {
@@ -132,11 +132,11 @@ func installSkill(dir, skillName, version string) error {
 		if mkErr := os.MkdirAll(filepath.Dir(dest), 0o750); mkErr != nil {
 			return fmt.Errorf("creating skill directory: %w", mkErr)
 		}
-		// Apply {{apitest_version}} substitution to .md files only; binary
+		// Apply {{curlew_version}} substitution to .md files only; binary
 		// assets (if any are added in future) must not be modified.
 		out := body
 		if strings.HasSuffix(rel, ".md") {
-			out = []byte(strings.ReplaceAll(string(body), "{{apitest_version}}", version))
+			out = []byte(strings.ReplaceAll(string(body), "{{curlew_version}}", version))
 		}
 		if writeErr := os.WriteFile(dest, out, 0o644); writeErr != nil { //nolint:gosec
 			return fmt.Errorf("writing skill file %s: %w", rel, writeErr)
@@ -197,18 +197,18 @@ func ensureGitignore(path string, entries []string) error {
 	return nil
 }
 
-func apitestYAML(projectName, outputFormat string, enableEvents bool) string {
+func curlewYAML(projectName, outputFormat string, enableEvents bool) string {
 	return fmt.Sprintf("project_name: %q\n"+
 		"variables:\n"+
 		"  base_url: \"https://httpbin.org\"\n"+
 		"%s", projectName, outputBlock(outputFormat, enableEvents))
 }
 
-// outputBlock returns the YAML output: section for a scaffolded apitest.yaml.
+// outputBlock returns the YAML output: section for a scaffolded curlew.yaml.
 // An empty format yields the M8-003 default block (terminal, verbosity: normal).
 // Any non-empty value is assumed valid (caller validates against
 // output.SupportedFormats). When enableEvents is true, an events:
-// .apitest/run.ndjson line is spliced before the verbosity: line.
+// .curlew/run.ndjson line is spliced before the verbosity: line.
 func outputBlock(format string, enableEvents bool) string {
 	var base string
 	switch format {
@@ -235,7 +235,7 @@ func outputBlock(format string, enableEvents bool) string {
 	// Splice the events: line in before the verbosity: line so the output
 	// keeps the existing field order: format, report?, events, verbosity.
 	const verbosityLine = "  verbosity: normal\n"
-	const eventsLine = "  events: .apitest/run.ndjson\n"
+	const eventsLine = "  events: .curlew/run.ndjson\n"
 	if i := strings.Index(base, verbosityLine); i >= 0 {
 		return base[:i] + eventsLine + base[i:]
 	}
@@ -258,7 +258,7 @@ func devEnvironment() string {
 
 func sampleCollection() string {
 	return "name: Sample Collection\n" +
-		"description: A sample collection generated by apitest init\n\n" +
+		"description: A sample collection generated by curlew init\n\n" +
 		"requests:\n" +
 		"  - name: Hello World\n" +
 		"    request:\n" +

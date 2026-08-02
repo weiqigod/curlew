@@ -7,13 +7,13 @@ phase: "M4: Team Tier"
 dependencies:
   - M4-004
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   # Start a local mock of the backend results endpoint
   ./testdata/team/mock-backend.sh &
   MOCK_PID=$!
-  APITEST_BACKEND_URL=http://localhost:18080 \
-  APITEST_BACKEND_TOKEN=dev-token \
-    ./apitest pr-check \
+  CURLEW_BACKEND_URL=http://localhost:18080 \
+  CURLEW_BACKEND_TOKEN=dev-token \
+    ./curlew pr-check \
       --org acme \
       --pr 42 \
       --repo acme/api \
@@ -22,19 +22,19 @@ observable: |
   # Exit 0. Mock log shows POST /api/v1/organizations/acme/results then
   # POST /api/v1/organizations/acme/pr-checks with pr=42.
   kill $MOCK_PID
-  go test ./internal/prcheck/... ./cmd/apitest/... -run 'PrCheck' -count=1
+  go test ./internal/prcheck/... ./cmd/curlew/... -run 'PrCheck' -count=1
   # Expected: ok, >=7 tests
 behaviors:
-  - "Given a valid results file and backend token, when apitest pr-check is run, then it POSTs the results payload and prints the returned result id"
+  - "Given a valid results file and backend token, when curlew pr-check is run, then it POSTs the results payload and prints the returned result id"
   - "Given the results upload succeeds, when pr-check continues, then it POSTs a pr-check status payload (repo, pr, state=success|failure, result_id) to the backend"
-  - "Given APITEST_BACKEND_URL is missing, when pr-check runs, then it exits with code 2 and 'backend URL not configured' without sending any HTTP traffic"
+  - "Given CURLEW_BACKEND_URL is missing, when pr-check runs, then it exits with code 2 and 'backend URL not configured' without sending any HTTP traffic"
   - "Given the results file has at least one failing test, when pr-check uploads it, then the status posted is failure and the CLI exit code is 1"
-  - "Given the backend returns 401, when pr-check runs, then the CLI prints 'unauthorized: refresh APITEST_BACKEND_TOKEN' and exits 2"
+  - "Given the backend returns 401, when pr-check runs, then the CLI prints 'unauthorized: refresh CURLEW_BACKEND_TOKEN' and exits 2"
   - "Given --dry-run is passed, when pr-check runs, then no HTTP traffic is sent and stdout shows the JSON that would have been posted"
-  - "Given apitest pr-check --help is invoked, then it documents --org, --pr, --repo, --results, --dry-run, and the APITEST_BACKEND_* environment variables"
+  - "Given curlew pr-check --help is invoked, then it documents --org, --pr, --repo, --results, --dry-run, and the CURLEW_BACKEND_* environment variables"
   - "Given the backend is unreachable (connection refused), when pr-check runs, then the CLI retries twice with 200ms backoff and then exits 2 with a networking error"
 scope: |
-  New subcommand in cmd/apitest/prcheck.go and supporting package
+  New subcommand in cmd/curlew/prcheck.go and supporting package
   internal/prcheck that builds multipart-free JSON payloads and posts to
   {base}/api/v1/organizations/{org}/results followed by
   {base}/api/v1/organizations/{org}/pr-checks. The mock backend script

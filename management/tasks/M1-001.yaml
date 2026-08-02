@@ -11,21 +11,21 @@ phase: "M1: Core CLI"
 dependencies: []
 observable: |
   Build binary, create `sample/hello.yaml` with a GET to httpbin.org/get,
-  run `./apitest run sample/hello.yaml`, see request name, HTTP status,
+  run `./curlew run sample/hello.yaml`, see request name, HTTP status,
   duration printed.
 behaviors:
-  - "Given a valid collection file with one GET request, when `apitest run <file>` is executed, then the request is sent and status code is printed"
+  - "Given a valid collection file with one GET request, when `curlew run <file>` is executed, then the request is sent and status code is printed"
   - "Given a collection file, when the request completes, then the output shows request name, HTTP status code, and duration"
-  - "Given a file that does not exist, when `apitest run missing.yaml` is executed, then exit code 3 and a clear error message"
+  - "Given a file that does not exist, when `curlew run missing.yaml` is executed, then exit code 3 and a clear error message"
   - "Given an invalid YAML file, when parsed, then exit code 3 and error message indicating parse failure"
   - "Given a network failure (unreachable host), when the request is executed, then exit code 4 and a network error message"
-  - "Given `apitest run` with no arguments, then help text is shown and exit code 1"
-  - "Given `apitest --help`, then top-level help text shows available commands including `run`"
-  - "Given `apitest --version`, then version string is printed and exit code 0"
+  - "Given `curlew run` with no arguments, then help text is shown and exit code 1"
+  - "Given `curlew --help`, then top-level help text shows available commands including `run`"
+  - "Given `curlew --version`, then version string is printed and exit code 0"
   - "Given a successful request, then exit code is 0"
   - "Given the `sample/` directory, then it contains a working example collection file"
 scope: |
-  Create `cmd/apitest/main.go` entry point with cobra or minimal command routing,
+  Create `cmd/curlew/main.go` entry point with cobra or minimal command routing,
   `internal/parser/` package for YAML collection parsing, `internal/http/` package
   for HTTP execution, `internal/output/` package for terminal output,
   `sample/hello.yaml` example file. Exit codes: 0 (success), 1 (usage error),

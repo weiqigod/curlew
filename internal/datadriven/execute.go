@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // iterationResult holds the outcome of a single data-driven iteration.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // ResolveResult holds resolved secret values keyed by variable name.

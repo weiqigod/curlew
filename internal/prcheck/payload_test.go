@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/runner"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/runner"
 )
 
 func makePassResult(name string, durationMs int64) runner.RequestResult {

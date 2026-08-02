@@ -106,7 +106,7 @@ func TestLoadRequestFile(t *testing.T) {
 }
 
 func TestLoadRequestFile_NotFound(t *testing.T) {
-	_, err := LoadRequestFile("/tmp/definitely_does_not_exist_apitool_test.yaml")
+	_, err := LoadRequestFile("/tmp/definitely_does_not_exist_curlew_test.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
 	}

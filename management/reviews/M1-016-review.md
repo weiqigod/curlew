@@ -27,7 +27,7 @@ No findings.
 - `internal/runner`: 90.8%
 - `internal/parser`: 91.5%
 - `internal/output`: 100%
-- `cmd/apitest`: 85.2%
+- `cmd/curlew`: 85.2%
 
 All packages above 80% threshold.
 

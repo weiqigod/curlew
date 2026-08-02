@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
+	"github.com/weiqigod/curlew/internal/assertion"
 )
 
 // TestMarkdown_RunMD_WaveGrouping verifies that when IsParallel is true,

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault"
 )
 
 // validTwoEnvTemplate is a fixture with production (AWS) and staging (Azure),

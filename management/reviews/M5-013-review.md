@@ -31,14 +31,14 @@ No findings. All six prior iterations of issues have been resolved. No new issue
 ## Test Coverage
 - `internal/license`: 88.4% — PASS (≥80%)
 - `internal/license/jwks`: 92.0% — PASS
-- `cmd/apitest` (overall): 83.3% — PASS (≥80%)
+- `cmd/curlew` (overall): 83.3% — PASS (≥80%)
 - Race detector: PASS on all license packages
 
 ## Spec Behavior Coverage
 
 | Behavior | Tests | Status |
 |----------|-------|--------|
-| 1. APITEST_OFFLINE=1 + cached JWT → verify with embedded JWKS, print State: VALID, exit 0 | `TestLicenseValidate_Offline_Valid`, `TestValidator_OfflineValid` | PASS |
+| 1. CURLEW_OFFLINE=1 + cached JWT → verify with embedded JWKS, print State: VALID, exit 0 | `TestLicenseValidate_Offline_Valid`, `TestValidator_OfflineValid` | PASS |
 | 2. kid not in embedded → check cached JWKS | `TestKeyResolver_CachedFallback`, `TestValidator_KidInCachedJWKS` | PASS |
 | 3. kid in neither + offline → exit 6 "key_not_found" | `TestLicenseValidate_UnknownKid`, `TestKeyResolver_OfflineFails` | PASS |
 | 4. >24h elapsed → GRACE_PERIOD, tier features available | `TestValidator_OfflineGracePeriod`, `TestEvaluate` | PASS |

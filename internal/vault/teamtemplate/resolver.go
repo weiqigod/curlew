@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/peterlindqvist/apitest/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault"
 )
 
 // SecretsResolver resolves {{secrets.X}} aliases against a chosen environment

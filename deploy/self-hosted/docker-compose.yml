@@ -1,4 +1,4 @@
-name: apitool-self-hosted
+name: curlew-self-hosted
 
 services:
   postgres:
@@ -37,7 +37,7 @@ services:
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:5000
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ConnectionStrings__Default: "Data Source=/app/data/apitool.db"
+      ConnectionStrings__Default: "Data Source=/app/data/curlew.db"
       Jwt__SigningKey: ${JWT_SIGNING_KEY}
       REDIS_HOST: redis
       REDIS_PORT: "6379"

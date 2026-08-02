@@ -2,7 +2,7 @@
 
 ## Overview
 
-Introduce a new `internal/vault/teamtemplate` package that parses and validates shared vault configuration template files (the `team_secrets.vault_configs` YAML shape from `docs/SPECIFICATION.md` Layer 4), and teach `apitest validate` to dispatch to it whenever a file's top-level key is `team_secrets`. This slice defines the file format only — no network resolution (that is M4-002).
+Introduce a new `internal/vault/teamtemplate` package that parses and validates shared vault configuration template files (the `team_secrets.vault_configs` YAML shape from `docs/SPECIFICATION.md` Layer 4), and teach `curlew validate` to dispatch to it whenever a file's top-level key is `team_secrets`. This slice defines the file format only — no network resolution (that is M4-002).
 
 ## Task Details
 
@@ -26,8 +26,8 @@ None (M4-001 is the root of the M4 DAG).
 
 - `internal/vault/config.go` already defines provider constants (`ProviderAWS`, `ProviderAzure`, …), sentinel errors (`ErrUnknownProvider`, `ErrMissingRequiredField`, `ErrInvalidKeyFormat`), `ParseKeyRef`, and `SecretsConfig.Validate` (per-environment provider rules). We will import these; we will **not** duplicate the provider constant strings or the `#field` parsing logic.
 - `internal/vault/yaml.go#ParseSecretsYAML` already decodes a single-provider `yaml.Node` into a validated `SecretsConfig`. The team template is just a named map of these, so we can layer on top.
-- `internal/validator/validator.go#Validate` is the existing `apitest validate` entry point. It returns a `*Result` holding `Issues`. Team template validation does not fit the collection-oriented `joinSections`/variable-reference flow, so it will live alongside it as a parallel `ValidateTeamTemplate` function that returns the same `*validator.Result` shape (same `Issue` struct, same `Valid` flag).
-- `cmd/apitest/main.go#validateCmd` iterates files, calls `validator.Validate`, and prints results. It is the single dispatch point we need to tweak: sniff the top-level YAML key of each file and route to the team-template path when it is `team_secrets`.
+- `internal/validator/validator.go#Validate` is the existing `curlew validate` entry point. It returns a `*Result` holding `Issues`. Team template validation does not fit the collection-oriented `joinSections`/variable-reference flow, so it will live alongside it as a parallel `ValidateTeamTemplate` function that returns the same `*validator.Result` shape (same `Issue` struct, same `Valid` flag).
+- `cmd/curlew/main.go#validateCmd` iterates files, calls `validator.Validate`, and prints results. It is the single dispatch point we need to tweak: sniff the top-level YAML key of each file and route to the team-template path when it is `team_secrets`.
 - Providers limited to `aws-secrets-manager` (requires `region`) and `azure-key-vault` (requires `vault_name`) per task scope.
 
 ### Key design decisions
@@ -65,7 +65,7 @@ Steps are ordered smallest-blast-radius first: build the leaf package with no ex
 
 ```go
 // Package teamtemplate parses and validates shared vault configuration
-// templates (the team_secrets.vault_configs section from apitest.yaml).
+// templates (the team_secrets.vault_configs section from curlew.yaml).
 // It defines only the file format; runtime resolution is handled by
 // internal/runner via M4-002.
 package teamtemplate
@@ -75,7 +75,7 @@ import (
     "fmt"
     "io"
 
-    "github.com/peterlindqvist/apitest/internal/vault"
+    "github.com/weiqigod/curlew/internal/vault"
     "gopkg.in/yaml.v3"
 )
 
@@ -105,7 +105,7 @@ type EnvConfig struct {
 }
 
 // Issue is a single validation finding. Mirrors validator.Issue shape
-// so cmd/apitest can render team-template results through the same
+// so cmd/curlew can render team-template results through the same
 // printer without an extra struct.
 type Issue struct {
     Path    string // dotted key path, e.g. "team_secrets.vault_configs.production.provider"
@@ -137,7 +137,7 @@ func (t *TeamTemplate) Validate() []Issue { /* ... */ }
 func (t *TeamTemplate) Resolve(name string) (*ResolvedEnv, bool) { /* ... */ }
 
 // Summary returns the one-line "N environments, M secrets" summary
-// used by apitest validate.
+// used by curlew validate.
 func (t *TeamTemplate) Summary() string { /* ... */ }
 ```
 
@@ -378,11 +378,11 @@ func TestValidateTeamTemplate_ErrorMessageIncludesKeyPath(t *testing.T) {
 #### Impact on Existing Tests
 
 - No changes required to existing collection validation tests — they continue to call `validator.Validate` directly. Dispatcher is additive.
-- `cmd/apitest` currently calls `validator.Validate(f, nil)` (main.go:1542). That call site will switch to `validator.ValidateAuto(f, nil)` in Step 3.
+- `cmd/curlew` currently calls `validator.Validate(f, nil)` (main.go:1542). That call site will switch to `validator.ValidateAuto(f, nil)` in Step 3.
 
 ---
 
-### Step 3: Wire the dispatcher into `cmd/apitest validate`
+### Step 3: Wire the dispatcher into `cmd/curlew validate`
 
 **Rationale:** Smallest possible CLI change — one call-site swap, one exit-code branch, one help-text line. Depends on Steps 1 and 2.
 
@@ -390,14 +390,14 @@ func TestValidateTeamTemplate_ErrorMessageIncludesKeyPath(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | `validateCmd` uses `ValidateAuto`, returns exit 2 when team templates fail, prints one-line success summary |
-| `cmd/apitest/main.go` | modify | `printHelp` adds a line under `validate` mentioning shared vault templates |
-| `cmd/apitest/run_test.go` or new `cmd/apitest/validate_team_test.go` | create | Integration test that runs `validateCmd` against the valid + invalid fixtures and asserts exit code, stdout summary, stderr error path |
+| `cmd/curlew/main.go` | modify | `validateCmd` uses `ValidateAuto`, returns exit 2 when team templates fail, prints one-line success summary |
+| `cmd/curlew/main.go` | modify | `printHelp` adds a line under `validate` mentioning shared vault templates |
+| `cmd/curlew/run_test.go` or new `cmd/curlew/validate_team_test.go` | create | Integration test that runs `validateCmd` against the valid + invalid fixtures and asserts exit code, stdout summary, stderr error path |
 
 #### Current Code
 
 ```go
-// cmd/apitest/main.go:1540-1573
+// cmd/curlew/main.go:1540-1573
 results := make([]*validator.Result, 0, len(files))
 for _, f := range files {
     results = append(results, validator.Validate(f, nil))
@@ -410,7 +410,7 @@ return 0
 ```
 
 ```go
-// cmd/apitest/main.go:2353
+// cmd/curlew/main.go:2353
 fmt.Println("  validate <file> Validate collection files without executing requests")
 ```
 
@@ -455,7 +455,7 @@ fmt.Println("                  Also validates shared vault configuration templat
 #### Tests to Write FIRST
 
 ```go
-// cmd/apitest/validate_team_test.go
+// cmd/curlew/validate_team_test.go
 func TestValidateCmd_TeamTemplate(t *testing.T) {
     t.Run("valid_template_prints_summary_exit_0", func(t *testing.T) {
         // Invoke validateCmd against testdata/team/shared-vault-template.yaml
@@ -474,7 +474,7 @@ func TestValidateCmd_TeamTemplate(t *testing.T) {
 
 #### Impact on Existing Tests
 
-- `TestValidateCmd_*` in `cmd/apitest/main_test.go` (if any): none. They use collection fixtures, which now go through `ValidateAuto → Validate` without behavior changes.
+- `TestValidateCmd_*` in `cmd/curlew/main_test.go` (if any): none. They use collection fixtures, which now go through `ValidateAuto → Validate` without behavior changes.
 - `smoke/run.sh` existing validate tests: none, same reason.
 
 ---
@@ -493,8 +493,8 @@ func TestValidateCmd_TeamTemplate(t *testing.T) {
 #### Fixture: `testdata/team/shared-vault-template.yaml`
 
 ```yaml
-# Shared vault configuration template for the apitest team.
-# Validates via: apitest validate testdata/team/shared-vault-template.yaml
+# Shared vault configuration template for the curlew team.
+# Validates via: curlew validate testdata/team/shared-vault-template.yaml
 team_secrets:
   vault_configs:
     production:
@@ -547,14 +547,14 @@ None.
 
 ```bash
 echo "--- Validate: shared vault template (valid) ---"
-./apitest validate testdata/team/shared-vault-template.yaml \
+./curlew validate testdata/team/shared-vault-template.yaml \
   && echo "PASS: valid team template exits 0" \
   || { echo "FAIL: expected exit 0"; exit 1; }
 echo
 
 echo "--- Validate: shared vault template (invalid provider, expect exit 2) ---"
 set +e
-./apitest validate testdata/team/shared-vault-template.invalid.yaml
+./curlew validate testdata/team/shared-vault-template.invalid.yaml
 TEAM_RC=$?
 set -e
 if [ "$TEAM_RC" -eq 2 ]; then
@@ -592,10 +592,10 @@ None.
 | `internal/vault/teamtemplate/teamtemplate_test.go` | `TestTeamTemplate_Resolve` | new | Write |
 | `internal/vault/teamtemplate/teamtemplate_test.go` | `TestTeamTemplate_Summary` | new | Write |
 | `internal/validator/teamtemplate_test.go` | `TestValidateAuto_*` | new | Write 3 cases (dispatch, summary, error path) |
-| `cmd/apitest/validate_team_test.go` | `TestValidateCmd_TeamTemplate` | new | Write 3 cases (valid, invalid, help) |
+| `cmd/curlew/validate_team_test.go` | `TestValidateCmd_TeamTemplate` | new | Write 3 cases (valid, invalid, help) |
 | `internal/vault/*_test.go` | existing | none | Not affected — we only *import* sentinel constants |
 | `internal/validator/validator_test.go` | existing | none | Not affected — dispatcher is additive |
-| `cmd/apitest/main_test.go` | existing validate tests | none | Collection files still go through `Validate` unchanged |
+| `cmd/curlew/main_test.go` | existing validate tests | none | Collection files still go through `Validate` unchanged |
 
 **Coverage target:** ≥ 80 % for the new `internal/vault/teamtemplate` package — achievable because every branch is exercised by the 8 behavior tests plus the two structural tests.
 
@@ -648,7 +648,7 @@ No `context.Context` parameters in this slice — all work is synchronous file I
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 go test ./internal/vault/teamtemplate/... -run TestTeamTemplate -count=1
 ~/go/bin/golangci-lint run
@@ -658,12 +658,12 @@ go test ./internal/vault/teamtemplate/... -run TestTeamTemplate -count=1
 Observable verification (exact commands from task YAML):
 
 ```bash
-go build ./cmd/apitest && \
-  ./apitest validate testdata/team/shared-vault-template.yaml
+go build ./cmd/curlew && \
+  ./curlew validate testdata/team/shared-vault-template.yaml
 # Expected stdout: "OK: shared vault template valid (2 environments, 4 secrets)"
 # Expected exit: 0
 
-./apitest validate testdata/team/shared-vault-template.invalid.yaml
+./curlew validate testdata/team/shared-vault-template.invalid.yaml
 # Expected stderr: "error: team_secrets.vault_configs.production.provider: unknown provider 'foo'"
 # Expected exit: 2
 

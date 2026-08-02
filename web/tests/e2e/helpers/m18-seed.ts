@@ -10,7 +10,7 @@
  * Mirrors helpers/m16-seed.ts in structure.
  */
 
-const BACKEND_URL = process.env.APITEST_BACKEND_URL ?? 'http://localhost:5000';
+const BACKEND_URL = process.env.CURLEW_BACKEND_URL ?? 'http://localhost:5000';
 
 /** Response shape from GET /api/v1/users/me/export-requests/{id}. */
 interface ExportRequestStatus {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
+	"github.com/weiqigod/curlew/internal/assertion"
 )
 
 // TestParseFile_schema_assertion_compiles verifies that a collection with

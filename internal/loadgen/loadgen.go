@@ -1,5 +1,5 @@
 // Package loadgen implements a file-driven HTTP load generator used by the
-// apitest perf subcommand. A fixed pool of virtual users (VUs) executes a
+// curlew perf subcommand. A fixed pool of virtual users (VUs) executes a
 // single parsed request in a loop against a target server. Optional
 // linear ramp-up paces VU activation; optional constant-RPS throughput
 // mode paces requests via a shared time.Ticker.

@@ -1,6 +1,6 @@
 package discovery
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("discovery",
@@ -10,7 +10,7 @@ func init() {
 			Hint: apierrors.ClassifiedHint{
 				Category: apierrors.CategoryInput,
 				Code:     "DISCOVERY_NO_MATCHES",
-				Hint:     "Check the glob pattern. Quote it in the shell to prevent expansion: apitest run 'tests/**/*.yaml'.",
+				Hint:     "Check the glob pattern. Quote it in the shell to prevent expansion: curlew run 'tests/**/*.yaml'.",
 			},
 		},
 		apierrors.RegisteredError{

@@ -17,7 +17,7 @@ No findings. All five findings from the iteration-1 review have been resolved.
 | # | Severity | Finding | Status |
 |---|----------|---------|--------|
 | 1 | High | Dead code: `existingCustomerId` query unreachable due to `AlreadySubscribed` guard | Fixed — dead query removed; `string? existingCustomerId = null` with inline comment explaining the future-slice reuse pattern |
-| 2 | High | Wrong env var naming: `Section = "Stripe"` mapped to `STRIPE__*` not `APITOOL__STRIPE__*` | Fixed — `Section` changed to `"ApiTool:Stripe"`; `Program.cs` lookup updated to `"ApiTool:Stripe:Mode"`; error messages, `StripeOptionsTests` keys, `ci-local.sh`, README all updated |
+| 2 | High | Wrong env var naming: `Section = "Stripe"` mapped to `STRIPE__*` not `CURLEW__STRIPE__*` | Fixed — `Section` changed to `"Curlew:Stripe"`; `Program.cs` lookup updated to `"Curlew:Stripe:Mode"`; error messages, `StripeOptionsTests` keys, `ci-local.sh`, README all updated |
 | 3 | Medium | Test-injection constructor was `public` | Fixed — changed to `internal`; `<InternalsVisibleTo Include="ApiTool.Backend.Tests" />` present in csproj |
 | 4 | Medium | Behaviours #4, #5, #6 lacked HTTP endpoint-level tests | Fixed — three new tests added to `SubscriptionsEndpointsTests`: `Checkout_with_invalid_price_id_returns_400_invalid_price_id`, `Checkout_price_id_path_returns_503_when_stripe_rate_limits` (via `ThrowingFakeStripeGateway` injected with `WithWebHostBuilder`), `Checkout_price_id_path_ignores_body_org_id_and_uses_bearer_org` |
 | 5 | Low | `StripeRateLimitedException` defined inline in `StripeGateway.cs` | Fixed — moved to dedicated file `StripeRateLimitedException.cs` in the same namespace |
@@ -30,7 +30,7 @@ No findings. All five findings from the iteration-1 review have been resolved.
 | Input Validation | PASS | `StripePriceAllowlist.IsAllowed` guards price_id path; `null`/empty priceId handled defensively; `StripeOptions` validated at startup via `ValidateOnStart`; idempotency key truncated to 255 bytes. |
 | Naming | PASS | No stuttering; exported symbols have doc comments; class/method names are descriptive and follow project conventions. |
 | Code Organization | PASS | `internal` constructor for test injection; `StripeRateLimitedException` in own file; `InternalsVisibleTo` used correctly; single responsibility per class. |
-| Correctness | PASS | Dead code removed; env var naming consistent end-to-end (`APITOOL__STRIPE__*` → `ApiTool:Stripe:*` → `StripeOptions`); `ValidateOnStart` fails fast on misconfiguration. |
+| Correctness | PASS | Dead code removed; env var naming consistent end-to-end (`CURLEW__STRIPE__*` → `Curlew:Stripe:*` → `StripeOptions`); `ValidateOnStart` fails fast on misconfiguration. |
 | Test Quality | PASS | All 7 behaviours covered with tests; HTTP endpoint tests added for behaviours #4, #5, #6; integration tests tagged `[Trait("Category", "stripe-integration")]` skip gracefully when stripe-mock absent; 429-mapping unit test uses stub `IHttpClient`; `TreatWarningsAsErrors=true` build is clean. |
 
 ## Spec Compliance — Behaviour Coverage
@@ -54,4 +54,4 @@ No findings. All five findings from the iteration-1 review have been resolved.
 
 ## Summary
 
-The iteration-1 review found five issues; all five were fixed cleanly. The env var naming fix is especially important — `StripeOptions.Section = "ApiTool:Stripe"` now correctly binds `APITOOL__STRIPE__*` env vars end-to-end through ASP.NET config, and the task observable will work as written. The dead-code removal is also correct and clearly documented for future-slice reuse. Three new HTTP endpoint tests cover the previously untested behaviours #4, #5, and #6 at the full-stack level. The implementation is correct, complete, and well-tested.
+The iteration-1 review found five issues; all five were fixed cleanly. The env var naming fix is especially important — `StripeOptions.Section = "Curlew:Stripe"` now correctly binds `CURLEW__STRIPE__*` env vars end-to-end through ASP.NET config, and the task observable will work as written. The dead-code removal is also correct and clearly documented for future-slice reuse. Three new HTTP endpoint tests cover the previously untested behaviours #4, #5, and #6 at the full-stack level. The implementation is correct, complete, and well-tested.

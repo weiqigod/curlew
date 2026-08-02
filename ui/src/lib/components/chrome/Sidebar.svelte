@@ -311,7 +311,7 @@
       <span>{totalCollections} collections</span><span>·</span><span>{totalRequests} requests</span>
     {/if}
     <span class="sp"></span>
-    <span title="files are the source of truth — apitest never edits them">read-only</span>
+    <span title="files are the source of truth — curlew never edits them">read-only</span>
   </div>
 </nav>
 

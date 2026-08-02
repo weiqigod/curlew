@@ -14,7 +14,7 @@
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All gated checks pass (junit gate FAIL is pre-existing from M11-001, non-fatal: no `exit 1`) |
-| Coverage `cmd/apitest` | 82.3% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 82.3% | Meets >= 80% threshold |
 | Coverage `internal/output` | 92.5% | Meets >= 80% threshold |
 | Coverage `internal/output/ids` | 100.0% | Meets >= 80% threshold |
 | Coverage `internal/output/events` | 97.8% | Meets >= 80% threshold |
@@ -22,17 +22,17 @@
 ## Observable Output
 
 ```
-go test -run 'TestExecCmd_LogContainsRunIDAndRequestID' -v ./cmd/apitest/...
+go test -run 'TestExecCmd_LogContainsRunIDAndRequestID' -v ./cmd/curlew/...
 === RUN   TestExecCmd_LogContainsRunIDAndRequestID
 --- PASS: TestExecCmd_LogContainsRunIDAndRequestID (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/cmd/apitest   0.242s
+ok      github.com/weiqigod/curlew/cmd/curlew   0.242s
 
-go test -run 'TestExecCmd_LogDryRun_RunIDPresent' -v ./cmd/apitest/...
+go test -run 'TestExecCmd_LogDryRun_RunIDPresent' -v ./cmd/curlew/...
 === RUN   TestExecCmd_LogDryRun_RunIDPresent
 --- PASS: TestExecCmd_LogDryRun_RunIDPresent (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/cmd/apitest   0.247s
+ok      github.com/weiqigod/curlew/cmd/curlew   0.247s
 
 grep -E '^[[:space:]]*RunID[[:space:]]+string' internal/output/jsonl.go
         RunID      string `json:"run_id,omitempty"`    # 1 match
@@ -80,7 +80,7 @@ Result: MATCH
 | 3 | Exec invocations populate both fields (live and dry-run) | TestExecCmd_LogContainsRunIDAndRequestID, TestExecCmd_LogDryRun_RunIDPresent both PASS | PASS |
 | 4 | MANUAL.md §4.5 example shows new fields | grep -c 'run_id' docs/MANUAL.md = 2 | PASS |
 | 5 | `go test ./...` passes | 45 packages, 0 failures | PASS |
-| 6 | `go test -cover ./internal/output/... ./cmd/apitest/...` >= 80% | ids:100%, output:92.5%, events:97.8%, cmd:82.3% | PASS |
+| 6 | `go test -cover ./internal/output/... ./cmd/curlew/...` >= 80% | ids:100%, output:92.5%, events:97.8%, cmd:82.3% | PASS |
 | 7 | `golangci-lint run` passes with 0 issues | 0 issues confirmed | PASS |
 | 8 | `./smoke/run.sh` passes | ci-local.sh exits 0, smoke complete | PASS |
 | 9 | `./scripts/ci-local.sh` passes | Exit code 0, "ci-local PASS" printed | PASS |
@@ -135,8 +135,8 @@ Branch A: Review PASS trusted (management/reviews/M11-004-review.md verdict PASS
 | `internal/output/jsonl_test.go` | modified | Extended with two new table cases |
 | `internal/output/events/emitter.go` | modified | `newRunID` delegates to `ids.NewRunID` |
 | `internal/runner/runner.go` | modified | `NewRunID` delegates to `ids.NewRunID` |
-| `cmd/apitest/main.go` | modified | `execCmdOut` mints `runID`, populates all three JSONL write sites |
-| `cmd/apitest/main_test.go` | modified | Three new exec log tests |
+| `cmd/curlew/main.go` | modified | `execCmdOut` mints `runID`, populates all three JSONL write sites |
+| `cmd/curlew/main_test.go` | modified | Three new exec log tests |
 | `docs/MANUAL.md` | modified | §4.5 example updated with run_id/request_id |
 | `docs/SPECIFICATION.md` | modified | --log mention expanded with schema reference |
 | `CHANGELOG.md` | modified | [Unreleased] Added entry for M11-004 |

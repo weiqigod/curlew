@@ -33,7 +33,7 @@ Finding from iteration 4 resolved:
 - `internal/license/jwt.go` (IsTrialActiveFor, TrialState/TrialExpiry fields): 88.7% package — PASS
 - `internal/auth/gate.go` (CheckFeatureWithClaims, TrialChecker): 89.8% package — PASS
 - `internal/backend/trial.go`: all paths covered including Error(), PreviousGrant(), malformed extension, sentinel routing — 84.8% package — PASS
-- `cmd/apitest/license.go`: all trial branches tested including refresh-taxonomy exit codes (4, 5, 7), empty-feature guard, server 5xx, default catch-all — 81.5% package — PASS
+- `cmd/curlew/license.go`: all trial branches tested including refresh-taxonomy exit codes (4, 5, 7), empty-feature guard, server 5xx, default catch-all — 81.5% package — PASS
 - `internal/runner/runner.go`: active_trial_overrides_tier_gate_for_vault test covers wired-through gate — PASS
 - Overall: all packages ≥80% — PASS
 

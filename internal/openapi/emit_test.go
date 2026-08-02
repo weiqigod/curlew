@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/validator"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/validator"
 )
 
 // errWriter is an io.Writer that always returns an error, used to test

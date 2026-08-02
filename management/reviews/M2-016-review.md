@@ -26,14 +26,14 @@ No findings at any severity level.
 | Naming | PASS | No stuttering (`parallel.Config`, `requtil.ExecuteFunc`). Short names in tight scopes. All exported symbols have doc comments. Package names are lowercase single-word. |
 | Code Organization | PASS | Clean package boundaries: `requtil` extracts shared helpers, `parallel` does not import `runner`. No circular dependencies. `internal/` packages enforce encapsulation. Exported surface is minimal. |
 | Correctness | PASS | Zero-valued outcome bug fixed (iteration 1 finding #1). Guard rail counter corrected (finding #4). Scope snapshots provide goroutine isolation. Variable extraction is sequential after wave completion. Context propagated correctly. |
-| Test Quality | PASS | Error paths covered (failed deps, assertion failures, context cancellation, scope creation failure, guard rail). Edge cases tested (empty graph, single request, nil graph). Table-driven tests used. Subtests with `t.Run()`. Integration tests in `cmd/apitest/run_test.go`. Race detector passes. All 7 behaviors covered. |
+| Test Quality | PASS | Error paths covered (failed deps, assertion failures, context cancellation, scope creation failure, guard rail). Edge cases tested (empty graph, single request, nil graph). Table-driven tests used. Subtests with `t.Run()`. Integration tests in `cmd/curlew/run_test.go`. Race detector passes. All 7 behaviors covered. |
 
 ## Test Coverage
 - `internal/parallel`: 93.3%
 - `internal/runner`: 90.2%
 - `internal/variable`: Snapshot at 100% (6 unit tests)
 - `internal/requtil`: 100% (via dependent package tests)
-- `cmd/apitest`: 84.5%
+- `cmd/curlew`: 84.5%
 - All tests pass including `-race` detection
 - All lint checks pass (0 issues)
 

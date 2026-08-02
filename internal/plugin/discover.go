@@ -59,13 +59,13 @@ func discover(env string) (candidates []string, errs []LoadError) {
 				}
 				// Silently skip non-executable files inside a directory (directories
 				// commonly contain non-executable files such as READMEs). Only files
-				// explicitly named in APITEST_PLUGINS trigger the "not executable" error.
+				// explicitly named in CURLEW_PLUGINS trigger the "not executable" error.
 				//
 				// Deviation from task YAML behavior 6: behavior 6 states "Given a
 				// plugin's binary is not executable … exits 2" but does not distinguish
 				// between an explicitly named path and a file found by directory
 				// expansion. This implementation limits the fatal error only to
-				// explicitly-named entries (the path appears directly in APITEST_PLUGINS)
+				// explicitly-named entries (the path appears directly in CURLEW_PLUGINS)
 				// because raising an error for every non-executable file found in a
 				// shared directory (e.g. README, Makefile) would be an unusable UX.
 				// The behavior for explicitly-named non-executable files is unchanged and

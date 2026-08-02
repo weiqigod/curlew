@@ -77,7 +77,7 @@
 		}
 	}
 
-	const CLI_SNIPPET = 'apitest license --refresh';
+	const CLI_SNIPPET = 'curlew license --refresh';
 </script>
 
 <div class="mx-auto max-w-4xl px-4 py-8">

@@ -9,7 +9,7 @@ track: go-cli
 dependencies: []
 
 observable: |
-  go build -o ./apitest ./cmd/apitest
+  go build -o ./curlew ./cmd/curlew
   go test ./internal/auth/... ./internal/variable/... -count=1
   # Expected: registry_test.go's tier matrix asserts from_command at TierFree.
 
@@ -22,7 +22,7 @@ observable: |
     - name: echo-back
       request: { method: GET, url: "https://httpbin.org/get?msg={{GREETING}}" }
   EOF
-  ./apitest --license ./testdata/m15/license-free.jwt run /tmp/m15-003.yaml
+  ./curlew --license ./testdata/m15/license-free.jwt run /tmp/m15-003.yaml
   echo "exit=$?"
   # Expected: request runs, status code printed, no gate error; exit 0.
 

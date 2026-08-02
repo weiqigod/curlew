@@ -42,7 +42,7 @@
 === RUN   TestRegistry_FakerLocation_AddressShape
 --- PASS: TestRegistry_FakerLocation_AddressShape (0.00s)
 PASS
-ok  github.com/peterlindqvist/apitest/internal/variable
+ok  github.com/weiqigod/curlew/internal/variable
 ```
 
 Expected: PASS — all 12 location functions registered and validated.

@@ -10,10 +10,10 @@ import (
 
 	gws "github.com/gorilla/websocket"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/requtil"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/requtil"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // Defaults used when the corresponding step field is unset.

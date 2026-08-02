@@ -42,7 +42,7 @@ No findings deferred. All 14 findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (87.1% total coverage) |
 | `golangci-lint run` | PASS (0 issues) |
 | `npm run test:unit -- account-data-export.spec.ts` | PASS (7 tests) |

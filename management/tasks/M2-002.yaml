@@ -10,13 +10,13 @@ dependencies:
   - M1-017
 
 observable: |
-  Add a `secrets:` block to apitest.yaml with `provider: aws-secrets-manager` and keys.
-  Run `apitest validate collection.yaml` and confirm the vault config is parsed without errors.
+  Add a `secrets:` block to curlew.yaml with `provider: aws-secrets-manager` and keys.
+  Run `curlew validate collection.yaml` and confirm the vault config is parsed without errors.
   Run at Free tier and confirm exit code 6 with feature gate message for vault_provider_profiles.
   Run `go test ./internal/vault/...` to verify config parsing.
 
 behaviors:
-  - "Given a `secrets:` block in apitest.yaml with `provider: aws-secrets-manager`, when parsed, then the provider, region, keys, and cache_ttl are correctly extracted"
+  - "Given a `secrets:` block in curlew.yaml with `provider: aws-secrets-manager`, when parsed, then the provider, region, keys, and cache_ttl are correctly extracted"
   - "Given a `secrets:` block with `provider: hashicorp-vault` and `auth.method: approle`, when parsed, then all auth fields (role_id, secret_id) are extracted"
   - "Given a `secrets:` block with `provider: azure-key-vault`, when parsed, then vault_name and keys are extracted"
   - "Given a `secrets:` block with structured extraction (`prod/db#password`), when parsed, then the key and field are separated correctly"
@@ -26,7 +26,7 @@ behaviors:
 
 scope: |
   Create `internal/vault/` package with configuration types for vault provider profiles.
-  Parse the `secrets:` block from apitest.yaml in `internal/config/project.go`.
+  Parse the `secrets:` block from curlew.yaml in `internal/config/project.go`.
   Implement config validation for all five supported providers (AWS, Azure, HashiCorp, GCP, 1Password).
   Support structured extraction syntax (`key#field`). All vault variables auto-sensitive.
 

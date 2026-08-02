@@ -1,6 +1,6 @@
 package awssigv4
 
-import "github.com/peterlindqvist/apitest/internal/signer"
+import "github.com/weiqigod/curlew/internal/signer"
 
 func init() {
 	signer.MustRegister("aws-sigv4", Factory)

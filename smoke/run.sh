@@ -6,10 +6,10 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Use an isolated config dir so results do not depend on this machine's
 # state (cached device/config files in the real config dir). The telemetry
-# section overrides APITEST_CONFIG_DIR for its own fixtures and restores
+# section overrides CURLEW_CONFIG_DIR for its own fixtures and restores
 # this default when done.
-SMOKE_CFG_DIR=$(mktemp -d /tmp/apitest_smoke_cfg_XXXXXX)
-export APITEST_CONFIG_DIR="$SMOKE_CFG_DIR"
+SMOKE_CFG_DIR=$(mktemp -d /tmp/curlew_smoke_cfg_XXXXXX)
+export CURLEW_CONFIG_DIR="$SMOKE_CFG_DIR"
 
 # fail "message" [context lines...] — print a FAIL line (plus optional context)
 # and abort the run. Exiting via `exit 1` fires any active EXIT trap, so
@@ -38,11 +38,11 @@ SMOKE_HTTPBIN_URL="http://127.0.0.1:${SMOKE_HTTPBIN_PORT}"
 lsof -ti "tcp:${SMOKE_HTTPBIN_PORT}" 2>/dev/null | xargs kill -9 2>/dev/null || true
 
 # Self-heal mktemp debris: macOS mktemp creates suffixed templates like
-# apitest_foo_XXXXXX.yaml literally (no randomisation), so a run that aborted
+# curlew_foo_XXXXXX.yaml literally (no randomisation), so a run that aborted
 # between a section's mktemp and its rm leaves a file that makes the next
 # run's mktemp fail with "File exists". Concurrent smoke runs on one machine
 # are unsupported regardless (fixed ports, shared /tmp names).
-rm -f /tmp/apitest_*_XXXXXX.yaml
+rm -f /tmp/curlew_*_XXXXXX.yaml
 python3 "$SCRIPT_DIR/fixtures/httpbin_server.py" "$SMOKE_HTTPBIN_PORT" &
 SMOKE_HTTPBIN_PID=$!
 SMOKE_HTTPBIN_READY=0
@@ -61,22 +61,22 @@ fi
 echo "=== Smoke Test ==="
 echo
 
-echo "--- Building apitest ---"
+echo "--- Building curlew ---"
 cd "$PROJECT_ROOT"
-go build -o apitest ./cmd/apitest
+go build -o curlew ./cmd/curlew
 echo "Build: OK"
 echo
 
 echo "--- Running with no args ---"
-./apitest
+./curlew
 echo
 
 echo "--- Running with --version ---"
-./apitest --version
+./curlew --version
 echo
 
 echo "--- Running with --help ---"
-./apitest --help
+./curlew --help
 echo
 
 echo "--- Running sample collection (hermetic copy against local fixture) ---"
@@ -85,32 +85,32 @@ echo "--- Running sample collection (hermetic copy against local fixture) ---"
 # never depends on the public internet.
 # mktemp -d (trailing Xs) is macOS-portable; a suffixed template like
 # XXXXXX.yaml is created literally on macOS and collides across runs.
-SMOKE_HELLO_DIR=$(mktemp -d /tmp/apitest_hello_XXXXXX)
+SMOKE_HELLO_DIR=$(mktemp -d /tmp/curlew_hello_XXXXXX)
 SMOKE_HELLO="$SMOKE_HELLO_DIR/hello.yaml"
 sed "s|https://httpbin.org|$SMOKE_HTTPBIN_URL|g" sample/hello.yaml > "$SMOKE_HELLO"
-./apitest run "$SMOKE_HELLO"
+./curlew run "$SMOKE_HELLO"
 echo
 
 echo "--- Running with empty requests collection (expect warning, exit 0) ---"
-EMPTY_FILE=$(mktemp /tmp/apitest_empty_XXXXXX.yaml)
+EMPTY_FILE=$(mktemp /tmp/curlew_empty_XXXXXX.yaml)
 cat > "$EMPTY_FILE" << 'YAML'
 name: Empty Collection
 requests: []
 YAML
-./apitest run "$EMPTY_FILE" 2>&1 || true
+./curlew run "$EMPTY_FILE" 2>&1 || true
 rm -f "$EMPTY_FILE"
 echo
 
 echo "--- Running with missing file (expect exit 3) ---"
-./apitest run nonexistent.yaml && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run nonexistent.yaml && echo "ERROR: should have failed" || echo "Exit code: $?"
 echo
 
 echo "--- Running with no args to run (expect exit 1) ---"
-./apitest run && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run && echo "ERROR: should have failed" || echo "Exit code: $?"
 echo
 
 echo "--- Running collection with status assertion (expect pass) ---"
-ASSERT_FILE=$(mktemp /tmp/apitest_assert_XXXXXX.yaml)
+ASSERT_FILE=$(mktemp /tmp/curlew_assert_XXXXXX.yaml)
 cat > "$ASSERT_FILE" << YAML
 name: Assert Pass
 requests:
@@ -121,12 +121,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing assertion (expect exit 1) ---"
-ASSERT_FAIL_FILE=$(mktemp /tmp/apitest_assert_fail_XXXXXX.yaml)
+ASSERT_FAIL_FILE=$(mktemp /tmp/curlew_assert_fail_XXXXXX.yaml)
 cat > "$ASSERT_FAIL_FILE" << YAML
 name: Assert Fail
 requests:
@@ -137,12 +137,12 @@ requests:
     assertions:
       status: 404
 YAML
-./apitest run "$ASSERT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$ASSERT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$ASSERT_FAIL_FILE"
 echo
 
 echo "--- Running collection with body assertion (expect pass) ---"
-BODY_ASSERT_FILE=$(mktemp /tmp/apitest_body_assert_XXXXXX.yaml)
+BODY_ASSERT_FILE=$(mktemp /tmp/curlew_body_assert_XXXXXX.yaml)
 cat > "$BODY_ASSERT_FILE" << YAML
 name: Body Assert Pass
 requests:
@@ -158,12 +158,12 @@ requests:
         \$.url:
           type: string
 YAML
-./apitest run "$BODY_ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$BODY_ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$BODY_ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing body assertion (expect exit 1) ---"
-BODY_ASSERT_FAIL_FILE=$(mktemp /tmp/apitest_body_fail_XXXXXX.yaml)
+BODY_ASSERT_FAIL_FILE=$(mktemp /tmp/curlew_body_fail_XXXXXX.yaml)
 cat > "$BODY_ASSERT_FAIL_FILE" << YAML
 name: Body Assert Fail
 requests:
@@ -176,12 +176,12 @@ requests:
         \$.missing_field:
           equals: "should not exist"
 YAML
-./apitest run "$BODY_ASSERT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$BODY_ASSERT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$BODY_ASSERT_FAIL_FILE"
 echo
 
 echo "--- Running collection with header assertion (expect pass) ---"
-HEADER_ASSERT_FILE=$(mktemp /tmp/apitest_header_assert_XXXXXX.yaml)
+HEADER_ASSERT_FILE=$(mktemp /tmp/curlew_header_assert_XXXXXX.yaml)
 cat > "$HEADER_ASSERT_FILE" << YAML
 name: Header Assert Pass
 requests:
@@ -194,12 +194,12 @@ requests:
         Content-Type:
           matches: "^application/json"
 YAML
-./apitest run "$HEADER_ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$HEADER_ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$HEADER_ASSERT_FILE"
 echo
 
 echo "--- Running collection with timing assertion (expect pass) ---"
-TIMING_ASSERT_FILE=$(mktemp /tmp/apitest_timing_assert_XXXXXX.yaml)
+TIMING_ASSERT_FILE=$(mktemp /tmp/curlew_timing_assert_XXXXXX.yaml)
 cat > "$TIMING_ASSERT_FILE" << YAML
 name: Timing Assert Pass
 requests:
@@ -211,12 +211,12 @@ requests:
       timing:
         max_duration_ms: 30000
 YAML
-./apitest run "$TIMING_ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$TIMING_ASSERT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$TIMING_ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing header assertion (expect exit 1) ---"
-HEADER_FAIL_FILE=$(mktemp /tmp/apitest_header_fail_XXXXXX.yaml)
+HEADER_FAIL_FILE=$(mktemp /tmp/curlew_header_fail_XXXXXX.yaml)
 cat > "$HEADER_FAIL_FILE" << YAML
 name: Header Assert Fail
 requests:
@@ -229,18 +229,18 @@ requests:
         X-Nonexistent-Header:
           exists: true
 YAML
-./apitest run "$HEADER_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$HEADER_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$HEADER_FAIL_FILE"
 echo
 
 echo "--- Structured error format ---"
-OUTPUT=$(./apitest run nonexistent.yaml 2>&1 || true)
+OUTPUT=$(./curlew run nonexistent.yaml 2>&1 || true)
 echo "$OUTPUT" | grep -q "\[ERROR\]" && echo "PASS: [ERROR] prefix present" || fail "Missing [ERROR] prefix in: $OUTPUT"
 echo "$OUTPUT" | grep -q "nonexistent.yaml" && echo "PASS: file path in error" || fail "Missing file path in: $OUTPUT"
 echo
 
 echo "--- Connection refused error format ---"
-CONN_FILE=$(mktemp /tmp/apitest_conn_XXXXXX.yaml)
+CONN_FILE=$(mktemp /tmp/curlew_conn_XXXXXX.yaml)
 cat > "$CONN_FILE" << 'YAML'
 name: Connection Test
 requests:
@@ -249,14 +249,14 @@ requests:
       method: GET
       url: "http://127.0.0.1:1/test"
 YAML
-CONN_OUTPUT=$(./apitest run "$CONN_FILE" 2>&1 || true)
+CONN_OUTPUT=$(./curlew run "$CONN_FILE" 2>&1 || true)
 echo "$CONN_OUTPUT" | grep -q "\[ERROR\]" && echo "PASS: [ERROR] prefix in network error" || fail "Missing [ERROR] prefix in: $CONN_OUTPUT"
 echo "$CONN_OUTPUT" | grep -q "server is running" && echo "PASS: hint present in network error" || fail "Missing hint in: $CONN_OUTPUT"
 rm -f "$CONN_FILE"
 echo
 
 echo "--- Running collection with body operators (expect pass) ---"
-OPERATORS_FILE=$(mktemp /tmp/apitest_operators_XXXXXX.yaml)
+OPERATORS_FILE=$(mktemp /tmp/curlew_operators_XXXXXX.yaml)
 cat > "$OPERATORS_FILE" << 'YAML'
 name: Body Operators
 requests:
@@ -275,12 +275,12 @@ requests:
         $.args.count:
           equals: "42"
 YAML
-./apitest run "$OPERATORS_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$OPERATORS_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$OPERATORS_FILE"
 echo
 
 echo "--- Running collection with variables (expect pass) ---"
-VARS_FILE=$(mktemp /tmp/apitest_vars_XXXXXX.yaml)
+VARS_FILE=$(mktemp /tmp/curlew_vars_XXXXXX.yaml)
 cat > "$VARS_FILE" << 'YAML'
 name: Variable Test
 variables:
@@ -293,12 +293,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$VARS_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$VARS_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$VARS_FILE"
 echo
 
 echo "--- Running collection with circular variables (expect exit 5) ---"
-CIRC_FILE=$(mktemp /tmp/apitest_circ_XXXXXX.yaml)
+CIRC_FILE=$(mktemp /tmp/curlew_circ_XXXXXX.yaml)
 cat > "$CIRC_FILE" << 'YAML'
 name: Circular Variable Test
 variables:
@@ -310,12 +310,12 @@ requests:
       method: GET
       url: "http://127.0.0.1:9190/get"
 YAML
-./apitest run "$CIRC_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$CIRC_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$CIRC_FILE"
 echo
 
 echo "--- Running collection with variable extraction (expect pass) ---"
-EXTRACT_FILE=$(mktemp /tmp/apitest_extract_XXXXXX.yaml)
+EXTRACT_FILE=$(mktemp /tmp/curlew_extract_XXXXXX.yaml)
 cat > "$EXTRACT_FILE" << 'YAML'
 name: Extraction Test
 requests:
@@ -334,12 +334,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$EXTRACT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$EXTRACT_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$EXTRACT_FILE"
 echo
 
 echo "--- Running collection with extraction failure (expect exit 1) ---"
-EXTRACT_FAIL_FILE=$(mktemp /tmp/apitest_extract_fail_XXXXXX.yaml)
+EXTRACT_FAIL_FILE=$(mktemp /tmp/curlew_extract_fail_XXXXXX.yaml)
 cat > "$EXTRACT_FAIL_FILE" << 'YAML'
 name: Extraction Fail Test
 requests:
@@ -350,12 +350,12 @@ requests:
     extract:
       missing: "$.nonexistent.path"
 YAML
-./apitest run "$EXTRACT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$EXTRACT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$EXTRACT_FAIL_FILE"
 echo
 
 echo "--- Running collection with --var override (expect pass) ---"
-VAR_OVERRIDE_FILE=$(mktemp /tmp/apitest_var_override_XXXXXX.yaml)
+VAR_OVERRIDE_FILE=$(mktemp /tmp/curlew_var_override_XXXXXX.yaml)
 cat > "$VAR_OVERRIDE_FILE" << 'YAML'
 name: Var Override Test
 variables:
@@ -368,12 +368,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$VAR_OVERRIDE_FILE" --var base_url=http://127.0.0.1:9190 && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$VAR_OVERRIDE_FILE" --var base_url=http://127.0.0.1:9190 && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$VAR_OVERRIDE_FILE"
 echo
 
 echo "--- Running with --var invalid format (expect exit 1) ---"
-VAR_INVALID_FILE=$(mktemp /tmp/apitest_var_invalid_XXXXXX.yaml)
+VAR_INVALID_FILE=$(mktemp /tmp/curlew_var_invalid_XXXXXX.yaml)
 cat > "$VAR_INVALID_FILE" << 'YAML'
 name: Test
 requests:
@@ -382,12 +382,12 @@ requests:
       method: GET
       url: "http://127.0.0.1:9190/get"
 YAML
-./apitest run "$VAR_INVALID_FILE" --var noequals && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$VAR_INVALID_FILE" --var noequals && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$VAR_INVALID_FILE"
 echo
 
 echo "--- Running collection with --env flag (expect pass) ---"
-ENV_DIR=$(mktemp -d /tmp/apitest_env_XXXXXX)
+ENV_DIR=$(mktemp -d /tmp/curlew_env_XXXXXX)
 mkdir -p "$ENV_DIR/environments"
 cat > "$ENV_DIR/environments/dev.yaml" << 'YAML'
 variables:
@@ -403,12 +403,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$ENV_DIR/env-test.yaml" --env dev && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$ENV_DIR/env-test.yaml" --env dev && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$ENV_DIR"
 echo
 
 echo "--- Running with --env missing environment (expect error listing available) ---"
-ENV_MISS_DIR=$(mktemp -d /tmp/apitest_env_miss_XXXXXX)
+ENV_MISS_DIR=$(mktemp -d /tmp/curlew_env_miss_XXXXXX)
 mkdir -p "$ENV_MISS_DIR/environments"
 cat > "$ENV_MISS_DIR/environments/dev.yaml" << 'YAML'
 variables:
@@ -422,13 +422,13 @@ requests:
       method: GET
       url: "http://127.0.0.1:9190/get"
 YAML
-OUTPUT=$(./apitest run "$ENV_MISS_DIR/test.yaml" --env staging 2>&1 || true)
+OUTPUT=$(./curlew run "$ENV_MISS_DIR/test.yaml" --env staging 2>&1 || true)
 echo "$OUTPUT" | grep -q "dev" && echo "PASS: available environment listed" || fail "Missing available env in: $OUTPUT"
 rm -rf "$ENV_MISS_DIR"
 echo
 
 echo "--- Running collection with .env auto-loading (expect pass) ---"
-DOTENV_DIR=$(mktemp -d /tmp/apitest_dotenv_XXXXXX)
+DOTENV_DIR=$(mktemp -d /tmp/curlew_dotenv_XXXXXX)
 cat > "$DOTENV_DIR/.env" << 'ENV'
 BASE_URL=http://127.0.0.1:9190
 ENV
@@ -442,12 +442,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$DOTENV_DIR"
 echo
 
 echo "--- Running collection without .env (expect pass, no error) ---"
-NO_DOTENV_DIR=$(mktemp -d /tmp/apitest_no_dotenv_XXXXXX)
+NO_DOTENV_DIR=$(mktemp -d /tmp/curlew_no_dotenv_XXXXXX)
 cat > "$NO_DOTENV_DIR/test.yaml" << 'YAML'
 name: No Dotenv Test
 requests:
@@ -458,13 +458,13 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$NO_DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$NO_DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$NO_DOTENV_DIR"
 echo
 
 echo "--- Running collection with --env-var flag (expect pass) ---"
 export SMOKE_TEST_URL="http://127.0.0.1:9190"
-ENVVAR_FILE=$(mktemp /tmp/apitest_envvar_XXXXXX.yaml)
+ENVVAR_FILE=$(mktemp /tmp/curlew_envvar_XXXXXX.yaml)
 cat > "$ENVVAR_FILE" << 'YAML'
 name: Env Var Test
 requests:
@@ -475,13 +475,13 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$ENVVAR_FILE" --env-var SMOKE_TEST_URL && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$ENVVAR_FILE" --env-var SMOKE_TEST_URL && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$ENVVAR_FILE"
 echo
 
 echo "--- Running with --env-var for missing OS var (expect error) ---"
 unset SMOKE_MISSING_VAR 2>/dev/null || true
-ENVVAR_MISS_FILE=$(mktemp /tmp/apitest_envvar_miss_XXXXXX.yaml)
+ENVVAR_MISS_FILE=$(mktemp /tmp/curlew_envvar_miss_XXXXXX.yaml)
 cat > "$ENVVAR_MISS_FILE" << 'YAML'
 name: Test
 requests:
@@ -490,18 +490,18 @@ requests:
       method: GET
       url: "http://127.0.0.1:9190/get"
 YAML
-OUTPUT=$(./apitest run "$ENVVAR_MISS_FILE" --env-var SMOKE_MISSING_VAR 2>&1 || true)
+OUTPUT=$(./curlew run "$ENVVAR_MISS_FILE" --env-var SMOKE_MISSING_VAR 2>&1 || true)
 echo "$OUTPUT" | grep -q "not set" && echo "PASS: error indicates variable not set" || fail "Missing 'not set' in: $OUTPUT"
 rm -f "$ENVVAR_MISS_FILE"
 echo
 
 echo "--- Help text shows --env-var ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-env-var" && echo "PASS: --env-var in help" || fail "Missing --env-var in help output"
 echo
 
 echo "--- Running collection with external request reference (expect pass) ---"
-EXT_REF_DIR=$(mktemp -d /tmp/apitest_ext_ref_XXXXXX)
+EXT_REF_DIR=$(mktemp -d /tmp/curlew_ext_ref_XXXXXX)
 mkdir -p "$EXT_REF_DIR/requests"
 cat > "$EXT_REF_DIR/requests/get.yaml" << 'YAML'
 name: External Get
@@ -516,24 +516,24 @@ name: External Ref Smoke Test
 requests:
   - path: requests/get.yaml
 YAML
-./apitest run "$EXT_REF_DIR/collection.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$EXT_REF_DIR/collection.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$EXT_REF_DIR"
 echo
 
 echo "--- Running collection with missing external reference (expect exit 3) ---"
-EXT_MISS_DIR=$(mktemp -d /tmp/apitest_ext_miss_XXXXXX)
+EXT_MISS_DIR=$(mktemp -d /tmp/curlew_ext_miss_XXXXXX)
 cat > "$EXT_MISS_DIR/collection.yaml" << 'YAML'
 name: Missing Ref Smoke Test
 requests:
   - path: requests/nonexistent.yaml
 YAML
-OUTPUT=$(./apitest run "$EXT_MISS_DIR/collection.yaml" 2>&1 || true)
+OUTPUT=$(./curlew run "$EXT_MISS_DIR/collection.yaml" 2>&1 || true)
 echo "$OUTPUT" | grep -q "external request file not found" && echo "PASS: external file not found error" || fail "Missing error message in: $OUTPUT"
 rm -rf "$EXT_MISS_DIR"
 echo
 
 echo "--- Running collection with setup and teardown (expect pass, headers printed) ---"
-SETUP_TD_FILE=$(mktemp /tmp/apitest_setup_td_XXXXXX.yaml)
+SETUP_TD_FILE=$(mktemp /tmp/curlew_setup_td_XXXXXX.yaml)
 cat > "$SETUP_TD_FILE" << 'YAML'
 name: Setup Teardown Smoke Test
 setup:
@@ -558,16 +558,16 @@ teardown:
     assertions:
       status: 200
 YAML
-OUTPUT=$(./apitest run "$SETUP_TD_FILE" 2>&1)
+OUTPUT=$(./curlew run "$SETUP_TD_FILE" 2>&1)
 echo "$OUTPUT" | grep -q "Setup:" && echo "PASS: Setup: header printed" || fail "Missing 'Setup:' header in output: $OUTPUT"
 echo "$OUTPUT" | grep -q "Teardown:" && echo "PASS: Teardown: header printed" || fail "Missing 'Teardown:' header in output: $OUTPUT"
 echo "$OUTPUT" | grep -q "3 request(s)" && echo "PASS: 3 total requests counted" || fail "Expected 3 requests in output: $OUTPUT"
-./apitest run "$SETUP_TD_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$SETUP_TD_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$SETUP_TD_FILE"
 echo
 
 echo "--- Teardown runs when main fails (exit code ignores teardown) ---"
-MAIN_FAIL_TD_FILE=$(mktemp /tmp/apitest_main_fail_td_XXXXXX.yaml)
+MAIN_FAIL_TD_FILE=$(mktemp /tmp/curlew_main_fail_td_XXXXXX.yaml)
 cat > "$MAIN_FAIL_TD_FILE" << 'YAML'
 name: Main Fail Teardown Test
 requests:
@@ -585,18 +585,18 @@ teardown:
     assertions:
       status: 200
 YAML
-OUTPUT=$(./apitest run "$MAIN_FAIL_TD_FILE" 2>&1 || true)
+OUTPUT=$(./curlew run "$MAIN_FAIL_TD_FILE" 2>&1 || true)
 echo "$OUTPUT" | grep -q "Teardown:" && echo "PASS: Teardown: header printed on main failure" || fail "Missing 'Teardown:' header in output: $OUTPUT"
-./apitest run "$MAIN_FAIL_TD_FILE" > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
+./curlew run "$MAIN_FAIL_TD_FILE" > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 # Main assertion failure → exit 1 (not affected by teardown success)
 [ "$EXITCODE" = "1" ] && echo "PASS: exit code 1 (main assertion failure)" || fail "expected exit code 1, got $EXITCODE"
 rm -f "$MAIN_FAIL_TD_FILE"
 echo
 
 echo "--- Project config variables resolved (walk-up) ---"
-TMP=$(mktemp -d /tmp/apitest_proj_XXXXXX)
+TMP=$(mktemp -d /tmp/curlew_proj_XXXXXX)
 mkdir -p "$TMP/project/sub"
-cat > "$TMP/project/apitest.yaml" << 'YAML'
+cat > "$TMP/project/curlew.yaml" << 'YAML'
 project_name: SmokeTest
 variables:
   smoke_base: http://127.0.0.1:9190
@@ -611,24 +611,24 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$TMP/project/sub/collection.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$TMP/project/sub/collection.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$TMP"
 echo
 
-echo "--- Help text shows apitest.yaml ---"
-HELP_OUTPUT=$(./apitest --help)
-echo "$HELP_OUTPUT" | grep -q "apitest.yaml" && echo "PASS: apitest.yaml in help" || fail "Missing apitest.yaml in help output"
+echo "--- Help text shows curlew.yaml ---"
+HELP_OUTPUT=$(./curlew --help)
+echo "$HELP_OUTPUT" | grep -q "curlew.yaml" && echo "PASS: curlew.yaml in help" || fail "Missing curlew.yaml in help output"
 echo
 
 echo "--- Help text shows --seed ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-seed" && echo "PASS: --seed in help" || fail "Missing --seed in help output"
 echo
 
 echo '--- Dynamic function {{$uuid}} produces a UUID in the request ---'
-UUID_SRV_DIR=$(mktemp -d /tmp/apitest_uuid_XXXXXX)
+UUID_SRV_DIR=$(mktemp -d /tmp/curlew_uuid_XXXXXX)
 # We can't capture what hits a real server easily in smoke, so just run the collection and check exit 0.
-UUID_FILE=$(mktemp /tmp/apitest_uuid_XXXXXX.yaml)
+UUID_FILE=$(mktemp /tmp/curlew_uuid_XXXXXX.yaml)
 cat > "$UUID_FILE" << 'YAML'
 name: Dynamic UUID Smoke
 requests:
@@ -639,7 +639,7 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$UUID_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$UUID_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$UUID_FILE"
 rm -rf "$UUID_SRV_DIR"
 echo
@@ -647,7 +647,7 @@ echo
 echo "--- --seed produces deterministic output (run twice, same UUID in URL) ---"
 SEED_FILE=""
 trap 'rm -f "$SEED_FILE"' EXIT
-SEED_FILE=$(mktemp /tmp/apitest_seed_XXXXXX.yaml)
+SEED_FILE=$(mktemp /tmp/curlew_seed_XXXXXX.yaml)
 cat > "$SEED_FILE" << 'YAML'
 name: Seed Smoke
 requests:
@@ -658,8 +658,8 @@ requests:
     assertions:
       status: 200
 YAML
-OUT1=$(./apitest run "$SEED_FILE" --seed 42 2>&1 | sed 's/  [0-9]*ms$//' | sed 's/([0-9]*ms)//')
-OUT2=$(./apitest run "$SEED_FILE" --seed 42 2>&1 | sed 's/  [0-9]*ms$//' | sed 's/([0-9]*ms)//')
+OUT1=$(./curlew run "$SEED_FILE" --seed 42 2>&1 | sed 's/  [0-9]*ms$//' | sed 's/([0-9]*ms)//')
+OUT2=$(./curlew run "$SEED_FILE" --seed 42 2>&1 | sed 's/  [0-9]*ms$//' | sed 's/([0-9]*ms)//')
 if [ "$OUT1" = "$OUT2" ]; then
   echo "PASS: --seed 42 produces identical output both runs"
 else
@@ -672,7 +672,7 @@ rm -f "$SEED_FILE"
 echo
 
 echo "--- Running with --no-color flag (expect no ANSI codes) ---"
-OUTPUT=$(./apitest run "$SMOKE_HELLO" --no-color 2>&1)
+OUTPUT=$(./curlew run "$SMOKE_HELLO" --no-color 2>&1)
 if printf '%s' "$OUTPUT" | grep -q $'\033\['; then
   echo "FAIL: ANSI codes found with --no-color"
   exit 1
@@ -681,7 +681,7 @@ echo "PASS: no ANSI codes with --no-color"
 echo
 
 echo "--- Running with NO_COLOR env var (expect no ANSI codes) ---"
-OUTPUT=$(NO_COLOR=1 ./apitest run "$SMOKE_HELLO" 2>&1)
+OUTPUT=$(NO_COLOR=1 ./curlew run "$SMOKE_HELLO" 2>&1)
 if printf '%s' "$OUTPUT" | grep -q $'\033\['; then
   echo "FAIL: ANSI codes found with NO_COLOR=1"
   exit 1
@@ -690,12 +690,12 @@ echo "PASS: no ANSI codes with NO_COLOR=1"
 echo
 
 echo "--- Help text shows --no-color ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-no-color" && echo "PASS: --no-color in help" || fail "Missing --no-color in help output"
 echo
 
 echo "--- Running with --format json (expect valid JSON) ---"
-JSON_FILE=$(mktemp /tmp/apitest_json_XXXXXX.yaml)
+JSON_FILE=$(mktemp /tmp/curlew_json_XXXXXX.yaml)
 cat > "$JSON_FILE" << 'YAML'
 name: JSON Format Smoke
 requests:
@@ -706,14 +706,14 @@ requests:
     assertions:
       status: 200
 YAML
-JSON_OUTPUT=$(./apitest run "$JSON_FILE" --format json)
+JSON_OUTPUT=$(./curlew run "$JSON_FILE" --format json)
 echo "$JSON_OUTPUT" | python3 -m json.tool > /dev/null && echo "PASS: --format json produces valid JSON" || fail "Invalid JSON output: $JSON_OUTPUT"
 echo "$JSON_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'name' in d and 'status' in d and 'requests' in d, f'Missing fields: {list(d.keys())}'" && echo "PASS: top-level fields present" || fail "Missing fields in: $JSON_OUTPUT"
 rm -f "$JSON_FILE"
 echo
 
 echo "--- --format json with failing assertion (expect JSON with failed status) ---"
-JSON_FAIL_FILE=$(mktemp /tmp/apitest_json_fail_XXXXXX.yaml)
+JSON_FAIL_FILE=$(mktemp /tmp/curlew_json_fail_XXXXXX.yaml)
 cat > "$JSON_FAIL_FILE" << 'YAML'
 name: JSON Fail Smoke
 requests:
@@ -724,13 +724,13 @@ requests:
     assertions:
       status: 404
 YAML
-JSON_FAIL_OUTPUT=$(./apitest run "$JSON_FAIL_FILE" --format json || true)
+JSON_FAIL_OUTPUT=$(./curlew run "$JSON_FAIL_FILE" --format json || true)
 echo "$JSON_FAIL_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='failed', f'Expected failed, got {d[\"status\"]}'" && echo "PASS: --format json failed status" || fail "Wrong status in: $JSON_FAIL_OUTPUT"
 rm -f "$JSON_FAIL_FILE"
 echo
 
 echo "--- --format json with no assertions (assertions array not null) ---"
-JSON_NO_ASSERT_FILE=$(mktemp /tmp/apitest_json_no_assert_XXXXXX.yaml)
+JSON_NO_ASSERT_FILE=$(mktemp /tmp/curlew_json_no_assert_XXXXXX.yaml)
 cat > "$JSON_NO_ASSERT_FILE" << 'YAML'
 name: No Assert Smoke
 requests:
@@ -739,18 +739,18 @@ requests:
       method: GET
       url: "http://127.0.0.1:9190/get"
 YAML
-JSON_NO_ASSERT_OUTPUT=$(./apitest run "$JSON_NO_ASSERT_FILE" --format json)
+JSON_NO_ASSERT_OUTPUT=$(./curlew run "$JSON_NO_ASSERT_FILE" --format json)
 echo "$JSON_NO_ASSERT_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); r=d['requests'][0]; assert isinstance(r['assertions'], list), 'assertions should be array'" && echo "PASS: assertions is array not null" || fail "assertions not array in: $JSON_NO_ASSERT_OUTPUT"
 rm -f "$JSON_NO_ASSERT_FILE"
 echo
 
 echo "--- Help text shows --format ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-format" && echo "PASS: --format in help" || fail "Missing --format in help output"
 echo
 
 echo "--- TAP: passing collection ---"
-TAP_FILE=$(mktemp /tmp/apitest_tap_XXXXXX.yaml)
+TAP_FILE=$(mktemp /tmp/curlew_tap_XXXXXX.yaml)
 cat > "$TAP_FILE" << 'YAML'
 name: TAP Format Smoke
 requests:
@@ -761,7 +761,7 @@ requests:
     assertions:
       status: 200
 YAML
-TAP_OUT=$(./apitest run "$TAP_FILE" --format tap)
+TAP_OUT=$(./curlew run "$TAP_FILE" --format tap)
 echo "$TAP_OUT" | grep -q "^TAP version 13" || fail "--format tap: missing version line"
 echo "$TAP_OUT" | grep -q "^1\.\." || fail "--format tap: missing plan line"
 echo "$TAP_OUT" | grep -q "^ok 1" || fail "--format tap: missing ok line"
@@ -771,13 +771,13 @@ rm -f "$TAP_FILE"
 echo
 
 echo "--- Help text lists tap ---"
-HELP_OUT=$(./apitest --help)
+HELP_OUT=$(./curlew --help)
 echo "$HELP_OUT" | grep -q "tap" || fail "--help missing tap in --format description"
 echo "PASS: tap listed in --format help"
 echo
 
 echo "--- Verbosity: quiet mode produces minimal output ---"
-QUIET_FILE=$(mktemp /tmp/apitest_quiet_XXXXXX.yaml)
+QUIET_FILE=$(mktemp /tmp/curlew_quiet_XXXXXX.yaml)
 cat > "$QUIET_FILE" << 'YAML'
 name: Quiet Mode Test
 requests:
@@ -788,7 +788,7 @@ requests:
     assertions:
       status: 200
 YAML
-QUIET_OUTPUT=$(./apitest run "$QUIET_FILE" -q 2>&1)
+QUIET_OUTPUT=$(./curlew run "$QUIET_FILE" -q 2>&1)
 LINE_COUNT=$(echo "$QUIET_OUTPUT" | wc -l | tr -d ' ')
 if [ "$LINE_COUNT" -gt 3 ]; then
   echo "FAIL: quiet mode produced $LINE_COUNT lines, expected <= 3"
@@ -800,7 +800,7 @@ rm -f "$QUIET_FILE"
 echo
 
 echo "--- Verbosity: verbose mode shows request detail lines ---"
-VERBOSE_FILE=$(mktemp /tmp/apitest_verbose_XXXXXX.yaml)
+VERBOSE_FILE=$(mktemp /tmp/curlew_verbose_XXXXXX.yaml)
 cat > "$VERBOSE_FILE" << 'YAML'
 name: Verbose Mode Test
 requests:
@@ -813,7 +813,7 @@ requests:
     assertions:
       status: 200
 YAML
-VERBOSE_OUTPUT=$(./apitest run "$VERBOSE_FILE" -v --no-color 2>&1)
+VERBOSE_OUTPUT=$(./curlew run "$VERBOSE_FILE" -v --no-color 2>&1)
 if ! echo "$VERBOSE_OUTPUT" | grep -q "^  > "; then
   echo "FAIL: verbose mode missing request detail lines"
   echo "Output: $VERBOSE_OUTPUT"
@@ -824,7 +824,7 @@ rm -f "$VERBOSE_FILE"
 echo
 
 echo "--- Help text shows verbosity flags ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 for flag in "-vv" "-q"; do
   if ! echo "$HELP_OUTPUT" | grep -qF -- "$flag"; then
     echo "FAIL: --help missing $flag"
@@ -835,12 +835,12 @@ echo "PASS: help text contains verbosity flags"
 echo
 
 echo "--- Help text shows --allow-sensitive ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-allow-sensitive" && echo "PASS: --allow-sensitive in help" || fail "Missing --allow-sensitive in help output"
 echo
 
 echo "--- Sensitive vars redacted at -vv (default) ---"
-SENSITIVE_FILE=$(mktemp /tmp/apitest_sensitiveXXXXXX.yaml)
+SENSITIVE_FILE=$(mktemp /tmp/curlew_sensitiveXXXXXX.yaml)
 cat > "$SENSITIVE_FILE" << 'YAML'
 name: Sensitive Redaction Test
 variables:
@@ -856,7 +856,7 @@ requests:
     assertions:
       status: 200
 YAML
-SENS_OUTPUT=$(./apitest run "$SENSITIVE_FILE" -vv --no-color 2>&1)
+SENS_OUTPUT=$(./curlew run "$SENSITIVE_FILE" -vv --no-color 2>&1)
 # the fixture server echoes headers in the response body (like httpbin) — only check that the outgoing request header is redacted
 if echo "$SENS_OUTPUT" | grep -q "> Authorization: Bearer my_super_secret_123"; then
   echo "FAIL: password value leaked in request header output"
@@ -867,7 +867,7 @@ rm -f "$SENSITIVE_FILE"
 echo
 
 echo "--- --allow-sensitive shows plain text values ---"
-ALLOW_SENS_FILE=$(mktemp /tmp/apitest_allow_sensXXXXXX.yaml)
+ALLOW_SENS_FILE=$(mktemp /tmp/curlew_allow_sensXXXXXX.yaml)
 cat > "$ALLOW_SENS_FILE" << 'YAML'
 name: Allow Sensitive Test
 variables:
@@ -883,7 +883,7 @@ requests:
     assertions:
       status: 200
 YAML
-ALLOW_OUTPUT=$(./apitest run "$ALLOW_SENS_FILE" -vv --allow-sensitive --no-color 2>&1)
+ALLOW_OUTPUT=$(./curlew run "$ALLOW_SENS_FILE" -vv --allow-sensitive --no-color 2>&1)
 echo "$ALLOW_OUTPUT" | grep -q "> Authorization: Bearer visible_secret_456" && echo "PASS: --allow-sensitive shows password value" || fail "value not shown with --allow-sensitive"
 rm -f "$ALLOW_SENS_FILE"
 echo
@@ -895,7 +895,7 @@ FAKER_SRV_PID=$!
 sleep 0.3
 # mktemp -t is macOS-portable and avoids the literal-filename issue that arises
 # when a suffix follows the X-placeholder block on macOS (e.g. XXXXXXfoo.yaml).
-FAKER_FILE=$(mktemp -t apitest_faker_ssn)
+FAKER_FILE=$(mktemp -t curlew_faker_ssn)
 # Register cleanup so the temp file is removed on all exit paths (normal or error).
 trap 'rm -f "$FAKER_FILE"; rm -rf "${FAKER_MD_DIR:-}"; kill "$FAKER_SRV_PID" 2>/dev/null || true' EXIT
 cat > "$FAKER_FILE" << 'YAML'
@@ -916,7 +916,7 @@ YAML
 # Run with -vv so RequestBodyDump emits the (body): line with the redacted body.
 # The SSN value is auto-registered in runtimeSensitive by the IsSensitiveReturn hook
 # (internal/variable/variable.go) and merged into sensitive before output is rendered.
-FAKER_OUT=$(./apitest run "$FAKER_FILE" -vv --no-color --seed 42 2>&1 || true)
+FAKER_OUT=$(./curlew run "$FAKER_FILE" -vv --no-color --seed 42 2>&1 || true)
 # Check that [REDACTED] appears in the body output and the raw SSN pattern does NOT.
 echo "$FAKER_OUT" | grep -q '\[REDACTED\]' \
   && echo "PASS: \$faker.ssn appears as [REDACTED] in -vv body output" \
@@ -930,7 +930,7 @@ echo "--- \$faker.ssn absent from --format json output (M13-002) ---"
 # --format json (JSONRequest) has no request_body field; the raw SSN must simply
 # not appear anywhere in the JSON output. Positive-redaction ([REDACTED] in body)
 # is verified by the -vv terminal block above and the markdown block below.
-FAKER_JSON_OUT=$(./apitest run "$FAKER_FILE" --format json --no-color --seed 42 2>&1 || true)
+FAKER_JSON_OUT=$(./curlew run "$FAKER_FILE" --format json --no-color --seed 42 2>&1 || true)
 echo "$FAKER_JSON_OUT" | python3 -m json.tool > /dev/null \
   && echo "PASS: --format json produces valid JSON" \
   || fail "--format json output is not valid JSON" "$FAKER_JSON_OUT"
@@ -941,8 +941,8 @@ echo
 
 echo "--- \$faker.ssn auto-redacted in --format markdown output (M13-002) ---"
 # The markdown report renders the request body as JSON; the SSN must appear as [REDACTED].
-FAKER_MD_DIR=$(mktemp -d /tmp/apitest_faker_md_XXXXXX)
-./apitest run "$FAKER_FILE" --format markdown --report "$FAKER_MD_DIR" --no-color --seed 42 2>&1 || true
+FAKER_MD_DIR=$(mktemp -d /tmp/curlew_faker_md_XXXXXX)
+./curlew run "$FAKER_FILE" --format markdown --report "$FAKER_MD_DIR" --no-color --seed 42 2>&1 || true
 FAKER_MD_CONTENT=$(cat "$FAKER_MD_DIR"/*.md 2>/dev/null || true)
 echo "$FAKER_MD_CONTENT" | grep -q '\[REDACTED\]' \
   && echo "PASS: \$faker.ssn appears as [REDACTED] in --format markdown report" \
@@ -962,7 +962,7 @@ FIN_SRV_PORT=9178
 python3 -m http.server $FIN_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
 FIN_SRV_PID=$!
 sleep 0.3
-FIN_FILE=$(mktemp -t apitest_faker_fin)
+FIN_FILE=$(mktemp -t curlew_faker_fin)
 trap 'rm -f "$FIN_FILE"; rm -rf "${FIN_MD_DIR:-}"; kill "$FIN_SRV_PID" 2>/dev/null || true' EXIT
 cat > "$FIN_FILE" << 'YAML'
 name: Faker Financial Redaction
@@ -983,7 +983,7 @@ requests:
         bic: "{{$faker.bic}}"
         amount: "{{$faker.price('5','50')}}"
 YAML
-FIN_OUT=$(./apitest run "$FIN_FILE" -vv --no-color --seed 42 2>&1 || true)
+FIN_OUT=$(./curlew run "$FIN_FILE" -vv --no-color --seed 42 2>&1 || true)
 # Three [REDACTED] occurrences expected (card, cvv, iban). bic + amount must be visible.
 echo "$FIN_OUT" | grep -q '\[REDACTED\]' \
   && echo "PASS: financial fields appear as [REDACTED] in -vv body output" \
@@ -991,8 +991,8 @@ echo "$FIN_OUT" | grep -q '\[REDACTED\]' \
 echo
 
 echo "--- \$faker financial fields auto-redacted in --format markdown output (M13-007) ---"
-FIN_MD_DIR=$(mktemp -d /tmp/apitest_faker_fin_md_XXXXXX)
-./apitest run "$FIN_FILE" --format markdown --report "$FIN_MD_DIR" --no-color --seed 42 2>&1 || true
+FIN_MD_DIR=$(mktemp -d /tmp/curlew_faker_fin_md_XXXXXX)
+./curlew run "$FIN_FILE" --format markdown --report "$FIN_MD_DIR" --no-color --seed 42 2>&1 || true
 FIN_MD_CONTENT=$(cat "$FIN_MD_DIR"/*.md 2>/dev/null || true)
 echo "$FIN_MD_CONTENT" | grep -q '\[REDACTED\]' \
   && echo "PASS: financial fields appear as [REDACTED] in --format markdown report" \
@@ -1004,7 +1004,7 @@ echo "$FIN_MD_CONTENT" | grep -qE '"card":[[:space:]]*"[0-9]{16}"' \
 rm -rf "$FIN_MD_DIR"; FIN_MD_DIR=""
 
 echo "--- \$faker financial fields absent from --format json output (M13-007) ---"
-FIN_JSON_OUT=$(./apitest run "$FIN_FILE" --format json --no-color --seed 42 2>&1 || true)
+FIN_JSON_OUT=$(./curlew run "$FIN_FILE" --format json --no-color --seed 42 2>&1 || true)
 echo "$FIN_JSON_OUT" | python3 -m json.tool > /dev/null \
   && echo "PASS: --format json produces valid JSON" \
   || fail "--format json output is not valid JSON" "$FIN_JSON_OUT"
@@ -1018,33 +1018,33 @@ kill "$FIN_SRV_PID" 2>/dev/null || true
 rm -f "$FIN_FILE"
 echo
 
-echo "--- Running apitest init (expect project created) ---"
-INIT_DIR=$(mktemp -d /tmp/apitest_init_XXXXXX)
-./apitest init "$INIT_DIR" || fail "init failed"
-[ -f "$INIT_DIR/apitest.yaml" ]            && echo "PASS: apitest.yaml created"             || fail "apitest.yaml missing"
+echo "--- Running curlew init (expect project created) ---"
+INIT_DIR=$(mktemp -d /tmp/curlew_init_XXXXXX)
+./curlew init "$INIT_DIR" || fail "init failed"
+[ -f "$INIT_DIR/curlew.yaml" ]            && echo "PASS: curlew.yaml created"             || fail "curlew.yaml missing"
 [ -f "$INIT_DIR/.gitignore" ]              && echo "PASS: .gitignore created"               || fail ".gitignore missing"
 [ -f "$INIT_DIR/.env.example" ]            && echo "PASS: .env.example created"             || fail ".env.example missing"
 [ -f "$INIT_DIR/collections/sample.yaml" ] && echo "PASS: collections/sample.yaml created"  || fail "collections/sample.yaml missing"
-# The scaffolded apitest.yaml defaults base_url to https://httpbin.org (a
+# The scaffolded curlew.yaml defaults base_url to https://httpbin.org (a
 # user-facing default we keep); override it so the run stays hermetic.
-./apitest run "$INIT_DIR/collections/sample.yaml" --var "base_url=$SMOKE_HTTPBIN_URL" && echo "PASS: sample collection runs successfully" || fail "sample collection run failed"
+./curlew run "$INIT_DIR/collections/sample.yaml" --var "base_url=$SMOKE_HTTPBIN_URL" && echo "PASS: sample collection runs successfully" || fail "sample collection run failed"
 echo
 
-echo "--- Running apitest init on existing project (expect error) ---"
-./apitest init "$INIT_DIR" && fail "should have returned non-zero" || echo "PASS: init rejected existing project"
+echo "--- Running curlew init on existing project (expect error) ---"
+./curlew init "$INIT_DIR" && fail "should have returned non-zero" || echo "PASS: init rejected existing project"
 rm -rf "$INIT_DIR"
 echo
 
 echo "--- Help text shows init command ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "init" && echo "PASS: init in help" || fail "Missing init in help output"
 echo
 
 echo "=== Info command ==="
 
 echo "--- Info: in project directory (JSON) ---"
-INFO_DIR=$(mktemp -d /tmp/apitest_info_XXXXXX)
-cat > "$INFO_DIR/apitest.yaml" << 'YAML'
+INFO_DIR=$(mktemp -d /tmp/curlew_info_XXXXXX)
+cat > "$INFO_DIR/curlew.yaml" << 'YAML'
 project_name: SmokeInfo
 YAML
 mkdir -p "$INFO_DIR/collections"
@@ -1058,7 +1058,7 @@ variables:
   x: "1"
 YAML
 cd "$INFO_DIR"
-INFO_JSON=$("$PROJECT_ROOT/apitest" info --format json)
+INFO_JSON=$("$PROJECT_ROOT/curlew" info --format json)
 echo "$INFO_JSON" | python3 -m json.tool > /dev/null && echo "PASS: info --format json produces valid JSON" || fail "Invalid JSON: $INFO_JSON"
 echo "$INFO_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['project_name']=='SmokeInfo', f'Wrong name: {d[\"project_name\"]}'" && echo "PASS: project_name correct" || fail "project_name wrong"
 cd "$PROJECT_ROOT"
@@ -1066,21 +1066,21 @@ rm -rf "$INFO_DIR"
 echo
 
 echo "--- Info: human-readable output ---"
-INFO_HR_DIR=$(mktemp -d /tmp/apitest_info_hr_XXXXXX)
-cat > "$INFO_HR_DIR/apitest.yaml" << 'YAML'
+INFO_HR_DIR=$(mktemp -d /tmp/curlew_info_hr_XXXXXX)
+cat > "$INFO_HR_DIR/curlew.yaml" << 'YAML'
 project_name: HumanReadable
 YAML
 cd "$INFO_HR_DIR"
-INFO_HR=$("$PROJECT_ROOT/apitest" info)
+INFO_HR=$("$PROJECT_ROOT/curlew" info)
 echo "$INFO_HR" | grep -q "HumanReadable" && echo "PASS: human-readable shows project name" || fail "Missing project name in: $INFO_HR"
 cd "$PROJECT_ROOT"
 rm -rf "$INFO_HR_DIR"
 echo
 
 echo "--- Info: outside project directory (expect error, exit 5) ---"
-INFO_NO_DIR=$(mktemp -d /tmp/apitest_info_no_XXXXXX)
+INFO_NO_DIR=$(mktemp -d /tmp/curlew_info_no_XXXXXX)
 cd "$INFO_NO_DIR"
-"$PROJECT_ROOT/apitest" info > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
+"$PROJECT_ROOT/curlew" info > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 [ "$EXITCODE" = "5" ] && echo "PASS: exit code 5 outside project" || fail "expected exit 5, got $EXITCODE"
 cd "$PROJECT_ROOT"
 rm -rf "$INFO_NO_DIR"
@@ -1089,18 +1089,18 @@ echo
 echo "=== Schema command ==="
 
 echo "--- Schema: valid JSON Schema output ---"
-SCHEMA_OUT=$(./apitest schema --format json)
+SCHEMA_OUT=$(./curlew schema --format json)
 echo "$SCHEMA_OUT" | python3 -m json.tool > /dev/null && echo "PASS: schema --format json produces valid JSON" || fail "Invalid JSON: $SCHEMA_OUT"
 echo "$SCHEMA_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert '\$schema' in d, 'Missing \$schema'" && echo "PASS: schema has \$schema keyword" || fail "Missing \$schema"
 echo
 
 echo "--- Schema: default format is JSON ---"
-SCHEMA_DEFAULT=$(./apitest schema)
+SCHEMA_DEFAULT=$(./curlew schema)
 echo "$SCHEMA_DEFAULT" | python3 -m json.tool > /dev/null && echo "PASS: default schema output is valid JSON" || fail "default format not valid JSON"
 echo
 
 echo "--- Help text shows info and schema ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "info" && echo "PASS: info in help" || fail "Missing info in help output"
 echo "$HELP_OUTPUT" | grep -q "schema" && echo "PASS: schema in help" || fail "Missing schema in help output"
 echo
@@ -1108,39 +1108,39 @@ echo
 echo "=== Validate command ==="
 
 echo "--- Validate: valid collection ---"
-./apitest validate sample/hello.yaml && echo "PASS: validate valid collection exit 0" || fail "expected exit 0, got $?"
+./curlew validate sample/hello.yaml && echo "PASS: validate valid collection exit 0" || fail "expected exit 0, got $?"
 echo
 
 echo "--- Validate: missing file (expect exit 3) ---"
-./apitest validate nonexistent_validate_test.yaml && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew validate nonexistent_validate_test.yaml && echo "ERROR: should have failed" || echo "Exit code: $?"
 echo
 
 echo "--- Validate: help text shows validate ---"
-VALIDATE_HELP=$(./apitest --help)
+VALIDATE_HELP=$(./curlew --help)
 echo "$VALIDATE_HELP" | grep -q "validate" && echo "PASS: validate appears in help" || fail "validate missing from help output"
 echo
 
 echo "--- Validate: invalid YAML (expect exit 3) ---"
-BAD_YAML=$(mktemp /tmp/apitest_bad_yaml_XXXXXX.yaml)
+BAD_YAML=$(mktemp /tmp/curlew_bad_yaml_XXXXXX.yaml)
 printf 'invalid: yaml: :\n' > "$BAD_YAML"
-./apitest validate "$BAD_YAML" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew validate "$BAD_YAML" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$BAD_YAML"
 echo
 
 echo "--- Validate: --format json produces valid JSON ---"
-JSON_OUT=$(./apitest validate --format json sample/hello.yaml)
+JSON_OUT=$(./curlew validate --format json sample/hello.yaml)
 echo "$JSON_OUT" | python3 -m json.tool > /dev/null && echo "PASS: validate --format json produces valid JSON" || fail "Invalid JSON: $JSON_OUT"
 echo
 
 echo "--- Validate: shared vault template (valid) ---"
-./apitest validate testdata/team/shared-vault-template.yaml \
+./curlew validate testdata/team/shared-vault-template.yaml \
   && echo "PASS: valid team template exits 0" \
   || fail "expected exit 0"
 echo
 
 echo "--- Validate: shared vault template (invalid provider, expect exit 2) ---"
 set +e
-./apitest validate testdata/team/shared-vault-template.invalid.yaml
+./curlew validate testdata/team/shared-vault-template.invalid.yaml
 TEAM_RC=$?
 set -e
 if [ "$TEAM_RC" -eq 2 ]; then
@@ -1154,73 +1154,73 @@ echo
 echo "=== Exec command ==="
 
 echo "--- Exec with inline URL ---"
-./apitest exec http://127.0.0.1:9190/get && echo "PASS: exec inline URL exit 0" || echo "Exit code: $?"
+./curlew exec http://127.0.0.1:9190/get && echo "PASS: exec inline URL exit 0" || echo "Exit code: $?"
 echo
 
 echo "--- Exec with --dry-run ---"
-DRY_OUT=$(./apitest exec http://127.0.0.1:9190/get --dry-run 2>&1)
+DRY_OUT=$(./curlew exec http://127.0.0.1:9190/get --dry-run 2>&1)
 echo "$DRY_OUT" | grep -q "DRY RUN" && echo "PASS: dry-run output contains DRY RUN" || fail "Missing DRY RUN in: $DRY_OUT"
 echo
 
 echo "--- Exec with --stdin JSON ---"
-echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./apitest exec --stdin && echo "PASS: exec stdin exit 0" || echo "Exit code: $?"
+echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./curlew exec --stdin && echo "PASS: exec stdin exit 0" || echo "Exit code: $?"
 echo
 
 echo "--- Exec with --format json ---"
-EXEC_JSON=$(echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./apitest exec --stdin --format json)
+EXEC_JSON=$(echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./curlew exec --stdin --format json)
 echo "$EXEC_JSON" | python3 -m json.tool > /dev/null && echo "PASS: exec --format json produces valid JSON" || fail "Invalid JSON: $EXEC_JSON"
 echo "$EXEC_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'status' in d and 'requests' in d, f'Missing fields: {list(d.keys())}'" && echo "PASS: exec JSON has expected fields" || fail "Missing fields in: $EXEC_JSON"
 echo
 
 echo "--- Exec with invalid JSON stdin (expect error) ---"
-echo 'not json' | ./apitest exec --stdin > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
+echo 'not json' | ./curlew exec --stdin > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 [ "$EXITCODE" = "3" ] && echo "PASS: invalid JSON returns exit 3" || fail "expected exit 3, got $EXITCODE"
 echo
 
 echo "--- Exec with --log ---"
-EXEC_LOG=$(mktemp /tmp/apitest_exec_log_XXXXXX.jsonl)
-echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./apitest exec --stdin --log "$EXEC_LOG" && echo "PASS: exec with --log exit 0" || echo "Exit code: $?"
+EXEC_LOG=$(mktemp /tmp/curlew_exec_log_XXXXXX.jsonl)
+echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./curlew exec --stdin --log "$EXEC_LOG" && echo "PASS: exec with --log exit 0" || echo "Exit code: $?"
 [ -s "$EXEC_LOG" ] && echo "PASS: log file is non-empty" || fail "log file is empty"
 rm -f "$EXEC_LOG"
 echo
 
 echo "--- Help text shows exec ---"
-HELP_OUT=$(./apitest --help 2>&1)
+HELP_OUT=$(./curlew --help 2>&1)
 echo "$HELP_OUT" | grep -q "exec" && echo "PASS: exec in help" || fail "Missing exec in help output"
 echo
 
 echo "=== Vault ==="
 
 echo "--- Vault command shows usage (exit 0) ---"
-./apitest vault > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
+./curlew vault > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 [ "$EXITCODE" = "0" ] && echo "PASS: vault exit code 0" || fail "expected exit 0, got $EXITCODE"
 echo
 
 echo "--- Vault usage lists the list subcommand ---"
-VAULT_OUTPUT=$(./apitest vault --no-color 2>&1 || true)
+VAULT_OUTPUT=$(./curlew vault --no-color 2>&1 || true)
 echo "$VAULT_OUTPUT" | grep -q "vault list" && echo "PASS: vault usage mentions vault list" || fail "Missing 'vault list' in: $VAULT_OUTPUT"
 echo
 
 echo "--- Help text shows vault ---"
-HELP_OUT=$(./apitest --help 2>&1)
+HELP_OUT=$(./curlew --help 2>&1)
 echo "$HELP_OUT" | grep -q "vault" && echo "PASS: vault in help" || fail "Missing vault in help output"
 echo
 
 echo "--- Vault list with no profiles exits 0 ---"
-./apitest vault list > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
+./curlew vault list > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 [ "$EXITCODE" = "0" ] && echo "PASS: vault list exit code 0" || fail "expected exit 0, got $EXITCODE"
-VAULT_LIST_OUT=$(./apitest vault list --no-color 2>&1 || true)
+VAULT_LIST_OUT=$(./curlew vault list --no-color 2>&1 || true)
 echo "$VAULT_LIST_OUT" | grep -q "No vault profiles configured" && echo "PASS: vault list reports no profiles" || fail "Missing 'No vault profiles configured' in: $VAULT_LIST_OUT"
 echo
 
 echo "--- Vault list --format json produces valid JSON ---"
-VAULT_LIST_JSON=$(./apitest vault list --format json 2>&1 || true)
+VAULT_LIST_JSON=$(./curlew vault list --format json 2>&1 || true)
 echo "$VAULT_LIST_JSON" | python3 -m json.tool > /dev/null && echo "PASS: vault list --format json is valid JSON" || fail "Invalid JSON: $VAULT_LIST_JSON"
 echo "$VAULT_LIST_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'provider' in d and 'keys' in d, f'Missing fields: {list(d.keys())}'" && echo "PASS: vault list JSON has provider and keys fields" || fail "Missing fields in: $VAULT_LIST_JSON"
 echo
 
 echo "--- Help text shows vault list ---"
-HELP_OUT=$(./apitest --help 2>&1)
+HELP_OUT=$(./curlew --help 2>&1)
 echo "$HELP_OUT" | grep -q "vault list" && echo "PASS: vault list in help" || fail "Missing 'vault list' in help output"
 echo
 
@@ -1228,9 +1228,9 @@ echo "--- Dynamic auth profiles are resolved (no feature gate) ---"
 # The project config declares a dynamic auth profile whose collection file
 # does not exist. The runner must get far enough to try loading it (proving
 # the profile is honored, not gated) and fail with a file-not-found error.
-AUTH_TMP=$(mktemp -d /tmp/apitest_auth_XXXXXX)
+AUTH_TMP=$(mktemp -d /tmp/curlew_auth_XXXXXX)
 mkdir -p "$AUTH_TMP/project"
-cat > "$AUTH_TMP/project/apitest.yaml" << 'YAML'
+cat > "$AUTH_TMP/project/curlew.yaml" << 'YAML'
 project_name: smoke-auth
 auth_profiles:
   login:
@@ -1245,14 +1245,14 @@ requests:
       method: GET
       url: http://127.0.0.1:9190/get
 YAML
-AUTH_OUT=$(./apitest run "$AUTH_TMP/project/collection.yaml" 2>&1 || true)
+AUTH_OUT=$(./curlew run "$AUTH_TMP/project/collection.yaml" 2>&1 || true)
 echo "$AUTH_OUT" | grep -q "auth/login.yaml" && echo "PASS: dynamic auth profile collection was resolved" || { echo "FAIL: Expected auth/login.yaml lookup in: $AUTH_OUT"; rm -rf "$AUTH_TMP"; exit 1; }
 echo "$AUTH_OUT" | grep -q "file not found" && echo "PASS: missing auth collection reported clearly" || { echo "FAIL: expected file-not-found error in: $AUTH_OUT"; rm -rf "$AUTH_TMP"; exit 1; }
 rm -rf "$AUTH_TMP"
 echo
 
 echo "--- from_command variables ---"
-FROM_CMD_DIR="$(mktemp -d /tmp/apitest_from_cmd_XXXXXX)"
+FROM_CMD_DIR="$(mktemp -d /tmp/curlew_from_cmd_XXXXXX)"
 cat > "$FROM_CMD_DIR/from_cmd.yaml" <<'YAML'
 name: from_command-smoke
 variables:
@@ -1265,7 +1265,7 @@ requests:
 YAML
 
 set +e
-./apitest run "$FROM_CMD_DIR/from_cmd.yaml" >"$FROM_CMD_DIR/out.txt" 2>&1
+./curlew run "$FROM_CMD_DIR/from_cmd.yaml" >"$FROM_CMD_DIR/out.txt" 2>&1
 FROM_CMD_EXIT=$?
 set -e
 
@@ -1280,7 +1280,7 @@ rm -rf "$FROM_CMD_DIR"
 echo
 
 echo "--- Per-request auth: missing profile gives clear error ---"
-PER_AUTH_FILE=$(mktemp /tmp/apitest_per_auth_XXXXXX.yaml)
+PER_AUTH_FILE=$(mktemp /tmp/curlew_per_auth_XXXXXX.yaml)
 cat > "$PER_AUTH_FILE" << 'YAML'
 name: Per-Request Auth Test
 requests:
@@ -1292,13 +1292,13 @@ requests:
     assertions:
       status: 200
 YAML
-PER_AUTH_OUT=$(./apitest run "$PER_AUTH_FILE" 2>&1 || true)
+PER_AUTH_OUT=$(./curlew run "$PER_AUTH_FILE" 2>&1 || true)
 echo "$PER_AUTH_OUT" | grep -q "auth profile" && echo "PASS: auth profile error message shown" || { echo "FAIL: Expected auth profile error in: $PER_AUTH_OUT"; rm -f "$PER_AUTH_FILE"; exit 1; }
 rm -f "$PER_AUTH_FILE"
 echo
 
 echo "--- Watch mode: start, trigger re-run, clean exit ---"
-WATCH_DIR=$(mktemp -d /tmp/apitest_watch_XXXXXX)
+WATCH_DIR=$(mktemp -d /tmp/curlew_watch_XXXXXX)
 cat > "$WATCH_DIR/col.yaml" << 'YAML'
 name: Watch Test
 requests:
@@ -1310,7 +1310,7 @@ requests:
       status: 200
 YAML
 # Start watcher in background
-./apitest watch "$WATCH_DIR/col.yaml" --no-color &
+./curlew watch "$WATCH_DIR/col.yaml" --no-color &
 WATCH_PID=$!
 sleep 2
 # Trigger a file change
@@ -1331,7 +1331,7 @@ rm -rf "$WATCH_DIR"
 echo
 
 echo "--- Watch mode: --format json suppresses decorations ---"
-WATCH_JSON_DIR=$(mktemp -d /tmp/apitest_watchjson_XXXXXX)
+WATCH_JSON_DIR=$(mktemp -d /tmp/curlew_watchjson_XXXXXX)
 cat > "$WATCH_JSON_DIR/col.yaml" << 'YAML'
 name: Watch JSON Test
 requests:
@@ -1342,8 +1342,8 @@ requests:
     assertions:
       status: 200
 YAML
-WATCH_JSON_OUT=$(mktemp /tmp/apitest_watchjson_out_XXXXXX)
-./apitest watch "$WATCH_JSON_DIR/col.yaml" --format json --no-color > "$WATCH_JSON_OUT" 2>/dev/null &
+WATCH_JSON_OUT=$(mktemp /tmp/curlew_watchjson_out_XXXXXX)
+./curlew watch "$WATCH_JSON_DIR/col.yaml" --format json --no-color > "$WATCH_JSON_OUT" 2>/dev/null &
 WATCH_JSON_PID=$!
 sleep 2
 kill -INT $WATCH_JSON_PID 2>/dev/null || true
@@ -1365,7 +1365,7 @@ echo
 
 echo "--- Parallel flag ---"
 PARALLEL_RC=0
-PARALLEL_OUT=$(./apitest run "$SMOKE_HELLO" --parallel 2>&1) || PARALLEL_RC=$?
+PARALLEL_OUT=$(./curlew run "$SMOKE_HELLO" --parallel 2>&1) || PARALLEL_RC=$?
 if [ "$PARALLEL_RC" -eq 0 ] && echo "$PARALLEL_OUT" | grep -q "Wave 1"; then
   echo "PASS: --parallel runs in waves (exit 0)"
 else
@@ -1375,7 +1375,7 @@ fi
 echo
 
 echo "--- Data-driven testing ---"
-DD_DIR=$(mktemp -d /tmp/apitest_dd_XXXXXX)
+DD_DIR=$(mktemp -d /tmp/curlew_dd_XXXXXX)
 cat > "$DD_DIR/data.csv" << 'CSV'
 name,expected
 alice,200
@@ -1394,7 +1394,7 @@ requests:
       status: 200
 YAML
 DD_RC=0
-DD_OUT=$(./apitest run "$DD_DIR/dd_test.yaml" 2>&1) || DD_RC=$?
+DD_OUT=$(./curlew run "$DD_DIR/dd_test.yaml" 2>&1) || DD_RC=$?
 if [ "$DD_RC" -eq 0 ] && echo "$DD_OUT" | grep -q "2 iterations"; then
   echo "PASS: data_driven runs one iteration per CSV row (exit 0)"
 else
@@ -1406,7 +1406,7 @@ rm -rf "$DD_DIR"
 echo
 
 echo "--- --format junit emits JUnit XML ---"
-JUNIT_DIR=$(mktemp -d /tmp/apitest_junit_XXXXXX)
+JUNIT_DIR=$(mktemp -d /tmp/curlew_junit_XXXXXX)
 cat > "$JUNIT_DIR/test.yaml" << 'YAML'
 name: JUnit Smoke Test
 requests:
@@ -1415,7 +1415,7 @@ requests:
       method: GET
       url: "http://127.0.0.1:9190/get"
 YAML
-JUNIT_OUT=$(./apitest run "$JUNIT_DIR/test.yaml" --format junit 2>&1 || true)
+JUNIT_OUT=$(./curlew run "$JUNIT_DIR/test.yaml" --format junit 2>&1 || true)
 if echo "$JUNIT_OUT" | grep -q "<testsuites"; then
   echo "PASS: --format junit emits JUnit XML"
 else
@@ -1427,7 +1427,7 @@ rm -rf "$JUNIT_DIR"
 echo
 
 echo "--- Help text shows junit in --format ---"
-HELP_OUT=$(./apitest --help)
+HELP_OUT=$(./curlew --help)
 echo "$HELP_OUT" | grep -q "junit" && echo "PASS: junit in help" || fail "Missing junit in help"
 echo
 
@@ -1436,7 +1436,7 @@ echo "$HELP_OUT" | grep -q "\-\-report" && echo "PASS: --report in help" || fail
 echo
 
 echo "--- --format html writes an HTML report ---"
-HTML_DIR=$(mktemp -d /tmp/apitest_html_XXXXXX)
+HTML_DIR=$(mktemp -d /tmp/curlew_html_XXXXXX)
 cat > "$HTML_DIR/test.yaml" << 'YAML'
 name: HTML Smoke Test
 requests:
@@ -1446,7 +1446,7 @@ requests:
       url: "http://127.0.0.1:9190/get"
 YAML
 HTML_RC=0
-HTML_OUT=$(./apitest run "$HTML_DIR/test.yaml" --format html --report "$HTML_DIR/report.html" 2>&1) || HTML_RC=$?
+HTML_OUT=$(./curlew run "$HTML_DIR/test.yaml" --format html --report "$HTML_DIR/report.html" 2>&1) || HTML_RC=$?
 if [ "$HTML_RC" -eq 0 ] && [ -s "$HTML_DIR/report.html" ] && grep -q "<html" "$HTML_DIR/report.html"; then
   echo "PASS: --format html wrote an HTML report"
 else
@@ -1461,7 +1461,7 @@ echo "$HELP_OUT" | grep -q "html" && echo "PASS: html in help" || fail "Missing 
 echo
 
 echo "--- --format html without --report shows error ---"
-HTML_NO_REPORT_OUT=$(./apitest run "$HTML_DIR/test.yaml" --format html 2>&1 || true)
+HTML_NO_REPORT_OUT=$(./curlew run "$HTML_DIR/test.yaml" --format html 2>&1 || true)
 if echo "$HTML_NO_REPORT_OUT" | grep -q -- "--report"; then
   echo "PASS: --format html without --report shows helpful error"
 else
@@ -1473,7 +1473,7 @@ rm -rf "$HTML_DIR"
 echo
 
 echo "--- Running GraphQL collection against local fixture ---"
-GQL_FILE=$(mktemp /tmp/apitest_gql_XXXXXX.yaml)
+GQL_FILE=$(mktemp /tmp/curlew_gql_XXXXXX.yaml)
 cat > "$GQL_FILE" << 'YAML'
 name: GraphQL Smoke Test
 requests:
@@ -1485,7 +1485,7 @@ requests:
         query: "query { hello }"
 YAML
 GQL_RC=0
-GQL_OUT=$(./apitest run "$GQL_FILE" 2>&1) || GQL_RC=$?
+GQL_OUT=$(./curlew run "$GQL_FILE" 2>&1) || GQL_RC=$?
 if [ "$GQL_RC" -eq 0 ]; then
   echo "PASS: protocol: graphql executes against local fixture (exit 0)"
 else
@@ -1497,7 +1497,7 @@ rm -f "$GQL_FILE"
 echo
 
 echo "--- GraphQL invalid protocol (expect parse error) ---"
-GQL_BAD_FILE=$(mktemp /tmp/apitest_gql_bad_XXXXXX.yaml)
+GQL_BAD_FILE=$(mktemp /tmp/curlew_gql_bad_XXXXXX.yaml)
 cat > "$GQL_BAD_FILE" << 'YAML'
 name: Bad Protocol Test
 requests:
@@ -1506,7 +1506,7 @@ requests:
       protocol: grpc
       url: "https://example.com/rpc"
 YAML
-GQL_BAD_OUT=$(./apitest run "$GQL_BAD_FILE" 2>&1 || true)
+GQL_BAD_OUT=$(./curlew run "$GQL_BAD_FILE" 2>&1 || true)
 if echo "$GQL_BAD_OUT" | grep -q "unsupported protocol"; then
   echo "PASS: invalid protocol detected"
 else
@@ -1518,7 +1518,7 @@ rm -f "$GQL_BAD_FILE"
 echo
 
 echo "--- GraphQL query_file + fragments ---"
-GQL_DIR=$(mktemp -d /tmp/apitest_gql_files_XXXXXX)
+GQL_DIR=$(mktemp -d /tmp/curlew_gql_files_XXXXXX)
 mkdir -p "$GQL_DIR/graphql/queries" "$GQL_DIR/graphql/fragments"
 cat > "$GQL_DIR/graphql/queries/get_user.graphql" << 'GQL'
 query GetUser {
@@ -1544,7 +1544,7 @@ requests:
           - graphql/fragments/user_fields.graphql
 YAML
 GQL_FILES_RC=0
-GQL_FILES_OUT=$(./apitest run "$GQL_DIR/tests.yaml" 2>&1) || GQL_FILES_RC=$?
+GQL_FILES_OUT=$(./curlew run "$GQL_DIR/tests.yaml" 2>&1) || GQL_FILES_RC=$?
 if [ "$GQL_FILES_RC" -eq 0 ]; then
   echo "PASS: graphql query_file + fragments parsed and executed (exit 0)"
 else
@@ -1558,7 +1558,7 @@ echo
 echo "--- WebSocket protocol executes (expect dial failure against closed port) ---"
 # No live WebSocket server in the hermetic fixture set: a dial failure against
 # a closed localhost port proves the websocket protocol actually executes.
-WS_FILE=$(mktemp /tmp/apitest_ws_XXXXXX.yaml)
+WS_FILE=$(mktemp /tmp/curlew_ws_XXXXXX.yaml)
 cat > "$WS_FILE" << 'YAML'
 name: WebSocket Smoke
 requests:
@@ -1574,7 +1574,7 @@ requests:
           - action: close
             code: 1000
 YAML
-WS_OUT=$(./apitest run "$WS_FILE" 2>&1 || true)
+WS_OUT=$(./curlew run "$WS_FILE" 2>&1 || true)
 if echo "$WS_OUT" | grep -q "websocket dial failed"; then
   echo "PASS: protocol: websocket executes (dial attempted against closed port)"
 else
@@ -1586,7 +1586,7 @@ rm -f "$WS_FILE"
 echo
 
 echo "--- WebSocket invalid action (expect parse error) ---"
-WS_BAD_FILE=$(mktemp /tmp/apitest_ws_bad_XXXXXX.yaml)
+WS_BAD_FILE=$(mktemp /tmp/curlew_ws_bad_XXXXXX.yaml)
 cat > "$WS_BAD_FILE" << 'YAML'
 name: Bad WS
 requests:
@@ -1598,7 +1598,7 @@ requests:
         steps:
           - action: transmute
 YAML
-WS_BAD_OUT=$(./apitest run "$WS_BAD_FILE" 2>&1 || true)
+WS_BAD_OUT=$(./curlew run "$WS_BAD_FILE" 2>&1 || true)
 if echo "$WS_BAD_OUT" | grep -q "unsupported websocket action"; then
   echo "PASS: invalid websocket action detected"
 else
@@ -1610,7 +1610,7 @@ rm -f "$WS_BAD_FILE"
 echo
 
 echo "--- GraphQL error_handling ignore is a valid value ---"
-GQL_IGNORE_FILE=$(mktemp /tmp/apitest_gql_ignore_XXXXXX.yaml)
+GQL_IGNORE_FILE=$(mktemp /tmp/curlew_gql_ignore_XXXXXX.yaml)
 cat > "$GQL_IGNORE_FILE" << 'YAML'
 name: GraphQL Ignore Test
 requests:
@@ -1623,7 +1623,7 @@ requests:
         error_handling: ignore
 YAML
 GQL_IGNORE_RC=0
-GQL_IGNORE_OUT=$(./apitest run "$GQL_IGNORE_FILE" 2>&1) || GQL_IGNORE_RC=$?
+GQL_IGNORE_OUT=$(./curlew run "$GQL_IGNORE_FILE" 2>&1) || GQL_IGNORE_RC=$?
 if [ "$GQL_IGNORE_RC" -eq 0 ]; then
   echo "PASS: error_handling: ignore accepted and executed (exit 0)"
 else
@@ -1635,7 +1635,7 @@ rm -f "$GQL_IGNORE_FILE"
 echo
 
 echo "--- WebSocket reconnect config parses without error ---"
-WS_RECONNECT_FILE=$(mktemp /tmp/apitest_ws_reconnect_XXXXXX.yaml)
+WS_RECONNECT_FILE=$(mktemp /tmp/curlew_ws_reconnect_XXXXXX.yaml)
 cat > "$WS_RECONNECT_FILE" << 'YAML'
 name: WS Reconnect Smoke
 requests:
@@ -1654,13 +1654,13 @@ requests:
             message:
               type: ping
 YAML
-./apitest validate "$WS_RECONNECT_FILE" 2>&1 | head -5 || true
+./curlew validate "$WS_RECONNECT_FILE" 2>&1 | head -5 || true
 rm -f "$WS_RECONNECT_FILE"
 echo "PASS: websocket reconnect config accepted by parser"
 echo
 
 echo "--- WebSocket heartbeat config parses without error ---"
-WS_HB_FILE=$(mktemp /tmp/apitest_ws_hb_XXXXXX.yaml)
+WS_HB_FILE=$(mktemp /tmp/curlew_ws_hb_XXXXXX.yaml)
 cat > "$WS_HB_FILE" << 'YAML'
 name: WS Heartbeat Smoke
 requests:
@@ -1677,13 +1677,13 @@ requests:
             message:
               type: hello
 YAML
-./apitest validate "$WS_HB_FILE" 2>&1 | head -5 || true
+./curlew validate "$WS_HB_FILE" 2>&1 | head -5 || true
 rm -f "$WS_HB_FILE"
 echo "PASS: websocket heartbeat config accepted by parser"
 echo
 
 echo "--- WebSocket URL auto-detection (ws:// scheme) parses as websocket protocol ---"
-WS_AUTO_FILE=$(mktemp /tmp/apitest_ws_auto_XXXXXX.yaml)
+WS_AUTO_FILE=$(mktemp /tmp/curlew_ws_auto_XXXXXX.yaml)
 cat > "$WS_AUTO_FILE" << 'YAML'
 name: WS AutoDetect Smoke
 requests:
@@ -1696,7 +1696,7 @@ requests:
             message:
               type: ping
 YAML
-WS_AUTO_OUT=$(./apitest run "$WS_AUTO_FILE" 2>&1 || true)
+WS_AUTO_OUT=$(./curlew run "$WS_AUTO_FILE" 2>&1 || true)
 if echo "$WS_AUTO_OUT" | grep -q "websocket dial failed"; then
   echo "PASS: ws:// URL auto-detected as websocket (dial attempted against closed port)"
 else
@@ -1711,7 +1711,7 @@ echo "--- Discovery: glob runs matching collections ---"
 # testdata/discovery points at httpbin.org as user-facing documentation; run
 # a hermetic copy rewritten to the local fixture so smoke never hits the
 # public internet.
-DISC_DIR=$(mktemp -d /tmp/apitest_disc_XXXXXX)
+DISC_DIR=$(mktemp -d /tmp/curlew_disc_XXXXXX)
 mkdir -p "$DISC_DIR/sub"
 for f in a_test.yaml b_test.yaml ignore.yaml; do
   sed "s|https://httpbin.org|$SMOKE_HTTPBIN_URL|g" "testdata/discovery/$f" > "$DISC_DIR/$f"
@@ -1719,7 +1719,7 @@ done
 sed "s|https://httpbin.org|$SMOKE_HTTPBIN_URL|g" testdata/discovery/sub/c_test.yaml > "$DISC_DIR/sub/c_test.yaml"
 # Glob patterns must be relative — run from inside the temp dir.
 DISC_RC=0
-DISC_OUT=$(cd "$DISC_DIR" && "$PROJECT_ROOT/apitest" run "**/*_test.yaml" 2>&1) || DISC_RC=$?
+DISC_OUT=$(cd "$DISC_DIR" && "$PROJECT_ROOT/curlew" run "**/*_test.yaml" 2>&1) || DISC_RC=$?
 if [ "$DISC_RC" -ne 0 ]; then
   echo "FAIL: discovery glob run exited $DISC_RC, got: $DISC_OUT"
   rm -rf "$DISC_DIR"
@@ -1737,13 +1737,13 @@ rm -rf "$DISC_DIR"
 echo
 
 echo "--- Discovery: literal path (no glob, expect exit 3 file-not-found) ---"
-./apitest run "testdata/discovery/nonexistent.yaml" 2>&1 || true
+./curlew run "testdata/discovery/nonexistent.yaml" 2>&1 || true
 echo "PASS: literal path bypasses discovery (exit 3)"
 echo
 
 echo "--- Include directive: merges included requests ---"
-INC_PARENT=$(mktemp /tmp/apitest_inc_parent_XXXXXX.yaml)
-INC_SHARED_DIR=$(mktemp -d /tmp/apitest_inc_shared_XXXXXX)
+INC_PARENT=$(mktemp /tmp/curlew_inc_parent_XXXXXX.yaml)
+INC_SHARED_DIR=$(mktemp -d /tmp/curlew_inc_shared_XXXXXX)
 INC_CHILD="$INC_SHARED_DIR/auth.yaml"
 cat > "$INC_CHILD" << 'YAML'
 name: Shared Auth
@@ -1766,7 +1766,7 @@ requests:
       url: http://127.0.0.1:9190/get
 YAML
 INC_RC=0
-INC_OUT=$(./apitest run "$INC_PARENT" 2>&1) || INC_RC=$?
+INC_OUT=$(./curlew run "$INC_PARENT" 2>&1) || INC_RC=$?
 if [ "$INC_RC" -ne 0 ]; then
   echo "FAIL: include directive run exited $INC_RC, got: $INC_OUT"
   rm -f "$INC_PARENT"
@@ -1780,10 +1780,10 @@ rm -f "$INC_PARENT"
 rm -rf "$INC_SHARED_DIR"
 echo
 
-# --- M3-005: apitest import openapi ---
+# --- M3-005: curlew import openapi ---
 echo "--- Import OpenAPI ---"
-mkdir -p /tmp/apitest-smoke-openapi
-cat > /tmp/apitest-smoke-openapi/petstore.yaml <<'OAI'
+mkdir -p /tmp/curlew-smoke-openapi
+cat > /tmp/curlew-smoke-openapi/petstore.yaml <<'OAI'
 openapi: 3.0.3
 info:
   title: Petstore
@@ -1810,18 +1810,18 @@ paths:
           description: OK
 OAI
 
-./apitest import openapi /tmp/apitest-smoke-openapi/petstore.yaml \
-    --output /tmp/apitest-smoke-openapi/generated.yaml \
+./curlew import openapi /tmp/curlew-smoke-openapi/petstore.yaml \
+    --output /tmp/curlew-smoke-openapi/generated.yaml \
   && echo "PASS: import openapi writes file" \
   || fail "import openapi failed"
 
-./apitest validate /tmp/apitest-smoke-openapi/generated.yaml \
+./curlew validate /tmp/curlew-smoke-openapi/generated.yaml \
   && echo "PASS: generated collection validates" \
   || fail "generated collection failed to validate"
 
 # --- M3-006: headers, request bodies, and status assertions ---
 echo "--- Import OpenAPI with headers/body/status (M3-006) ---"
-cat > /tmp/apitest-smoke-openapi/petstore-full.yaml <<'OAI'
+cat > /tmp/curlew-smoke-openapi/petstore-full.yaml <<'OAI'
 openapi: 3.0.3
 info:
   title: Petstore Full
@@ -1853,33 +1853,33 @@ paths:
         '404': { description: Not found }
 OAI
 
-./apitest import openapi /tmp/apitest-smoke-openapi/petstore-full.yaml \
-    --output /tmp/apitest-smoke-openapi/full-generated.yaml \
+./curlew import openapi /tmp/curlew-smoke-openapi/petstore-full.yaml \
+    --output /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: import openapi full spec writes file" \
   || fail "import openapi full spec failed"
 
-grep -q "X-API-Key" /tmp/apitest-smoke-openapi/full-generated.yaml \
+grep -q "X-API-Key" /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains X-API-Key header" \
   || fail "missing X-API-Key header in generated collection"
 
-grep -q "body:" /tmp/apitest-smoke-openapi/full-generated.yaml \
-  && grep -q "name: string" /tmp/apitest-smoke-openapi/full-generated.yaml \
+grep -q "body:" /tmp/curlew-smoke-openapi/full-generated.yaml \
+  && grep -q "name: string" /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains request body" \
   || fail "missing request body in generated collection"
 
-grep -q "status:" /tmp/apitest-smoke-openapi/full-generated.yaml \
+grep -q "status:" /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains status assertions" \
   || fail "missing status assertions in generated collection"
 
-./apitest validate /tmp/apitest-smoke-openapi/full-generated.yaml \
+./curlew validate /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: full generated collection validates" \
   || fail "full generated collection failed to validate"
 
-rm -rf /tmp/apitest-smoke-openapi
+rm -rf /tmp/curlew-smoke-openapi
 echo
 
 echo "=== Shared vault template (M4-002) ==="
-echo "--- Run with APITEST_TEAM_CONFIG + stub ---"
+echo "--- Run with CURLEW_TEAM_CONFIG + stub ---"
 SMOKE_SRV_PORT=8099
 python3 -m http.server $SMOKE_SRV_PORT --bind 127.0.0.1 > /dev/null 2>&1 &
 SMOKE_SRV_PID=$!
@@ -1890,13 +1890,13 @@ cleanup_smoke_srv() {
 }
 trap cleanup_smoke_srv EXIT
 
-export APITEST_TEAM_CONFIG=testdata/team/shared-vault-template.yaml
-export APITEST_VAULT_STUB=1
+export CURLEW_TEAM_CONFIG=testdata/team/shared-vault-template.yaml
+export CURLEW_VAULT_STUB=1
 
-SMOKE_OUT=$(./apitest run testdata/team/uses-team-vault.yaml --env production 2>&1)
+SMOKE_OUT=$(./curlew run testdata/team/uses-team-vault.yaml --env production 2>&1)
 SMOKE_RC=$?
 
-unset APITEST_TEAM_CONFIG APITEST_VAULT_STUB
+unset CURLEW_TEAM_CONFIG CURLEW_VAULT_STUB
 kill "$SMOKE_SRV_PID" 2>/dev/null || true
 trap - EXIT
 
@@ -1915,9 +1915,9 @@ echo "$SMOKE_OUT" | grep -q "Resolved 2 secrets from shared template (production
 echo
 
 echo "=== PR check dry-run (M4-007) ==="
-SMOKE_OUT=$(APITEST_BACKEND_URL=http://localhost:99999 \
-  APITEST_BACKEND_TOKEN=fake-token \
-  ./apitest pr-check \
+SMOKE_OUT=$(CURLEW_BACKEND_URL=http://localhost:99999 \
+  CURLEW_BACKEND_TOKEN=fake-token \
+  ./curlew pr-check \
     --org acme \
     --pr 42 \
     --repo acme/api \
@@ -1938,8 +1938,8 @@ echo "$SMOKE_OUT" | grep -q '"collection_name"' \
 echo
 
 echo "=== Worker --help (M5-009) ==="
-WORKER_HELP=$(./apitest worker --help 2>&1)
-echo "$WORKER_HELP" | grep -q "Usage: apitest worker" \
+WORKER_HELP=$(./curlew worker --help 2>&1)
+echo "$WORKER_HELP" | grep -q "Usage: curlew worker" \
   || fail "worker --help missing expected usage line" "$WORKER_HELP"
 echo "PASS: worker --help shows usage"
 
@@ -1948,7 +1948,7 @@ echo
 echo "=== Run --workers (M5-010) ==="
 
 # --help mentions --workers and --coordinator-url
-RUN_HELP=$(./apitest --help 2>&1)
+RUN_HELP=$(./curlew --help 2>&1)
 echo "$RUN_HELP" | grep -q -- "--workers" \
   || fail "--help missing --workers" "$RUN_HELP"
 echo "PASS: --help documents --workers"
@@ -1959,7 +1959,7 @@ echo "PASS: --help documents --coordinator-url"
 
 # --workers with no coordinator URL → exit 2
 # Use a minimal collection file (same one used below)
-WORKERS_COL="/tmp/apitest_workers_smoke_$$.yaml"
+WORKERS_COL="/tmp/curlew_workers_smoke_$$.yaml"
 cat > "$WORKERS_COL" << 'YAML'
 name: workers-smoke
 requests:
@@ -1970,37 +1970,37 @@ requests:
 YAML
 
 SMOKE_RC=0
-unset APITEST_COORDINATOR_URL
-APITEST_BACKEND_TOKEN=tok ./apitest run "$WORKERS_COL" --workers 4 --org acme > /dev/null 2>/tmp/apitest_workers_err_$$.txt || SMOKE_RC=$?
+unset CURLEW_COORDINATOR_URL
+CURLEW_BACKEND_TOKEN=tok ./curlew run "$WORKERS_COL" --workers 4 --org acme > /dev/null 2>/tmp/curlew_workers_err_$$.txt || SMOKE_RC=$?
 if [ "$SMOKE_RC" -eq 2 ]; then
-  echo "PASS: --workers without APITEST_COORDINATOR_URL exits 2"
+  echo "PASS: --workers without CURLEW_COORDINATOR_URL exits 2"
 else
-  echo "FAIL: --workers without APITEST_COORDINATOR_URL exited $SMOKE_RC (expected 2)"
-  cat /tmp/apitest_workers_err_$$.txt
-  rm -f "$WORKERS_COL" /tmp/apitest_workers_err_$$.txt
+  echo "FAIL: --workers without CURLEW_COORDINATOR_URL exited $SMOKE_RC (expected 2)"
+  cat /tmp/curlew_workers_err_$$.txt
+  rm -f "$WORKERS_COL" /tmp/curlew_workers_err_$$.txt
   exit 1
 fi
-grep -q "APITEST_COORDINATOR_URL" /tmp/apitest_workers_err_$$.txt \
-  || { echo "FAIL: error message missing APITEST_COORDINATOR_URL"; cat /tmp/apitest_workers_err_$$.txt; exit 1; }
-echo "PASS: error message mentions APITEST_COORDINATOR_URL"
+grep -q "CURLEW_COORDINATOR_URL" /tmp/curlew_workers_err_$$.txt \
+  || { echo "FAIL: error message missing CURLEW_COORDINATOR_URL"; cat /tmp/curlew_workers_err_$$.txt; exit 1; }
+echo "PASS: error message mentions CURLEW_COORDINATOR_URL"
 
 # --workers 1 warns and falls back (no coordinator needed)
 # Use a minimal always-passing collection — point at an unreachable host.
 # We only care about the warning message on stderr; the run itself will likely exit non-zero
 # because the URL is unreachable, which is fine.
 SMOKE_RC=0
-SMOKE_WARN_OUT=$(./apitest run "$WORKERS_COL" --workers 1 2>&1) || SMOKE_RC=$?
+SMOKE_WARN_OUT=$(./curlew run "$WORKERS_COL" --workers 1 2>&1) || SMOKE_RC=$?
 echo "$SMOKE_WARN_OUT" | grep -q "falling back to local" \
   || fail "--workers 1 missing fallback warning; got: $SMOKE_WARN_OUT"
 echo "PASS: --workers 1 warns and falls back to local"
 
-rm -f "$WORKERS_COL" /tmp/apitest_workers_err_$$.txt
+rm -f "$WORKERS_COL" /tmp/curlew_workers_err_$$.txt
 
 echo
 
 echo "=== Perf --help (M5-011) ==="
-PERF_HELP=$(./apitest perf --help 2>&1)
-echo "$PERF_HELP" | grep -q "Usage: apitest perf" \
+PERF_HELP=$(./curlew perf --help 2>&1)
+echo "$PERF_HELP" | grep -q "Usage: curlew perf" \
   || fail "perf --help missing usage line" "$PERF_HELP"
 echo "$PERF_HELP" | grep -q -- "--vus" \
   || fail "perf --help missing --vus"
@@ -2016,18 +2016,18 @@ echo "PASS: perf --help documents all expected flags"
 
 # Invalid --vus -> exit 2
 SMOKE_RC=0
-./apitest perf testdata/perf/sample-request.yaml \
-  --vus 0 --duration 1s > /dev/null 2>/tmp/apitest_perf_err_$$.txt || SMOKE_RC=$?
+./curlew perf testdata/perf/sample-request.yaml \
+  --vus 0 --duration 1s > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
 [ "$SMOKE_RC" -eq 2 ] && echo "PASS: --vus 0 exits 2" \
-  || { echo "FAIL: --vus 0 exited $SMOKE_RC (want 2)"; cat /tmp/apitest_perf_err_$$.txt; exit 1; }
-rm -f /tmp/apitest_perf_err_$$.txt
+  || { echo "FAIL: --vus 0 exited $SMOKE_RC (want 2)"; cat /tmp/curlew_perf_err_$$.txt; exit 1; }
+rm -f /tmp/curlew_perf_err_$$.txt
 
 # End-to-end: start a minimal HTTP server, run perf 1s against it.
-PERF_COL="/tmp/apitest_perf_smoke_$$.yaml"
+PERF_COL="/tmp/curlew_perf_smoke_$$.yaml"
 # Spin up a Go HTTP echo server inline using a helper script.
 # Use python3 if available, otherwise skip the end-to-end block.
 if command -v python3 >/dev/null 2>&1; then
-  python3 -m http.server 18765 --bind 127.0.0.1 >/tmp/apitest_perf_http_$$.log 2>&1 &
+  python3 -m http.server 18765 --bind 127.0.0.1 >/tmp/curlew_perf_http_$$.log 2>&1 &
   PERF_PID=$!
   # Give the server a moment to start.
   sleep 0.5
@@ -2040,7 +2040,7 @@ request:
 YAML
 
   SMOKE_RC=0
-  PERF_OUT=$(./apitest perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
+  PERF_OUT=$(./curlew perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
   echo "$PERF_OUT" | grep -q "Load test: 2 virtual users" \
     && echo "PASS: perf prints header" \
     || { echo "FAIL: perf header"; echo "$PERF_OUT"; kill "$PERF_PID" 2>/dev/null; exit 1; }
@@ -2049,40 +2049,40 @@ YAML
     || { echo "FAIL: perf summary missing"; kill "$PERF_PID" 2>/dev/null; exit 1; }
 
   # M5-012: --output json report
-  PERF_JSON="/tmp/apitest_perf_report_$$.json"
+  PERF_JSON="/tmp/curlew_perf_report_$$.json"
   SMOKE_RC=0
-  ./apitest perf "$PERF_COL" --vus 2 --duration 1s \
-    --output "$PERF_JSON" > /tmp/apitest_perf_stdout_$$.log 2>&1 || SMOKE_RC=$?
-  grep -q "Results: requests=" /tmp/apitest_perf_stdout_$$.log \
+  ./curlew perf "$PERF_COL" --vus 2 --duration 1s \
+    --output "$PERF_JSON" > /tmp/curlew_perf_stdout_$$.log 2>&1 || SMOKE_RC=$?
+  grep -q "Results: requests=" /tmp/curlew_perf_stdout_$$.log \
     && echo "PASS: perf --output json prints summary line" \
-    || { echo "FAIL: missing Results line"; cat /tmp/apitest_perf_stdout_$$.log; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: missing Results line"; cat /tmp/curlew_perf_stdout_$$.log; kill "$PERF_PID" 2>/dev/null; exit 1; }
   [ -s "$PERF_JSON" ] && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$PERF_JSON" \
     && echo "PASS: perf --output json produces valid JSON" \
     || { echo "FAIL: invalid or empty JSON"; cat "$PERF_JSON"; kill "$PERF_PID" 2>/dev/null; exit 1; }
-  rm -f "$PERF_JSON" /tmp/apitest_perf_stdout_$$.log
+  rm -f "$PERF_JSON" /tmp/curlew_perf_stdout_$$.log
 
   # M5-012: --output html report
-  PERF_HTML="/tmp/apitest_perf_report_$$.html"
-  ./apitest perf "$PERF_COL" --vus 2 --duration 1s \
+  PERF_HTML="/tmp/curlew_perf_report_$$.html"
+  ./curlew perf "$PERF_COL" --vus 2 --duration 1s \
     --output "$PERF_HTML" > /dev/null 2>&1
-  grep -q "<title>apitest perf report</title>" "$PERF_HTML" \
+  grep -q "<title>curlew perf report</title>" "$PERF_HTML" \
     && echo "PASS: perf --output html wrote expected title" \
     || { echo "FAIL: perf html missing title"; kill "$PERF_PID" 2>/dev/null; exit 1; }
   rm -f "$PERF_HTML"
 
   # M5-012: unsupported extension -> exit 2
   SMOKE_RC=0
-  ./apitest perf "$PERF_COL" --vus 1 --duration 200ms \
-    --output "/tmp/x_smoke_$$.xyz" > /dev/null 2>/tmp/apitest_perf_err_$$.txt || SMOKE_RC=$?
+  ./curlew perf "$PERF_COL" --vus 1 --duration 200ms \
+    --output "/tmp/x_smoke_$$.xyz" > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
   [ "$SMOKE_RC" -eq 2 ] && echo "PASS: unsupported extension exits 2" \
-    || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/apitest_perf_err_$$.txt; kill "$PERF_PID" 2>/dev/null; exit 1; }
-  grep -qi "unsupported report format" /tmp/apitest_perf_err_$$.txt \
+    || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/curlew_perf_err_$$.txt; kill "$PERF_PID" 2>/dev/null; exit 1; }
+  grep -qi "unsupported report format" /tmp/curlew_perf_err_$$.txt \
     && echo "PASS: stderr mentions unsupported format" \
-    || { echo "FAIL: stderr missing message"; cat /tmp/apitest_perf_err_$$.txt; kill "$PERF_PID" 2>/dev/null; exit 1; }
-  rm -f /tmp/apitest_perf_err_$$.txt
+    || { echo "FAIL: stderr missing message"; cat /tmp/curlew_perf_err_$$.txt; kill "$PERF_PID" 2>/dev/null; exit 1; }
+  rm -f /tmp/curlew_perf_err_$$.txt
 
   kill "$PERF_PID" 2>/dev/null || true
-  rm -f "$PERF_COL" /tmp/apitest_perf_http_$$.log
+  rm -f "$PERF_COL" /tmp/curlew_perf_http_$$.log
 else
   echo "SKIP: python3 not available; skipping perf end-to-end test"
 fi
@@ -2092,7 +2092,7 @@ echo
 echo "=== Report Upload flag validation (M4-012) ==="
 
 # Create a minimal collection file for flag validation tests (use PID to ensure unique name)
-MINIMAL_COL="/tmp/apitest_report_upload_smoke_$$.yaml"
+MINIMAL_COL="/tmp/curlew_report_upload_smoke_$$.yaml"
 cat > "$MINIMAL_COL" << 'YAML'
 name: minimal-smoke
 requests:
@@ -2106,7 +2106,7 @@ YAML
 
 # --report-upload without --org must return exit 1 with "org is required" message
 SMOKE_RC=0
-SMOKE_OUT=$(./apitest run "$MINIMAL_COL" --report-upload 2>&1) || SMOKE_RC=$?
+SMOKE_OUT=$(./curlew run "$MINIMAL_COL" --report-upload 2>&1) || SMOKE_RC=$?
 if [ "$SMOKE_RC" -eq 1 ]; then
   echo "PASS: --report-upload without --org exits 1"
 else
@@ -2124,11 +2124,11 @@ echo
 
 echo "=== Stack idempotency (M4-012) ==="
 
-if [ "${APITEST_MANAGE_STACK:-0}" = "1" ]; then
+if [ "${CURLEW_MANAGE_STACK:-0}" = "1" ]; then
   echo "--- Stack: up → count orgs → up again → count orgs (must be equal) ---"
   STACK_SCRIPT="$PROJECT_ROOT/scripts/test-stack.sh"
   STACK_TOKEN=$("$PROJECT_ROOT/scripts/test-token.sh" owner@example.com)
-  BACKEND_URL="${APITEST_BACKEND_URL:-http://localhost:5000}"
+  BACKEND_URL="${CURLEW_BACKEND_URL:-http://localhost:5000}"
 
   "$STACK_SCRIPT" up
   COUNT_BEFORE=$(curl -sS -H "Authorization: Bearer $STACK_TOKEN" "$BACKEND_URL/api/v1/organizations" \
@@ -2147,32 +2147,32 @@ if [ "${APITEST_MANAGE_STACK:-0}" = "1" ]; then
   "$STACK_SCRIPT" down
   echo "PASS: stack down completed"
 else
-  echo "SKIP: stack idempotency test (set APITEST_MANAGE_STACK=1 with a running docker-compose stack to run)"
+  echo "SKIP: stack idempotency test (set CURLEW_MANAGE_STACK=1 with a running docker-compose stack to run)"
 fi
 echo
 
 echo "=== Plugins (M5-017) ==="
 
-PLUGIN_DIR=$(mktemp -d /tmp/apitest_plugins_XXXXXX)
+PLUGIN_DIR=$(mktemp -d /tmp/curlew_plugins_XXXXXX)
 
 echo "--- Building hello-plugin fixture ---"
 go build -o "$PLUGIN_DIR/hello-plugin" ./testdata/plugins/hello-plugin
 echo "Build: OK"
 
 echo "--- Single plugin ---"
-OUT=$(APITEST_PLUGINS="$PLUGIN_DIR/hello-plugin" ./apitest plugins list)
+OUT=$(CURLEW_PLUGINS="$PLUGIN_DIR/hello-plugin" ./curlew plugins list)
 echo "$OUT" | grep -q "hello-plugin" \
   && echo "PASS: single plugin listed" || fail "single plugin — $OUT"
 echo "$OUT" | grep -q "0.1.0" \
   && echo "PASS: version correct" || fail "version — $OUT"
 
 echo "--- Directory of plugins ---"
-OUT=$(APITEST_PLUGINS="$PLUGIN_DIR" ./apitest plugins list)
+OUT=$(CURLEW_PLUGINS="$PLUGIN_DIR" ./curlew plugins list)
 echo "$OUT" | grep -q "hello-plugin" \
   && echo "PASS: directory expanded" || fail "directory — $OUT"
 
 echo "--- Missing path exits 2 ---"
-if APITEST_PLUGINS="/does/not/exist/plugin" ./apitest plugins list 2>/dev/null; then
+if CURLEW_PLUGINS="/does/not/exist/plugin" ./curlew plugins list 2>/dev/null; then
   echo "FAIL: should have exited 2"
   rm -rf "$PLUGIN_DIR"
   exit 1
@@ -2181,7 +2181,7 @@ else
 fi
 
 echo "--- Empty env exits 0 with header ---"
-OUT=$(APITEST_PLUGINS="" ./apitest plugins list)
+OUT=$(CURLEW_PLUGINS="" ./curlew plugins list)
 echo "$OUT" | grep -q "NAME" \
   && echo "PASS: header printed for empty env" || fail "no header — $OUT"
 
@@ -2190,12 +2190,12 @@ echo
 
 echo "=== Plugin hooks (M5-018) ==="
 
-HOOK_DIR=$(mktemp -d /tmp/apitest_hooklog_XXXXXX)
+HOOK_DIR=$(mktemp -d /tmp/curlew_hooklog_XXXXXX)
 echo "--- Building hooklog-plugin fixture ---"
 go build -o "$HOOK_DIR/hooklog" ./testdata/plugins/hooklog-plugin
 echo "Build: OK"
 
-SMOKE_COLL=$(mktemp /tmp/apitest_hooklog_coll_XXXXXX.yaml)
+SMOKE_COLL=$(mktemp /tmp/curlew_hooklog_coll_XXXXXX.yaml)
 cat > "$SMOKE_COLL" <<'YAML'
 name: Hooklog smoke
 requests:
@@ -2208,7 +2208,7 @@ requests:
 YAML
 
 echo "--- Run with hooklog plugin ---"
-OUT=$(APITEST_PLUGINS="$HOOK_DIR/hooklog" ./apitest run "$SMOKE_COLL" 2>&1) || true
+OUT=$(CURLEW_PLUGINS="$HOOK_DIR/hooklog" ./curlew run "$SMOKE_COLL" 2>&1) || true
 echo "$OUT" | grep -q "on_request" \
   && echo "PASS: on_request hook fired" || { echo "FAIL: no on_request line — $OUT"; rm -rf "$HOOK_DIR" "$SMOKE_COLL"; exit 1; }
 echo "$OUT" | grep -q "on_response" \
@@ -2221,7 +2221,7 @@ echo
 
 echo "=== Example plugin: datadog-metrics (M5-019) ==="
 
-DD_BUILD_DIR=$(mktemp -d /tmp/apitest_ddplugin_XXXXXX)
+DD_BUILD_DIR=$(mktemp -d /tmp/curlew_ddplugin_XXXXXX)
 echo "--- Building datadog-metrics example ---"
 (cd "$PROJECT_ROOT/examples/plugins/datadog-metrics" && go build -o "$DD_BUILD_DIR/datadog-metrics" .)
 echo "Build: OK"
@@ -2244,7 +2244,7 @@ echo
 
 echo "=== body_file / body_binary_file (external-file request bodies) ==="
 
-BF_DIR=$(mktemp -d /tmp/apitest_body_file_XXXXXX)
+BF_DIR=$(mktemp -d /tmp/curlew_body_file_XXXXXX)
 
 echo "--- Running collection with body_file (text + interpolation) ---"
 cat > "$BF_DIR/payload.json" << 'JSON'
@@ -2268,7 +2268,7 @@ requests:
         $.json.records[0].name:
           equals: "Alice"
 YAML
-./apitest run "$BF_DIR/collection.yaml" --var batch_id=B-smoke-123 \
+./curlew run "$BF_DIR/collection.yaml" --var batch_id=B-smoke-123 \
   && echo "PASS: body_file round-tripped with Content-Type auto-detect and variable interpolation" \
   || { echo "FAIL: body_file smoke"; rm -rf "$BF_DIR"; exit 1; }
 
@@ -2291,7 +2291,7 @@ requests:
         $.headers.Content-Type:
           equals: "application/octet-stream"
 YAML
-./apitest run "$BF_DIR/binary.yaml" \
+./curlew run "$BF_DIR/binary.yaml" \
   && echo "PASS: body_binary_file uploaded and server accepted" \
   || { echo "FAIL: body_binary_file smoke"; rm -rf "$BF_DIR"; exit 1; }
 
@@ -2305,7 +2305,7 @@ requests:
       url: "https://example.com/"
       body_file: "does_not_exist.json"
 YAML
-./apitest validate "$BF_DIR/missing.yaml" && { echo "FAIL: should have rejected"; rm -rf "$BF_DIR"; exit 1; } \
+./curlew validate "$BF_DIR/missing.yaml" && { echo "FAIL: should have rejected"; rm -rf "$BF_DIR"; exit 1; } \
   || echo "PASS: validate rejected missing body_file with exit $?"
 
 echo "--- mutual exclusion: body + body_file fails (expect non-zero exit) ---"
@@ -2319,15 +2319,15 @@ requests:
       body: { inline: "yes" }
       body_file: "payload.json"
 YAML
-./apitest validate "$BF_DIR/conflict.yaml" && { echo "FAIL: should have rejected"; rm -rf "$BF_DIR"; exit 1; } \
+./curlew validate "$BF_DIR/conflict.yaml" && { echo "FAIL: should have rejected"; rm -rf "$BF_DIR"; exit 1; } \
   || echo "PASS: validate rejected body/body_file conflict"
 
 rm -rf "$BF_DIR"
 echo
 
 echo "--- Events NDJSON stream (--events happy path) ---"
-EVENTS_COL=$(mktemp /tmp/apitest_events_col_XXXXXX.yaml)
-EVENTS_OUT=$(mktemp /tmp/apitest_events_out_XXXXXX.jsonl)
+EVENTS_COL=$(mktemp /tmp/curlew_events_col_XXXXXX.yaml)
+EVENTS_OUT=$(mktemp /tmp/curlew_events_out_XXXXXX.jsonl)
 cat > "$EVENTS_COL" << 'YAML'
 name: events-smoke
 requests:
@@ -2338,7 +2338,7 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$EVENTS_COL" --events "$EVENTS_OUT"
+./curlew run "$EVENTS_COL" --events "$EVENTS_OUT"
 HEAD_KIND=$(head -n 1 "$EVENTS_OUT" | jq -r .kind)
 TAIL_KIND=$(tail -n 1 "$EVENTS_OUT" | jq -r .kind)
 LINE_COUNT=$(wc -l < "$EVENTS_OUT" | tr -d ' ')
@@ -2367,7 +2367,7 @@ requests:
         access_key: "{{aws_key}}"
         secret_key: "{{aws_secret}}"
 YAML
-AUTH=$(./apitest run "$SIG_DIR/sigv4.yaml" \
+AUTH=$(./curlew run "$SIG_DIR/sigv4.yaml" \
     --var aws_key=AKIDEXAMPLE \
     --var aws_secret=wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY \
     --allow-sensitive \
@@ -2395,7 +2395,7 @@ requests:
         consumer_key: "{{ck}}"
         consumer_secret: "{{cs}}"
 YAML
-AUTH=$(./apitest run "$OAUTH1_DIR/oauth1.yaml" \
+AUTH=$(./curlew run "$OAUTH1_DIR/oauth1.yaml" \
     --var ck=dpf43f3p2l4k3l03 \
     --var cs=kd94hf93k423kf44 \
     --allow-sensitive \
@@ -2425,7 +2425,7 @@ requests:
         X-Stripe-Signature: "{{$webhookSign.stripe('{{payload}}','{{stripe_signing_secret}}','1492774577')}}"
       body: "{{payload}}"
 YAML
-WHSIG_OUT=$(./apitest run "$WHSIG_DIR/stripe.yaml" \
+WHSIG_OUT=$(./curlew run "$WHSIG_DIR/stripe.yaml" \
     --var payload='{"amount":1000}' \
     --var stripe_signing_secret=whsec_supersecret_donot_leak \
     --allow-sensitive \
@@ -2435,7 +2435,7 @@ echo "$WHSIG_HDR" | grep -q 't=1492774577,v1=' \
     && echo "PASS: Stripe-Signature t=...,v1=... header rendered" \
     || { echo "FAIL: missing t=...,v1=... shape; got: $WHSIG_HDR" ; kill "$WHSIG_SRV_PID" 2>/dev/null || true ; rm -rf "$WHSIG_DIR" ; exit 1 ; }
 # Without --allow-sensitive, the secret value must not appear in JSON output.
-WHSIG_NOALLOW=$(./apitest run "$WHSIG_DIR/stripe.yaml" \
+WHSIG_NOALLOW=$(./curlew run "$WHSIG_DIR/stripe.yaml" \
     --var payload='{"amount":1000}' \
     --var stripe_signing_secret=whsec_supersecret_donot_leak \
     -v --format json 2>/dev/null)
@@ -2472,7 +2472,7 @@ requests:
         X-Token-Claims: "{{$jwtDecodeClaims('JWT_TOKEN_PLACEHOLDER')}}"
 YAML
 sed -i '' "s/JWT_TOKEN_PLACEHOLDER/${JWT_TOKEN}/g" "$JWT_DIR/jwt.yaml"
-JWT_OUT=$(./apitest run "$JWT_DIR/jwt.yaml" -v --format json 2>/dev/null)
+JWT_OUT=$(./curlew run "$JWT_DIR/jwt.yaml" -v --format json 2>/dev/null)
 # Extract the rendered header values from the JSON output.
 JWT_HDR_JSON=$(echo "$JWT_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['requests'][0].get('request_headers',{}).get('X-Token-Header','MISSING'))" 2>/dev/null || echo "MISSING")
 JWT_CLAIMS_JSON=$(echo "$JWT_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['requests'][0].get('request_headers',{}).get('X-Token-Claims','MISSING'))" 2>/dev/null || echo "MISSING")
@@ -2491,14 +2491,14 @@ rm -rf "$JWT_DIR"
 echo
 
 # ── Backend FileKeyProvider boot probe (M14-001) ─────────────────────────
-# Gated behind APITEST_RUN_BACKEND_SMOKE=1 — default off until M14 stabilises.
-if [ "${APITEST_RUN_BACKEND_SMOKE:-}" = "1" ]; then
+# Gated behind CURLEW_RUN_BACKEND_SMOKE=1 — default off until M14 stabilises.
+if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
   echo "--- Backend FileKeyProvider boot probe (M14-001) ---"
-  TMPKEYS=$(mktemp -d /tmp/apitest_keys_XXXXXX)
+  TMPKEYS=$(mktemp -d /tmp/curlew_keys_XXXXXX)
   ASPNETCORE_ENVIRONMENT=Testing \
-    ApiTool__KeyProvider__Mode=file \
-    ApiTool__KeyProvider__Env=smoke \
-    ApiTool__KeyProvider__File__Dir="$TMPKEYS" \
+    Curlew__KeyProvider__Mode=file \
+    Curlew__KeyProvider__Env=smoke \
+    Curlew__KeyProvider__File__Dir="$TMPKEYS" \
     dotnet run --project "$PROJECT_ROOT/src/ApiTool.Backend" --no-build &
   BACKEND_PID=$!
   # shellcheck disable=SC2064
@@ -2532,14 +2532,14 @@ fi
 
 # ── Login Help (M14-005) ──────────────────────────────────────────────────
 echo "=== Login Help (M14-005) ==="
-LOGIN_HELP=$(./apitest login --help)
+LOGIN_HELP=$(./curlew login --help)
 echo "$LOGIN_HELP" | grep -q -- "--no-browser" \
   && echo "PASS: login help mentions --no-browser" \
   || fail "login help missing --no-browser"
 echo "$LOGIN_HELP" | grep -qi "device" \
   && echo "PASS: login help describes device-code UX" \
   || fail "login help missing device-code description"
-LOGIN_TOP=$(./apitest --help)
+LOGIN_TOP=$(./curlew --help)
 echo "$LOGIN_TOP" | grep -q "^  login" \
   && echo "PASS: top-level help lists login" \
   || fail "login missing from top-level help"
@@ -2547,7 +2547,7 @@ echo
 
 # ── Schedule Pull Help (M16-011) ──────────────────────────────────────────────
 echo "=== Schedule Pull Help (M16-011) ==="
-SCHED_HELP=$(./apitest worker --help 2>&1)
+SCHED_HELP=$(./curlew worker --help 2>&1)
 if echo "$SCHED_HELP" | grep -q -- "--schedule-pull"; then
   echo "PASS: worker --help documents --schedule-pull"
 else
@@ -2559,7 +2559,7 @@ echo
 
 # ── M19-001: if: conditional gate ─────────────────────────────────────────────
 echo "=== M19-001: if: conditional gate ==="
-IF_OUTPUT=$(./apitest run smoke/fixtures/if_conditional.yaml --output terminal 2>&1)
+IF_OUTPUT=$(./curlew run smoke/fixtures/if_conditional.yaml --output terminal 2>&1)
 echo "$IF_OUTPUT"
 if echo "$IF_OUTPUT" | grep -q "SKIPPED.*confirm-pending-order"; then
   echo "PASS: confirm-pending-order rendered as SKIPPED"
@@ -2587,7 +2587,7 @@ cleanup_cel_srv() { kill "$CEL_SRV_PID" 2>/dev/null || true; }
 trap cleanup_cel_srv EXIT
 
 CEL_RC=0
-CEL_OUTPUT=$(./apitest run smoke/fixtures/cel_assertions.yaml --output terminal 2>&1) || CEL_RC=$?
+CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --output terminal 2>&1) || CEL_RC=$?
 kill "$CEL_SRV_PID" 2>/dev/null || true
 trap - EXIT
 
@@ -2605,9 +2605,9 @@ fi
 echo "PASS: failure message includes the expression source"
 echo
 
-# ── M19-005: apitest validate CEL parse/type-check ────────────────────────────
-echo "=== M19-005: apitest validate CEL ==="
-GOOD_OUT=$(./apitest validate smoke/fixtures/cel_validate_good.yaml 2>&1)
+# ── M19-005: curlew validate CEL parse/type-check ────────────────────────────
+echo "=== M19-005: curlew validate CEL ==="
+GOOD_OUT=$(./curlew validate smoke/fixtures/cel_validate_good.yaml 2>&1)
 GOOD_RC=$?
 if [ "$GOOD_RC" -ne 0 ]; then
   echo "FAIL: validate cel_validate_good.yaml exited $GOOD_RC, expected 0"
@@ -2617,7 +2617,7 @@ fi
 echo "PASS: cel_validate_good.yaml validates cleanly"
 
 BAD_RC=0
-BAD_OUT=$(./apitest validate smoke/fixtures/cel_validate_bad.yaml 2>&1) || BAD_RC=$?
+BAD_OUT=$(./curlew validate smoke/fixtures/cel_validate_bad.yaml 2>&1) || BAD_RC=$?
 if [ "$BAD_RC" -eq 0 ]; then
   echo "FAIL: validate cel_validate_bad.yaml exited 0, expected non-zero"
   echo "$BAD_OUT"
@@ -2639,11 +2639,11 @@ SMOKE_TELEMETRY_DIR="$(mktemp -d)"
 cleanup_telemetry() { rm -rf "$SMOKE_TELEMETRY_DIR"; }
 trap cleanup_telemetry EXIT
 
-export APITEST_CONFIG_DIR="$SMOKE_TELEMETRY_DIR"
-export APITEST_TELEMETRY_ENDPOINT="http://127.0.0.1:1"  # unreachable endpoint for offline tests
+export CURLEW_CONFIG_DIR="$SMOKE_TELEMETRY_DIR"
+export CURLEW_TELEMETRY_ENDPOINT="http://127.0.0.1:1"  # unreachable endpoint for offline tests
 
 # status before enable → exit 1
-SMOKE_OUT=$(./apitest telemetry status 2>&1) && {
+SMOKE_OUT=$(./curlew telemetry status 2>&1) && {
   echo "FAIL: telemetry status before enable should exit 1"
   exit 1
 } || true
@@ -2654,7 +2654,7 @@ echo "$SMOKE_OUT" | grep -q "no install_id" || {
 echo "PASS: telemetry status before enable exits 1 with 'no install_id'"
 
 # enable → exit 0; install_id file mode 0600
-ENABLE_OUT=$(./apitest telemetry enable)
+ENABLE_OUT=$(./curlew telemetry enable)
 echo "$ENABLE_OUT" | grep -q "install_id=" || {
   echo "FAIL: enable output should contain install_id=, got: $ENABLE_OUT"
   exit 1
@@ -2670,7 +2670,7 @@ fi
 echo "PASS: telemetry enable exits 0, install_id file created"
 
 # status after enable → exit 0, says enabled
-STATUS_OUT=$(./apitest telemetry status)
+STATUS_OUT=$(./curlew telemetry status)
 echo "$STATUS_OUT" | grep -q "enabled" || {
   echo "FAIL: status after enable should say 'enabled', got: $STATUS_OUT"
   exit 1
@@ -2678,19 +2678,19 @@ echo "$STATUS_OUT" | grep -q "enabled" || {
 echo "PASS: telemetry status after enable shows enabled"
 
 # disable → exit 0
-./apitest telemetry disable
+./curlew telemetry disable
 echo "PASS: telemetry disable exits 0"
 
 # delete-request (offline — unreachable endpoint) → exit 0, local files removed
-./apitest telemetry delete-request
+./curlew telemetry delete-request
 if [ -f "$SMOKE_TELEMETRY_DIR/install_id" ]; then
   echo "FAIL: install_id not removed after delete-request"
   exit 1
 fi
 echo "PASS: telemetry delete-request removes local files even when offline"
 
-unset APITEST_TELEMETRY_ENDPOINT
-export APITEST_CONFIG_DIR="$SMOKE_CFG_DIR"
+unset CURLEW_TELEMETRY_ENDPOINT
+export CURLEW_CONFIG_DIR="$SMOKE_CFG_DIR"
 echo
 
 rm -rf "$SMOKE_CFG_DIR" "$SMOKE_HELLO_DIR"

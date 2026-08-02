@@ -9,8 +9,8 @@ dependencies:
   - M19-002
 
 observable: |
-  go build ./cmd/apitest && \
-    ./apitest run smoke/fixtures/if_conditional.yaml --output terminal && \
+  go build ./cmd/curlew && \
+    ./curlew run smoke/fixtures/if_conditional.yaml --output terminal && \
     go test ./internal/runner/... -run TestIfConditional -count=1
   Expected: terminal output shows three requests where the second renders as
   "SKIPPED  confirm-pending-order  (if: false)" and the third (depends_on the
@@ -26,8 +26,8 @@ behaviors:
   - "Given a skipped request item, when a downstream request declares `depends_on:` that skipped item, then the downstream item also records status `skipped` with reason `parent skipped` and is not executed."
   - "Given a request item with an `if:` expression that references `vars.x` where `x` is registered in the sensitive variable set, when CEL evaluation resolves the reference, then the resolved value is added to the run's `SensitiveSet` via `internal/variable/sensitive.go` before any output formatter serialises it."
   - "Given a request whose body uses `{{from_command: ...}}` interpolation and whose `if:` evaluates to false, when the runner processes the item, then the templating step is not invoked and no sub-shell, vault fetch, or faker seed call is observed (verified by a recording fake in the test)."
-  - "Given a collection file with `if: \"1 + 1\"` (CEL type `int`, not `bool`), when `apitest validate` runs against it, then it exits non-zero with error code `ERR_CEL_TYPE`, the field path `if`, and a message naming `bool` as the required type."
-  - "Given a collection file with `if: \"previous.body.status ==\"` (CEL parse error), when `apitest validate` runs, then it exits non-zero with `ERR_CEL_PARSE`, the field path `if`, and a truncated source excerpt of at most 200 chars."
+  - "Given a collection file with `if: \"1 + 1\"` (CEL type `int`, not `bool`), when `curlew validate` runs against it, then it exits non-zero with error code `ERR_CEL_TYPE`, the field path `if`, and a message naming `bool` as the required type."
+  - "Given a collection file with `if: \"previous.body.status ==\"` (CEL parse error), when `curlew validate` runs, then it exits non-zero with `ERR_CEL_PARSE`, the field path `if`, and a truncated source excerpt of at most 200 chars."
   - "Given a run with mixed `skipped`, `ok`, and `fail` results, when each of the six output formatters in `internal/output/` (terminal, JSON, TAP, JUnit, HTML, Markdown) renders the run, then `skipped` appears as a distinct status in each formatter's output and is excluded from assertion-total counters."
 
 scope: |
@@ -47,7 +47,7 @@ scope: |
   (terminal.go, json.go, tap.go, junit.go, html.go, markdown.go) to render the
   `skipped` status and to exclude skipped items from assertion totals and
   retry counters. Wire the validate command (in `internal/validator/` plus
-  its invocation from `cmd/apitest/main.go`) to call CEL parse + boolean
+  its invocation from `cmd/curlew/main.go`) to call CEL parse + boolean
   type-check on every `if:` site, surfacing `ERR_CEL_PARSE` and `ERR_CEL_TYPE`
   with the field path and 200-char-truncated source. Add a smoke fixture at
   `smoke/fixtures/if_conditional.yaml` exercising true, false, and
@@ -63,7 +63,7 @@ definition_of_done:
   - "Six output formatters render `skipped` and the existing formatter golden tests are updated to include a skipped-status case"
   - "Validate error catalogue includes `ERR_CEL_PARSE` and `ERR_CEL_TYPE` entries with the field path and 200-char source-truncation rule"
   - "Smoke fixture `smoke/fixtures/if_conditional.yaml` runs as part of `./smoke/run.sh` and the script asserts the SKIPPED lines for the false branch and its dependent"
-  - "Help text for `apitest validate` and `apitest run` lists `if:` as a request-item field (where help is feature-listed)"
+  - "Help text for `curlew validate` and `curlew run` lists `if:` as a request-item field (where help is feature-listed)"
 
 complexity: high
 estimated_effort: "large slice"

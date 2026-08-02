@@ -7,13 +7,13 @@ phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   TMP=$(mktemp -d); cd "$TMP"
-  apitest init demo && cd demo
-  APITEST_TIER=free apitest run collections/sample.yaml --format junit
+  curlew init demo && cd demo
+  CURLEW_TIER=free curlew run collections/sample.yaml --format junit
   # Expected: exit 0 (no GateError), valid JUnit XML on stdout.
 
-  go test -run 'TestRun_JUnitFormat_FreeTier' -v ./cmd/apitest/...
+  go test -run 'TestRun_JUnitFormat_FreeTier' -v ./cmd/curlew/...
   # Expected: PASS — free-tier invocation produces JUnit XML, no gate check.
 
   grep -c '"junit_xml"' internal/auth/registry.go
@@ -23,8 +23,8 @@ observable: |
   # Expected: PASS.
 behaviors:
   - "internal/auth/registry.go no longer registers a junit_xml FeatureDefinition; the four-line block (lines 71-76) is removed."
-  - "cmd/apitest/main.go no longer calls auth.CheckFeature(reg, \"junit_xml\", ...) when --format=junit is selected (lines 645-650, 1035-1036 and any other call sites)."
-  - "TestRun_JUnitFormat_FreeTier (new) drives apitest run with APITEST_TIER=free and --format junit, asserts exit 0 and well-formed JUnit XML output."
+  - "cmd/curlew/main.go no longer calls auth.CheckFeature(reg, \"junit_xml\", ...) when --format=junit is selected (lines 645-650, 1035-1036 and any other call sites)."
+  - "TestRun_JUnitFormat_FreeTier (new) drives curlew run with CURLEW_TIER=free and --format junit, asserts exit 0 and well-formed JUnit XML output."
   - "Existing JUnit gating tests are removed or rewritten to assert the absence of the gate (no GateError surface for --format junit)."
   - "docs/SPECIFICATION.md and docs/MANUAL.md JUnit sections drop any tier-gating language."
   - "CHANGELOG.md [Unreleased] gains a Changed entry: JUnit XML output is no longer Professional-tier gated."
@@ -37,8 +37,8 @@ scope: |
 
   Files:
   - internal/auth/registry.go (delete the junit_xml Register block)
-  - cmd/apitest/main.go (remove CheckFeature calls at the JUnit branch)
-  - cmd/apitest/main_test.go (remove/rewrite the JUnit-gating tests; add the free-tier success test)
+  - cmd/curlew/main.go (remove CheckFeature calls at the JUnit branch)
+  - cmd/curlew/main_test.go (remove/rewrite the JUnit-gating tests; add the free-tier success test)
   - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
 
   Not in scope:
@@ -50,7 +50,7 @@ definition_of_done:
   - "JUnit gate registration removed; grep for 'junit_xml' in internal/auth/registry.go returns 0"
   - "TestRun_JUnitFormat_FreeTier passes"
   - "go test ./... passes"
-  - "go test -cover ./cmd/apitest/... >= 80%"
+  - "go test -cover ./cmd/curlew/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"

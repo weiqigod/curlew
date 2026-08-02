@@ -706,7 +706,7 @@ npm run build            # production build must succeed
 E2E (requires docker stack):
 ```bash
 cd web
-APITOOL_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-sso.spec.ts
+CURLEW_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-sso.spec.ts
 ```
 
 Observable verification (from task YAML):

@@ -12,7 +12,7 @@ import (
 
 func TestWriteRequest_RoundTrip(t *testing.T) {
 	var buf bytes.Buffer
-	if err := writeRequest(&buf, rpcRequest{ID: 1, Method: "apitest/hello"}); err != nil {
+	if err := writeRequest(&buf, rpcRequest{ID: 1, Method: "curlew/hello"}); err != nil {
 		t.Fatal(err)
 	}
 	got := buf.String()
@@ -23,7 +23,7 @@ func TestWriteRequest_RoundTrip(t *testing.T) {
 	if err := json.Unmarshal([]byte(strings.TrimSpace(got)), &back); err != nil {
 		t.Fatal(err)
 	}
-	if back.JSONRPC != "2.0" || back.Method != "apitest/hello" {
+	if back.JSONRPC != "2.0" || back.Method != "curlew/hello" {
 		t.Errorf("round-trip mismatch: %+v", back)
 	}
 }

@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerLocation' -v ./internal/variable/...
   # Expected: PASS — all 12 location functions registered.
@@ -23,9 +23,9 @@ observable: |
   go test -run 'TestRegistry_FakerLocation_Unseeded' -v ./internal/variable/...
   # Expected: PASS — without --seed, two consecutive runs differ.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a request body: {"address":"{{$faker.address}}","lat":{{$faker.latitude}},"tz":"{{$faker.timezone}}"}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: address is a US-shaped full address, lat is a numeric
   # JSON value (no quotes — note this is consistent with the
   # rendered-string-into-JSON convention used by other numeric faker

@@ -22,12 +22,12 @@
 === RUN   TestRegistry_JwtDecodeHeader_Vector
 --- PASS: TestRegistry_JwtDecodeHeader_Vector (0.00s)
 PASS
-ok  github.com/peterlindqvist/apitest/internal/variable  0.237s
+ok  github.com/weiqigod/curlew/internal/variable  0.237s
 
 === RUN   TestRegistry_JwtDecodeClaims_Vector
 --- PASS: TestRegistry_JwtDecodeClaims_Vector (0.00s)
 PASS
-ok  github.com/peterlindqvist/apitest/internal/variable  0.177s
+ok  github.com/weiqigod/curlew/internal/variable  0.177s
 
 --- Running jwt-decode (validates JWT decode dynamic-fns produce valid JSON) ---
 PASS: jwtDecodeHeader returned valid JSON with alg=HS256

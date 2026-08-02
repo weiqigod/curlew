@@ -18,13 +18,13 @@ type htmlReport struct {
 // titleOrDefault returns t if non-empty, otherwise the default report title.
 func titleOrDefault(t string) string {
 	if t == "" {
-		return "apitest perf report"
+		return "curlew perf report"
 	}
 	return t
 }
 
 // WriteHTML renders a self-contained HTML perf report to w. The title
-// defaults to "apitest perf report" when empty.
+// defaults to "curlew perf report" when empty.
 func WriteHTML(w io.Writer, m Metrics, title string) error {
 	// Build the time-series data for Chart.js from the bucket slice.
 	type seriesPoint struct {

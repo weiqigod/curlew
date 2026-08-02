@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go test ./...` | PASS | All packages pass; 50+ tests in cmd/apitest |
+| `go test ./...` | PASS | All packages pass; 50+ tests in cmd/curlew |
 | `go test -race ./...` | PASS (implied via CI gate) | No races detected |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Smoke test clean — all assertions PASS |
@@ -20,14 +20,14 @@
 
 ```
 # Build
-go build ./cmd/apitest → exit 0 (clean)
+go build ./cmd/curlew → exit 0 (clean)
 
 # ./scripts/ci-local.sh --down → exit 0 (idempotent)
 # TestCiLocalDownIdempotent: PASS (two sequential --down calls, both exit 0)
 
 # Smoke test MANUAL.md §6.9 login walkthrough present:
-# apitest login --no-browser → described with full output format
-# apitest run --report-upload --org acme --pr 7 --repo acme/api
+# curlew login --no-browser → described with full output format
+# curlew run --report-upload --org acme --pr 7 --repo acme/api
 # Expected stdout: "Uploaded result res_...; check-run posted; status=success"
 # TestRunWithReportUpload/upload_then_pr_check_on_pass confirms this format
 ```
@@ -40,12 +40,12 @@ Result: MATCH — confirmed by `TestRunWithReportUpload/upload_then_pr_check_on_
 | # | Behavior | Test(s) | Status |
 |---|----------|---------|--------|
 | 1 | Full docker-compose stack up; login --no-browser establishes refresh token | `TestCiLocalDownIdempotent` (stack lifecycle) + Playwright spec (guarded, skipped without BACKEND_TOKEN) | PASS |
-| 2 | `apitest run --report-upload --org acme --pr 7 --repo acme/api` uploads run and posts check-run | `TestRunWithReportUpload/upload_then_pr_check_on_pass` | PASS |
+| 2 | `curlew run --report-upload --org acme --pr 7 --repo acme/api` uploads run and posts check-run | `TestRunWithReportUpload/upload_then_pr_check_on_pass` | PASS |
 | 3 | Playwright: `/org/acme/integrations/github` shows `posted_at` within 5s | `m14-revenue-loop.spec.ts` assertion 2 (guarded) + web route `+page.server.ts` present | PASS |
 | 4 | `replay-stripe-event.sh invoice.payment_succeeded` → `billing_receipt` email queued → audit page lists row | `m14-revenue-loop.spec.ts` assertion 3 + `InternalEmailAuditEndpointTests.Get_returns_billing_receipt_after_send` | PASS |
 | 5 | Happy-path only; failure modes deferred to cluster slices per Open Decision #1 | Confirmed by scope: convergence slice adds no new failure branches | PASS |
 | 6 | `ci-local.sh --down` stops containers and cleans DB; idempotent | `TestCiLocalDownIdempotent` (two sequential invocations, both exit 0) | PASS |
-| 7 | Playwright >=5 assertions pass | `m14-revenue-loop.spec.ts` has 5 named assertions; guarded by `APITEST_BACKEND_TOKEN` skip | PASS |
+| 7 | Playwright >=5 assertions pass | `m14-revenue-loop.spec.ts` has 5 named assertions; guarded by `CURLEW_BACKEND_TOKEN` skip | PASS |
 
 ## Definition of Done
 
@@ -56,8 +56,8 @@ Result: MATCH — confirmed by `TestRunWithReportUpload/upload_then_pr_check_on_
 | 3 | `ci-local.sh --full` and `--down` idempotent (covered by smoke test) | `TestCiLocalDownIdempotent` PASS; `--full` covered by ci-local.sh smoke run | PASS |
 | 4 | `testdata/m14/e2e-collection.yaml` and Playwright spec checked in | Files exist at `testdata/m14/e2e-collection.yaml` and `web/tests/e2e/m14-revenue-loop.spec.ts` | PASS |
 | 5 | `docs/M14_INVESTIGATION.md` updated with "verified end-to-end on 2026-05-06" marker | Line 632: `**Verified end-to-end on 2026-05-06** (M14-021 convergence slice)` | PASS |
-| 6 | CI workflow `.github/workflows/m14-e2e.yml` runs on PRs touching backend/cmd/apitest/web | File exists with correct path filters for all four path groups | PASS |
-| 7 | `MANUAL.md` gains `apitest login + apitest run --report-upload` walkthrough | MANUAL.md §6.9 present with full login walkthrough and `check-run posted` output format | PASS |
+| 6 | CI workflow `.github/workflows/m14-e2e.yml` runs on PRs touching backend/cmd/curlew/web | File exists with correct path filters for all four path groups | PASS |
+| 7 | `MANUAL.md` gains `curlew login + curlew run --report-upload` walkthrough | MANUAL.md §6.9 present with full login walkthrough and `check-run posted` output format | PASS |
 
 ## Code Review
 
@@ -112,9 +112,9 @@ TDD pattern clearly visible: `test(...)` commits precede corresponding `feat(...
 |------|--------|
 | `.github/workflows/m14-e2e.yml` | created |
 | `CHANGELOG.md` | modified |
-| `cmd/apitest/ci_local_test.go` | created |
-| `cmd/apitest/main.go` | modified |
-| `cmd/apitest/report_upload_test.go` | modified |
+| `cmd/curlew/ci_local_test.go` | created |
+| `cmd/curlew/main.go` | modified |
+| `cmd/curlew/report_upload_test.go` | modified |
 | `docs/M14_INVESTIGATION.md` | modified |
 | `docs/MANUAL.md` | modified |
 | `management/backlog.yaml` | modified |

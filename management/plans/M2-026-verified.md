@@ -18,11 +18,11 @@
 ## Observable Output
 
 ```
-$ ./apitest run smoke/sample/hello.yaml --format junit
+$ ./curlew run smoke/sample/hello.yaml --format junit
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="apitest" tests="1" failures="0" errors="1" skipped="0" time="">
-    <testcase name="initialization" classname="apitest" time="">
+  <testsuite name="curlew" tests="1" failures="0" errors="1" skipped="0" time="">
+    <testcase name="initialization" classname="curlew" time="">
       <error message="JUnit XML output requires Professional tier ($19/month)" type="InitializationError"></error>
     </testcase>
   </testsuite>
@@ -51,7 +51,7 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` output — all 7 behaviors verified | PASS |
 | 2 | Observable output works | `--format junit` produces valid JUnit XML, exit 6 at free tier | PASS |
-| 3 | Test coverage >= 80% | 89.6% total; 83.6% cmd/apitest, 92.4% output, 88.1% auth | PASS |
+| 3 | Test coverage >= 80% | 89.6% total; 83.6% cmd/curlew, 92.4% output, 88.1% auth | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint run` 0 issues | PASS |
 | 5 | Help text updated | `--format` shows `junit`, `--report` flag documented | PASS |
 | 6 | Smoke test updated | JUnit gate check, help text assertions added to smoke/run.sh | PASS |
@@ -102,8 +102,8 @@ Review PASS trusted (management/reviews/M2-026-review.md, iteration 2). Spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +194/-30 |
-| `cmd/apitest/main_test.go` | modified | +406/-1 |
+| `cmd/curlew/main.go` | modified | +194/-30 |
+| `cmd/curlew/main_test.go` | modified | +406/-1 |
 | `internal/auth/gate_test.go` | modified | +29 |
 | `internal/auth/registry.go` | modified | +6 |
 | `internal/output/junit.go` | created | +70 |

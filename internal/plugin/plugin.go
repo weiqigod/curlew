@@ -1,8 +1,8 @@
-// Package plugin provides the external-process plugin loader for apitest.
-// Plugins are standalone executables that communicate with apitest over
+// Package plugin provides the external-process plugin loader for curlew.
+// Plugins are standalone executables that communicate with curlew over
 // JSON-RPC 2.0 on stdin/stdout (one JSON object per line, newline-delimited).
 //
-// Discovery: set APITEST_PLUGINS to a colon-separated (semicolon on Windows)
+// Discovery: set CURLEW_PLUGINS to a colon-separated (semicolon on Windows)
 // list of plugin executables or directories. See docs/plugins.md.
 package plugin
 
@@ -42,7 +42,7 @@ var (
 	ErrHandshakeProtocol = errors.New("handshake protocol error")
 )
 
-// knownHooks is the set of hook names understood by this version of apitest.
+// knownHooks is the set of hook names understood by this version of curlew.
 // Unknown hooks in a plugin's hello response are dropped with a warning.
 var knownHooks = map[string]struct{}{
 	"on_request":  {},

@@ -17,18 +17,18 @@ observable: |
       method: GET
       url: "{{UNDEFINED}}"
   YAML
-  ./apitest run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt || true
+  ./curlew run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt || true
   # Expected: /tmp/err.txt contains zero ANSI escape sequences.
   grep -c $'\033\[' /tmp/err.txt
   # Expected: 0
-  go test -run TestStderrColorFlag ./cmd/apitest/...
+  go test -run TestStderrColorFlag ./cmd/curlew/...
   # Expected: PASS across all four stdout/stderr TTY-vs-pipe combinations.
 behaviors:
-  - "Given stderr is a pipe and stdout is a TTY, when apitest run emits an error, then the stderr content contains no ANSI escape sequences."
-  - "Given stderr is a TTY and stdout is a pipe, when apitest run emits an error, then the stderr content contains ANSI escape sequences (color preserved on the TTY)."
-  - "Given both stdout and stderr are pipes, when apitest run emits an error, then neither stream contains ANSI escape sequences."
-  - "Given NO_COLOR env var is set, when apitest run emits an error, then stderr contains no ANSI escape sequences regardless of TTY state."
-  - "Given --no-color flag, when apitest run emits an error, then stderr contains no ANSI escape sequences regardless of TTY state."
+  - "Given stderr is a pipe and stdout is a TTY, when curlew run emits an error, then the stderr content contains no ANSI escape sequences."
+  - "Given stderr is a TTY and stdout is a pipe, when curlew run emits an error, then the stderr content contains ANSI escape sequences (color preserved on the TTY)."
+  - "Given both stdout and stderr are pipes, when curlew run emits an error, then neither stream contains ANSI escape sequences."
+  - "Given NO_COLOR env var is set, when curlew run emits an error, then stderr contains no ANSI escape sequences regardless of TTY state."
+  - "Given --no-color flag, when curlew run emits an error, then stderr contains no ANSI escape sequences regardless of TTY state."
   - "Given runCmdInner, watchCmd, and execCmd, when each constructs a stderr printer, then the color flag comes from shouldUseColor(os.Stderr, noColor) — never from os.Stdout's TTY state."
 scope: |
   The stdout-derived useColor flag applied to stderr printers in
@@ -38,7 +38,7 @@ scope: |
   decision based on os.Stderr.
 
   Introduce a helper newStderrPrinter(noColor bool) *output.Printer in
-  cmd/apitest/ (co-located with shouldUseColor at main.go:319) that
+  cmd/curlew/ (co-located with shouldUseColor at main.go:319) that
   returns output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, noColor)).
   Every existing errOut construction in the three affected functions
   switches to this helper.
@@ -56,14 +56,14 @@ scope: |
   No changes to internal/output/ — the Printer abstraction is already
   correct; bugs live at the call sites.
 
-  Regression test: cmd/apitest/stream_color_test.go — table-driven,
+  Regression test: cmd/curlew/stream_color_test.go — table-driven,
   exercises four TTY/pipe combinations. TTY cases use a pseudo-TTY
   helper (creack/pty or equivalent); if unavailable restrict TTY
   assertions to Unix and document.
 definition_of_done:
   - "All behavior tests pass"
-  - "cmd/apitest/stream_color_test.go exercises all four TTY/pipe combinations"
-  - "grep -n 'NewPrinter(os.Stderr, useColor)' cmd/apitest/*.go returns zero matches (no stdout-derived color flag reaches a stderr printer)"
+  - "cmd/curlew/stream_color_test.go exercises all four TTY/pipe combinations"
+  - "grep -n 'NewPrinter(os.Stderr, useColor)' cmd/curlew/*.go returns zero matches (no stdout-derived color flag reaches a stderr printer)"
   - "newStderrPrinter helper exists and is used at every former site"
   - "go test ./... passes with no regressions"
   - "Test coverage does not regress below 80%"

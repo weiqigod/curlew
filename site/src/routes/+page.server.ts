@@ -35,10 +35,10 @@ requests:
         - "response.body.items.all(i, i.qty > 0)"`;
 
 const INSTALL = `# Install — a single static binary, Go 1.24+
-go install github.com/peterlindqvist/apitest/cmd/apitest@latest
+go install github.com/weiqigod/curlew/cmd/curlew@latest
 
 # Run your first collection
-apitest run collections/checkout.yaml --env staging`;
+curlew run collections/checkout.yaml --env staging`;
 
 export const load = async () => {
 	const examples = getAllExamples();

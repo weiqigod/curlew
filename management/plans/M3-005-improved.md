@@ -1,6 +1,6 @@
 # Improvement Report: M3-005 (Iteration 3)
 
-**Task:** apitest import openapi: parse spec and emit collection skeleton
+**Task:** curlew import openapi: parse spec and emit collection skeleton
 **Date:** 2026-04-14
 **Review:** management/reviews/M3-005-review.md
 
@@ -15,7 +15,7 @@
 
 | # | Severity | Finding | Fix Applied |
 |---|----------|---------|------------|
-| 1 | Medium | Missing cmd-level test for invalid spec (behavior #7) | Added `TestImportOpenAPI_InvalidSpec` in `cmd/apitest/main_test.go` |
+| 1 | Medium | Missing cmd-level test for invalid spec (behavior #7) | Added `TestImportOpenAPI_InvalidSpec` in `cmd/curlew/main_test.go` |
 | 2 | Medium | `importOpenAPICmd` used `fmt.Fprintf` instead of `StructuredError` | Replaced with `errOut.StructuredError(importErr)` |
 | 3 | Low | `Emit` encode failure path untested | Added `TestEmit_WriteError` |
 | 4 | Low | `name_collision.yaml` fixture orphaned | Deleted unused fixture |
@@ -28,7 +28,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/openapi`) | 95.8% |

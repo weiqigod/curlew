@@ -7,15 +7,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/output/events"
-	"github.com/peterlindqvist/apitest/internal/parallel"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/runservice"
-	"github.com/peterlindqvist/apitest/internal/validator"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/output/events"
+	"github.com/weiqigod/curlew/internal/parallel"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/runservice"
+	"github.com/weiqigod/curlew/internal/validator"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // StartParams is the POST /runs request body (spec §4.7).
@@ -53,7 +53,7 @@ type RunMeta struct {
 	SchemaVersion       int            `json:"schema_version"`
 	RunID               string         `json:"run_id"`
 	CreatedAt           string         `json:"created_at"`
-	ApitestVersion      string         `json:"apitest_version"`
+	CurlewVersion       string         `json:"curlew_version"`
 	EventsSchemaVersion string         `json:"events_schema_version"`
 	CollectionFile      *string        `json:"collection_file"`
 	CollectionName      *string        `json:"collection_name"`
@@ -258,7 +258,7 @@ func (o *Orchestrator) Start(params StartParams) (string, *startError) {
 	log := NewEventLog(func(id int64, line []byte) {
 		s.hub.BroadcastRunEvent(marshalRunEventFrame(runID, line))
 	})
-	emitter, err := events.NewEmitter(log, events.Options{ApitestVersion: s.opts.Version, RunID: runID})
+	emitter, err := events.NewEmitter(log, events.Options{CurlewVersion: s.opts.Version, RunID: runID})
 	if err != nil {
 		return "", &startError{500, "internal", "events emitter: " + err.Error(), "", nil}
 	}
@@ -607,7 +607,7 @@ func (o *Orchestrator) execute(ctx context.Context, active *ActiveRun, emitter *
 		SchemaVersion:       1,
 		RunID:               active.RunID,
 		CreatedAt:           active.StartedAt.Format(time.RFC3339Nano),
-		ApitestVersion:      s.opts.Version,
+		CurlewVersion:       s.opts.Version,
 		EventsSchemaVersion: events.SchemaVersion,
 		EnvName:             active.Params.Env,
 		Selection:           active.Params.Selection,
@@ -632,7 +632,7 @@ func (o *Orchestrator) execute(ctx context.Context, active *ActiveRun, emitter *
 
 	if s.store != nil {
 		if err := s.store.Persist(completed); err != nil {
-			s.opts.Diagnostics("apitest ui: persisting run %s: %v", active.RunID, err)
+			s.opts.Diagnostics("curlew ui: persisting run %s: %v", active.RunID, err)
 		}
 	}
 

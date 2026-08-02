@@ -5,7 +5,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // threeIndependentRequests creates three requests with no variable sharing.

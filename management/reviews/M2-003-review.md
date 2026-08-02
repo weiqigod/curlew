@@ -29,18 +29,18 @@ No findings. All 3 findings from the previous review have been resolved:
 | Test Quality | PASS | All 5 specified behaviors covered; edge cases tested (empty args, no profiles, empty keys, unknown args); table-driven tests with `t.Run`; smoke tests updated |
 
 ## Test Coverage
-- Coverage: 85.5% (cmd/apitest), 92.3% (internal/output), 86.7% total
+- Coverage: 85.5% (cmd/curlew), 92.3% (internal/output), 86.7% total
 - All vault code paths exercised: gate path (Free tier), dispatch path (Solo tier), no-profiles path, empty-keys validation error path
 
 ## Behavior Verification
 
 | # | Behavior | Test(s) |
 |---|----------|---------|
-| 1 | `apitest vault` at Free tier → exit 6 + gate message | `TestVaultCmd_free_tier` (4 cases) |
-| 2 | `apitest vault --format json` at Free tier → JSON gate error | `TestVaultCmd_free_tier` (5 cases) |
-| 3 | `apitest vault list` at Solo tier → provider names + key counts | `TestVaultCmd_solo_tier` (3 cases) |
-| 4 | `apitest vault list --format json` at Solo tier → JSON array | `TestVaultCmd_solo_tier` (3 cases) |
-| 5 | `apitest vault list` with no profiles → helpful message | `TestVaultCmd_solo_tier_no_profiles` (2 cases) |
+| 1 | `curlew vault` at Free tier → exit 6 + gate message | `TestVaultCmd_free_tier` (4 cases) |
+| 2 | `curlew vault --format json` at Free tier → JSON gate error | `TestVaultCmd_free_tier` (5 cases) |
+| 3 | `curlew vault list` at Solo tier → provider names + key counts | `TestVaultCmd_solo_tier` (3 cases) |
+| 4 | `curlew vault list --format json` at Solo tier → JSON array | `TestVaultCmd_solo_tier` (3 cases) |
+| 5 | `curlew vault list` with no profiles → helpful message | `TestVaultCmd_solo_tier_no_profiles` (2 cases) |
 
 ## Summary
 Clean implementation after improvement pass. All previous findings resolved. The vault subcommand correctly gates at Free tier (preserving existing behavior), dispatches to `vault list` at Solo tier, handles no-profiles and invalid-config edge cases, and produces both terminal and JSON output with sorted keys. Code is well-tested with 27 vault-specific test cases plus smoke tests.

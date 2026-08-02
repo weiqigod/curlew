@@ -11,7 +11,7 @@ import (
 func newTestStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("APITEST_TELEMETRY_ENDPOINT", "") // ensure no env leakage
+	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "") // ensure no env leakage
 	s, err := NewStore(dir)
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
@@ -200,13 +200,13 @@ func TestStoreRecordEmissionWithoutEnable(t *testing.T) {
 func TestStoreResolvedEndpointPrecedence(t *testing.T) {
 	s, _ := newTestStore(t)
 	// Env > state > default
-	t.Setenv("APITEST_TELEMETRY_ENDPOINT", "http://env.example.com")
+	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "http://env.example.com")
 	state := State{Endpoint: "http://state.example.com"}
 	got := s.resolvedEndpoint(state)
 	if got != "http://env.example.com" {
 		t.Errorf("env precedence: got %q, want http://env.example.com", got)
 	}
-	t.Setenv("APITEST_TELEMETRY_ENDPOINT", "")
+	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "")
 	got = s.resolvedEndpoint(state)
 	if got != "http://state.example.com" {
 		t.Errorf("state precedence: got %q, want http://state.example.com", got)
@@ -241,7 +241,7 @@ func TestStoreFilePermissions(t *testing.T) {
 func TestStoreResolvedEndpoint_Public(t *testing.T) {
 	s, _ := newTestStore(t)
 	_, _ = s.Enable("")
-	t.Setenv("APITEST_TELEMETRY_ENDPOINT", "http://public.example.com")
+	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "http://public.example.com")
 	ep := s.ResolvedEndpoint()
 	if ep != "http://public.example.com" {
 		t.Errorf("ResolvedEndpoint = %q, want http://public.example.com", ep)

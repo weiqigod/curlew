@@ -8,12 +8,12 @@ track: go-cli
 dependencies:
   - M5-009
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/runner/... -run Distributed
   # Expected: ok  internal/runner  (>=6 distributed tests passing)
-  APITEST_COORDINATOR_URL=http://127.0.0.1:9000 \
-  APITEST_BACKEND_TOKEN=svc_token_dev \
-    ./apitest run testdata/team/e2e-collection.yaml --workers 4 --org acme
+  CURLEW_COORDINATOR_URL=http://127.0.0.1:9000 \
+  CURLEW_BACKEND_TOKEN=svc_token_dev \
+    ./curlew run testdata/team/e2e-collection.yaml --workers 4 --org acme
   # Expected stdout:
   #   "Sharding 12 requests across 4 workers..."
   #   "Waiting for workers... 4/4 joined"
@@ -21,17 +21,17 @@ observable: |
   #   "All shards complete: 12/12 pass"
   # exit 0
 behaviors:
-  - "Given apitest run <collection> --workers 4 --org acme, when invoked with a valid token, then POST /coordinator/jobs creates a job with shard_count=4 and stdout prints 'Sharding N requests across 4 workers'"
+  - "Given curlew run <collection> --workers 4 --org acme, when invoked with a valid token, then POST /coordinator/jobs creates a job with shard_count=4 and stdout prints 'Sharding N requests across 4 workers'"
   - "Given the job is created, when waiting for workers, then the CLI polls GET /coordinator/jobs/{job_id} until worker_count>=4 or 60s timeout"
   - "Given all shards complete, when the CLI receives the aggregated result, then stdout prints 'All shards complete: N/M pass' and exits 0 (pass) or 1 (any fail)"
   - "Given a worker times out mid-shard, when the reaper re-queues the shard, then the CLI surfaces a 'Shard shd_X reassigned (worker timeout)' notice and the final result still includes that shard's outcomes"
-  - "Given --workers is omitted, when apitest run is invoked, then execution uses the existing single-process pipeline unchanged (backward compatible)"
-  - "Given --workers 4 with no APITEST_COORDINATOR_URL set, when the CLI starts, then it prints 'error: --workers requires APITEST_COORDINATOR_URL' and exits with code 2"
+  - "Given --workers is omitted, when curlew run is invoked, then execution uses the existing single-process pipeline unchanged (backward compatible)"
+  - "Given --workers 4 with no CURLEW_COORDINATOR_URL set, when the CLI starts, then it prints 'error: --workers requires CURLEW_COORDINATOR_URL' and exits with code 2"
   - "Given --workers 1, when invoked, then the CLI prints 'Warning: --workers 1 has no benefit; falling back to local execution' and continues locally"
   - "Given --help is passed, when the binary runs, then the help text documents --workers, --coordinator-url, and links to the distributed execution docs"
 scope: |
   Extend internal/runner with a DistributedRunner that delegates to the
-  coordinator when --workers>1. Adds cmd/apitest/run.go flag wiring. Shard
+  coordinator when --workers>1. Adds cmd/curlew/run.go flag wiring. Shard
   planner in internal/runner/shard.go splits the request list round-robin.
   Final aggregation uses the existing result printer unchanged so output is
   consistent with single-process runs.

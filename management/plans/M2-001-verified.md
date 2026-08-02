@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/m2001-test.yaml
+$ ./curlew run /tmp/m2001-test.yaml
 Collection: from_command test
 [ERROR] from_command requires Solo tier ($9/month)
 Exit code: 6
@@ -113,8 +113,8 @@ Review PASS trusted (M2-001-review.md), spot-check clean:
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +27 |
-| `cmd/apitest/main_test.go` | modified | +80 |
+| `cmd/curlew/main.go` | modified | +27 |
+| `cmd/curlew/main_test.go` | modified | +80 |
 | `internal/auth/registry.go` | modified | +6 |
 | `internal/auth/registry_test.go` | modified | +1 |
 | `internal/parser/collection.go` | modified | +82/-1 |

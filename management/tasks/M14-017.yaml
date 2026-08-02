@@ -19,7 +19,7 @@ observable: |
   # Dashboard-initiated install URL
   curl -sS -H "Authorization: Bearer $TOKEN" \
     http://localhost:5000/api/v1/integrations/github/install-url | jq .
-  # Expected: {"install_url":"https://github.com/apps/apitool-checks-test/installations/new?state=...","state_expires_at":"..."}
+  # Expected: {"install_url":"https://github.com/apps/curlew-checks-test/installations/new?state=...","state_expires_at":"..."}
   # Simulate GitHub callback with that state:
   STATE=$(curl -sS -H "Authorization: Bearer $TOKEN" \
     http://localhost:5000/api/v1/integrations/github/install-url | jq -r .state)

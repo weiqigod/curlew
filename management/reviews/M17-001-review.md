@@ -53,7 +53,7 @@ All 11 behaviors from the task YAML are covered:
 | sensitives.AddValue inside Sign registered on run set | `TestRunner_SignerStep_SensitiveValueRegistered` |
 | auth/profile.go unchanged | Verified: `git diff internal/auth/profile.go` produces 0 lines |
 | No clock on Signer interface | Package doc states the no-clock contract explicitly |
-| docs/MANUAL.md apitest-sigv4 removed; Enterprise clarification present | Verified: grep confirms "doc-fix landed" and Enterprise paragraph carries sibling clarification |
+| docs/MANUAL.md curlew-sigv4 removed; Enterprise clarification present | Verified: grep confirms "doc-fix landed" and Enterprise paragraph carries sibling clarification |
 
 ## Definition of Done — Verified
 
@@ -69,7 +69,7 @@ All 11 behaviors from the task YAML are covered:
 | `./scripts/ci-local.sh` passes | PASS |
 | `internal/auth/profile.go` unchanged | PASS |
 | `signer.go` package doc states no-clock contract | PASS |
-| `docs/MANUAL.md` no longer cites apitest-sigv4 | PASS |
+| `docs/MANUAL.md` no longer cites curlew-sigv4 | PASS |
 | `docs/MANUAL.md` Enterprise plugin tier-gate clarification present | PASS |
 | Smoke/integration fixture exercising end-to-end wiring | PASS (`TestRunner_Signing_EndToEnd_Noop`) |
 

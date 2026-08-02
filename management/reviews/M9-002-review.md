@@ -36,7 +36,7 @@ No findings.
 
 - Coverage `internal/output/markdown`: **87.7%** (above 80% threshold)
 - Coverage `internal/runner`: **85.1%** (above 80% threshold)
-- Coverage `cmd/apitest`: **80.9%** (at 80% threshold)
+- Coverage `cmd/curlew`: **80.9%** (at 80% threshold)
 - All 14 DoD-named tests present and passing
 - `writeAtomic`: 56.2% — OS fault-injection paths (`f.Write` failure, `f.Close` failure) are not covered; acceptable given difficulty of triggering kernel-level write failures in unit tests
 - `renderResponse`: 68.8% — JSON-parse-failure fallthrough not directly tested (requires malformed JSON response body); non-JSON empty-body path not tested; both deferred by design (M9-003 owns the full content-type matrix)

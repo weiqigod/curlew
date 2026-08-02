@@ -1,6 +1,6 @@
 # Verification Report: M18-008
 
-**Task:** CLI telemetry emitter: internal/telemetry package, persistent install_id, `apitest telemetry` subcommand
+**Task:** CLI telemetry emitter: internal/telemetry package, persistent install_id, `curlew telemetry` subcommand
 **Verified by:** AI
 **Date:** 2026-05-19
 **Branch:** feature/M18-008-cli-telemetry-emitter
@@ -20,40 +20,40 @@
 ## Observable Output
 
 ```
-$ rm -rf ~/.config/apitesttool/install_id ~/.config/apitesttool/telemetry.json
-$ ./apitest telemetry status
+$ rm -rf ~/.config/curlew/install_id ~/.config/curlew/telemetry.json
+$ ./curlew telemetry status
 telemetry: disabled (no install_id; opt-in required)
 # exit 1 ✓
 
-$ ./apitest telemetry enable
-telemetry: enabled; install_id=441572e4-df52-4652-b491-1389e7273c04; events will post to https://api.apitest.org/telemetry/events
+$ ./curlew telemetry enable
+telemetry: enabled; install_id=441572e4-df52-4652-b491-1389e7273c04; events will post to https://api.curlew.org/telemetry/events
 # exit 0 ✓
 
-# File created at ~/Library/Application Support/apitesttool/install_id (macOS config dir)
+# File created at ~/Library/Application Support/curlew/install_id (macOS config dir)
 # stat -f '%Lp' → 600 ✓
 
-$ ./apitest telemetry status
+$ ./curlew telemetry status
 telemetry: enabled; install_id=441572e4-df52-4652-b491-1389e7273c04
 # exit 0 ✓
 
-$ ./apitest telemetry reset-id
+$ ./curlew telemetry reset-id
 telemetry: install_id regenerated; old id discarded
 # exit 0 ✓
 
-$ ./apitest telemetry disable
+$ ./curlew telemetry disable
 telemetry: disabled; install_id retained (use `reset-id` to regenerate or `delete-request` to remove)
 # exit 0 ✓
 
-$ ./apitest telemetry export
+$ ./curlew telemetry export
 {
   "enabled": false,
-  "endpoint": "https://api.apitest.org/telemetry/events",
+  "endpoint": "https://api.curlew.org/telemetry/events",
   "install_id": "4523c1f0-10de-4ede-a775-5d2bed8a4b78",
   "recent_emissions": null
 }
 # exit 0 ✓
 
-$ ./apitest telemetry delete-request
+$ ./curlew telemetry delete-request
 telemetry: local files removed; backend delete POST failed (offline). Re-run when online to send the delete request.
 # exit 0 ✓ (offline — files still removed)
 ```
@@ -80,11 +80,11 @@ Result: MATCH
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | `go test ./internal/telemetry/... >= 18 tests` | 33 tests pass (33 counting subtests) | PASS |
-| 2 | Real binary `apitest telemetry {enable,disable,status,reset-id,export,delete-request}` produces documented stdout/exit codes | Observable verification above | PASS |
+| 2 | Real binary `curlew telemetry {enable,disable,status,reset-id,export,delete-request}` produces documented stdout/exit codes | Observable verification above | PASS |
 | 3 | Test coverage >= 80% on internal/telemetry | 82.0% | PASS |
 | 4 | go vet + staticcheck clean | `ci-local.sh` linting gate passed | PASS |
 | 5 | `internal/telemetry` does NOT import `internal/backend` | CI grep guard at `scripts/ci-local.sh:115` | PASS |
-| 6 | Help text for `apitest telemetry` updated; main help lists the subcommand | `./apitest --help` and `./apitest telemetry --help` verified via smoke | PASS |
+| 6 | Help text for `curlew telemetry` updated; main help lists the subcommand | `./curlew --help` and `./curlew telemetry --help` verified via smoke | PASS |
 | 7 | `docs/SPECIFICATION.md` Telemetry Phase 3 updated to reflect persistent install-ID model | Spec correction committed in `feat(telemetry): add spec correction` | PASS |
 | 8 | Smoke test adds telemetry enable → status → disable round-trip | `smoke/run.sh` M18-008 section | PASS |
 | 9 | CHANGELOG.md entry references v4-8, v4-11 | CHANGELOG.md updated in spec correction commit | PASS |
@@ -122,10 +122,10 @@ Branch A: Review PASS trusted (iteration 3, post two improve passes). Spot-check
 | `7dcd7dab` | chore(task): mark M18-008 as review |
 | `2cefa92b` | test(telemetry): add coverage tests for NewSessionUUID + ResolvedEndpoint |
 | `e95d8653` | feat(telemetry): add spec correction, CHANGELOG, CI guard, and smoke test |
-| `5f6c442d` | feat(cli): wire telemetry run.completed emission into apitest run end-of-run |
+| `5f6c442d` | feat(cli): wire telemetry run.completed emission into curlew run end-of-run |
 | `0cf62b52` | test(cli): add failing integration tests for telemetry run.completed wiring |
-| `0518413b` | feat(cli): implement apitest telemetry subcommand + help + sentinel registration |
-| `ba573d42` | test(cli): add failing tests for apitest telemetry subcommand |
+| `0518413b` | feat(cli): implement curlew telemetry subcommand + help + sentinel registration |
+| `ba573d42` | test(cli): add failing tests for curlew telemetry subcommand |
 | `8b8c35c9` | feat(telemetry): implement Emitter (silent fire-and-forget facade) |
 | `51faa7f3` | test(telemetry): add failing tests for Emitter facade |
 | `83b5d38d` | feat(telemetry): implement HTTP Client with idempotency-key + timeout |
@@ -150,10 +150,10 @@ TDD pattern confirmed: all `test(...)` commits precede corresponding `feat(...)`
 | `internal/telemetry/emit.go` | created |
 | `internal/telemetry/emit_test.go` | created |
 | `internal/telemetry/hints_init.go` | created |
-| `cmd/apitest/telemetry.go` | created |
-| `cmd/apitest/telemetry_test.go` | created |
-| `cmd/apitest/telemetry_run_test.go` | created |
-| `cmd/apitest/main.go` | modified |
+| `cmd/curlew/telemetry.go` | created |
+| `cmd/curlew/telemetry_test.go` | created |
+| `cmd/curlew/telemetry_run_test.go` | created |
+| `cmd/curlew/main.go` | modified |
 | `docs/SPECIFICATION.md` | modified |
 | `CHANGELOG.md` | modified |
 | `scripts/ci-local.sh` | modified |

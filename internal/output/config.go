@@ -15,7 +15,7 @@ var ErrUnknownFormat = errors.New("unknown output format")
 var SupportedFormats = []string{"terminal", "json", "tap", "junit", "html", "markdown"}
 
 // Config is the typed form of a YAML `output:` block declared at either the
-// project (apitest.yaml) or collection level. All fields are optional; zero
+// project (curlew.yaml) or collection level. All fields are optional; zero
 // values mean "not declared" and inherit from lower-precedence scopes.
 type Config struct {
 	Format    string `yaml:"format,omitempty"`    // terminal|json|tap|junit|html|markdown

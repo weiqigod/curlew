@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/uiserver"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/uiserver"
 )
 
 // TestShutdown_CancelsActiveRunAndClosesWS exercises Server.Shutdown: the
@@ -23,7 +23,7 @@ func TestShutdown_CancelsActiveRunAndClosesWS(t *testing.T) {
 		return nil, ctx.Err()
 	}
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "apitest.yaml"), []byte("project_name: t\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "curlew.yaml"), []byte("project_name: t\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, root, "collections/ok.yaml", "name: OK\nrequests:\n  - name: Fine\n    request: {method: GET, url: \"http://t.test/ok\"}\n")

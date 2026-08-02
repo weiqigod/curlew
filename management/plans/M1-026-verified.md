@@ -20,13 +20,13 @@
 
 | Package | Coverage |
 |---------|----------|
-| `cmd/apitest` | 84.9% |
+| `cmd/curlew` | 84.9% |
 | `internal/output` | 91.2% |
 
 ## Observable Output
 
 ```json
-$ echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin --format json
+$ echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./curlew exec --stdin --format json
 {
   "name": "",
   "status": "passed",
@@ -66,7 +66,7 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all 13 packages pass | PASS |
 | 2 | Observable output works as specified | JSON output matches expected format | PASS |
-| 3 | Test coverage >= 80% | 90.7% overall, 84.9% cmd/apitest | PASS |
+| 3 | Test coverage >= 80% | 90.7% overall, 84.9% cmd/curlew | PASS |
 | 4 | No build warnings or lint errors | `golangci-lint run` — 0 issues | PASS |
 | 5 | Help text updated | `exec` command and options shown in `--help` | PASS |
 | 6 | Smoke test updated | Exec section added to `smoke/run.sh` | PASS |
@@ -118,8 +118,8 @@ Review PASS from round 3. Spot-check: 2/3 items passed directly; 1 item (error w
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +343 |
-| `cmd/apitest/main_test.go` | modified | +697 |
+| `cmd/curlew/main.go` | modified | +343 |
+| `cmd/curlew/main_test.go` | modified | +697 |
 | `internal/output/jsonl.go` | created | +43 |
 | `internal/output/jsonl_test.go` | created | +175 |
 | `management/backlog.yaml` | modified | +5/-1 |

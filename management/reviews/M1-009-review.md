@@ -27,7 +27,7 @@ No findings. All issues from the previous review have been resolved.
 - `internal/variable/`: 94.0%
 - `internal/runner/`: 100.0%
 - `internal/parser/`: 89.9%
-- `cmd/apitest/`: 87.9%
+- `cmd/curlew/`: 87.9%
 - All packages above 80% threshold
 
 ## Behavior Coverage

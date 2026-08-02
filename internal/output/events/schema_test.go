@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/output/events"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/output/events"
 )
 
 // schemaPath returns the absolute path to docs/events-schema/<version>.json
@@ -97,9 +97,9 @@ func TestEmitter_AllKindsValidateAgainstSchema(t *testing.T) {
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "schema-validate-001",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "schema-validate-001",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -216,9 +216,9 @@ func TestEmitter_GoldenSchemaValidates(t *testing.T) {
 func TestEmitter_GoldenRunHappy(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "golden-run-happy",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "golden-run-happy",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -253,9 +253,9 @@ func TestEmitter_GoldenRunHappy(t *testing.T) {
 func TestEmitter_GoldenRunError(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "golden-run-error",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "golden-run-error",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -285,9 +285,9 @@ func TestEmitter_GoldenRunError(t *testing.T) {
 func TestEmitter_GoldenRunFailedAssertion(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "golden-run-failed",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "golden-run-failed",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -685,7 +685,7 @@ func TestSchema_v10_validates(t *testing.T) {
 	sch := compileEventSchemaVersion(t, "v1.0")
 	// Hand-crafted v1.0 lines (no selection on run.start, no request_slug).
 	lines := []string{
-		`{"schema_version":"1.0","run_id":"r","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-25T10:00:00Z","apitest_version":"0.1.0-test","cli_args":["run","t.yaml"]}`,
+		`{"schema_version":"1.0","run_id":"r","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-25T10:00:00Z","curlew_version":"0.1.0-test","cli_args":["run","t.yaml"]}`,
 		`{"schema_version":"1.0","run_id":"r","id":2,"at_ms":1,"kind":"request.start","request_id":"req-1","name":"Get user","method":"GET","url":"https://example.com"}`,
 		`{"schema_version":"1.0","run_id":"r","id":3,"at_ms":2,"kind":"assertion.result","request_id":"req-1","type":"status","passed":true,"expected":"200","actual":"200"}`,
 		`{"schema_version":"1.0","run_id":"r","id":4,"at_ms":3,"kind":"request.end","request_id":"req-1","outcome":"passed","duration_ms":42}`,
@@ -707,7 +707,7 @@ func TestSchema_v11_validates(t *testing.T) {
 	sch := compileEventSchemaVersion(t, "v1.1")
 	// Hand-crafted v1.1 lines (selection on run.start, no request_slug).
 	lines := []string{
-		`{"schema_version":"1.1","run_id":"r","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-25T10:00:00Z","apitest_version":"0.1.0-test","cli_args":["run","t.yaml","--only","Get user"],"selection":["Get user"]}`,
+		`{"schema_version":"1.1","run_id":"r","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-25T10:00:00Z","curlew_version":"0.1.0-test","cli_args":["run","t.yaml","--only","Get user"],"selection":["Get user"]}`,
 		`{"schema_version":"1.1","run_id":"r","id":2,"at_ms":1,"kind":"request.start","request_id":"req-1","name":"Get user","method":"GET","url":"https://example.com"}`,
 		`{"schema_version":"1.1","run_id":"r","id":3,"at_ms":2,"kind":"assertion.result","request_id":"req-1","type":"status","passed":true,"expected":"200","actual":"200"}`,
 		`{"schema_version":"1.1","run_id":"r","id":4,"at_ms":3,"kind":"request.end","request_id":"req-1","outcome":"passed","duration_ms":42}`,
@@ -730,9 +730,9 @@ func TestSchema_v13_validates(t *testing.T) {
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-25T10:00:00Z"),
-		RunID:          "v12-validate-001",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-25T10:00:00Z"),
+		RunID:         "v12-validate-001",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)

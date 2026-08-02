@@ -1,15 +1,15 @@
 package runservice
 
 import (
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // SensitiveInputs carries the variable sources the sensitive-set builders
 // consider. EnvVarVars and CLIVars exist for the CLI run path; service callers
-// (apitest ui) leave them nil — the UI accepts no ad-hoc variables.
+// (curlew ui) leave them nil — the UI accepts no ad-hoc variables.
 type SensitiveInputs struct {
 	Collection      *parser.Collection
 	ProjectCfg      *config.ProjectConfig
@@ -24,7 +24,7 @@ type SensitiveInputs struct {
 // collection/request sensitive markers, .env sensitives, configured secret
 // names, plus name-heuristics and concrete values over every known variable
 // source. The events sink redacts mid-run with this set. Extracted verbatim
-// from the pre-run block in cmd/apitest runCmdInner.
+// from the pre-run block in cmd/curlew runCmdInner.
 func BuildPreRunSensitive(in SensitiveInputs) *variable.SensitiveSet {
 	return buildSensitive(in, nil)
 }
@@ -32,7 +32,7 @@ func BuildPreRunSensitive(in SensitiveInputs) *variable.SensitiveSet {
 // BuildPostRunSensitive builds the full post-run sensitive set: everything in
 // BuildPreRunSensitive plus summary.AuthSensitive (auth-profile values) and
 // summary.RuntimeSensitive (dynamic-fn registrations), which only exist after
-// the run. Extracted verbatim from the post-run block in cmd/apitest
+// the run. Extracted verbatim from the post-run block in cmd/curlew
 // runCmdInner. summary may be nil.
 func BuildPostRunSensitive(in SensitiveInputs, summary *runner.Summary) *variable.SensitiveSet {
 	return buildSensitive(in, summary)

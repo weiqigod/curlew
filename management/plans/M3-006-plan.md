@@ -1029,14 +1029,14 @@ None.
 | File | Action | Description |
 |------|--------|-------------|
 | `smoke/run.sh` | modify | Add M3-006 block testing petstore-full.yaml |
-| `cmd/apitest/main.go` | modify | Update import openapi help text |
+| `cmd/curlew/main.go` | modify | Update import openapi help text |
 
 #### New Smoke Test Block (after existing M3-005 block, before "Smoke Test Complete")
 
 ```bash
 # --- M3-006: headers, request bodies, and status assertions ---
 echo "--- Import OpenAPI with headers/body/status (M3-006) ---"
-cat > /tmp/apitest-smoke-openapi/petstore-full.yaml <<'OAI'
+cat > /tmp/curlew-smoke-openapi/petstore-full.yaml <<'OAI'
 openapi: 3.0.3
 info:
   title: Petstore Full
@@ -1068,29 +1068,29 @@ paths:
         '404': { description: Not found }
 OAI
 
-APITEST_TIER=professional ./apitest import openapi /tmp/apitest-smoke-openapi/petstore-full.yaml \
-    --output /tmp/apitest-smoke-openapi/full-generated.yaml \
+CURLEW_TIER=professional ./curlew import openapi /tmp/curlew-smoke-openapi/petstore-full.yaml \
+    --output /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: import openapi full spec writes file" \
   || { echo "FAIL: import openapi full spec failed"; exit 1; }
 
-grep -q "X-API-Key" /tmp/apitest-smoke-openapi/full-generated.yaml \
+grep -q "X-API-Key" /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains X-API-Key header" \
   || { echo "FAIL: missing X-API-Key header in generated collection"; exit 1; }
 
-grep -q "name:" /tmp/apitest-smoke-openapi/full-generated.yaml \
+grep -q "name:" /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains request body" \
   || { echo "FAIL: missing request body in generated collection"; exit 1; }
 
-grep -q "status:" /tmp/apitest-smoke-openapi/full-generated.yaml \
+grep -q "status:" /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains status assertions" \
   || { echo "FAIL: missing status assertions in generated collection"; exit 1; }
 
-./apitest validate /tmp/apitest-smoke-openapi/full-generated.yaml \
+./curlew validate /tmp/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: full generated collection validates" \
   || { echo "FAIL: full generated collection failed to validate"; exit 1; }
 ```
 
-#### Help Text Update (`cmd/apitest/main.go`)
+#### Help Text Update (`cmd/curlew/main.go`)
 Find the `import openapi` command description and extend to mention headers, bodies, and assertions are now populated.
 
 #### Impact on Existing Tests
@@ -1174,7 +1174,7 @@ func nilIfEmpty[K comparable, V any](m map[K]V) map[K]V
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/openapi/...
 ~/go/bin/golangci-lint run ./internal/openapi/...
 ./smoke/run.sh
@@ -1182,14 +1182,14 @@ go test ./internal/openapi/...
 
 Observable verification:
 ```bash
-APITEST_TIER=professional ./apitest import openapi testdata/openapi/petstore-full.yaml \
+CURLEW_TIER=professional ./curlew import openapi testdata/openapi/petstore-full.yaml \
     --output out.yaml
 # Verify out.yaml contains:
 #   headers: { X-API-Key: '{{x_api_key}}' }
 #   url ending with ?limit={{limit}}
 #   body: { name: string }
 #   assertions: { status: [200, 404] }  (or [201, 404] for createPet)
-./apitest validate out.yaml
+./curlew validate out.yaml
 go test ./internal/openapi/...
 ```
 

@@ -25,7 +25,7 @@ No findings.
 ## Test Coverage
 - Coverage: 91.6% (`internal/prcheck`)
 - All 36 tests in `internal/prcheck` pass (including 4 retry tests, 7 config validation tests, 5 file-loading tests, 7 run orchestration tests).
-- All 8 pr-check CLI tests in `cmd/apitest` pass.
+- All 8 pr-check CLI tests in `cmd/curlew` pass.
 - Total: 44 tests, well above the >=7 requirement from the definition of done.
 - Uncovered lines are limited to edge branches in `doWithRetry` that are impractical to trigger deterministically (e.g. read error during body read from a live connection). 91.6% is above the 80% quality gate.
 
@@ -35,9 +35,9 @@ No findings.
 |----------|---------|--------|
 | POSTs results payload, prints returned result_id | `TestRun_Success`, `TestPrCheckCmd_SuccessAllPass` | PASS |
 | POSTs pr-check status payload with repo/pr/state/result_id | `TestRun_FailingTests_StateFailure`, `TestClient_PostPrCheck` | PASS |
-| Missing APITEST_BACKEND_URL → exit 2, 'backend URL not configured' | `TestPrCheckCmd_MissingBackendURL`, `TestRun_MissingConfig_Error` | PASS |
+| Missing CURLEW_BACKEND_URL → exit 2, 'backend URL not configured' | `TestPrCheckCmd_MissingBackendURL`, `TestRun_MissingConfig_Error` | PASS |
 | fail_count > 0 → state=failure, exit 1 | `TestPrCheckCmd_FailingTests_Exit1`, `TestRun_FailingTests_StateFailure` | PASS |
-| Backend 401 → 'unauthorized: refresh APITEST_BACKEND_TOKEN', exit 2 | `TestPrCheckCmd_Unauthorized`, `TestRun_Unauthorized_Error` | PASS |
+| Backend 401 → 'unauthorized: refresh CURLEW_BACKEND_TOKEN', exit 2 | `TestPrCheckCmd_Unauthorized`, `TestRun_Unauthorized_Error` | PASS |
 | --dry-run → no HTTP, stdout shows JSON payloads | `TestPrCheckCmd_DryRun_NoHTTP`, `TestRun_DryRun_NoHTTP` | PASS |
 | --help documents all flags and env vars | `TestPrCheckCmd_Help` | PASS |
 | Unreachable backend → 2 retries with 200ms backoff, exit 2 | `TestPrCheckCmd_ConnectionRefused_Exit2`, `TestClient_RetryBackoff`, `TestClient_RetryOnConnectionRefused` | PASS |

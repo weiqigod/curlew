@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/runner"
+	"github.com/weiqigod/curlew/internal/runner"
 )
 
 // TriggerInfo captures the operator context that is not in Summary.

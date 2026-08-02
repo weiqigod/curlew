@@ -1,6 +1,6 @@
-// Package backend implements the CLI side of the apitest network boundary.
+// Package backend implements the CLI side of the curlew network boundary.
 //
-// This package provides the HTTP client for communicating with the apitool
+// This package provides the HTTP client for communicating with the curlew
 // backend service, including RFC 7807 problem-details error decoding, a
 // single-flight flock guard for concurrent token refresh, and a hybrid
 // OS-keychain + AES-256-GCM encrypted-file fallback for refresh/access-token storage.

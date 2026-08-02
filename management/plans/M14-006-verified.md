@@ -1,6 +1,6 @@
 # Verification Report: M14-006
 
-**Task:** CLI: apitest license --refresh + --debug + 8-code exit taxonomy
+**Task:** CLI: curlew license --refresh + --debug + 8-code exit taxonomy
 **Verified by:** AI
 **Date:** 2026-05-05
 **Branch:** feature/M14-006-license-refresh-and-debug
@@ -14,30 +14,30 @@
 | `go test -race ./...` | PASS | No races detected (run by ci-local.sh) |
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | Smoke test clean, M14-006 paths verified |
-| Coverage `cmd/apitest` | 81.5% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 81.5% | Meets >= 80% threshold |
 | Coverage `internal/backend` | 84.4% | Meets >= 80% threshold |
 | Coverage `internal/license` | 88.1% | Meets >= 80% threshold |
 
 ## Observable Output
 
 ```
-$ ./apitest login --no-browser
+$ ./curlew login --no-browser
 First, copy your one-time code: ABCD-EFGH
 Then visit: https://app.apitool.dev/device
 Polling for confirmation...
 Authentication complete. Welcome, smoke@example.com.
 
-$ ./apitest license --refresh
+$ ./curlew license --refresh
 License refreshed. Tier=enterprise. Expires in 0 days.
 exit=0
 
-$ ./apitest license --debug
+$ ./curlew license --debug
 {
-  "cache_file": "/tmp/apitest_obs_.../license.json",
+  "cache_file": "/tmp/curlew_obs_.../license.json",
   "exp": 1778053453,
   "grace_until": null,
   "jti": "",
-  "kid": "apitest-2025-01",
+  "kid": "curlew-2025-01",
   "lastRefreshAttemptAt": "2026-05-05T07:44:13Z",
   "last_error_type": "",
   "refresh_failures": 0,
@@ -48,7 +48,7 @@ exit=0
 $ ./testdata/m14/stub-backend.sh inject 500
 stub-backend: injected status=500 code= for next /auth/refresh
 
-$ ./apitest license --refresh; echo "exit=$?"
+$ ./curlew license --refresh; echo "exit=$?"
 license refresh failed, will retry next invocation
 exit=6
 ```
@@ -67,9 +67,9 @@ Result: MATCH
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
 | 1 | Given a valid refresh-token cache, when --refresh succeeds, then three new tokens are persisted and exits 0 | `TestLicenseRefresh_HappyPath_PersistsAndExitsZero`, `TestLicenseRefresh_PersistsAllThreeTokens`, `TestLicenseRefresh_StdoutLineMatchesSpec` | PASS |
-| 2 | Given no refresh-token cache exists, when --refresh runs, prints 'No cache; run apitest login' and exits 2 | `TestLicenseRefresh_NoCachedToken_ExitsTwo` | PASS |
+| 2 | Given no refresh-token cache exists, when --refresh runs, prints 'No cache; run curlew login' and exits 2 | `TestLicenseRefresh_NoCachedToken_ExitsTwo` | PASS |
 | 3 | Given backend unreachable, when --refresh runs, logs warning and exits 3; subsequent run succeeds because JWT offline-verified | `TestLicenseRefresh_NetworkFailure_ExitsThree`, `TestLicenseRefresh_PreviousJWTRemainsValidOnNetworkFailure` | PASS |
-| 4 | Given backend returns AUTH_REFRESH_EXPIRED, exits 4 with 'Refresh expired; run apitest login' | `TestLicenseRefresh_RefreshExpired_ExitsFour` | PASS |
+| 4 | Given backend returns AUTH_REFRESH_EXPIRED, exits 4 with 'Refresh expired; run curlew login' | `TestLicenseRefresh_RefreshExpired_ExitsFour` | PASS |
 | 5 | Given backend returns AUTH_REFRESH_REUSED, exits 5 with family-revocation message | `TestLicenseRefresh_RefreshReused_ExitsFive` | PASS |
 | 6 | Given backend returns 5xx, exits 6 and previous License JWT remains valid | `TestLicenseRefresh_ServerError_ExitsSix`, `TestLicenseRefresh_PreviousJWTRemainsValidOnServerError` | PASS |
 | 7 | Given AUTH_DEVICE_MISMATCH or no device.json, exits 7 (device not registered) | `TestLicenseRefresh_DeviceMismatch_ExitsSeven`, `TestLicenseRefresh_NoDeviceJSON_ExitsSeven` | PASS |
@@ -79,11 +79,11 @@ Result: MATCH
 
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
-| 1 | `go test ./cmd/apitest/... -run TestLicenseRefresh` passes with >=10 tests | 13 tests pass | PASS |
+| 1 | `go test ./cmd/curlew/... -run TestLicenseRefresh` passes with >=10 tests | 13 tests pass | PASS |
 | 2 | Real binary invocation against stub produces documented exit codes for success, 2, 3, 5, 6, 7 | Smoke test covers all 6 paths; observable verification confirms 0 and 6 manually | PASS |
 | 3 | Help text for `license --refresh` and `license --debug` lists every exit code | `TestLicenseHelp_DocumentsRefreshExitCodes` and `TestLicenseHelp_DocumentsDebugExitCodes` pass | PASS |
 | 4 | MANUAL.md updated with 8-code exit-taxonomy table | `docs/MANUAL.md` contains the table | PASS |
-| 5 | `docs/SPECIFICATION.md:8269–8284` cited in `cmd/apitest/license.go` header | Header comment cites spec §:8269-8284 | PASS |
+| 5 | `docs/SPECIFICATION.md:8269–8284` cited in `cmd/curlew/license.go` header | Header comment cites spec §:8269-8284 | PASS |
 | 6 | `smoke/run.sh` extended to verify --refresh exits 2 when no cache exists | Smoke test "License Refresh — no cache (M14-006)" section passes (exits 7 for missing device.json, which the smoke accepts as 2 or 7) | PASS |
 
 ## Code Review
@@ -139,8 +139,8 @@ Branch A: Review PASS trusted (iteration 4), spot-check clean:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/license.go` | modified — --refresh, --debug, exit-code taxonomy, help text |
-| `cmd/apitest/license_test.go` | modified — 13 TestLicenseRefresh_* + 4 TestLicenseDebug_* + 2 help tests |
+| `cmd/curlew/license.go` | modified — --refresh, --debug, exit-code taxonomy, help text |
+| `cmd/curlew/license_test.go` | modified — 13 TestLicenseRefresh_* + 4 TestLicenseDebug_* + 2 help tests |
 | `internal/backend/refresh.go` | created — ErrRefreshExpired, ErrRefreshReused, ErrDeviceMismatch sentinels |
 | `internal/backend/refresh_test.go` | created — 4 sentinel mapping tests |
 | `internal/backend/lock.go` | modified — translateRefreshError applied to RefreshTokens |

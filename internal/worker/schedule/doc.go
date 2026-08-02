@@ -5,7 +5,7 @@
 // and posts results via POST /api/v1/schedules/runs/{id}/result.
 //
 // On unrecoverable post failure the result payload is queued under
-// ~/.config/apitesttool/pending-uploads/<run_id>.json and drained on the next
+// ~/.config/curlew/pending-uploads/<run_id>.json and drained on the next
 // successful poll cycle.
 //
 // References:

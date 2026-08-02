@@ -4,7 +4,7 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Your ApiTool device login code
+          Your Curlew device login code
         </mj-text>
         <mj-text>
           Enter this code on the device-login page to finish signing in.

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/worker/schedule"
+	"github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 func TestResolveCollection(t *testing.T) {
@@ -32,9 +32,9 @@ func TestResolveCollection(t *testing.T) {
 		},
 		{
 			name:       "file: absolute path stays absolute",
-			ref:        "file:/etc/apitest/api.yaml",
+			ref:        "file:/etc/curlew/api.yaml",
 			workingDir: wd,
-			wantPath:   "/etc/apitest/api.yaml",
+			wantPath:   "/etc/curlew/api.yaml",
 		},
 		{
 			name:       "git: ref is rejected with ErrUnsupportedCollectionRef",

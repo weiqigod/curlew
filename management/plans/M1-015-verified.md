@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/apitest-test/collection.yaml
+$ ./curlew run /tmp/curlew-test/collection.yaml
 Collection: External Reference Test
   ✓ Get User  200  567ms
 
@@ -93,7 +93,7 @@ Review PASS trusted (management/reviews/M1-015-review.md), spot-check clean.
 | `internal/parser/collection.go` | modified | +9 |
 | `internal/parser/errors.go` | modified | +13/-6 |
 | `internal/parser/parser.go` | modified | +17 |
-| `cmd/apitest/main_test.go` | modified | +113 |
+| `cmd/curlew/main_test.go` | modified | +113 |
 | `smoke/run.sh` | modified | +32 |
 | `CHANGELOG.md` | modified | +5 |
 | testdata files (14) | added | various |

@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run --parallel sample/hello.yaml
+$ ./curlew run --parallel sample/hello.yaml
 [ERROR] Parallel execution requires Professional tier ($19/month)
 Exit code: 6
 ```
@@ -36,7 +36,7 @@ Expected: all parallel tests pass
 Result: MATCH
 
 ```
-$ go test -v -run TestRunCmd_parallel ./cmd/apitest/
+$ go test -v -run TestRunCmd_parallel ./cmd/curlew/
 7 integration tests PASS (feature_gated, independent, dependent, speedup, setup_sequential, failed_dep_skips, json_output)
 ```
 
@@ -108,9 +108,9 @@ Review PASS trusted (management/reviews/M2-016-review.md, iteration 2). Spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +67/-0 |
-| `cmd/apitest/main_test.go` | modified | +58/-0 |
-| `cmd/apitest/run_test.go` | modified | +261/-0 |
+| `cmd/curlew/main.go` | modified | +67/-0 |
+| `cmd/curlew/main_test.go` | modified | +58/-0 |
+| `cmd/curlew/run_test.go` | modified | +261/-0 |
 | `internal/parallel/executor.go` | created | +269/-0 |
 | `internal/parallel/executor_test.go` | created | +800/-0 |
 | `internal/requtil/requtil.go` | created | +83/-0 |

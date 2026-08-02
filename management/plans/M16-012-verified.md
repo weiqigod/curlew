@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass (cached) |
 | `go test -race ./...` | PASS | No races detected (run by ci-local.sh) |
 | `golangci-lint run` | PASS | 0 issues |

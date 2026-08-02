@@ -33,7 +33,7 @@ The three findings from iteration 6 are all confirmed fixed:
 | Test Quality | PASS | All 8 task YAML behaviors covered by backend integration tests + E2E specs. `GitLabProjectLookupTests`: 15 cases (URL encoding ×4, Private-Token header, 200 ok, 200 missing id, 200 string id, 200 malformed JSON, 401, 404, network error, http AllowHttp=false, http AllowHttp=true, invalid base URL ×3, 403, 5xx, CA-bundle ok, CA-bundle network error). `GitLabIntegrationsEndpointsTests`: 20 cases covering all verbs, tier-gate, multi-org, duplicate, CA-bundle, revoked-token serialization, and `InvalidBaseUrl`. Web unit: 4 cases. Web E2E: 8 specs. |
 
 ## Test Coverage
-- Go coverage: 87.1% (cmd/apitest) — exceeds 80% gate. No Go files changed in this task.
+- Go coverage: 87.1% (cmd/curlew) — exceeds 80% gate. No Go files changed in this task.
 - C# backend: all `GitLabProjectLookupTests` and `GitLabIntegrationsEndpointsTests` pass. All previously identified code branches are now covered.
 - Web unit (`gitlab-integrations.test.ts`): 4 cases covering list, create, remove, and 402 propagation with `org_id` forwarding.
 - Web E2E (`org-integrations-gitlab.spec.ts`): 8 specs, one per task YAML behavior.

@@ -227,7 +227,7 @@ import (
     "net/http"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/parser"
+    "github.com/weiqigod/curlew/internal/parser"
 )
 
 // Result holds the outcome of an executed HTTP request.
@@ -337,7 +337,7 @@ import (
     "fmt"
     "io"
 
-    httpexec "github.com/peterlindqvist/apitest/internal/http"
+    httpexec "github.com/weiqigod/curlew/internal/http"
 )
 
 // PrintResult writes a single request result line to w.
@@ -390,14 +390,14 @@ func TestPrintError(t *testing.T) { /* ... */ }
 
 ---
 
-### Step 4: CLI wiring — `run` command (`cmd/apitest/main.go`)
+### Step 4: CLI wiring — `run` command (`cmd/curlew/main.go`)
 **Rationale:** Depends on all three packages. This is the integration point.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `run` command routing, wire parser→http→output |
+| `cmd/curlew/main.go` | modify | Add `run` command routing, wire parser→http→output |
 
 #### Current Code
 
@@ -413,11 +413,11 @@ const version = "0.1.0-dev"
 
 func main() {
     if len(os.Args) > 1 && os.Args[1] == "--version" {
-        fmt.Printf("apitest %s\n", version)
+        fmt.Printf("curlew %s\n", version)
         return
     }
 
-    fmt.Println("apitest — a file-based API testing tool")
+    fmt.Println("curlew — a file-based API testing tool")
     // ... help text
 }
 ```
@@ -433,9 +433,9 @@ import (
     "fmt"
     "os"
 
-    httpexec "github.com/peterlindqvist/apitest/internal/http"
-    "github.com/peterlindqvist/apitest/internal/output"
-    "github.com/peterlindqvist/apitest/internal/parser"
+    httpexec "github.com/weiqigod/curlew/internal/http"
+    "github.com/weiqigod/curlew/internal/output"
+    "github.com/weiqigod/curlew/internal/parser"
 )
 
 const version = "0.1.0-dev"
@@ -452,7 +452,7 @@ func run(args []string) int {
 
     switch args[0] {
     case "--version":
-        fmt.Printf("apitest %s\n", version)
+        fmt.Printf("curlew %s\n", version)
         return 0
     case "--help", "-h":
         printHelp()
@@ -468,7 +468,7 @@ func run(args []string) int {
 
 func runCmd(args []string) int {
     if len(args) == 0 {
-        fmt.Fprintln(os.Stderr, "Usage: apitest run <collection-file>")
+        fmt.Fprintln(os.Stderr, "Usage: curlew run <collection-file>")
         return 1
     }
 
@@ -509,12 +509,12 @@ func runCmd(args []string) int {
 }
 
 func printHelp() {
-    fmt.Println("apitest — a file-based API testing tool")
+    fmt.Println("curlew — a file-based API testing tool")
     fmt.Println()
     fmt.Printf("Version: %s\n", version)
     fmt.Println()
     fmt.Println("Usage:")
-    fmt.Println("  apitest <command> [arguments]")
+    fmt.Println("  curlew <command> [arguments]")
     fmt.Println()
     fmt.Println("Commands:")
     fmt.Println("  run <file>   Execute requests in a collection file")
@@ -537,10 +537,10 @@ func printHelp() {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | create | Integration tests building and running the binary |
-| `cmd/apitest/testdata/minimal.yaml` | create | Valid collection fixture |
-| `cmd/apitest/testdata/invalid.yaml` | create | Broken YAML fixture |
-| `cmd/apitest/testdata/no_name.yaml` | create | Missing name fixture |
+| `cmd/curlew/main_test.go` | create | Integration tests building and running the binary |
+| `cmd/curlew/testdata/minimal.yaml` | create | Valid collection fixture |
+| `cmd/curlew/testdata/invalid.yaml` | create | Broken YAML fixture |
+| `cmd/curlew/testdata/no_name.yaml` | create | Missing name fixture |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -572,7 +572,7 @@ func TestCLIIntegration(t *testing.T) {
             name:     "version flag",
             args:     []string{"--version"},
             wantExit: 0,
-            wantOut:  "apitest",
+            wantOut:  "curlew",
         },
         {
             name:     "run without file shows usage",
@@ -614,7 +614,7 @@ Note: A test against a real HTTP endpoint (e.g., httptest server started in the 
 | File | Action | Description |
 |------|--------|-------------|
 | `sample/hello.yaml` | create | Working example collection |
-| `smoke/run.sh` | modify | Add `apitest run` smoke scenario |
+| `smoke/run.sh` | modify | Add `curlew run` smoke scenario |
 
 #### Sample File
 
@@ -634,7 +634,7 @@ requests:
 Add after existing version check:
 ```bash
 echo "--- Running sample collection ---"
-./apitest run sample/hello.yaml
+./curlew run sample/hello.yaml
 echo
 ```
 
@@ -658,7 +658,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -666,28 +666,28 @@ go test ./...
 
 Observable verification:
 ```bash
-./apitest run sample/hello.yaml
+./curlew run sample/hello.yaml
 # Expected: "Collection: Hello API" header, "Get httpbin  200  <N>ms" line, summary
 ```
 
 ```bash
-./apitest run nonexistent.yaml
+./curlew run nonexistent.yaml
 echo $?
 # Expected: error message, exit code 3
 ```
 
 ```bash
-./apitest run
+./curlew run
 echo $?
 # Expected: usage message, exit code 1
 ```
 
 ```bash
-./apitest --version
-# Expected: "apitest 0.1.0-dev"
+./curlew --version
+# Expected: "curlew 0.1.0-dev"
 ```
 
 ```bash
-./apitest --help
+./curlew --help
 # Expected: help text with "run" command listed
 ```

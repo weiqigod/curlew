@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // ErrorHandlingMode controls how GraphQL errors in responses are treated.

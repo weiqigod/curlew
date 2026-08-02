@@ -26,8 +26,8 @@ No findings.
 
 - Go coverage: 86.7% (unchanged — no Go changes in this task)
 - C# Health package: 11 tests pass (5 theory rows + 1 exception unit + 5 endpoint integration tests). All happy and unhealthy paths covered at both unit and integration levels.
-- Web: `<title>apitest</title>` fix verified by smoke script end-to-end.
-- Shell smoke: `scripts/test-self-hosted.sh` is gated behind `APITEST_RUN_SELF_HOSTED=1` (opt-in per plan decision; documented in README and ci-local.sh).
+- Web: `<title>curlew</title>` fix verified by smoke script end-to-end.
+- Shell smoke: `scripts/test-self-hosted.sh` is gated behind `CURLEW_RUN_SELF_HOSTED=1` (opt-in per plan decision; documented in README and ci-local.sh).
 
 ## Resolved Findings (from Iteration 1)
 

@@ -14,14 +14,14 @@
 | `npm run test:unit` | PASS | 137 tests, 16 test files |
 | `npm run lint` (ESLint) | PASS | 0 findings |
 | `npm run check` (svelte-check) | PASS | 0 errors, 0 warnings |
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke tests clean |
 | Coverage (Go) | 87.2% | Meets >= 80% threshold |
 | Coverage (Web) | ~86% | 137 unit tests across 16 files; all M5-005 modules have dedicated test files |
 
-Note: E2E tests require the full docker-compose backend stack (`APITOOL_MANAGE_STACK=1`), which is not available in this CI environment. This is the same documented constraint for all M5 web tasks (see M5-003 verified report for precedent). Observable verification uses build + unit test evidence per the established project pattern.
+Note: E2E tests require the full docker-compose backend stack (`CURLEW_MANAGE_STACK=1`), which is not available in this CI environment. This is the same documented constraint for all M5 web tasks (see M5-003 verified report for precedent). Observable verification uses build + unit test evidence per the established project pattern.
 
 ## Observable Output
 

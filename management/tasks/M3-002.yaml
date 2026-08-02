@@ -1,5 +1,5 @@
 id: M3-002
-title: "Glob pattern discovery for apitest run"
+title: "Glob pattern discovery for curlew run"
 status: done
 priority: 2
 created: 2026-04-10
@@ -12,7 +12,7 @@ dependencies: []
 observable: |
   Create `testdata/discovery/` with `a_test.yaml`, `b_test.yaml`, `sub/c_test.yaml`,
   and one non-matching `ignore.yaml`. Run
-  `go build ./cmd/apitest && ./apitest run "testdata/discovery/**/*_test.yaml"`
+  `go build ./cmd/curlew && ./curlew run "testdata/discovery/**/*_test.yaml"`
   at Professional tier and verify output lists three collections executed, and
   exit code reflects the worst collection result. Run at Free tier and verify
   exit code 6 with a `test_discovery` feature gate message. Run
@@ -20,12 +20,12 @@ observable: |
 
 behaviors:
   - "Given the pattern `**/*_test.yaml`, when expanded by the discovery package, then all matching YAML files under the working directory are returned in deterministic (sorted) order"
-  - "Given a glob pattern that matches zero files, when `apitest run <pattern>` executes, then exit code 2 and a 'no collections matched' error is printed"
-  - "Given a literal file path (no glob metachars), when passed to `apitest run`, then the existing single-file behavior is preserved (no discovery pass)"
-  - "Given a `.apitestignore` file with `**/drafts/*.yaml`, when discovery runs, then ignored files are excluded from the match set"
+  - "Given a glob pattern that matches zero files, when `curlew run <pattern>` executes, then exit code 2 and a 'no collections matched' error is printed"
+  - "Given a literal file path (no glob metachars), when passed to `curlew run`, then the existing single-file behavior is preserved (no discovery pass)"
+  - "Given a `.curlewignore` file with `**/drafts/*.yaml`, when discovery runs, then ignored files are excluded from the match set"
   - "Given three matching collections A, B, C where B fails, when executed sequentially, then A and C still run and the final exit code reflects the failure"
   - "Given `--format json` with a glob, when executed, then the output is a single JSON document containing one result entry per matched collection"
-  - "Given a glob pattern at Free tier, when `apitest run` parses args, then exit code 6 and a feature gate for `test_discovery` is returned before any file I/O"
+  - "Given a glob pattern at Free tier, when `curlew run` parses args, then exit code 6 and a feature gate for `test_discovery` is returned before any file I/O"
   - "Given a pattern containing directory traversal (`../`), when expanded, then discovery rejects the pattern with a clear error"
 
 scope: |
@@ -33,7 +33,7 @@ scope: |
   using `doublestar` (pure-Go `**` glob) or a hand-rolled walker plus
   `filepath.Match`. Detect glob metachars (`*`, `?`, `[`) in `runCmd` to decide
   between single-file and discovery paths. Aggregate per-collection results into
-  one combined `runner.Summary`. Honor `.apitestignore`. Register
+  one combined `runner.Summary`. Honor `.curlewignore`. Register
   `test_discovery` as a Professional-tier feature in `internal/auth/registry.go`.
   Update help text and smoke tests.
 

@@ -4,10 +4,10 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Your ApiTool account deletion is scheduled
+          Your Curlew account deletion is scheduled
         </mj-text>
         <mj-text>
-          We received a request to permanently delete the ApiTool account for
+          We received a request to permanently delete the Curlew account for
           {{user_email}}. Your data will be deleted on {{finalizes_at_local}}
           (30 days from now).
         </mj-text>

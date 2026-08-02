@@ -3,7 +3,7 @@ title: Retry & backoff for flaky APIs
 intent: Survive transient 5xx, 429 throttling, and dropped connections with exponential backoff, jitter, and Retry-After — without retrying the things you mustn't.
 group: resilience
 features: [retry, rate-limit]
-command: apitest run collections/resilient.yaml
+command: curlew run collections/resilient.yaml
 order: 60
 runnable: false
 ---
@@ -12,7 +12,7 @@ runnable: false
 	import Callout from '$lib/components/Callout.svelte';
 </script>
 
-Networks and rate limiters fail in predictable, retryable ways. ApiTool's retry logic
+Networks and rate limiters fail in predictable, retryable ways. Curlew's retry logic
 targets exactly those — transient 5xx, 429 throttling, connection resets, timeouts —
 while letting you fence off the requests that must *never* be retried. Pair it with a
 collection-wide rate limit and your suite stops being flaky.
@@ -69,7 +69,7 @@ anywhere in `[1600, 2400]` ms. When the server sends `Retry-After`, that value w
 ## Run it
 
 ```bash
-apitest run collections/resilient.yaml --var report_id=R-2026-001
+curlew run collections/resilient.yaml --var report_id=R-2026-001
 ```
 
 ```
@@ -88,7 +88,7 @@ Collection: Resilient calls
 
 <Callout type="warn">
 	<code>POST</code> and <code>PATCH</code> aren't idempotent — retrying one that
-	already succeeded server-side can create duplicates. ApiTool warns when you enable
+	already succeeded server-side can create duplicates. Curlew warns when you enable
 	retry for non-idempotent methods. Restrict it with <code>retry_on.methods</code>,
 	add the verb to <code>do_not_retry_on.methods</code>, or send an idempotency key
 	(as the <a href="/examples/checkout-flow">checkout flow</a> does).

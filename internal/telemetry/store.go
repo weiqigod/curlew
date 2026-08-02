@@ -16,7 +16,7 @@ const (
 	installIDBaseName     = "install_id"
 	telemetryJSONBaseName = "telemetry.json"
 	currentSchemaVersion  = 1
-	defaultEndpoint       = "https://api.apitest.org/telemetry/events"
+	defaultEndpoint       = "https://api.curlew.org/telemetry/events"
 	maxRecentEmissions    = 10
 )
 
@@ -231,10 +231,10 @@ func (s *Store) RecentEmissions() ([]Emission, error) {
 	return state.RecentEmissions, nil
 }
 
-// resolvedEndpoint honours APITEST_TELEMETRY_ENDPOINT, then State.Endpoint,
+// resolvedEndpoint honours CURLEW_TELEMETRY_ENDPOINT, then State.Endpoint,
 // then defaultEndpoint.
 func (s *Store) resolvedEndpoint(state State) string {
-	if ep := os.Getenv("APITEST_TELEMETRY_ENDPOINT"); ep != "" {
+	if ep := os.Getenv("CURLEW_TELEMETRY_ENDPOINT"); ep != "" {
 		return ep
 	}
 	if state.Endpoint != "" {
@@ -298,8 +298,8 @@ func removeIfExists(path string) error {
 	return nil
 }
 
-// ResolvedEndpoint returns the effective endpoint for external callers (cmd/apitest).
-// Precedence: APITEST_TELEMETRY_ENDPOINT > telemetry.json.Endpoint > defaultEndpoint.
+// ResolvedEndpoint returns the effective endpoint for external callers (cmd/curlew).
+// Precedence: CURLEW_TELEMETRY_ENDPOINT > telemetry.json.Endpoint > defaultEndpoint.
 func (s *Store) ResolvedEndpoint() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

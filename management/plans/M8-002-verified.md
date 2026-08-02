@@ -43,7 +43,7 @@
     --- PASS: TestSchema_accepts/data_driven_request (0.00s)
     --- PASS: TestSchema_accepts/variables_object_form (0.00s)
 PASS
-ok  	github.com/peterlindqvist/apitest/internal/schema	0.190s
+ok  	github.com/weiqigod/curlew/internal/schema	0.190s
 ```
 
 ```
@@ -61,7 +61,7 @@ ok  	github.com/peterlindqvist/apitest/internal/schema	0.190s
 === RUN   TestSchema_examples/sample/hello.yaml
 --- PASS: TestSchema_examples (0.00s)
 PASS
-ok  	github.com/peterlindqvist/apitest/internal/schema	0.183s
+ok  	github.com/weiqigod/curlew/internal/schema	0.183s
 ```
 
 Expected: PASS for both observables.

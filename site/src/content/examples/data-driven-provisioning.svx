@@ -3,7 +3,7 @@ title: Data-driven user provisioning
 intent: Drive one request across a dataset, fill the gaps with faker, filter rows, pace the run, and aggregate the results.
 group: core
 features: [data-driven, faker, rate-limit, parallel]
-command: apitest run collections/provision.yaml
+command: curlew run collections/provision.yaml
 order: 20
 runnable: false
 ---
@@ -13,7 +13,7 @@ runnable: false
 </script>
 
 Parameterized tests are where file-based testing pulls ahead of click-ops. Point one
-request at a dataset and ApiTool runs it once per row, turning every column into a
+request at a dataset and Curlew runs it once per row, turning every column into a
 variable. Here we provision a batch of users — seeding any missing fields with
 **faker**, **filtering** the dataset, **rate-limiting** the run, and running
 iterations **in parallel**.
@@ -69,7 +69,7 @@ requests:
 ## Run it
 
 ```bash
-apitest run collections/provision.yaml
+curlew run collections/provision.yaml
 ```
 
 ## What you get
@@ -95,7 +95,7 @@ Data-Driven: Create user (3 iterations)
 <Callout type="output">
 	Representative output — this collection targets a private admin API. The
 	<code>[i/N]</code> naming, the filtered count, and the aggregated summary match
-	ApiTool's documented data-driven format.
+	Curlew's documented data-driven format.
 </Callout>
 
 ## Scaling up safely

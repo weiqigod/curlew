@@ -15,18 +15,18 @@
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage `internal/output` | 92.5% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 82.0% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 82.0% | Meets >= 80% threshold |
 
 ## Observable Output
 
 ```
-go test -run 'TestTAPOutput_DataDrivenIterations|TestTAPOutput_ParallelSpeedup' -v ./cmd/apitest/
+go test -run 'TestTAPOutput_DataDrivenIterations|TestTAPOutput_ParallelSpeedup' -v ./cmd/curlew/
 === RUN   TestTAPOutput_DataDrivenIterations
 --- PASS: TestTAPOutput_DataDrivenIterations (0.00s)
 === RUN   TestTAPOutput_ParallelSpeedup
 --- PASS: TestTAPOutput_ParallelSpeedup (0.00s)
 PASS
-ok  	github.com/peterlindqvist/apitest/cmd/apitest
+ok  	github.com/weiqigod/curlew/cmd/curlew
 ```
 
 Expected: Both tests PASS
@@ -44,7 +44,7 @@ Note: The shell-level observable scenario (datadriven_simple.yaml, parallel_simp
 | 4 | TestTAPOutput_DataDrivenIterations exists and asserts iteration suffix + plan count | test exists and passes | PASS |
 | 5 | TestTAPOutput_ParallelSpeedup asserts speedup_factor matches JSON formatter's value | parity comparison within ≤ 0.15 tolerance | PASS |
 | 6 | SPECIFICATION.md TAP section documents per-iteration test points and parallel YAML diagnostic | examples added at line 3148 | PASS |
-| 7 | MANUAL.md TAP-format section gains data-driven TAP example and parallel-run TAP example | both examples added with APITEST_TIER note | PASS |
+| 7 | MANUAL.md TAP-format section gains data-driven TAP example and parallel-run TAP example | both examples added with CURLEW_TIER note | PASS |
 | 8 | CHANGELOG.md [Unreleased] Added entry | entry added under ### Added | PASS |
 | 9 | IMPROVEMENT.md §2.4 bullets 1 (TAP half) + 2 annotated with 'Shipped (M11-003)' | both bullets annotated | PASS |
 
@@ -56,7 +56,7 @@ Note: The shell-level observable scenario (datadriven_simple.yaml, parallel_simp
 | 2 | TAP plan count matches actual test-point count for data-driven runs | `TestTAPOutput_DataDrivenIterations` plan assertion | PASS |
 | 3 | speedup_factor in TAP YAML diagnostic equals JSON formatter's value (parity test) | `TestTAPOutput_ParallelSpeedup` cross-formatter comparison | PASS |
 | 4 | go test ./... passes | CI gate PASS | PASS |
-| 5 | go test -cover ./internal/output/... ./cmd/apitest/... >= 80% | 92.5% / 82.0% | PASS |
+| 5 | go test -cover ./internal/output/... ./cmd/curlew/... >= 80% | 92.5% / 82.0% | PASS |
 | 6 | golangci-lint run passes with 0 issues | CI gate lint step PASS | PASS |
 | 7 | ./smoke/run.sh passes | CI gate smoke step PASS | PASS |
 | 8 | ./scripts/ci-local.sh passes | ci-local PASS | PASS |
@@ -100,9 +100,9 @@ Branch A: Review PASS (iteration 3) trusted. Spot-check: `writeTAPParallelDiagno
 |------|--------|
 | `internal/output/tap.go` | modified — ParallelTAP struct, WriteTAP 5th arg, writeTAPParallelDiagnostic |
 | `internal/output/tap_test.go` | modified — TestWriteTAP_ParallelSpeedup, nil args for existing tests |
-| `cmd/apitest/main.go` | modified — buildParallelMetadata helper, TAP call site wired |
-| `cmd/apitest/main_test.go` | modified — TestTAPOutput_DataDrivenIterations, TestTAPOutput_ParallelSpeedup, extended DataDriven_TAPFormat |
-| `cmd/apitest/testdata/parallel_simple.yaml` | created — 3-request fixture for observable verification |
+| `cmd/curlew/main.go` | modified — buildParallelMetadata helper, TAP call site wired |
+| `cmd/curlew/main_test.go` | modified — TestTAPOutput_DataDrivenIterations, TestTAPOutput_ParallelSpeedup, extended DataDriven_TAPFormat |
+| `cmd/curlew/testdata/parallel_simple.yaml` | created — 3-request fixture for observable verification |
 | `docs/SPECIFICATION.md` | modified — TAP data-driven and parallel diagnostic examples |
 | `docs/MANUAL.md` | modified — data-driven and parallel TAP usage examples |
 | `CHANGELOG.md` | modified — [Unreleased] Added entry |

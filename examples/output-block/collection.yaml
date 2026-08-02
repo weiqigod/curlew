@@ -1,8 +1,8 @@
-# Example collection that inherits output format from the project-level apitest.yaml.
-# With apitest.yaml declaring output.format: json, running this collection with
+# Example collection that inherits output format from the project-level curlew.yaml.
+# With curlew.yaml declaring output.format: json, running this collection with
 # no CLI flags will produce JSON output on stdout.
 #
-# Run: apitest run examples/output-block/collection.yaml | jq -r '.summary.total'
+# Run: curlew run examples/output-block/collection.yaml | jq -r '.summary.total'
 name: Output Block Demo
 requests:
   - name: hello

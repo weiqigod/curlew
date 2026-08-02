@@ -3,7 +3,7 @@ package signer
 import (
 	"context"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // scopeKey is the unexported context key for the per-request

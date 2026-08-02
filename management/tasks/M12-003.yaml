@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_UrlEncode' -v ./internal/variable/...
   # Expected: PASS — $urlEncode('hello world') returns 'hello+world'
@@ -19,9 +19,9 @@ observable: |
   # 14-char string `"he said \"hi\""` (with surrounding quotes,
   # quote and backslash escapes).
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a request: url "{{base_url}}/search?q={{$urlEncode('hello world & co')}}"
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: rendered URL has q=hello+world+%26+co.
 
   go test ./...

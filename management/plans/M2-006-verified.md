@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean, no warnings |
 | `go test ./...` | PASS | All 15 packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke scenarios clean |
@@ -26,7 +26,7 @@ go test ./internal/vault/... -v
 --- PASS: TestOnePasswordProvider (0.00s)
 --- PASS: TestNewProvider (0.00s)  (includes gcp + 1password registry entries)
 --- PASS: TestResolve (0.00s)      (includes gcp + 1password resolve paths)
-ok  	github.com/peterlindqvist/apitest/internal/vault
+ok  	github.com/weiqigod/curlew/internal/vault
 ```
 
 Expected: mocked CLI calls for both providers pass, all five providers recognized
@@ -40,7 +40,7 @@ Result: MATCH
 | 2 | 1Password secrets fetched via `op item get` | `TestOnePasswordProvider/fetch_plain_name_uses_op_item_get`, `fetch_plain_name_command_format_is_correct` | PASS |
 | 3 | GCP structured extraction extracts JSON field | `TestGCPProvider/fetch_returns_json_for_field_extraction`, `TestResolve/resolve_gcp_with_field_extraction` | PASS |
 | 4 | 1Password CLI not installed gives clear install error | `TestOnePasswordProvider/fetch_cli_not_installed_returns_auth_error_with_install_url`, `validate_config_cli_not_installed_suggests_install_url` | PASS |
-| 5 | All five providers recognized by `apitest vault list` | `TestVaultCmd_solo_tier_gcp/list_shows_provider`, `TestVaultCmd_solo_tier_1password/list_shows_provider` | PASS |
+| 5 | All five providers recognized by `curlew vault list` | `TestVaultCmd_solo_tier_gcp/list_shows_provider`, `TestVaultCmd_solo_tier_1password/list_shows_provider` | PASS |
 
 ## Definition of Done
 
@@ -98,7 +98,7 @@ TDD pattern visible: `test(vault)` commits precede `feat(vault)` commits. All co
 | `internal/vault/resolver.go` | modified | Registry updated with gcp + 1password |
 | `internal/vault/resolver_test.go` | modified | Integration tests for both providers |
 | `internal/vault/provider_test.go` | modified | Factory tests for gcp + 1password |
-| `cmd/apitest/main_test.go` | modified | Binary-level vault list tests |
+| `cmd/curlew/main_test.go` | modified | Binary-level vault list tests |
 | `management/backlog.yaml` | modified | Status → review |
 | `management/plans/M2-006-plan.md` | added | Implementation plan |
 | `management/plans/M2-006-improved.md` | added | Improvement report |

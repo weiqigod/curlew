@@ -2,7 +2,7 @@
 
 ## Overview
 
-Introduce a new `internal/plugin` package and a top-level `apitest plugins list` subcommand that discovers, spawns, and handshakes with external-process plugins over JSON-RPC 2.0 on stdin/stdout. Deliver a sample `testdata/plugins/hello-plugin` fixture that is the canonical example of the plugin contract, plus `docs/plugins.md` documenting the handshake schema and the `APITEST_PLUGINS` env-var surface. M5-017 is the pure discovery/handshake slice; actual hook invocation (`on_request`, `on_response`) is explicitly out of scope — it lands in M5-018 and M5-019.
+Introduce a new `internal/plugin` package and a top-level `curlew plugins list` subcommand that discovers, spawns, and handshakes with external-process plugins over JSON-RPC 2.0 on stdin/stdout. Deliver a sample `testdata/plugins/hello-plugin` fixture that is the canonical example of the plugin contract, plus `docs/plugins.md` documenting the handshake schema and the `CURLEW_PLUGINS` env-var surface. M5-017 is the pure discovery/handshake slice; actual hook invocation (`on_request`, `on_response`) is explicitly out of scope — it lands in M5-018 and M5-019.
 
 ## Task Details
 
@@ -21,9 +21,9 @@ None. (Standalone slice; M5-018 and M5-019 build on this.)
 
 Several decisions fall outside the task YAML; documented here so the executor follows them unless a hard constraint forces a deviation.
 
-1. **External-process + JSON-RPC 2.0 on stdin/stdout.** Locked by the task YAML scope. Go's `plugin` package is Linux/Mac only and ABI-brittle; WASM via wazero would add ~3 MB of runtime and a sandbox story the spec does not request. External-process keeps plugins portable, language-agnostic, and OS-sandboxable. The newline-delimited JSON-RPC 2.0 framing (one JSON object per line, UTF-8, `\n`-terminated) is chosen over the LSP-style `Content-Length`-framed variant because it is simpler to emit from scripting languages and matches what popular tools like `jq`, `git-credential-helper`, and `dap-mode` plugins already do. The handshake is a synchronous request/response over the same pipe pair; later slices (M5-018/019) can multiplex additional `apitest/hookCall` requests on the same channel.
+1. **External-process + JSON-RPC 2.0 on stdin/stdout.** Locked by the task YAML scope. Go's `plugin` package is Linux/Mac only and ABI-brittle; WASM via wazero would add ~3 MB of runtime and a sandbox story the spec does not request. External-process keeps plugins portable, language-agnostic, and OS-sandboxable. The newline-delimited JSON-RPC 2.0 framing (one JSON object per line, UTF-8, `\n`-terminated) is chosen over the LSP-style `Content-Length`-framed variant because it is simpler to emit from scripting languages and matches what popular tools like `jq`, `git-credential-helper`, and `dap-mode` plugins already do. The handshake is a synchronous request/response over the same pipe pair; later slices (M5-018/019) can multiplex additional `curlew/hookCall` requests on the same channel.
 
-2. **JSON-RPC handshake method name: `apitest/hello`.** Chosen for two reasons: (a) namespacing with `apitest/` prevents collisions if plugins also host their own methods; (b) `hello` matches the scope's "Hello handshake" wording. Request params are empty (`{}`); the response shape is:
+2. **JSON-RPC handshake method name: `curlew/hello`.** Chosen for two reasons: (a) namespacing with `curlew/` prevents collisions if plugins also host their own methods; (b) `hello` matches the scope's "Hello handshake" wording. Request params are empty (`{}`); the response shape is:
    ```json
    {
      "name": "hello-plugin",
@@ -36,7 +36,7 @@ Several decisions fall outside the task YAML; documented here so the executor fo
 
 3. **Known hooks.** For M5-017 the complete set of recognized hook names is `on_request` and `on_response` (matching the observable table). A plugin that declares `on_error`, `post_assertion`, or anything else prints `warning: plugin <name>: unknown hook <hook> ignored` to stderr and loading continues with the unknown hook stripped from the registered capability list. (Behavior 4 requirement.)
 
-4. **Discovery semantics for `APITEST_PLUGINS`.** Rules:
+4. **Discovery semantics for `CURLEW_PLUGINS`.** Rules:
    - Unset or empty → no plugins loaded, list shows only a `No plugins configured.` line and exits 0.
    - Value is a `:`-separated list of entries on Unix, `;`-separated on Windows (matches `PATH` semantics; uses `filepath.ListSeparator`).
    - Each entry is `os.Stat`'d:
@@ -96,22 +96,22 @@ Several decisions fall outside the task YAML; documented here so the executor fo
 
 12. **Integration test strategy.** Two tiers:
     - **Unit tests in `internal/plugin`** — use the in-process spawner to drive ~15 table cases without building the fixture.
-    - **One integration test** (`TestHost_Load_WithRealFixture`) that `go build`s `testdata/plugins/hello-plugin` into `t.TempDir()`, sets up `APITEST_PLUGINS`, calls `Host.Load`, and asserts the round-trip. Gated on `testing.Short()` → skip in `-short` mode (so `go test -short` stays <500 ms). Gated on the presence of a working `go` binary on PATH — if missing, test is skipped with a diagnostic.
+    - **One integration test** (`TestHost_Load_WithRealFixture`) that `go build`s `testdata/plugins/hello-plugin` into `t.TempDir()`, sets up `CURLEW_PLUGINS`, calls `Host.Load`, and asserts the round-trip. Gated on `testing.Short()` → skip in `-short` mode (so `go test -short` stays <500 ms). Gated on the presence of a working `go` binary on PATH — if missing, test is skipped with a diagnostic.
 
-13. **CLI-level test strategy.** `cmd/apitest/plugins_test.go` drives `run([]string{"plugins", "list"})` end-to-end through the in-process spawner (injected via a package-level hook `pluginsHostFactory = plugin.NewHost`). 6 table cases covering: happy path with one plugin, zero plugins (empty env), two plugins directory, timeout plugin, unknown hook warning, duplicate name error. These replace any need for `exec.Command`-level e2e in the CLI package.
+13. **CLI-level test strategy.** `cmd/curlew/plugins_test.go` drives `run([]string{"plugins", "list"})` end-to-end through the in-process spawner (injected via a package-level hook `pluginsHostFactory = plugin.NewHost`). 6 table cases covering: happy path with one plugin, zero plugins (empty env), two plugins directory, timeout plugin, unknown hook warning, duplicate name error. These replace any need for `exec.Command`-level e2e in the CLI package.
 
 14. **Smoke test addition.** Append a `=== Plugins (M5-017) ===` block to `smoke/run.sh` that:
     1. Builds the fixture: `go build -o "$PLUGIN_DIR/hello-plugin" ./testdata/plugins/hello-plugin`.
-    2. Runs `APITEST_PLUGINS="$PLUGIN_DIR/hello-plugin" ./apitest plugins list` and greps for `hello-plugin 0.1.0`.
+    2. Runs `CURLEW_PLUGINS="$PLUGIN_DIR/hello-plugin" ./curlew plugins list` and greps for `hello-plugin 0.1.0`.
     3. Runs with a directory value and asserts same output.
-    4. Runs with `APITEST_PLUGINS="/nonexistent"` and asserts exit 2 with stderr match.
+    4. Runs with `CURLEW_PLUGINS="/nonexistent"` and asserts exit 2 with stderr match.
     5. Cleans up temp directory.
 
-15. **Help text.** `printHelp()` in `main.go` gets a new `Commands` entry: `plugins         Manage external-process plugins` and a new `Plugins Options:` section documenting `APITEST_PLUGINS`. Behavior 7 is satisfied by the root `--help`. The subcommand `apitest plugins --help` prints a focused help block (mirrors `printVaultHelp()` pattern).
+15. **Help text.** `printHelp()` in `main.go` gets a new `Commands` entry: `plugins         Manage external-process plugins` and a new `Plugins Options:` section documenting `CURLEW_PLUGINS`. Behavior 7 is satisfied by the root `--help`. The subcommand `curlew plugins --help` prints a focused help block (mirrors `printVaultHelp()` pattern).
 
 16. **No tier gate in M5-017.** The observable and behaviors do not include any tier-gating check, and exit codes listed in behaviors (0, 2) do not include the `6` that `auth.CheckFeature` would return. The plugin system is documented as Enterprise in `docs/SPECIFICATION.md` but the gate is a concern for M5-018/M5-019 when real hook execution lands (that is where the value unlock happens). M5-017 just lists registered plugins — no billing-relevant behavior. Noted in `docs/plugins.md`.
 
-17. **Security posture documented, not enforced.** M5-017 does not sandbox plugin processes. It spawns them with the host's full environment and working directory. `docs/plugins.md` explicitly calls out that plugin executables run with the invoking user's privileges and that users should only point `APITEST_PLUGINS` at trusted binaries. A sandboxing story (seccomp on Linux, `sandbox-exec` on macOS) is future work. This is consistent with the task YAML (no mention of sandboxing) and with how other CLI tools handle plugin trust (git, kubectl).
+17. **Security posture documented, not enforced.** M5-017 does not sandbox plugin processes. It spawns them with the host's full environment and working directory. `docs/plugins.md` explicitly calls out that plugin executables run with the invoking user's privileges and that users should only point `CURLEW_PLUGINS` at trusted binaries. A sandboxing story (seccomp on Linux, `sandbox-exec` on macOS) is future work. This is consistent with the task YAML (no mention of sandboxing) and with how other CLI tools handle plugin trust (git, kubectl).
 
 18. **`protocol_version` mismatch handling.** If a plugin responds with `protocol_version: 2` (or any non-1 integer) the host prints `warning: plugin <name>: unsupported protocol_version N, using 1` to stderr and continues with version-1 semantics. If the field is missing or zero, default to 1. This is forward-compat so today's CLI can at least see a future plugin's name/version rather than refusing to list it.
 
@@ -119,7 +119,7 @@ Several decisions fall outside the task YAML; documented here so the executor fo
 
 20. **Documentation file.** `docs/plugins.md` is mandatory per DoD. It includes:
     - Overview of the external-process model
-    - `APITEST_PLUGINS` syntax (file, directory, list-separator)
+    - `CURLEW_PLUGINS` syntax (file, directory, list-separator)
     - Handshake wire format (request shape, response shape, example)
     - Current supported hooks (`on_request`, `on_response`) with a note that M5-017 only lists them — invocation is M5-018/019
     - Exit codes from `plugins list`
@@ -289,7 +289,7 @@ func parseHello(raw json.RawMessage) (helloResponse, error) {
 // internal/plugin/jsonrpc_test.go
 func TestWriteRequest_RoundTrip(t *testing.T) {
     var buf bytes.Buffer
-    if err := writeRequest(&buf, rpcRequest{ID: 1, Method: "apitest/hello"}); err != nil {
+    if err := writeRequest(&buf, rpcRequest{ID: 1, Method: "curlew/hello"}); err != nil {
         t.Fatal(err)
     }
     got := buf.String()
@@ -300,7 +300,7 @@ func TestWriteRequest_RoundTrip(t *testing.T) {
     if err := json.Unmarshal([]byte(strings.TrimSpace(got)), &back); err != nil {
         t.Fatal(err)
     }
-    if back.JSONRPC != "2.0" || back.Method != "apitest/hello" {
+    if back.JSONRPC != "2.0" || back.Method != "curlew/hello" {
         t.Errorf("round-trip mismatch: %+v", back)
     }
 }
@@ -373,7 +373,7 @@ No existing tests affected (new package).
 
 ---
 
-### Step 2: Discovery (`APITEST_PLUGINS` parsing) and executable checks
+### Step 2: Discovery (`CURLEW_PLUGINS` parsing) and executable checks
 
 **Rationale:** Pure filesystem logic, no process spawning. Covers half of the error paths (missing file, not executable, directory expansion) with a filesystem-only test.
 
@@ -688,7 +688,7 @@ func (h *Host) handshakeOne(ctx context.Context, path string) (*Plugin, []LoadEr
     defer kill()
     defer stdin.Close()
 
-    if err := writeRequest(stdin, rpcRequest{ID: 1, Method: "apitest/hello",
+    if err := writeRequest(stdin, rpcRequest{ID: 1, Method: "curlew/hello",
         Params: []byte(`{}`)}); err != nil {
         return nil, []LoadError{{Path: path,
             Message: fmt.Sprintf("plugin %s: write handshake: %v", path, err), Fatal: false}}
@@ -890,7 +890,7 @@ None (new package).
 
 ---
 
-### Step 4: CLI wiring — `apitest plugins list`
+### Step 4: CLI wiring — `curlew plugins list`
 
 **Rationale:** Single-entry integration with `main.go`. Depends on Step 3. Introduces the rendering + exit-code logic.
 
@@ -898,9 +898,9 @@ None (new package).
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/plugins.go` | create | `pluginsCmd`, `pluginsListCmd`, `printPluginsHelp`, `renderPluginsTable`, `pluginsHostFactory` |
-| `cmd/apitest/plugins_test.go` | create | End-to-end `run()` tests with in-process spawner |
-| `cmd/apitest/main.go` | modify | Add `case "plugins"` in `run()`; add `plugins` to `printHelp()` |
+| `cmd/curlew/plugins.go` | create | `pluginsCmd`, `pluginsListCmd`, `printPluginsHelp`, `renderPluginsTable`, `pluginsHostFactory` |
+| `cmd/curlew/plugins_test.go` | create | End-to-end `run()` tests with in-process spawner |
+| `cmd/curlew/main.go` | modify | Add `case "plugins"` in `run()`; add `plugins` to `printHelp()` |
 
 #### Current Code (main.go)
 
@@ -936,14 +936,14 @@ import (
     "os"
     "strings"
 
-    "github.com/peterlindqvist/apitest/internal/plugin"
+    "github.com/weiqigod/curlew/internal/plugin"
 )
 
 // pluginsHostFactory is a test seam: tests replace it with an in-process
 // spawner-backed host.
 var pluginsHostFactory = func() *plugin.Host { return plugin.NewHost(os.Stderr) }
 
-// pluginsCmd dispatches `apitest plugins <subcommand>`.
+// pluginsCmd dispatches `curlew plugins <subcommand>`.
 func pluginsCmd(args []string) int {
     if len(args) == 0 || args[0] == "--help" || args[0] == "-h" {
         printPluginsHelp()
@@ -959,7 +959,7 @@ func pluginsCmd(args []string) int {
     }
 }
 
-// pluginsListCmd loads all plugins from APITEST_PLUGINS and prints a table.
+// pluginsListCmd loads all plugins from CURLEW_PLUGINS and prints a table.
 // Exit codes: 0 ok (warnings still produce 0); 2 any fatal load error.
 func pluginsListCmd(args []string) int {
     for _, a := range args {
@@ -970,7 +970,7 @@ func pluginsListCmd(args []string) int {
         _, _ = fmt.Fprintf(os.Stderr, "Unknown flag: %s\n", a)
         return 2
     }
-    env := os.Getenv("APITEST_PLUGINS")
+    env := os.Getenv("CURLEW_PLUGINS")
     host := pluginsHostFactory()
     defer func() { _ = host.Close() }()
 
@@ -1023,13 +1023,13 @@ func renderPluginsTable(w *os.File, plugins []plugin.Plugin) {
 }
 
 func printPluginsHelp() {
-    fmt.Println("Usage: apitest plugins <subcommand>")
+    fmt.Println("Usage: curlew plugins <subcommand>")
     fmt.Println()
     fmt.Println("Subcommands:")
     fmt.Println("  list    Discover plugins, handshake, and print the registered capabilities")
     fmt.Println()
     fmt.Println("Environment:")
-    fmt.Println("  APITEST_PLUGINS   Colon-separated (";"-separated on Windows) list of plugin")
+    fmt.Println("  CURLEW_PLUGINS   Colon-separated (";"-separated on Windows) list of plugin")
     fmt.Println("                    executables or directories. Directory entries load every")
     fmt.Println("                    executable file inside (non-recursive, alphabetical).")
     fmt.Println()
@@ -1055,16 +1055,16 @@ And add a new section after `Perf Options`:
 ```go
 fmt.Println()
 fmt.Println("Plugins:")
-fmt.Println("  apitest plugins list    Discover plugins from APITEST_PLUGINS and show their")
+fmt.Println("  curlew plugins list    Discover plugins from CURLEW_PLUGINS and show their")
 fmt.Println("                          name, version, and registered hooks.")
-fmt.Println("  Env vars:  APITEST_PLUGINS   Colon-separated list of plugin executables or")
+fmt.Println("  Env vars:  CURLEW_PLUGINS   Colon-separated list of plugin executables or")
 fmt.Println("                               directories (see docs/plugins.md)")
 ```
 
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/plugins_test.go
+// cmd/curlew/plugins_test.go
 func TestPluginsList_HappyPath(t *testing.T) {
     // Install a fake factory that returns a host wired to a spawner returning
     // the canonical hello-plugin handshake.
@@ -1072,7 +1072,7 @@ func TestPluginsList_HappyPath(t *testing.T) {
     defer func() { pluginsHostFactory = prev }()
     pluginsHostFactory = func() *plugin.Host { /* ... */ }
 
-    t.Setenv("APITEST_PLUGINS", "/fake/hello")
+    t.Setenv("CURLEW_PLUGINS", "/fake/hello")
     // Capture stdout + stderr via os.Pipe, run, assert output contains
     // "NAME         VERSION   HOOKS" and "hello-plugin 0.1.0     on_request,on_response".
 }
@@ -1211,18 +1211,18 @@ None. The fixture directory is ignored by `go test ./...` because Go's test runn
 #### Outline
 
 ```
-# ApiTool Plugins
+# Curlew Plugins
 
 ## Overview
-ApiTool loads plugins as external processes and talks to them over JSON-RPC
+Curlew loads plugins as external processes and talks to them over JSON-RPC
 2.0 on stdin/stdout. Plugins can be written in any language.
 
-## Discovery: `APITEST_PLUGINS`
+## Discovery: `CURLEW_PLUGINS`
 (colon-separated list; directory expansion; executable bit; examples)
 
 ## Handshake
-On load, apitest sends one line:
-  {"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}
+On load, curlew sends one line:
+  {"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}
 The plugin replies with one line:
   {"jsonrpc":"2.0","id":1,"result":{"name":"...","version":"...",
    "hooks":["on_request"],"protocol_version":1}}
@@ -1239,7 +1239,7 @@ Timeout: 5 seconds.
 
 ## Security
 Plugins run with the invoking user's privileges. Only add trusted binaries
-to APITEST_PLUGINS.
+to CURLEW_PLUGINS.
 ```
 
 #### Impact on Existing Tests
@@ -1266,21 +1266,21 @@ Append after the license export block:
 ```bash
 echo "=== Plugins (M5-017) ==="
 
-PLUGIN_DIR=$(mktemp -d /tmp/apitest_plugins_XXXXXX)
+PLUGIN_DIR=$(mktemp -d /tmp/curlew_plugins_XXXXXX)
 go build -o "$PLUGIN_DIR/hello-plugin" ./testdata/plugins/hello-plugin
 
 echo "--- Single plugin ---"
-OUT=$(APITEST_PLUGINS="$PLUGIN_DIR/hello-plugin" ./apitest plugins list)
+OUT=$(CURLEW_PLUGINS="$PLUGIN_DIR/hello-plugin" ./curlew plugins list)
 echo "$OUT" | grep -q "hello-plugin 0.1.0" \
   && echo "PASS: single plugin listed" || { echo "FAIL: single plugin — $OUT"; exit 1; }
 
 echo "--- Directory of plugins ---"
-OUT=$(APITEST_PLUGINS="$PLUGIN_DIR" ./apitest plugins list)
+OUT=$(CURLEW_PLUGINS="$PLUGIN_DIR" ./curlew plugins list)
 echo "$OUT" | grep -q "hello-plugin 0.1.0" \
   && echo "PASS: directory expanded" || { echo "FAIL: directory — $OUT"; exit 1; }
 
 echo "--- Missing path exits 2 ---"
-APITEST_PLUGINS="/does/not/exist" ./apitest plugins list \
+CURLEW_PLUGINS="/does/not/exist" ./curlew plugins list \
   && { echo "FAIL: should have exited 2"; exit 1; } \
   || echo "PASS: exit $?"
 
@@ -1293,12 +1293,12 @@ echo
 Under `## [Unreleased]` → `### Added`, prepend:
 
 ```md
-- CLI: `apitest plugins list` subcommand and `internal/plugin` external-process plugin loader (M5-017): `APITEST_PLUGINS` env var (colon-separated files or directories) discovers plugin executables; JSON-RPC 2.0 `apitest/hello` handshake over stdin/stdout with 5s timeout negotiates `{name, version, hooks, protocol_version}`; known hooks `on_request`, `on_response` are kept; unknown hooks print a warning and are filtered; duplicate names and missing/non-executable binaries exit 2; timeouts are non-fatal (exit 0, warning to stderr); `testdata/plugins/hello-plugin` sample fixture; `docs/plugins.md` documents the handshake schema, exit codes, and minimum Go example; test coverage ≥80%; one integration test builds the fixture under `go test -short=false` (M5-017)
+- CLI: `curlew plugins list` subcommand and `internal/plugin` external-process plugin loader (M5-017): `CURLEW_PLUGINS` env var (colon-separated files or directories) discovers plugin executables; JSON-RPC 2.0 `curlew/hello` handshake over stdin/stdout with 5s timeout negotiates `{name, version, hooks, protocol_version}`; known hooks `on_request`, `on_response` are kept; unknown hooks print a warning and are filtered; duplicate names and missing/non-executable binaries exit 2; timeouts are non-fatal (exit 0, warning to stderr); `testdata/plugins/hello-plugin` sample fixture; `docs/plugins.md` documents the handshake schema, exit codes, and minimum Go example; test coverage ≥80%; one integration test builds the fixture under `go test -short=false` (M5-017)
 ```
 
 #### Impact on Existing Tests
 
-- The smoke script now calls `go build ./testdata/plugins/hello-plugin` before the plugin tests; if Go is missing from PATH the smoke test fails. This is already the case for `go build ./cmd/apitest` earlier in the script, so no new dependency.
+- The smoke script now calls `go build ./testdata/plugins/hello-plugin` before the plugin tests; if Go is missing from PATH the smoke test fails. This is already the case for `go build ./cmd/curlew` earlier in the script, so no new dependency.
 
 ---
 
@@ -1306,9 +1306,9 @@ Under `## [Unreleased]` → `### Added`, prepend:
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|-----------------|
-| `cmd/apitest/main_test.go` | `TestRun_Help` / `TestPrintHelp` | may break | check exact-match vs. substring; update expected substring if needed |
+| `cmd/curlew/main_test.go` | `TestRun_Help` / `TestPrintHelp` | may break | check exact-match vs. substring; update expected substring if needed |
 | `internal/plugin/*_test.go` | — | new | all new tests — write first |
-| `cmd/apitest/plugins_test.go` | — | new | new end-to-end tests via `pluginsHostFactory` seam |
+| `cmd/curlew/plugins_test.go` | — | new | new end-to-end tests via `pluginsHostFactory` seam |
 | `internal/plugin/integration_test.go` | `TestHost_Load_WithRealFixture` | new | gated on `testing.Short()` and `go` on PATH |
 
 Count: **15+ unit tests** in `internal/plugin` + **6 CLI-level tests** + **1 integration test** = **22+ tests** total. Coverage target ≥80% is well within reach (the package is I/O-pure except for the `execSpawner`, which is exercised by the integration test).
@@ -1322,16 +1322,16 @@ Count: **15+ unit tests** in `internal/plugin` + **6 CLI-level tests** + **1 int
 - **Edge case:** Plugin writes an extremely long line (multi-MB). **Handling:** `bufio.Reader` default 4KB buffer is insufficient. Use `bufio.NewReaderSize(stdout, 1<<20)` (1 MiB). Document the 1 MiB limit in `docs/plugins.md`.
 - **Edge case:** Plugin binary has the exec bit but is not a valid executable (e.g., a shell script without a shebang). **Handling:** `exec.Command.Start()` will fail; surfaces as "spawn failed" non-fatal error. Already covered.
 - **Edge case:** Plugin name contains tabs or newlines. **Handling:** Accept it as a warning: `warning: plugin <path>: name contains control characters, using <name-redacted>` — but this is gold-plating for M5-017. Instead, leave the raw string in the table and let the terminal handle it; document that names must be ASCII-printable in `docs/plugins.md`.
-- **Edge case:** `APITEST_PLUGINS` with a single empty-string element (e.g., `APITEST_PLUGINS=` or `APITEST_PLUGINS=foo::bar`). **Handling:** `strings.Split` on `":"` yields empty strings for leading/trailing/consecutive separators; the loop skips empty entries (decision 4).
+- **Edge case:** `CURLEW_PLUGINS` with a single empty-string element (e.g., `CURLEW_PLUGINS=` or `CURLEW_PLUGINS=foo::bar`). **Handling:** `strings.Split` on `":"` yields empty strings for leading/trailing/consecutive separators; the loop skips empty entries (decision 4).
 - **Risk:** lint rules for `internal/plugin`. `golangci-lint` v2 with `staticcheck` may flag the channel pattern in `handshakeOne`. **Mitigation:** keep the select-on-context pattern — it's idiomatic. If `bodyclose` or `errcheck` complain about `stdin.Close()`, use `//nolint:errcheck` with explanation.
 - **Risk:** `testdata/plugins/hello-plugin/main.go` is discovered by `go vet ./...`. **Mitigation:** Go's `./...` pattern explicitly excludes `testdata/`. Verified by Go docs.
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/plugin/...
-go test ./cmd/apitest/...
+go test ./cmd/curlew/...
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1349,11 +1349,11 @@ go test -coverprofile=coverage.out ./internal/plugin/...
 Observable verification (from task YAML):
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/plugin/...
 # Expected: ok  internal/plugin  (>=10 tests passing)
-go build -o /tmp/apitest-hello-plugin ./testdata/plugins/hello-plugin
-APITEST_PLUGINS=/tmp/apitest-hello-plugin ./apitest plugins list
+go build -o /tmp/curlew-hello-plugin ./testdata/plugins/hello-plugin
+CURLEW_PLUGINS=/tmp/curlew-hello-plugin ./curlew plugins list
 # Expected stdout:
 #   NAME         VERSION   HOOKS
 #   hello-plugin 0.1.0     on_request,on_response

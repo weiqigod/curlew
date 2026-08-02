@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add an `apitest worker` subcommand and a new `internal/worker` package that implements the client side of the M5-008 distributed-execution coordinator protocol: claim a shard, execute its HTTP requests, submit results, heartbeat, and retry transient failures with exponential backoff. Reuses `internal/httpexec` for request execution, mirrors the wire-shape and HTTP semantics already nailed down by M5-008's `CoordinatorEndpoints`.
+Add an `curlew worker` subcommand and a new `internal/worker` package that implements the client side of the M5-008 distributed-execution coordinator protocol: claim a shard, execute its HTTP requests, submit results, heartbeat, and retry transient failures with exponential backoff. Reuses `internal/httpexec` for request execution, mirrors the wire-shape and HTTP semantics already nailed down by M5-008's `CoordinatorEndpoints`.
 
 ## Task Details
 
@@ -22,15 +22,15 @@ Add an `apitest worker` subcommand and a new `internal/worker` package that impl
 
 The task YAML references "cobra root" and a few specifics that don't match the current codebase. These decisions are made up-front so execution is unambiguous:
 
-1. **CLI framework.** The codebase does not use cobra — it uses a hand-rolled switch dispatcher in `cmd/apitest/main.go` (see `func run`, lines 75–115) with per-command `parseXxxArgs` helpers. The new `worker` subcommand follows that exact pattern (mirroring `prCheckCmd`/`importOpenAPICmd`). No cobra import.
+1. **CLI framework.** The codebase does not use cobra — it uses a hand-rolled switch dispatcher in `cmd/curlew/main.go` (see `func run`, lines 75–115) with per-command `parseXxxArgs` helpers. The new `worker` subcommand follows that exact pattern (mirroring `prCheckCmd`/`importOpenAPICmd`). No cobra import.
 2. **Org URL segment.** The task observable uses `--org acme` (a slug) but `CoordinatorEndpoints` (`src/ApiTool.Backend/Coordinator/CoordinatorEndpoints.cs:97`) only accepts the `org_<hex>` wire id today (`OrgId.TryParse`). The worker passes `--org` through verbatim into the URL path; backend slug-resolution is M5-008's surface and out of scope here. Help text documents both forms (`org slug or org_<hex> wire id`) and the integration tests use whatever value the fake coordinator's URL pattern accepts. The behaviour test with the fake coordinator passes `--org acme` and the fake matches the `acme` substring in the URL — independent of backend slug resolution.
 3. **`coordinator-fake.json` vs Go fixture.** The scope mentions `testdata/worker/coordinator-fake.json`. A static JSON file cannot serve dynamic HTTP responses (claim returns one shard then 204; submit returns 202; heartbeat returns 204). We instead use an `httptest.NewServer`-based fake declared in `internal/worker/coordinator_fake_test.go`. We still create `testdata/worker/sample-shard.json` so the fake can load the canonical "3 GET requests" payload from disk — this satisfies the spirit of "fixture" without inventing a stub-server file format.
-4. **Service-token auth.** The task mentions `APITEST_BACKEND_TOKEN=svc_token_dev` and "service tokens (M4-010)". M4-010 is not yet built. The worker treats `APITEST_BACKEND_TOKEN` as an opaque bearer string, sent in `Authorization: Bearer <token>` exactly as `internal/prcheck/client.go` does today. Whether the backend treats it as a JWT or a future service token is the backend's concern.
+4. **Service-token auth.** The task mentions `CURLEW_BACKEND_TOKEN=svc_token_dev` and "service tokens (M4-010)". M4-010 is not yet built. The worker treats `CURLEW_BACKEND_TOKEN` as an opaque bearer string, sent in `Authorization: Bearer <token>` exactly as `internal/prcheck/client.go` does today. Whether the backend treats it as a JWT or a future service token is the backend's concern.
 5. **Concurrency flag default.** `--concurrency` defaults to `1`. The observable trace ("3 requests, pass=3 fail=0") and behaviours don't require parallel-within-shard. Concurrency >1 is implemented (a small bounded worker-pool over the shard's request list) so the help text is honest, but the default keeps determinism for the observable.
 6. **Heartbeat cadence.** Behaviour 6 says "every 15 seconds". Codified as `defaultHeartbeatInterval = 15 * time.Second` and made injectable so the heartbeat test can use a 50 ms tick without sleeping for a full 15 s.
 7. **Retry budget.** Behaviour 5 says "retries 3 times with exponential backoff". Implemented as 3 retries (4 total attempts) with `backoff = 200ms * 2^attempt` (200 ms, 400 ms, 800 ms). This matches the resilient-client pattern used elsewhere (`internal/prcheck/client.go` uses 2 retries with linear backoff; we use 3 with exponential to match the spec).
 8. **`No more shards; exiting` exit code.** Exit 0 (per behaviour 4). The worker also exits 0 after a successful `Completed` submit followed by a 204 — that is the happy-path observable.
-9. **Unauthorized exit code.** Behaviour 7 says exit code 10. The existing CLI uses 1/2/3/5/6 today; 10 is the new sentinel for `worker` auth failures (no collisions). Stderr message is `error: unauthorized` (lowercase, matching prcheck's `unauthorized: refresh APITEST_BACKEND_TOKEN`).
+9. **Unauthorized exit code.** Behaviour 7 says exit code 10. The existing CLI uses 1/2/3/5/6 today; 10 is the new sentinel for `worker` auth failures (no collisions). Stderr message is `error: unauthorized` (lowercase, matching prcheck's `unauthorized: refresh CURLEW_BACKEND_TOKEN`).
 10. **Shard request format.** The coordinator returns `RequestsJson` (a JSON-encoded string per `CoordinatorShardDto.RequestsJson`). We define a Go type `WorkerRequest { Method, URL, Headers, Body }` matching `httpexec.Request` and `json.Unmarshal` the string. Malformed JSON → submit with `pass=0, fail=N, items=[{name, status:"error", message:"shard payload invalid"}]` and continue claiming (do not crash the worker).
 11. **`items` payload shape on submit.** Mirrors `prcheck.ResultItem` (`name`, `status`, `duration_ms`, `message`) so the backend's `ResultsService.IngestAsync` can stitch them into the aggregated result without a new schema. Each `WorkerRequest` becomes one item.
 12. **Testdata location.** `testdata/worker/sample-shard.json` lives at the repo root `testdata/` (mirroring existing convention — see `testdata/discovery/`, `testdata/openapi/`, etc., per the `ls testdata/` exploration).
@@ -39,7 +39,7 @@ The task YAML references "cobra root" and a few specifics that don't match the c
     - `1` — usage error (bad flag, missing required env var)
     - `10` — unauthorized (401 from coordinator)
     - `2` — network failure exhausted retries on a non-submit call (claim/heartbeat); submit failures after retries are logged and the worker exits 0 with a warning, since the shard is reaped server-side
-14. **Help text.** Documents `--job`, `--org`, `--coordinator-url`, `--token`, `--concurrency`, `--heartbeat-interval`, `--help`. Env vars: `APITEST_COORDINATOR_URL`, `APITEST_BACKEND_TOKEN`. Required-flag validation matches `prcheck.Config.Validate`'s pattern.
+14. **Help text.** Documents `--job`, `--org`, `--coordinator-url`, `--token`, `--concurrency`, `--heartbeat-interval`, `--help`. Env vars: `CURLEW_COORDINATOR_URL`, `CURLEW_BACKEND_TOKEN`. Required-flag validation matches `prcheck.Config.Validate`'s pattern.
 
 ## Implementation Steps
 
@@ -75,10 +75,10 @@ import (
 // Sentinel errors for well-known failure modes.
 var (
 	// ErrCoordinatorURLMissing is returned when neither --coordinator-url
-	// nor APITEST_COORDINATOR_URL is set.
-	ErrCoordinatorURLMissing = errors.New("coordinator URL not configured (set APITEST_COORDINATOR_URL or --coordinator-url)")
-	// ErrTokenMissing is returned when APITEST_BACKEND_TOKEN/--token is empty.
-	ErrTokenMissing = errors.New("backend token not configured (set APITEST_BACKEND_TOKEN or --token)")
+	// nor CURLEW_COORDINATOR_URL is set.
+	ErrCoordinatorURLMissing = errors.New("coordinator URL not configured (set CURLEW_COORDINATOR_URL or --coordinator-url)")
+	// ErrTokenMissing is returned when CURLEW_BACKEND_TOKEN/--token is empty.
+	ErrTokenMissing = errors.New("backend token not configured (set CURLEW_BACKEND_TOKEN or --token)")
 	// ErrUnauthorized is returned when the coordinator responds with 401.
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrNetworkExhausted is returned when retries on a coordinator call are exhausted.
@@ -87,8 +87,8 @@ var (
 
 // Config holds the worker configuration derived from flags and env vars.
 type Config struct {
-	CoordinatorURL    string        // APITEST_COORDINATOR_URL / --coordinator-url
-	Token             string        // APITEST_BACKEND_TOKEN / --token
+	CoordinatorURL    string        // CURLEW_COORDINATOR_URL / --coordinator-url
+	Token             string        // CURLEW_BACKEND_TOKEN / --token
 	JobID             string        // --job (job_<hex>)
 	Org               string        // --org (slug or org_<hex>)
 	WorkerID          string        // --worker-id (defaults to "wkr_" + hostname + pid + nanos)
@@ -306,7 +306,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // ExecuteFunc is the request-execution function (overridable for tests).
@@ -433,7 +433,7 @@ That's >=10 tests against `internal/worker` covering the observable.
 #### Impact on Existing Tests
 - None.
 
-### Step 4: Wire `worker` subcommand into `cmd/apitest/main.go`
+### Step 4: Wire `worker` subcommand into `cmd/curlew/main.go`
 
 **Rationale:** Activates the feature in the binary. Smaller blast radius if added after the package compiles.
 
@@ -441,11 +441,11 @@ That's >=10 tests against `internal/worker` covering the observable.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `case "worker":` in dispatcher; add `workerCmd`, `parseWorkerArgs`, `printWorkerHelp` |
-| `cmd/apitest/main.go` | modify | Add `worker` line to `printHelp()` Commands section |
-| `cmd/apitest/worker_test.go` | create | Argument-parsing unit tests for `parseWorkerArgs` |
+| `cmd/curlew/main.go` | modify | Add `case "worker":` in dispatcher; add `workerCmd`, `parseWorkerArgs`, `printWorkerHelp` |
+| `cmd/curlew/main.go` | modify | Add `worker` line to `printHelp()` Commands section |
+| `cmd/curlew/worker_test.go` | create | Argument-parsing unit tests for `parseWorkerArgs` |
 
-#### Current Code (`cmd/apitest/main.go:104-114`)
+#### Current Code (`cmd/curlew/main.go:104-114`)
 
 ```go
 	case "pr-check":
@@ -519,11 +519,11 @@ func workerCmd(args []string) int {
 }
 
 // parseWorkerArgs extracts flags for the worker subcommand.
-// Env vars: APITEST_COORDINATOR_URL, APITEST_BACKEND_TOKEN.
+// Env vars: CURLEW_COORDINATOR_URL, CURLEW_BACKEND_TOKEN.
 func parseWorkerArgs(args []string) (cfg worker.Config, showHelp bool, err error) {
 	cfg = worker.Config{
-		CoordinatorURL:    os.Getenv("APITEST_COORDINATOR_URL"),
-		Token:             os.Getenv("APITEST_BACKEND_TOKEN"),
+		CoordinatorURL:    os.Getenv("CURLEW_COORDINATOR_URL"),
+		Token:             os.Getenv("CURLEW_BACKEND_TOKEN"),
 		Concurrency:       1,
 		HeartbeatInterval: 15 * time.Second,
 	}
@@ -579,9 +579,9 @@ func defaultWorkerID() string {
 }
 
 func printWorkerHelp() {
-	fmt.Println("Usage: apitest worker [options]")
+	fmt.Println("Usage: curlew worker [options]")
 	fmt.Println()
-	fmt.Println("Run as a distributed worker against an ApiTool coordinator (Enterprise tier).")
+	fmt.Println("Run as a distributed worker against an Curlew coordinator (Enterprise tier).")
 	fmt.Println("The worker repeatedly claims a shard, executes its requests, submits results,")
 	fmt.Println("and exits cleanly when no more shards are available.")
 	fmt.Println()
@@ -590,16 +590,16 @@ func printWorkerHelp() {
 	fmt.Println("  --org <slug-or-id>   Organization slug or org_<hex> wire id")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("  --coordinator-url <url>   Coordinator base URL (or set APITEST_COORDINATOR_URL)")
-	fmt.Println("  --token <token>           Bearer token (or set APITEST_BACKEND_TOKEN)")
+	fmt.Println("  --coordinator-url <url>   Coordinator base URL (or set CURLEW_COORDINATOR_URL)")
+	fmt.Println("  --token <token>           Bearer token (or set CURLEW_BACKEND_TOKEN)")
 	fmt.Println("  --worker-id <id>          Worker identifier (default: wkr_<host>_<pid>_<nanos>)")
 	fmt.Println("  --concurrency <n>         Parallel requests per shard (default: 1)")
 	fmt.Println("  --heartbeat-interval <d>  Heartbeat cadence (default: 15s)")
 	fmt.Println("  --help, -h                Show this help message")
 	fmt.Println()
 	fmt.Println("Environment Variables:")
-	fmt.Println("  APITEST_COORDINATOR_URL  Default coordinator base URL")
-	fmt.Println("  APITEST_BACKEND_TOKEN    Default bearer token")
+	fmt.Println("  CURLEW_COORDINATOR_URL  Default coordinator base URL")
+	fmt.Println("  CURLEW_BACKEND_TOKEN    Default bearer token")
 	fmt.Println()
 	fmt.Println("Exit codes: 0=ok, 1=usage, 2=network, 10=unauthorized")
 }
@@ -613,18 +613,18 @@ Update `printHelp()` Commands section by inserting one line after `pr-check`:
  	fmt.Println("  license         Manage license state (--validate, --refresh, --debug)")
 ```
 
-Add imports to `cmd/apitest/main.go` (already present except `worker`):
+Add imports to `cmd/curlew/main.go` (already present except `worker`):
 
 ```go
 import (
 	// existing...
-	"github.com/peterlindqvist/apitest/internal/worker"
+	"github.com/weiqigod/curlew/internal/worker"
 )
 ```
 
 #### Tests to Write FIRST (RED phase)
 
-`cmd/apitest/worker_test.go` — argument-parsing only (orchestration is tested in `internal/worker/run_test.go`):
+`cmd/curlew/worker_test.go` — argument-parsing only (orchestration is tested in `internal/worker/run_test.go`):
 
 ```go
 func TestParseWorkerArgs(t *testing.T) {
@@ -637,7 +637,7 @@ func TestParseWorkerArgs(t *testing.T) {
 		help    bool
 	}{
 		{name: "all_flags",            args: []string{"--job","job_x","--org","acme","--coordinator-url","http://c","--token","t","--concurrency","4"},                          want: worker.Config{JobID:"job_x", Org:"acme", CoordinatorURL:"http://c", Token:"t", Concurrency:4, HeartbeatInterval: 15*time.Second}},
-		{name: "env_defaults",         env: map[string]string{"APITEST_COORDINATOR_URL":"http://e", "APITEST_BACKEND_TOKEN":"et"}, args: []string{"--job","job_y","--org","beta"},                want: worker.Config{JobID:"job_y", Org:"beta", CoordinatorURL:"http://e", Token:"et", Concurrency:1, HeartbeatInterval: 15*time.Second}},
+		{name: "env_defaults",         env: map[string]string{"CURLEW_COORDINATOR_URL":"http://e", "CURLEW_BACKEND_TOKEN":"et"}, args: []string{"--job","job_y","--org","beta"},                want: worker.Config{JobID:"job_y", Org:"beta", CoordinatorURL:"http://e", Token:"et", Concurrency:1, HeartbeatInterval: 15*time.Second}},
 		{name: "help_flag",            args: []string{"--help"}, help: true},
 		{name: "missing_value",        args: []string{"--job"}, wantErr: "--job requires a value"},
 		{name: "unknown_flag",         args: []string{"--bogus"}, wantErr: "unknown flag"},
@@ -649,7 +649,7 @@ func TestParseWorkerArgs(t *testing.T) {
 ```
 
 #### Impact on Existing Tests
-- `TestRun_NoArgs_*` and `TestRun_UnknownCommand_*` (if any in `cmd/apitest/main_test.go`) are unaffected because we only add a case.
+- `TestRun_NoArgs_*` and `TestRun_UnknownCommand_*` (if any in `cmd/curlew/main_test.go`) are unaffected because we only add a case.
 - `printHelp` snapshot/golden tests, if any: extended by one line. Search during execution confirms whether any test asserts exact help-string content; if so, update the expected string.
 
 ### Step 5: Add end-to-end integration test with a fake coordinator (httptest)
@@ -738,13 +738,13 @@ func TestWorker_E2E_Observable(t *testing.T) {
 | File | Action | Description |
 |------|--------|-------------|
 | `smoke/run.sh` | modify | Add a `worker --help` smoke check after the `pr-check --help` block |
-| `CHANGELOG.md` | modify | Add Unreleased entry: "Distributed worker agent (`apitest worker`) for Enterprise coordinator (M5-009)" |
+| `CHANGELOG.md` | modify | Add Unreleased entry: "Distributed worker agent (`curlew worker`) for Enterprise coordinator (M5-009)" |
 
 #### Smoke addition (pattern mirrors existing `--help` checks)
 
 ```bash
 echo "--- worker --help ---"
-./apitest worker --help | grep -q "Usage: apitest worker" || { echo "FAIL: worker --help"; exit 1; }
+./curlew worker --help | grep -q "Usage: curlew worker" || { echo "FAIL: worker --help"; exit 1; }
 echo "OK"
 echo
 ```
@@ -763,7 +763,7 @@ echo
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | help-text snapshot test (if any) | possibly extended | Update expected output to include `worker` line |
+| `cmd/curlew/main_test.go` | help-text snapshot test (if any) | possibly extended | Update expected output to include `worker` line |
 | All other existing tests | — | none | — |
 
 ## Risks and Edge Cases
@@ -798,7 +798,7 @@ type RunOptions struct{ /* test seams */ }
 type RunSummary struct{ /* counters */ }
 func Run(ctx context.Context, cfg Config, opts RunOptions) (*RunSummary, error)
 
-// cmd/apitest/main.go (additions)
+// cmd/curlew/main.go (additions)
 func workerCmd(args []string) int
 func parseWorkerArgs(args []string) (worker.Config, bool, error)
 func printWorkerHelp()
@@ -810,11 +810,11 @@ All functions accept `context.Context` first as required by the Go standards. Er
 
 ```bash
 # Build
-go build ./cmd/apitest
+go build ./cmd/curlew
 
 # Unit + integration tests
 go test ./internal/worker/...
-# Expected: ok  github.com/peterlindqvist/apitest/internal/worker  (>=8 tests)
+# Expected: ok  github.com/weiqigod/curlew/internal/worker  (>=8 tests)
 
 # Coverage
 go test -coverprofile=coverage.out ./internal/worker/...
@@ -831,15 +831,15 @@ go tool cover -func=coverage.out | tail -1
 Observable verification (from the task YAML):
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/worker/...
 # Expected: ok  internal/worker  (>=8 tests passing)
 
 # Start a fake coordinator fixture (the integration test's helper) — for manual
-# verification, point apitest at any HTTP server that mimics the M5-008 contract:
-APITEST_COORDINATOR_URL=http://127.0.0.1:9000 \
-APITEST_BACKEND_TOKEN=svc_token_dev \
-  ./apitest worker --job job_abc --org acme
+# verification, point curlew at any HTTP server that mimics the M5-008 contract:
+CURLEW_COORDINATOR_URL=http://127.0.0.1:9000 \
+CURLEW_BACKEND_TOKEN=svc_token_dev \
+  ./curlew worker --job job_abc --org acme
 
 # Expected stdout (tail):
 # "Claimed shard shd_1 (3 requests)"

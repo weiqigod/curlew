@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 15 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Auth profile gate check passes |
@@ -110,8 +110,8 @@ TDD pattern visible: `test(...)` commits precede corresponding `feat(...)` commi
 | `internal/runner/runner_test.go` | modified |
 | `internal/variable/scope.go` | modified (Resolved method) |
 | `internal/variable/scope_test.go` | modified |
-| `cmd/apitest/run.go` | modified (wire auth profiles + sensitive set) |
-| `cmd/apitest/run_test.go` | modified |
+| `cmd/curlew/run.go` | modified (wire auth profiles + sensitive set) |
+| `cmd/curlew/run_test.go` | modified |
 | `smoke/run.sh` | modified (auth gate smoke check) |
 
 ## Issues Found

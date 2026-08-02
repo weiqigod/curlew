@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner/shard"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner/shard"
 )
 
 func makeReq(name string) parser.RequestItem {

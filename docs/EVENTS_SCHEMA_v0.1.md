@@ -1,4 +1,4 @@
-# ApiTool Agent Event Stream — v0.1
+# Curlew Agent Event Stream — v0.1
 
 > **DEPRECATED.** The current stable schema is [v1.0](EVENTS_SCHEMA_v1.0.md).
 > This document is retained as a historical anchor. Migrate consumers to v1.0:
@@ -7,7 +7,7 @@
 ## Audience and scope
 
 This document is the authoritative reference for agents and tools that consume
-the NDJSON event stream emitted by `apitest run --events <file>`. The stream
+the NDJSON event stream emitted by `curlew run --events <file>`. The stream
 provides a machine-readable, schema-versioned record of every run, request,
 assertion, and failure. This document defines every event kind, every field's
 semantics, the ordering and timing guarantees, the body-truncation and encoding
@@ -78,7 +78,7 @@ Emitted as the first event of every run. Always has `id=1` and `at_ms=0`.
 | **at_ms** | integer | yes | Milliseconds since run start; always 0 for this event |
 | **kind** | string | yes | Always `"run.start"` |
 | **started_at** | string | yes | RFC3339Nano UTC timestamp when the run began |
-| **apitest_version** | string | yes | `apitest` binary version string |
+| **curlew_version** | string | yes | `curlew` binary version string |
 | **cli_args** | array of string | yes | CLI arguments passed to the run command |
 | collection_file | string | no | Path to the collection file, if provided |
 | env_name | string | no | Environment name selected for this run |
@@ -86,13 +86,13 @@ Emitted as the first event of every run. Always has `id=1` and `at_ms=0`.
 Minimal example (required fields only):
 
 ```json
-{"schema_version":"0.1","run_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","apitest_version":"1.0.0","cli_args":["run","tests.yaml"]}
+{"schema_version":"0.1","run_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","curlew_version":"1.0.0","cli_args":["run","tests.yaml"]}
 ```
 
 Maximal example (all fields):
 
 ```json
-{"schema_version":"0.1","run_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","apitest_version":"1.0.0","cli_args":["run","tests.yaml","--env","staging"],"collection_file":"tests.yaml","env_name":"staging"}
+{"schema_version":"0.1","run_id":"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","curlew_version":"1.0.0","cli_args":["run","tests.yaml","--env","staging"],"collection_file":"tests.yaml","env_name":"staging"}
 ```
 
 ### run.error
@@ -333,7 +333,7 @@ the `hints_init.go` files in each package.
 
 | Code | Short description | Typical hint structure | Producing package |
 |------|-------------------|----------------------|-------------------|
-| `CONFIG_INVALID_PROJECT` | Invalid apitest.yaml project config | "Validate apitest.yaml against the documented project config schema." | `internal/config` |
+| `CONFIG_INVALID_PROJECT` | Invalid curlew.yaml project config | "Validate curlew.yaml against the documented project config schema." | `internal/config` |
 | `CONFIG_INVALID_ENV` | Malformed environment file | "Ensure variables: is a map of string values." | `internal/config` |
 | `VAR_CIRCULAR_REFERENCE` | A variable value transitively references itself | "Break the cycle: a variable value must not transitively reference itself via {{...}}." | `internal/variable` |
 | `VAR_DEPTH_EXCEEDED` | Nested variable interpolation depth exceeded | "Reduce nested variable interpolation depth or refactor to fewer levels." | `internal/variable` |

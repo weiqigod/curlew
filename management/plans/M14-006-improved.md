@@ -1,6 +1,6 @@
 # Improvement Report: M14-006
 
-**Task:** CLI: apitest license --refresh + --debug + 8-code exit taxonomy
+**Task:** CLI: curlew license --refresh + --debug + 8-code exit taxonomy
 **Date:** 2026-05-05
 **Review:** management/reviews/M14-006-review.md
 
@@ -10,9 +10,9 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | High | DOD item 2 requires real binary invocation against stub for at least success(0), network(3), family-revoked(5), server-error(6), and device-not-registered(7) paths. Only the no-cache path was smoke-tested. | Extended `smoke/run.sh` with a stub-backed section: starts stub on port 19080, primes cache via `apitest login --no-browser`, then exercises exit 0 (success), 6 (5xx inject), 5 (AUTH_REFRESH_REUSED inject), 3 (stub stopped = dead port), and 7 (device.json removed) in sequence. | tests pass |
+| 1 | High | DOD item 2 requires real binary invocation against stub for at least success(0), network(3), family-revoked(5), server-error(6), and device-not-registered(7) paths. Only the no-cache path was smoke-tested. | Extended `smoke/run.sh` with a stub-backed section: starts stub on port 19080, primes cache via `curlew login --no-browser`, then exercises exit 0 (success), 6 (5xx inject), 5 (AUTH_REFRESH_REUSED inject), 3 (stub stopped = dead port), and 7 (device.json removed) in sequence. | tests pass |
 | 2 | Medium | `TestLicenseDebug_ShowsLastErrorType_FromRefresh` asserted `last_error_type` with `t.Logf` (non-failing). Behavior was effectively untested. | Changed assertion to `t.Errorf` so the test fails when `last_error_type` is empty after a known ProblemDetails failure. Also asserts the value contains expected refresh/expired context. | tests pass |
-| 3 | Medium | `TestLicenseDebug_DecodesCachedJWT` did not assert the `kid` field despite behavior 8 requiring "active kid from the JWS header." | Added `if got := out["kid"]; got != "apitest-2025-01" { t.Errorf(...) }` to the assertion block. | tests pass |
+| 3 | Medium | `TestLicenseDebug_DecodesCachedJWT` did not assert the `kid` field despite behavior 8 requiring "active kid from the JWS header." | Added `if got := out["kid"]; got != "curlew-2025-01" { t.Errorf(...) }` to the assertion block. | tests pass |
 | 4 | Medium | `CHANGELOG.md` was not updated. CLAUDE.md quality gate requires it before task completion. | Added M14-006 entry to `CHANGELOG.md` under `### Added` covering `--refresh` 8-code taxonomy, sentinels, `--debug` JSON output, MANUAL.md update, and smoke test coverage. | tests pass |
 | 5 | Low | `refreshSentinelError.Error()` had 0% test coverage. | Added assertion in `TestRefreshTokens_AuthRefreshExpired_ReturnsSentinel`: `err.Error()` must be non-empty and contain the sentinel text "refresh token expired". | tests pass |
 
@@ -33,10 +33,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
-| Coverage `cmd/apitest` | 81.5% |
+| Coverage `cmd/curlew` | 81.5% |
 | Coverage `internal/backend` | 84.4% |
 | Coverage `internal/license` | 88.1% |
 
@@ -60,10 +60,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
-| Coverage `cmd/apitest` | 81.5% |
+| Coverage `cmd/curlew` | 81.5% |
 | Coverage `internal/backend` | 84.4% |
 | Coverage `internal/license` | 88.1% |
 

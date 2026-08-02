@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 func TestInjectIterationVars(t *testing.T) {

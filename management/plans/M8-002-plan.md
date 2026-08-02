@@ -27,7 +27,7 @@ Resolved during code exploration (no open questions):
    - plus `sample/hello.yaml` (the shipped sample collection at repo root),
    - plus the scaffolded `collections/sample.yaml` (already covered by the existing `TestSchema_validates_scaffolded_sample` — we will not duplicate it but the new suite's glob will confirm coverage remains).
 
-   These are the only collection YAMLs in the repo that are neither deliberate-error fixtures (under `internal/parser/testdata/*invalid*.yaml`, `cmd/apitest/testdata/invalid.yaml`, etc.) nor user-visible examples — `internal/parser/testdata/` files are purposely malformed to exercise parser error paths and must not be coerced into the schema regression net. The glob used by `TestSchema_examples` will therefore only include:
+   These are the only collection YAMLs in the repo that are neither deliberate-error fixtures (under `internal/parser/testdata/*invalid*.yaml`, `cmd/curlew/testdata/invalid.yaml`, etc.) nor user-visible examples — `internal/parser/testdata/` files are purposely malformed to exercise parser error paths and must not be coerced into the schema regression net. The glob used by `TestSchema_examples` will therefore only include:
    - `internal/schema/testdata/*.yaml`
    - `sample/hello.yaml`
 
@@ -49,7 +49,7 @@ Resolved during code exploration (no open questions):
 
 8. **`data_driven` nested fields** — `$defs/dataDriven` models every `datadriven.Config` field. `source` is `required`. `format` constrained to `enum: [csv, json, yaml, yml]`. `store_results` constrained to `enum: [all, summary, failed_only]`. All integers that must be non-negative get `minimum: 0`.
 
-9. **`auth` placement** — `requestItem.auth` is `type: string` referencing an auth profile defined in the project's `apitest.yaml` (not in the collection file). The task's Gap 1 wording is unambiguous: "request.auth (string) — parser field: collection.go:51". We add `auth` to `$defs/requestItem.properties` only.
+9. **`auth` placement** — `requestItem.auth` is `type: string` referencing an auth profile defined in the project's `curlew.yaml` (not in the collection file). The task's Gap 1 wording is unambiguous: "request.auth (string) — parser field: collection.go:51". We add `auth` to `$defs/requestItem.properties` only.
 
 10. **Fixture minimality** — each gap fixture must contain the minimum `name`/`requests` top-level payload to satisfy the current schema's required fields, plus only the one field under test. This keeps a regression in one gap from bleeding into another gap's fixture.
 
@@ -79,7 +79,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/peterlindqvist/apitest/internal/schema"
+	"github.com/weiqigod/curlew/internal/schema"
 )
 
 // repoRoot walks up from this test file to the repo root.
@@ -117,7 +117,7 @@ func compileSchema(t *testing.T) *jsonschema.Schema {
 //   - internal/schema/testdata/*.yaml   (gap-closing fixtures owned by M8-002)
 //   - sample/hello.yaml                 (repo-root sample)
 //
-// Deliberately invalid fixtures under internal/parser/testdata, cmd/apitest/testdata,
+// Deliberately invalid fixtures under internal/parser/testdata, cmd/curlew/testdata,
 // etc. are NOT included — those exercise parser error paths by design.
 func TestSchema_examples(t *testing.T) {
 	root := repoRoot(t)
@@ -234,7 +234,7 @@ Initial commit: the two functions above exist but `TestSchema_accepts` skips (no
     "properties": {
       "name": { "type": "string", "description": "Request display name" },
       "path": { "type": "string", "description": "Path to an external request YAML file" },
-      "auth": { "type": "string", "description": "Name of an auth profile declared in apitest.yaml (auth_profiles block) to apply to this request." },
+      "auth": { "type": "string", "description": "Name of an auth profile declared in curlew.yaml (auth_profiles block) to apply to this request." },
       "required": { "type": "boolean", "description": "...", "default": false },
       "request": { "$ref": "#/$defs/request" },
       "variables": { "$ref": "#/$defs/variables" },
@@ -813,7 +813,7 @@ func TestSchema_rejects_variable_with_both_value_and_from_command(t *testing.T) 
 #### New CHANGELOG bullet (draft)
 
 ```markdown
-- CLI: collection JSON Schema now covers the full parser grammar — `requestItem.auth` (references an `auth_profiles` entry in `apitest.yaml`); `retry:` at collection, section (`setup`/`teardown`/`requests` object form), and request scope (mirrors `internal/retry.FullConfig` fields including `retry_on`/`do_not_retry_on`); `requestItem.data_driven` (mirrors `internal/datadriven.Config`); section object form `{retry, items}` in `setup`/`teardown`/`requests`; `variables` entries now accept the object form `{from_command | value, sensitive, cache}` in addition to plain scalar strings, with `from_command` / `value` declared mutually exclusive; `assertions.status` constrained to `oneOf[integer, array[integer]]` in the 100–599 range. `redhat.vscode-yaml` now surfaces autocomplete, hover docs, and inline validation for every advanced feature. One fixture per gap under `internal/schema/testdata/`, with `TestSchema_accepts` (per-gap acceptance) and `TestSchema_examples` (walks `internal/schema/testdata/*.yaml` and `sample/hello.yaml` as regression) added to `internal/schema/validate_coverage_test.go`. Closes the W1 audit gap list (IMPROVEMENT.md §5 Risks). (M8-002)
+- CLI: collection JSON Schema now covers the full parser grammar — `requestItem.auth` (references an `auth_profiles` entry in `curlew.yaml`); `retry:` at collection, section (`setup`/`teardown`/`requests` object form), and request scope (mirrors `internal/retry.FullConfig` fields including `retry_on`/`do_not_retry_on`); `requestItem.data_driven` (mirrors `internal/datadriven.Config`); section object form `{retry, items}` in `setup`/`teardown`/`requests`; `variables` entries now accept the object form `{from_command | value, sensitive, cache}` in addition to plain scalar strings, with `from_command` / `value` declared mutually exclusive; `assertions.status` constrained to `oneOf[integer, array[integer]]` in the 100–599 range. `redhat.vscode-yaml` now surfaces autocomplete, hover docs, and inline validation for every advanced feature. One fixture per gap under `internal/schema/testdata/`, with `TestSchema_accepts` (per-gap acceptance) and `TestSchema_examples` (walks `internal/schema/testdata/*.yaml` and `sample/hello.yaml` as regression) added to `internal/schema/validate_coverage_test.go`. Closes the W1 audit gap list (IMPROVEMENT.md §5 Risks). (M8-002)
 ```
 
 Exact bullet text will be finalized during `/execute` to reflect the built artifact.
@@ -835,7 +835,7 @@ N/A — CHANGELOG is docs-only; covered by the existing pattern (no test gate).
 #### Commands
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./scripts/ci-local.sh
@@ -879,7 +879,7 @@ No existing tests in the parser / runner / cmd layer consume the JSON Schema at 
 
 - **Edge case:** `status: [200]` (single-element array) — valid. `status: []` (empty array) — rejected by `minItems: 1`. Matches parser: `StatusCodes.UnmarshalYAML` accepts any sequence including empty; schema is stricter by design (an empty expected-code list is a user error).
 
-- **Risk:** The published file's `$id` (`.../peterlindqvist/apitest/main/schemas/collection-v1.json`) is pointed at by downstream `.vscode/settings.json` users. Changes in shape but not in `$id` are additive and backward-compatible (per JSON Schema semantics). No `$id` bump. **Mitigation:** Task explicitly says "no breaking changes to the v1 schema". Verified — all changes are additive.
+- **Risk:** The published file's `$id` (`.../peterlindqvist/curlew/main/schemas/collection-v1.json`) is pointed at by downstream `.vscode/settings.json` users. Changes in shape but not in `$id` are additive and backward-compatible (per JSON Schema semantics). No `$id` bump. **Mitigation:** Task explicitly says "no breaking changes to the v1 schema". Verified — all changes are additive.
 
 - **Risk:** Coverage < 80% in `internal/schema`. Currently the package is a one-liner alias; new tests add all coverage from the test side. **Mitigation:** After Step 9, run `go test -coverprofile=coverage.out ./internal/schema/... && go tool cover -func=coverage.out` and confirm the `schema` package is still ≥ 80% (trivially, since `schema.go` is a single `var` alias — coverage is structural not behavioural).
 
@@ -887,7 +887,7 @@ No existing tests in the parser / runner / cmd layer consume the JSON Schema at 
 
 ```bash
 # Full local test suite
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh

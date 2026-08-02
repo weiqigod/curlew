@@ -25,17 +25,17 @@
 === RUN   TestParse_CarriesSourceLocation
 --- PASS: TestParse_CarriesSourceLocation (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/internal/parser       0.192s
+ok      github.com/weiqigod/curlew/internal/parser       0.192s
 
 === RUN   TestParse_IncludesCarryIncludedFilePath
 --- PASS: TestParse_IncludesCarryIncludedFilePath (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/internal/parser       0.193s
+ok      github.com/weiqigod/curlew/internal/parser       0.193s
 
 === RUN   TestRunner_RequestResultCarriesSourceLocation
 --- PASS: TestRunner_RequestResultCarriesSourceLocation (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/internal/runner       0.214s
+ok      github.com/weiqigod/curlew/internal/runner       0.214s
 ```
 
 Expected: PASS for all three observable tests

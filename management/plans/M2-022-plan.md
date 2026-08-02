@@ -131,7 +131,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // parallelConfig extends executeConfig with parallel-specific settings.
@@ -602,7 +602,7 @@ func TestRun_DataDriven_AtomicInDependencyGraph(t *testing.T) {
 | File | Action | Description |
 |------|--------|-------------|
 | `internal/runner/runner.go` | modify | Add `ConfirmLargeDataset` field to `VarSources` |
-| `cmd/apitest/main.go` | modify | Add `--confirm-large-dataset` flag |
+| `cmd/curlew/main.go` | modify | Add `--confirm-large-dataset` flag |
 
 #### Current Code (VarSources)
 ```go
@@ -709,7 +709,7 @@ func TestParseFile_dataDrivenParallelConfig(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -719,10 +719,10 @@ Observable verification:
 ```bash
 # Run data-driven with parallel: true and confirm concurrent iteration execution
 # (requires a test collection YAML with parallel data-driven config)
-./apitest run test-parallel-datadriven.yaml
+./curlew run test-parallel-datadriven.yaml
 
 # Run data-driven with 10,000+ rows and confirm warning/chunked processing
-./apitest run test-large-dataset.yaml
+./curlew run test-large-dataset.yaml
 
 # Unit tests for parallel and large dataset
 go test ./internal/datadriven/... -v -run TestExecuteParallel

@@ -4,7 +4,7 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Your ApiTool trial is about to expire
+          Your Curlew trial is about to expire
         </mj-text>
         <mj-text>
           Hi {{user_email}}, your trial of {{feature}} expires at {{expires_at_local}}.

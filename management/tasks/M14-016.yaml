@@ -10,7 +10,7 @@ observable: |
   dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~GitHubAppKeyProvider|FullyQualifiedName~AppJwt"
   # Expected: Passed: >=8, Failed: 0
   ASPNETCORE_ENVIRONMENT=Testing \
-    GITHUB_APP__SLUG=apitool-checks-test \
+    GITHUB_APP__SLUG=curlew-checks-test \
     GITHUB_APP__KEYPROVIDER__MODE=file \
     GITHUB_APP__KEYPROVIDER__FILE__PATH=./Keys/github-app/test.pem \
     dotnet run --project src/ApiTool.Backend &

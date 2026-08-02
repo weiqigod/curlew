@@ -109,7 +109,7 @@ For every public function accepting external input in changed files:
 - What happens with empty string `""`? → Defined behaviour?
 - What happens with malformed input? → Clear error message?
 
-**ApiTool-specific input examples:**
+**Curlew-specific input examples:**
 - Empty collection file (0 bytes)
 - YAML with unknown fields
 - Variable reference to undefined variable `${nonexistent}`

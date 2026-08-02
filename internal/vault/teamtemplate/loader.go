@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // LoadOptions parameterises Load. Zero value behaves as "no backend, no local
@@ -20,7 +20,7 @@ type LoadOptions struct {
 	OrgID string
 	// AccessToken is the access token for backend fetch; empty = skip backend.
 	AccessToken string
-	// LocalPath is the APITEST_TEAM_CONFIG path; empty = no local overlay.
+	// LocalPath is the CURLEW_TEAM_CONFIG path; empty = no local overlay.
 	LocalPath string
 	// Force bypasses TTL (--refresh-vault).
 	Force bool
@@ -76,7 +76,7 @@ func Load(ctx context.Context, opts LoadOptions) (*LoadResult, error) {
 			return nil, &apierrors.Structured{
 				Category: apierrors.CategoryConfig,
 				Message:  fmt.Sprintf("shared vault template not found: %s", opts.LocalPath),
-				Hint:     "Check APITEST_TEAM_CONFIG or remove it to disable team templates",
+				Hint:     "Check CURLEW_TEAM_CONFIG or remove it to disable team templates",
 				Inner:    ErrTemplateNotFound,
 			}
 		}

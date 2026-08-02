@@ -65,13 +65,13 @@
 </script>
 
 <svelte:head>
-	<title>Your Data — ApiTool</title>
+	<title>Your Data — Curlew</title>
 </svelte:head>
 
 <main class="account-data">
 	<h1>Your Data</h1>
 	<p>
-		Request a copy of all the data ApiTool holds about you, as a downloadable JSON bundle.
+		Request a copy of all the data Curlew holds about you, as a downloadable JSON bundle.
 		You can make one request per 24-hour window.
 	</p>
 
@@ -108,7 +108,7 @@
 					<a
 						href={currentRequest.signed_url}
 						class="btn-download"
-						download="apitool-export.json"
+						download="curlew-export.json"
 					>
 						Download bundle
 					</a>
@@ -132,7 +132,7 @@
 
 	<footer class="data-footer">
 		<p>
-			For a full inventory of what data ApiTool collects and retains, see the
+			For a full inventory of what data Curlew collects and retains, see the
 			<a href="/docs/security/data-inventory.md" target="_blank" rel="noopener noreferrer">
 				data inventory document
 			</a>.

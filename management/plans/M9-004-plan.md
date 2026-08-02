@@ -822,9 +822,9 @@ func TestMarkdown_RenderIteration(t *testing.T) {
         t.Errorf("expected sentinel id=req-12-iter-0 slug=seed-users:\n%s", s)
     }
     // 11-section structure (same as M9-003 single-request).
-    for _, marker := range []string{"# Seed users [1/5]", "## Notes", "<!-- BEGIN apitest:response",
+    for _, marker := range []string{"# Seed users [1/5]", "## Notes", "<!-- BEGIN curlew:response",
         "## Response (deterministic)", "### Request", "### Response 201", "### Response metadata",
-        "### Timing", "### Assertions", "<!-- END apitest:response", "## Analysis"} {
+        "### Timing", "### Assertions", "<!-- END curlew:response", "## Analysis"} {
         if !strings.Contains(s, marker) {
             t.Errorf("missing marker %q in iter file:\n%s", marker, s)
         }
@@ -1088,7 +1088,7 @@ func TestMarkdown_DataDriven_FailedIteration(t *testing.T) {
         t.Errorf("expected [ ] marker for failed assertion:\n%s", s)
     }
     // 11-section structure preserved.
-    for _, marker := range []string{"## Notes", "## Response (deterministic)", "### Response metadata", "### Timing", "### Assertions", "<!-- END apitest:response", "## Analysis"} {
+    for _, marker := range []string{"## Notes", "## Response (deterministic)", "### Response metadata", "### Timing", "### Assertions", "<!-- END curlew:response", "## Analysis"} {
         if !strings.Contains(s, marker) {
             t.Errorf("missing %q in failed iter file:\n%s", marker, s)
         }
@@ -1141,7 +1141,7 @@ func TestMarkdown_SequentialWaveIndex(t *testing.T) {
   layout unchanged for sequential collections (`IsParallel: false`).
 - `TestMarkdown_Newlines` — uses single-file path; unchanged.
 
-### Step 5: cmd-builder grouping (`cmd/apitest/main.go`)
+### Step 5: cmd-builder grouping (`cmd/curlew/main.go`)
 
 **Rationale:** End-to-end integration. With markdown package complete,
 the cmd-builder is the only remaining piece. This step preserves
@@ -1151,8 +1151,8 @@ M9-002/M9-003 behavior for non-DD cases and groups DD iterations.
 
 | File                                          | Action | Description                                                                                          |
 |-----------------------------------------------|--------|------------------------------------------------------------------------------------------------------|
-| `cmd/apitest/main.go`                         | modify | `buildMarkdownReport`: stop skipping `IsDataDriven`; group consecutive iterations sharing `DataDrivenName`; populate `Iterations`, `IterationTotal`, base `Slug`, `IsParallel`. |
-| `cmd/apitest/run_test.go`                     | modify | Add `TestRun_MarkdownFormat_ParallelWaves`, `TestRun_MarkdownFormat_DataDriven`, `TestRun_MarkdownFormat_DataDrivenSplice`. |
+| `cmd/curlew/main.go`                         | modify | `buildMarkdownReport`: stop skipping `IsDataDriven`; group consecutive iterations sharing `DataDrivenName`; populate `Iterations`, `IterationTotal`, base `Slug`, `IsParallel`. |
+| `cmd/curlew/run_test.go`                     | modify | Add `TestRun_MarkdownFormat_ParallelWaves`, `TestRun_MarkdownFormat_DataDriven`, `TestRun_MarkdownFormat_DataDrivenSplice`. |
 
 #### Current Code (`main.go:2453-2503`)
 
@@ -1409,9 +1409,9 @@ requests:
 | `internal/output/markdown/formatter_test.go`  | `TestMarkdown_ParallelWaves`                            | NEW      | step 4                                                     |
 | `internal/output/markdown/formatter_test.go`  | `TestMarkdown_SequentialWaveIndex`                      | NEW      | step 4                                                     |
 | `internal/output/markdown/formatter_test.go`  | `TestMarkdown_Render_PassJSON` and other M9-003 tests   | none     | use empty `Iterations`; single-file path unchanged         |
-| `cmd/apitest/run_test.go`                     | `TestRun_MarkdownFormat_DataDriven`                     | NEW      | step 5                                                     |
-| `cmd/apitest/run_test.go`                     | `TestRun_MarkdownFormat_ParallelWaves`                  | NEW      | step 5                                                     |
-| `cmd/apitest/run_test.go`                     | `TestRun_MarkdownFormat_HappyPath` (and other existing) | none     | sequential single-request; unchanged                       |
+| `cmd/curlew/run_test.go`                     | `TestRun_MarkdownFormat_DataDriven`                     | NEW      | step 5                                                     |
+| `cmd/curlew/run_test.go`                     | `TestRun_MarkdownFormat_ParallelWaves`                  | NEW      | step 5                                                     |
+| `cmd/curlew/run_test.go`                     | `TestRun_MarkdownFormat_HappyPath` (and other existing) | none     | sequential single-request; unchanged                       |
 
 Total: **13 new test functions** across 3 test files.
 
@@ -1437,7 +1437,7 @@ Total: **13 new test functions** across 3 test files.
   user-recoverable. Document in `iter` rendering doc-comment.
 
 - **Risk:** A user-authored `iter-3.md` outside the sentinel region
-  (e.g. embedded fenced block containing `<!-- BEGIN apitest:response`)
+  (e.g. embedded fenced block containing `<!-- BEGIN curlew:response`)
   could confuse the sentinel parser.
   **Mitigation:** Same as M9-002. The existing `parseSentinels` regex
   requires the line *start* to match (anchored `^`), so fenced
@@ -1510,8 +1510,8 @@ Total: **13 new test functions** across 3 test files.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
-go test ./internal/output/markdown/... ./cmd/apitest/...
+go build ./cmd/curlew
+go test ./internal/output/markdown/... ./cmd/curlew/...
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1521,12 +1521,12 @@ Observable verification (from task YAML):
 
 ```bash
 # Parallel: Timing section has wave_index for every parallel request.
-./apitest run collections/parallel.yaml --format markdown --report /tmp/resp
+./curlew run collections/parallel.yaml --format markdown --report /tmp/resp
 grep '^wave_index: ' /tmp/resp/*.md | awk -F': ' '{print $NF}' | sort -u
 # Expected: multiple distinct wave values (e.g., 0, 1, 2).
 
 # Sequential requests still render `wave_index: sequential`.
-./apitest run collections/sequential.yaml --format markdown --report /tmp/resp
+./curlew run collections/sequential.yaml --format markdown --report /tmp/resp
 grep '^wave_index: sequential' /tmp/resp/*.md
 # Expected: at least one match.
 
@@ -1535,7 +1535,7 @@ grep -c '^## Wave ' /tmp/resp/run.md
 # Expected: number equal to distinct wave count for the collection.
 
 # Data-driven: one .md per iteration in a slug subdirectory + index.md.
-./apitest run collections/datadriven.yaml --format markdown --report /tmp/resp
+./curlew run collections/datadriven.yaml --format markdown --report /tmp/resp
 ls /tmp/resp/seed-users/
 # Expected: index.md iter-0.md iter-1.md iter-2.md iter-3.md iter-4.md
 
@@ -1553,12 +1553,12 @@ grep 'seed-users' /tmp/resp/run.md
 
 # Splice preserves agent notes in iter files across re-runs.
 printf '\nAGENT ANALYSIS of iter-3\n' >> /tmp/resp/seed-users/iter-3.md
-./apitest run collections/datadriven.yaml --format markdown --report /tmp/resp
+./curlew run collections/datadriven.yaml --format markdown --report /tmp/resp
 grep 'AGENT ANALYSIS' /tmp/resp/seed-users/iter-3.md
 # Expected: present.
 
 # Iteration cap: source exceeding runner row cap truncates index table.
-./apitest run collections/datadriven-huge.yaml --format markdown --report /tmp/resp
+./curlew run collections/datadriven-huge.yaml --format markdown --report /tmp/resp
 grep 'truncated' /tmp/resp/seed-users-huge/index.md
 # Expected: truncation marker present; iter files beyond cap not written.
 

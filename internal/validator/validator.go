@@ -11,12 +11,12 @@ import (
 	celgo "github.com/google/cel-go/cel"
 	"gopkg.in/yaml.v3"
 
-	apicel "github.com/peterlindqvist/apitest/internal/cel"
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/variable"
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	apicel "github.com/weiqigod/curlew/internal/cel"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/variable"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 // Severity classifies a validation finding.

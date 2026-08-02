@@ -1,6 +1,6 @@
 # The JS-Scripting Question
 
-A deep look at the largest single design opinion in ApiTool: the absence of in-tool JavaScript. The assessment in `ASSESSMENT.md` treats this as the most consequential bet in the spec; this document examines it more carefully, separates the things the assessment lumped together, audits what scripting is actually used for in real test suites, and lays out a ladder of design options that aren't full JS.
+A deep look at the largest single design opinion in Curlew: the absence of in-tool JavaScript. The assessment in `ASSESSMENT.md` treats this as the most consequential bet in the spec; this document examines it more carefully, separates the things the assessment lumped together, audits what scripting is actually used for in real test suites, and lays out a ladder of design options that aren't full JS.
 
 The conclusion is that "no scripting" is the right call, but the framing needs work — both internally (the spec doesn't actually argue for it) and externally (the substitutes aren't yet shipped). There is a clean middle path the assessment doesn't engage with.
 
@@ -45,9 +45,9 @@ A JS engine (Nashorn, then Graal.js) embedded inside a Gherkin DSL. Scripting is
 
 Use shape: the test definition itself is a small JS program with Gherkin scaffolding around it.
 
-These should not be discussed as one design. (1) is the case ApiTool is rejecting. (3) is a different category of tool entirely — closer to Cypress or Playwright than to Postman. (2) is the worst of both worlds, because users in `node`-mode can do anything and reviewers can't tell what changed.
+These should not be discussed as one design. (1) is the case Curlew is rejecting. (3) is a different category of tool entirely — closer to Cypress or Playwright than to Postman. (2) is the worst of both worlds, because users in `node`-mode can do anything and reviewers can't tell what changed.
 
-When the assessment writes "ApiTool refuses the embedded scripting DSL entirely," it is comparing ApiTool to (3). When it writes "Postman's V8 sandbox," it is comparing to (1). These are different bets. ApiTool is rejecting both, but the costs of allowing each are different.
+When the assessment writes "Curlew refuses the embedded scripting DSL entirely," it is comparing Curlew to (3). When it writes "Postman's V8 sandbox," it is comparing to (1). These are different bets. Curlew is rejecting both, but the costs of allowing each are different.
 
 ---
 
@@ -55,7 +55,7 @@ When the assessment writes "ApiTool refuses the embedded scripting DSL entirely,
 
 Below is a use-case audit of pre-request and test scripts as they appear in real public Postman collections, Karate suites, and Bruno repos. The "frequency" column is impressionistic — drawn from looking at the patterns in widely-shared test suites — but the categorisation is sound.
 
-| Use case | Frequency | Solvable in ApiTool today | Solvable with planned helpers |
+| Use case | Frequency | Solvable in Curlew today | Solvable with planned helpers |
 |---|---|---|---|
 | Compute auth header (SigV4, HMAC, custom) | Very high | Partially: `from_command` (Solo), plugins (Enterprise) | Yes: helpers + free SigV4 plugin |
 | Decode/inspect JWT claims | High | No | Yes: `$jwtDecode` |
@@ -84,11 +84,11 @@ Two observations.
 
 The shape: "POST /orders, then if response.status is 'pending' POST /orders/:id/confirm, else POST /orders/:id/cancel."
 
-There is no way to express this in ApiTool today. `depends_on` can sequence but not branch. `retry-until-condition` can poll but only re-runs the same request. You can fake it by running both branches and asserting one fails — but that adds noise to the report and misrepresents the system under test.
+There is no way to express this in Curlew today. `depends_on` can sequence but not branch. `retry-until-condition` can poll but only re-runs the same request. You can fake it by running both branches and asserting one fails — but that adds noise to the report and misrepresents the system under test.
 
 How common is this in practice? Less than the spec authors might assume. Most "branches" in real test suites are environment-based ("if prod, use TLS") and are fully handled by environment files. Response-content branches show up most in workflow-style tests — e-commerce checkout, multi-step approvals, async job submission with status polling. These tests tend to migrate off Postman to higher-level runners (Cypress, Playwright API, custom Go/Python) anyway, because at that complexity level the test is a small program, and a tool optimised for "list of requests" stops fitting.
 
-The real risk is not losing those workflow tests — ApiTool was never going to win them. The risk is the *threshold case*: a team where 95% of tests are simple request lists and one flow needs branching. Today that team has to either fake it, split into two collections, or pick a different tool. That's where users leak out, and it's the case the no-scripting stance has to answer well.
+The real risk is not losing those workflow tests — Curlew was never going to win them. The risk is the *threshold case*: a team where 95% of tests are simple request lists and one flow needs branching. Today that team has to either fake it, split into two collections, or pick a different tool. That's where users leak out, and it's the case the no-scripting stance has to answer well.
 
 ### Cross-field aggregation
 
@@ -126,7 +126,7 @@ A script can call `Date.now()`, `Math.random()`, `setTimeout`, `performance.now(
 
 V8 sandbox security is a real ongoing concern. Postman has shipped security patches for sandbox issues; any team embedding V8 inherits the responsibility to keep up with V8 CVEs and to gate every API surface (`pm.*`) as a potential escape vector. Sandbox APIs grow over time as users ask for them; each addition is a new attack surface.
 
-### 5. `apitest validate` becomes shallow
+### 5. `curlew validate` becomes shallow
 
 Today `validate` catches misspelled operators, missing required fields, circular references — all without executing anything. Scripts can't be statically validated. "Lint your tests in CI" quietly weakens; the static-error-detection pitch becomes "static-error-detection except for the parts that matter most when they break."
 
@@ -222,7 +222,7 @@ Rungs 1 and 2 together — `if:` plus CEL in `extract` and `assertions` — clos
 - Preserve diff legibility (a CEL expression is one line; you can read it)
 - Preserve AI-narratability (CEL is well-understood by LLMs trained on Kubernetes content)
 - Preserve determinism (CEL has no I/O, no time, no randomness)
-- Preserve static validation (`apitest validate` can parse and type-check CEL)
+- Preserve static validation (`curlew validate` can parse and type-check CEL)
 - Preserve clean tier-gating (`if:` and CEL are either available or not, no per-API matrix)
 
 The cost of these two rungs together is small compared to the cost of full JS.
@@ -233,7 +233,7 @@ The cost of these two rungs together is small compared to the cost of full JS.
 
 **Right.** The no-scripting stance is principled. The substitutes are *architecturally* in place — plugin host, dynamic-function registry, auth profile system, sensitivity propagation. The structural pinch point (`from_command` Solo, plugins Enterprise) is real and the recommendation that `from_command` move to the free tier and that SigV4/OAuth1/JWT/webhook-sig ship as free first-party plugins is sound.
 
-**Thin: it framed the question as binary.** "Should ApiTool add JS scripting, yes or no?" That misses the spectrum entirely. The interesting question is "what is the smallest expressive escape from declarative YAML that closes the residual gap without breaking the pitch?" That question lives at rungs 1 and 2 of the ladder above, and the assessment doesn't engage with it.
+**Thin: it framed the question as binary.** "Should Curlew add JS scripting, yes or no?" That misses the spectrum entirely. The interesting question is "what is the smallest expressive escape from declarative YAML that closes the residual gap without breaking the pitch?" That question lives at rungs 1 and 2 of the ladder above, and the assessment doesn't engage with it.
 
 **Thin: it treated the substitutes as already shipped.** The argument that `$hmacSha256`, `$sha256`, `$base64`, and `$urlEncode` "cover the vast majority of cases" rests on dynamic functions that don't exist in the codebase yet — they're scheduled as Phase 2/3 of the dynamic-function rollout (`SPECIFICATION.md:746-747`). Today, a free-tier user with a custom-signing requirement has neither helpers nor escape hatches (`from_command` is Solo). The defence of the no-scripting stance is forward-dated on shipping work that hasn't started.
 

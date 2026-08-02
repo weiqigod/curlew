@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 func TestScope_Interpolate(t *testing.T) {

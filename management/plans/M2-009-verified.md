@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 15 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All scenarios pass including auth gate |
@@ -28,8 +28,8 @@ go test -v -run "TestExecuteProfiles_Caching|TestExecutePhase_RefreshOnFailure|T
 --- PASS: TestExecuteProfiles_Caching (0.00s)
 --- PASS: TestRun_AuthProfileCaching (0.00s)
 --- PASS: TestExecutePhase_RefreshOnFailure (0.00s)
-ok  github.com/peterlindqvist/apitest/internal/auth   0.170s
-ok  github.com/peterlindqvist/apitest/internal/runner 0.288s
+ok  github.com/weiqigod/curlew/internal/auth   0.170s
+ok  github.com/weiqigod/curlew/internal/runner 0.288s
 ```
 
 Expected: auth profile caching and refresh verified via unit tests
@@ -81,7 +81,7 @@ Branch A: Review PASS trusted, spot-check clean.
 | 093ed15 | docs(review): add review with findings for M2-009 |
 | 4f40d71 | chore(task): mark M2-009 as review |
 | 30574bf | style: fix gofumpt formatting in test files |
-| 472e10a | chore: add .apitest/cache/ to .gitignore |
+| 472e10a | chore: add .curlew/cache/ to .gitignore |
 | 52cca05 | feat(runner): implement refresh-on-failure 401 retry with cache invalidation |
 | b01a87e | test(runner): add failing tests for refresh-on-failure 401 retry |
 | 6f8d498 | feat(runner): add CacheStore to VarSources and wire into auth profile execution |
@@ -110,7 +110,7 @@ All 25 commits reference `Refs: M2-009`. TDD pattern visible: `test(...)` commit
 | `internal/config/project_test.go` | modified — new field tests |
 | `internal/runner/runner.go` | modified — `CacheStore` in `VarSources`; refresh-on-failure retry |
 | `internal/runner/runner_test.go` | modified — caching and refresh integration tests |
-| `.gitignore` | modified — `.apitest/cache/` excluded |
+| `.gitignore` | modified — `.curlew/cache/` excluded |
 
 ## Issues Found
 

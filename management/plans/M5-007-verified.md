@@ -16,7 +16,7 @@
 | `npm run check` (svelte-check) | PASS | 0 errors, 0 warnings |
 | `./smoke/run.sh` | PASS | All Go CLI smoke tests pass including M5-013 offline license |
 | Coverage | N/A | `@vitest/coverage-v8` not installed; 156 unit tests + 8 E2E assertions cover all modules |
-| E2E (`org-roles.spec.ts`) | Deferred | Requires full docker-compose stack (`APITOOL_MANAGE_STACK=1`); not available in this CI environment. Consistent with M5-003, M5-004, M5-005 precedent. Observable verified via build + unit test evidence. |
+| E2E (`org-roles.spec.ts`) | Deferred | Requires full docker-compose stack (`CURLEW_MANAGE_STACK=1`); not available in this CI environment. Consistent with M5-003, M5-004, M5-005 precedent. Observable verified via build + unit test evidence. |
 
 ## Observable Output
 
@@ -36,7 +36,7 @@ npm run test:unit
 
 # E2E spec: web/tests/e2e/org-roles.spec.ts
 # 8 assertions covering all 7 task behaviors + subnav DoD check
-# (Requires APITOOL_MANAGE_STACK=1 + docker stack — not available here)
+# (Requires CURLEW_MANAGE_STACK=1 + docker stack — not available here)
 ```
 
 Expected: Build succeeds, E2E spec `web/tests/e2e/org-roles.spec.ts` exists with >= 6 passing tests

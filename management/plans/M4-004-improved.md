@@ -23,7 +23,7 @@ No findings deferred. All findings resolved.
 |-------|--------|
 | `dotnet build` (backend) | PASS — 0 warnings |
 | `dotnet test ./...` (91 tests) | PASS — 91/91 pass |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 
 ## Fix Commits
 

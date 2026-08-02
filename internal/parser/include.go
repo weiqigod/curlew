@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/variable"
 	"gopkg.in/yaml.v3"
 )
 

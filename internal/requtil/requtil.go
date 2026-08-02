@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // ExecuteFunc is the function signature for executing a single HTTP request.

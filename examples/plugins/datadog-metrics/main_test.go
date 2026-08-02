@@ -40,7 +40,7 @@ func TestPrintMetadata_StandaloneHelp(t *testing.T) {
 }
 
 func TestHandshake_ReturnsHello(t *testing.T) {
-	in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}` + "\n")
+	in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}` + "\n")
 	var out, errw bytes.Buffer
 	cfg := config{} // DATADOG_API_KEY unset
 	if err := run(context.Background(), cfg, in, &out, &errw); err != nil && err != io.EOF {
@@ -75,7 +75,7 @@ func TestOnResponse_SubmitsMetric(t *testing.T) {
 	cfg := config{enabled: true, apiKey: "k", apiURL: srv.URL}
 	var errw bytes.Buffer
 	params := json.RawMessage(`{"status_code":200,"duration_ms":142}`)
-	_, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", params)
+	_, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", params)
 	if err != nil {
 		t.Fatalf("handle: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestOnResponse_Disabled_DoesNotSubmit(t *testing.T) {
 	defer srv.Close()
 	cfg := config{enabled: false, apiURL: srv.URL} // no API key
 	var errw bytes.Buffer
-	_, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", json.RawMessage(`{"status_code":200}`))
+	_, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", json.RawMessage(`{"status_code":200}`))
 	if err != nil {
 		t.Fatalf("handle: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestOnResponse_NonFatalOn401(t *testing.T) {
 	defer srv.Close()
 	cfg := config{enabled: true, apiKey: "k", apiURL: srv.URL}
 	var errw bytes.Buffer
-	result, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", json.RawMessage(`{"status_code":200,"duration_ms":5}`))
+	result, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", json.RawMessage(`{"status_code":200,"duration_ms":5}`))
 	if err != nil {
 		t.Fatalf("handle: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestLoadConfig_DDAPIURLOverride(t *testing.T) {
 }
 
 func TestRun_MissingKey_LogsDisabledLine(t *testing.T) {
-	in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}` + "\n")
+	in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}` + "\n")
 	var out, errw bytes.Buffer
 	_ = run(context.Background(), loadConfig([]string{}), in, &out, &errw)
 	if !strings.Contains(errw.String(), "DATADOG_API_KEY not set, disabled") {
@@ -180,7 +180,7 @@ func TestOnResponse_MalformedParams_LogsWarning(t *testing.T) {
 	cfg := config{enabled: true, apiKey: "k", apiURL: srv.URL}
 	var errw bytes.Buffer
 	// params is not valid JSON
-	_, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", json.RawMessage(`{not-valid`))
+	_, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", json.RawMessage(`{not-valid`))
 	if err != nil {
 		t.Fatalf("handle returned error: %v", err)
 	}
@@ -207,9 +207,9 @@ func TestRun_EndToEnd_MultipleResponses(t *testing.T) {
 	defer srv.Close()
 	cfg := loadConfig([]string{"DATADOG_API_KEY=k", "DD_API_URL=" + srv.URL})
 	in := bytes.NewBufferString(
-		`{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}` + "\n" +
-			`{"jsonrpc":"2.0","id":2,"method":"apitest/on_response","params":{"status_code":200,"duration_ms":42}}` + "\n" +
-			`{"jsonrpc":"2.0","id":3,"method":"apitest/on_result","params":{"pass_count":1}}` + "\n",
+		`{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}` + "\n" +
+			`{"jsonrpc":"2.0","id":2,"method":"curlew/on_response","params":{"status_code":200,"duration_ms":42}}` + "\n" +
+			`{"jsonrpc":"2.0","id":3,"method":"curlew/on_result","params":{"pass_count":1}}` + "\n",
 	)
 	var out, errw bytes.Buffer
 	if err := run(context.Background(), cfg, in, &out, &errw); err != nil {

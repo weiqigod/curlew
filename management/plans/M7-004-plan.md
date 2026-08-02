@@ -2,8 +2,8 @@
 
 ## Overview
 
-Adds `cmd/apitest/stream_discipline_matrix_test.go` — a single integration
-test, `TestStreamDisciplineMatrix`, that spawns the real `apitest` binary
+Adds `cmd/curlew/stream_discipline_matrix_test.go` — a single integration
+test, `TestStreamDisciplineMatrix`, that spawns the real `curlew` binary
 across a (subcommand × format × pipe-wiring) matrix and asserts the M7
 stream-discipline invariants: (1) stdout carries only the declared format's
 payload, (2) stderr carries no ANSI escape sequences when piped, and
@@ -33,7 +33,7 @@ one-grep triage.
 dependency for TTY matrix cells. `go.mod` currently has zero `creack` imports,
 and adding a dependency for test-only TTY simulation conflicts with the
 "standard library first" rule in `CLAUDE.md`. The existing
-`cmd/apitest/stream_color_test.go` (M7-001) already covers the
+`cmd/curlew/stream_color_test.go` (M7-001) already covers the
 stdout-TTY-stderr-pipe regression via `/dev/tty` with a graceful skip, and
 the ANSI-on-pipe invariant (the M7-001 bug) is exclusively a pipe-side
 assertion. **This plan therefore restricts the M7-004 matrix to
@@ -56,7 +56,7 @@ against the real `status` field.
 headers (those only appear in terminal output when a collection defines
 setup/teardown blocks). The matrix will assert the real HTML markers that
 exist on every report: the `<!DOCTYPE html>` prologue, the `<title>…
-apitest report</title>` tag, and the `status-bar` / `summary-card` class
+curlew report</title>` tag, and the `status-bar` / `summary-card` class
 markers emitted by the template.
 
 **Decision 4 — Terminal-format "section headers" for a trivial collection.**
@@ -84,7 +84,7 @@ The plan's fixture snippets used flat `method:` and `url:` fields directly under
 The plan specified exit code 5 for the parse-error fixture. In the actual codebase, `CategoryParse` errors from the parser return exit code 3 in `main.go`. Exit code 5 is reserved for variable-resolution failures (undefined variable at request execution time). The `run_terminal_parse_error` cell uses `wantExitCode: 3`.
 
 ### Deviation 3 — JUnit/HTML tier requirement
-The plan's `run_junit_happy` and `run_html_happy_with_report` cells assumed these formats work on free tier. They actually require `TierProfessional`. Both cells now set `env: []string{"APITEST_TIER=professional"}` to bypass the gate and exercise the stream-discipline invariants.
+The plan's `run_junit_happy` and `run_html_happy_with_report` cells assumed these formats work on free tier. They actually require `TierProfessional`. Both cells now set `env: []string{"CURLEW_TIER=professional"}` to bypass the gate and exercise the stream-discipline invariants.
 
 ## Implementation Steps
 
@@ -97,10 +97,10 @@ something to reference in Step 2 and cannot break anything on its own.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/testdata/stream-discipline/happy.yaml` | create | Minimal single-request collection, no variables, resolvable against a local httptest server via `{{BASE_URL}}`. |
-| `cmd/apitest/testdata/stream-discipline/assertion_failure.yaml` | create | Single request asserting status `500` against a server that returns `200` — triggers assertion failure, exit code 1. |
-| `cmd/apitest/testdata/stream-discipline/parse_error.yaml` | create | Malformed YAML (unclosed list) — triggers parser error, exit code 5. |
-| `cmd/apitest/testdata/stream-discipline/gate_denied.yaml` | create | Uses `include:` directive, which the free-tier (default) gate denies — triggers `GateError`, exit code 6. |
+| `cmd/curlew/testdata/stream-discipline/happy.yaml` | create | Minimal single-request collection, no variables, resolvable against a local httptest server via `{{BASE_URL}}`. |
+| `cmd/curlew/testdata/stream-discipline/assertion_failure.yaml` | create | Single request asserting status `500` against a server that returns `200` — triggers assertion failure, exit code 1. |
+| `cmd/curlew/testdata/stream-discipline/parse_error.yaml` | create | Malformed YAML (unclosed list) — triggers parser error, exit code 5. |
+| `cmd/curlew/testdata/stream-discipline/gate_denied.yaml` | create | Uses `include:` directive, which the free-tier (default) gate denies — triggers `GateError`, exit code 6. |
 
 #### New Code
 
@@ -158,7 +158,7 @@ to adjust the fixture.
 
 #### Impact on Existing Tests
 
-None. New directory under `cmd/apitest/testdata/` — no existing test
+None. New directory under `cmd/curlew/testdata/` — no existing test
 references these paths.
 
 ---
@@ -173,7 +173,7 @@ expected to pass — providing the baseline the Definition of Done calls for.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/stream_discipline_matrix_test.go` | create | Single test function, table-driven, spawns the real binary per cell via `exec.Command`. |
+| `cmd/curlew/stream_discipline_matrix_test.go` | create | Single test function, table-driven, spawns the real binary per cell via `exec.Command`. |
 
 #### New Code
 
@@ -210,7 +210,7 @@ var knownProgressStrings = []string{
 }
 
 // TestStreamDisciplineMatrix is the M7-004 regression gate. It iterates
-// (subcommand × format) cells, spawns the real apitest binary with both
+// (subcommand × format) cells, spawns the real curlew binary with both
 // stdout and stderr wired to pipes, and asserts the three core M7 invariants:
 //
 //  1. Stdout contains ONLY the declared format's payload.
@@ -237,7 +237,7 @@ func TestStreamDisciplineMatrix(t *testing.T) {
 
     cases := []struct {
         name         string
-        args         []string          // passed to ./apitest
+        args         []string          // passed to ./curlew
         env          []string          // extra env (on top of os.Environ() minus NO_COLOR)
         wantExitCode int               // expected exit code; -1 = any non-zero
         stdoutIsEmpty bool             // when true, stdout must be exactly zero bytes
@@ -320,7 +320,7 @@ func TestStreamDisciplineMatrix(t *testing.T) {
         {
             name: "perf_progress_on_stderr",
             args: []string{"perf", fixtures.perfRequest, "--vus", "1", "--duration", "100ms"},
-            env:  []string{"APITEST_TIER=enterprise"}, // perf requires enterprise
+            env:  []string{"CURLEW_TIER=enterprise"}, // perf requires enterprise
             wantExitCode: 0,
             checkStdout: assertPerfResultsLine,
             extraStderrMustContain: []string{"Load test:", "Running..."},
@@ -533,10 +533,10 @@ func materializeStreamDisciplineFixtures(t *testing.T, baseURL string) streamDis
         licenseEnv: func(t *testing.T) []string {
             cfgDir := setupValidLicenseDir(t)
             return []string{
-                "APITEST_CONFIG_DIR=" + cfgDir,
-                "APITEST_OFFLINE=1",
-                "APITEST_LICENSE_BUNDLE=",
-                "APITEST_LAST_VALIDATION_OVERRIDE=",
+                "CURLEW_CONFIG_DIR=" + cfgDir,
+                "CURLEW_OFFLINE=1",
+                "CURLEW_LICENSE_BUNDLE=",
+                "CURLEW_LAST_VALIDATION_OVERRIDE=",
             }
         },
     }
@@ -584,12 +584,12 @@ TDD checklist):
 
 #### Impact on Existing Tests
 
-- `TestStreamProgress` (cmd/apitest/stream_progress_test.go) — Unaffected.
+- `TestStreamProgress` (cmd/curlew/stream_progress_test.go) — Unaffected.
   Both tests spawn the real binary and share the `writeStreamProgressRequestFile`
   helper; this is deliberate reuse, not collision.
-- `TestStderrColorFlag` (cmd/apitest/stream_color_test.go) — Unaffected.
+- `TestStderrColorFlag` (cmd/curlew/stream_color_test.go) — Unaffected.
   M7-001 owns the TTY-wired stderr cells. M7-004 owns the pipe-wired matrix.
-- `TestStreamHelp` (cmd/apitest/stream_help_test.go) — Unaffected.
+- `TestStreamHelp` (cmd/curlew/stream_help_test.go) — Unaffected.
   Tests error/help routing via `runWithWriters` in-process; orthogonal to
   the matrix.
 - No `*_test.go` file reassigns `os.Stdout`/`os.Stderr`; `TestNoOsStdoutAssignment`
@@ -618,7 +618,7 @@ insertion is cheap.
 ```bash
 # --- Go gate (always) ---
 step "go build"
-go build -o apitest ./cmd/apitest
+go build -o curlew ./cmd/curlew
 
 step "go test"
 go test ./...
@@ -629,12 +629,12 @@ go test ./...
 ```bash
 # --- Go gate (always) ---
 step "go build"
-go build -o apitest ./cmd/apitest
+go build -o curlew ./cmd/curlew
 
 # M7-004: explicit named marker for the stream-discipline matrix so failures
 # show up under a unique header in CI logs (one grep away).
 step "go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate)"
-go test -run '^TestStreamDisciplineMatrix$' ./cmd/apitest/... -count=1
+go test -run '^TestStreamDisciplineMatrix$' ./cmd/curlew/... -count=1
 
 step "go test"
 go test ./...
@@ -672,7 +672,7 @@ Add under the existing `## [Unreleased]` heading, in an `### Added` subsection
 
 ```markdown
 ### Added
-- CI regression gate `TestStreamDisciplineMatrix` (`cmd/apitest/stream_discipline_matrix_test.go`) spawning the real `apitest` binary across a matrix of (subcommand × format) cells — `run` with json/tap/junit/html/terminal formats on happy, assertion-failure, parse-error, and feature-gate-denied fixtures; plus `perf`, `license --validate`, and `exec --dry-run` cells. Each cell wires stdout and stderr to pipes and asserts: (1) stdout contains only the declared format's payload, (2) stderr carries no ANSI escape sequences on pipes, (3) no known-progress string (`Running...`, `Load test:`, `Validating license`, `Claimed shard`, `Resolved `, `Exporting license bundle`) leaks to stdout. Fixtures live under `cmd/apitest/testdata/stream-discipline/`. `scripts/ci-local.sh` now runs this test under its own named step so failures surface under a distinct header in CI logs. TTY-wired cells remain owned by `TestStderrColorFlag` (M7-001). (M7-004)
+- CI regression gate `TestStreamDisciplineMatrix` (`cmd/curlew/stream_discipline_matrix_test.go`) spawning the real `curlew` binary across a matrix of (subcommand × format) cells — `run` with json/tap/junit/html/terminal formats on happy, assertion-failure, parse-error, and feature-gate-denied fixtures; plus `perf`, `license --validate`, and `exec --dry-run` cells. Each cell wires stdout and stderr to pipes and asserts: (1) stdout contains only the declared format's payload, (2) stderr carries no ANSI escape sequences on pipes, (3) no known-progress string (`Running...`, `Load test:`, `Validating license`, `Claimed shard`, `Resolved `, `Exporting license bundle`) leaks to stdout. Fixtures live under `cmd/curlew/testdata/stream-discipline/`. `scripts/ci-local.sh` now runs this test under its own named step so failures surface under a distinct header in CI logs. TTY-wired cells remain owned by `TestStderrColorFlag` (M7-001). (M7-004)
 ```
 
 #### Impact on Existing Tests
@@ -685,17 +685,17 @@ None — documentation only.
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/stream_discipline_matrix_test.go` | `TestStreamDisciplineMatrix` | new | Write (Step 2) |
-| `cmd/apitest/stream_progress_test.go` | `TestStreamProgress` | none | Shares `writeStreamProgressRequestFile` helper — continues working |
-| `cmd/apitest/stream_color_test.go` | `TestStderrColorFlag` | none | TTY cells remain here |
-| `cmd/apitest/stream_help_test.go` | `TestStreamHelp` | none | Orthogonal (in-process) |
-| `cmd/apitest/main_test.go` | `TestNoOsStdoutAssignment` | none | New test file does not reassign globals |
-| `cmd/apitest/license_test.go` | (various) | none | Shares `setupValidLicenseDir` helper |
+| `cmd/curlew/stream_discipline_matrix_test.go` | `TestStreamDisciplineMatrix` | new | Write (Step 2) |
+| `cmd/curlew/stream_progress_test.go` | `TestStreamProgress` | none | Shares `writeStreamProgressRequestFile` helper — continues working |
+| `cmd/curlew/stream_color_test.go` | `TestStderrColorFlag` | none | TTY cells remain here |
+| `cmd/curlew/stream_help_test.go` | `TestStreamHelp` | none | Orthogonal (in-process) |
+| `cmd/curlew/main_test.go` | `TestNoOsStdoutAssignment` | none | New test file does not reassign globals |
+| `cmd/curlew/license_test.go` | (various) | none | Shares `setupValidLicenseDir` helper |
 
 ## Risks and Edge Cases
 
 - **Risk:** Hermetic env. Running `license --validate` pulls from
-  `APITEST_CONFIG_DIR`, `APITEST_OFFLINE`, etc.; pollution from the developer's
+  `CURLEW_CONFIG_DIR`, `CURLEW_OFFLINE`, etc.; pollution from the developer's
   shell could produce false failures. **Mitigation:** Build env explicitly
   from `os.Environ()` with `NO_COLOR` stripped and required keys appended —
   mirrors the approach in `TestStreamProgress`.
@@ -705,12 +705,12 @@ None — documentation only.
   needed; cross-platform. **Mitigation:** None required; documented in
   test-file comment.
 - **Risk:** `perf_progress_on_stderr` cell requires
-  `APITEST_TIER=enterprise`. **Mitigation:** Set per-cell `env` in the
+  `CURLEW_TIER=enterprise`. **Mitigation:** Set per-cell `env` in the
   table; already demonstrated to work in `TestStreamProgress`.
 - **Risk:** `gate_denied.yaml` references a nonexistent include file. If the
   gate check runs before the file-existence check, we get `GateError` (desired).
   If it runs after, we get a parse error (exit 5, not 6). **Mitigation:**
-  Confirmed in `cmd/apitest/main.go:567-580`: the gate check runs *before*
+  Confirmed in `cmd/curlew/main.go:567-580`: the gate check runs *before*
   parsing resolves include contents, so the gate error is emitted first.
 - **Edge case:** `parse_error.yaml` must produce structured error on
   stderr (not stdout). `main.go` wiring for parse errors goes through
@@ -742,8 +742,8 @@ None — documentation only.
 
 ```bash
 # Minimum (fast) gate:
-go build ./cmd/apitest
-go test -run '^TestStreamDisciplineMatrix$' ./cmd/apitest/... -count=1
+go build ./cmd/curlew
+go test -run '^TestStreamDisciplineMatrix$' ./cmd/curlew/... -count=1
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -756,7 +756,7 @@ Observable verification (from task YAML):
 
 ```bash
 # 1. Matrix test runs cleanly.
-go test -run TestStreamDisciplineMatrix ./cmd/apitest/...
+go test -run TestStreamDisciplineMatrix ./cmd/curlew/...
 
 # 2. Smoke-level jq parse — this uses the binary plus a live httptest server.
 # We embed the server start via a tiny helper collection; the task's literal

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/vault"
-	teamtemplate "github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
-	"github.com/peterlindqvist/apitest/internal/worker/schedule"
+	"github.com/weiqigod/curlew/internal/vault"
+	teamtemplate "github.com/weiqigod/curlew/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 func TestRunnerExecutor_Execute(t *testing.T) {

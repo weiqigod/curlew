@@ -24,7 +24,7 @@ Add a new `internal/output/events` package that defines the NDJSON event types f
 The task YAML leaves several implementation details open. The following decisions are made for this plan and documented here so downstream slices (M6-005/006/007) have a stable contract to build on.
 
 1. **Package path:** `internal/output/events`, module-qualified
-   `github.com/peterlindqvist/apitest/internal/output/events`. Consistent with the other formatters under `internal/output/`. The package imports `internal/errors` (alias `apierrors`) for `ClassifyError` and nothing else from the rest of the codebase — this preserves its isolation as required by the DoD ("new package is isolated").
+   `github.com/weiqigod/curlew/internal/output/events`. Consistent with the other formatters under `internal/output/`. The package imports `internal/errors` (alias `apierrors`) for `ClassifyError` and nothing else from the rest of the codebase — this preserves its isolation as required by the DoD ("new package is isolated").
 
 2. **Schema version:** string constant `SchemaVersion = "0.1"`. Serialized as `schema_version`. M6-007 is the only slice authorised to bump this to `"1.0"`.
 
@@ -75,7 +75,7 @@ The task YAML leaves several implementation details open. The following decision
 #### New Code
 
 ```go
-// Package events defines the NDJSON agent event stream emitted by `apitest run`
+// Package events defines the NDJSON agent event stream emitted by `curlew run`
 // when the --events flag is provided. The schema is documented in
 // docs/events-schema/v0.1.json.
 package events
@@ -134,7 +134,7 @@ type EventError struct {
 type RunStart struct {
     Header
     StartedAt      string   `json:"started_at"`       // RFC3339Nano UTC
-    ApitestVersion string   `json:"apitest_version"`
+    CurlewVersion string   `json:"curlew_version"`
     CLIArgs        []string `json:"cli_args"`
     CollectionFile string   `json:"collection_file,omitempty"`
     EnvName        string   `json:"env_name,omitempty"`
@@ -237,7 +237,7 @@ import (
     "sync/atomic"
     "time"
 
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // ErrEmitterClosed is returned when Emit* is called after Close.
@@ -251,8 +251,8 @@ type Options struct {
     RunID string
     // BodyLimit overrides DefaultBodyLimit. Zero means use DefaultBodyLimit.
     BodyLimit int
-    // ApitestVersion is recorded in RunStart. Required.
-    ApitestVersion string
+    // CurlewVersion is recorded in RunStart. Required.
+    CurlewVersion string
 }
 
 // Emitter serializes events to an io.Writer as NDJSON. Safe for concurrent use.
@@ -393,11 +393,11 @@ func TestEmitter_RunStart_MinimalFields(t *testing.T) {
     em, err := NewEmitter(&buf, Options{
         Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
         RunID:          "test-run-001",
-        ApitestVersion: "0.1.0-dev",
+        CurlewVersion: "0.1.0-dev",
     })
     // assertions: buf has exactly one line; parsed JSON has kind=run.start,
     // schema_version=0.1, id=1, at_ms=0, run_id=test-run-001, started_at RFC3339Nano,
-    // apitest_version=0.1.0-dev, cli_args=["run","x.yaml"].
+    // curlew_version=0.1.0-dev, cli_args=["run","x.yaml"].
 }
 
 func TestEmitter_RequestStartEnd_PairedIDs(t *testing.T) {
@@ -494,8 +494,8 @@ func TestEmitter_AllKindsValidateAgainstSchema(t *testing.T) {
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://apitest.dev/events-schema/v0.1.json",
-  "title": "ApiTool Agent Event Stream v0.1",
+  "$id": "https://curlew.dev/events-schema/v0.1.json",
+  "title": "Curlew Agent Event Stream v0.1",
   "oneOf": [
     { "$ref": "#/definitions/RunStart" },
     { "$ref": "#/definitions/RunError" },
@@ -517,7 +517,7 @@ func TestEmitter_AllKindsValidateAgainstSchema(t *testing.T) {
       }
     },
     "EventError": { /* category,code,message,hint,file,line */ },
-    "RunStart": { /* allOf Header + specific props, required cli_args apitest_version started_at */ },
+    "RunStart": { /* allOf Header + specific props, required cli_args curlew_version started_at */ },
     "RunError": { /* allOf Header + error object */ },
     "RequestStart": { /* request_id method url, optional name/phase/source_file/source_line */ },
     "RequestEnd": { /* request_id outcome duration_ms, optional status_code wave_index body fields */ },
@@ -611,7 +611,7 @@ func TestEmitter_GoldenRunFailedAssertion(t *testing.T) { /* … */ }
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/output/events/...
 go test -cover ./internal/output/events/...
 go test ./...

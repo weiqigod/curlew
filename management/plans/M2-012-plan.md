@@ -28,7 +28,7 @@ Enhance watch mode with terminal UX: run separators with timestamps, running tot
 |------|--------|-------------|
 | `internal/watch/watch.go` | modify | Add `RunResult` type, change `RunFunc` signature |
 | `internal/watch/watch_test.go` | modify | Update all `RunFunc` lambdas to return `RunResult` |
-| `cmd/apitest/main.go` | modify | Add `runCmdResult` wrapper, update `watchCmd` |
+| `cmd/curlew/main.go` | modify | Add `runCmdResult` wrapper, update `watchCmd` |
 
 #### Current Code
 
@@ -46,7 +46,7 @@ type Config struct {
 }
 ```
 
-`cmd/apitest/main.go` watchCmd (line 493):
+`cmd/curlew/main.go` watchCmd (line 493):
 ```go
 RunFunc: runCmd,
 ```
@@ -78,7 +78,7 @@ type Config struct {
 }
 ```
 
-`cmd/apitest/main.go` — new wrapper function:
+`cmd/curlew/main.go` — new wrapper function:
 ```go
 // runCmdResult wraps runCmd to return structured results for watch mode.
 // It re-parses args and invokes runner.Run directly to capture the Summary.
@@ -342,7 +342,7 @@ t.Run("running totals include initial run", func(t *testing.T) {
 |------|--------|-------------|
 | `internal/watch/watch.go` | modify | Conditional output based on `cfg.Format` |
 | `internal/watch/watch_test.go` | modify | Add JSON mode tests |
-| `cmd/apitest/main.go` | modify | Pass `format` through to `watch.Config` |
+| `cmd/curlew/main.go` | modify | Pass `format` through to `watch.Config` |
 
 #### Current Code
 
@@ -412,7 +412,7 @@ t.Run("json format suppresses running totals", func(t *testing.T) {
 |------|--------|-------------|
 | `internal/watch/watch.go` | modify | Add `clearScreen` call before re-run when flag set |
 | `internal/watch/watch_test.go` | modify | Add clear screen tests |
-| `cmd/apitest/main.go` | modify | Parse `--clear` flag in `watchCmd` |
+| `cmd/curlew/main.go` | modify | Parse `--clear` flag in `watchCmd` |
 
 #### New Code
 
@@ -522,7 +522,7 @@ t.Run("parse error after edit shows error and continues watching", func(t *testi
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Extract `runCmdInner`, keep `runCmd` as thin wrapper |
+| `cmd/curlew/main.go` | modify | Extract `runCmdInner`, keep `runCmd` as thin wrapper |
 
 #### Current Code
 
@@ -554,7 +554,7 @@ The key change is that every `return N` in `runCmd` becomes `return N, summary` 
 No new tests needed — `runCmd` behavior is unchanged. Existing integration tests and smoke tests cover this.
 
 #### Impact on Existing Tests
-- `cmd/apitest/main.go` tests call `runCmd` which delegates to `runCmdInner` — transparent
+- `cmd/curlew/main.go` tests call `runCmd` which delegates to `runCmdInner` — transparent
 
 ---
 
@@ -566,14 +566,14 @@ No new tests needed — `runCmd` behavior is unchanged. Existing integration tes
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update watch help text |
+| `cmd/curlew/main.go` | modify | Update watch help text |
 | `smoke/run.sh` | modify | Add JSON format watch smoke test |
 
 #### New Help Text
 
 In the watch usage string:
 ```
-Usage: apitest watch <collection-file> [--env <name>] [--var key=value ...] [--format <type>] [--clear] [--no-color] [-v] [-vv] [-q]
+Usage: curlew watch <collection-file> [--env <name>] [--var key=value ...] [--format <type>] [--clear] [--no-color] [-v] [-vv] [-q]
 ```
 
 #### Smoke Test Addition
@@ -595,7 +595,7 @@ Usage: apitest watch <collection-file> [--env <name>] [--var key=value ...] [--f
 | `internal/watch/watch_test.go` | `TestSyncWatchDirs` | none | — |
 | `internal/watch/watch_test.go` | `TestDebouncer` | none | — |
 | `internal/watch/paths_test.go` | all | none | — |
-| `cmd/apitest/*_test.go` | all | none (runCmd unchanged) | — |
+| `cmd/curlew/*_test.go` | all | none (runCmd unchanged) | — |
 
 ## Risks and Edge Cases
 
@@ -623,7 +623,7 @@ Usage: apitest watch <collection-file> [--env <name>] [--var key=value ...] [--f
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -632,13 +632,13 @@ go test ./...
 Observable verification:
 ```bash
 # Terminal mode: start watch, edit file, observe separator + timestamp + running totals
-apitest watch tests.yaml
+curlew watch tests.yaml
 
 # JSON mode: start watch, edit file, observe complete JSON objects
-apitest watch tests.yaml --format json
+curlew watch tests.yaml --format json
 
 # Clear mode: start watch, edit file, observe terminal clears between runs
-apitest watch tests.yaml --clear
+curlew watch tests.yaml --clear
 
 # Unit tests
 go test ./internal/watch/... -v

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 func TestExecute(t *testing.T) {

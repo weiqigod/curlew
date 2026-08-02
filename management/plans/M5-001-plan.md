@@ -2,10 +2,10 @@
 
 ## Overview
 
-Deliver SAML 2.0 SSO for the ApiTool backend: owner-only endpoint to store an
+Deliver SAML 2.0 SSO for the Curlew backend: owner-only endpoint to store an
 org's IdP configuration, an SP-initiated login redirect that builds a signed
 AuthnRequest, and an Assertion Consumer Service (ACS) endpoint that verifies a
-signed SAMLResponse and issues an ApiTool session cookie.
+signed SAMLResponse and issues an Curlew session cookie.
 
 ## Task Details
 
@@ -50,7 +50,7 @@ signed SAMLResponse and issues an ApiTool session cookie.
 
 4. **Session cookie.** After a successful ACS we mint a short-lived JWT with
    the existing `JwtOptions` signing key and set it as an HTTP-only cookie
-   `apitool_session`, then 302 to `SamlOptions.WebPortalUrl` (default
+   `curlew_session`, then 302 to `SamlOptions.WebPortalUrl` (default
    `http://localhost:3000/sso/callback`).
 
 5. **Public ACS/login endpoints.** `/api/v1/sso/saml/{orgId}/login` and
@@ -449,7 +449,7 @@ public sealed class SamlEndpointsTests
     // B3
     [Fact] public async Task Get_login_returns_302_with_signed_SAMLRequest_query_param() { … }
     // B4
-    [Fact] public async Task Post_acs_with_valid_response_returns_302_with_apitool_session_cookie() { … }
+    [Fact] public async Task Post_acs_with_valid_response_returns_302_with_curlew_session_cookie() { … }
     // B5
     [Fact] public async Task Post_acs_with_invalid_signature_returns_401_saml_signature_invalid_and_no_cookie() { … }
     // B6

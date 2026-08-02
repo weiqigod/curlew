@@ -18,14 +18,14 @@ observable: |
   #   main:  [Get user (uses {{token}}), List posts (uses {{post_id}})]
 
   # Case 1: main request only needs {{token}} -> only Login + Warm run.
-  ./apitest run collections/multi.yaml --only "Get user" --events run.ndjson
+  ./curlew run collections/multi.yaml --only "Get user" --events run.ndjson
   jq -c 'select(.kind=="request.start") | .name' run.ndjson
   # Expected: "Login", "Warm cache", "Get user"
   # (Seed users + Seed posts pruned; Warm cache kept -- no extract.)
 
   # Case 2: chained producers. List posts needs {{post_id}}, produced by
   # Seed posts, which needs {{user_id}}, produced by Seed users.
-  ./apitest run collections/multi.yaml --only "List posts" --events run.ndjson
+  ./curlew run collections/multi.yaml --only "List posts" --events run.ndjson
   jq -c 'select(.kind=="request.start") | .name' run.ndjson
   # Expected: "Seed users", "Seed posts", "Warm cache", "List posts"
   # (Login pruned -- not on the closure. Warm cache kept -- no extract.)
@@ -33,12 +33,12 @@ observable: |
   # Case 3: analyzer invalid -> fall back to full setup.
   # (Synthetic collection where analyze.go returns IsValid=false, e.g.
   # duplicate producer for the same variable.)
-  ./apitest run collections/ambiguous.yaml --only "Get user" 2>stderr.log
+  ./curlew run collections/ambiguous.yaml --only "Get user" 2>stderr.log
   grep 'minimal-setup analysis failed' stderr.log
   # Expected: diagnostic line present; all setup items execute.
 
   # Case 4: --only not set -> no pruning, setup runs in full (regression).
-  ./apitest run collections/multi.yaml
+  ./curlew run collections/multi.yaml
   # Expected: all 4 setup items run, both main items run.
 
   # Full unit + integration suite.
@@ -54,7 +54,7 @@ behaviors:
   - "When --only is not set, no pruning logic runs and setup execution is byte-identical to pre-M8-005 behaviour (regression-tested)."
   - "The variable-cliff diagnostic (enrichSelectionCliff) is extended to scan fullSetupItems as well as fullMainItems; if a missing variable's producer is a setup item that was pruned, the error message names it with a suffix indicating the analyzer missed a reference and is likely a bug."
   - "Data-driven main requests in the selection contribute their parent RequestItem's variable references to the closure (per-iteration references are identical across iterations)."
-  - "apitest watch propagates the pruning transparently because it just re-invokes run with the same --only args."
+  - "curlew watch propagates the pruning transparently because it just re-invokes run with the same --only args."
   - "parallel.AncestorClosure is a new exported graph primitive in internal/parallel/ -- takes a DependencyGraph and a slice of start indices, returns the ancestor set inclusive of starts via reverse-BFS over Dependencies."
   - "No events schema change: v1.1 stays the shipped version. (An optional additive setup_pruned_names field on run.start is explicitly deferred -- file as future observability work if telemetry calls for it.)"
   - "CHANGELOG.md [Unreleased] has a Changed entry noting that --only now prunes setup; docs/SPECIFICATION.md and docs/MANUAL.md --only sections get a paragraph describing the minimal-setup behaviour and the no-extract-always-runs rule."

@@ -206,7 +206,7 @@ func TestExtractProducedVars(t *testing.T) {
 ```go
 package parallel
 
-import "github.com/peterlindqvist/apitest/internal/parser"
+import "github.com/weiqigod/curlew/internal/parser"
 
 // Analyze performs the full 6-phase dependency analysis on a collection's main requests.
 // preExecVars contains variable names available before execution (collection vars, env vars, CLI args).
@@ -508,7 +508,7 @@ func TestDefaultRegistry_ParallelExecution(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add --show-dependencies flag to parseRunArgs and runCmdInner |
+| `cmd/curlew/main.go` | modify | Add --show-dependencies flag to parseRunArgs and runCmdInner |
 
 #### Current Code (parseRunArgs)
 ```go
@@ -581,8 +581,8 @@ Add to the "Run Options" section:
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestParseRunArgs*` | breaks | update to handle new return values (showDeps, dryRun) |
-| `cmd/apitest/main_test.go` | `TestRun*` | none | no change |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs*` | breaks | update to handle new return values (showDeps, dryRun) |
+| `cmd/curlew/main_test.go` | `TestRun*` | none | no change |
 | `internal/auth/registry_test.go` | `TestDefaultRegistry` | may break | update if it asserts feature count |
 | `internal/parallel/*_test.go` | all | new | all new tests |
 
@@ -599,7 +599,7 @@ Add to the "Run Options" section:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -608,10 +608,10 @@ go test ./...
 Observable verification:
 ```bash
 # DOT graph output
-apitest run --show-dependencies tests.yaml
+curlew run --show-dependencies tests.yaml
 
 # Execution wave display
-apitest run --show-dependencies --dry-run tests.yaml
+curlew run --show-dependencies --dry-run tests.yaml
 
 # Unit tests
 go test ./internal/parallel/...

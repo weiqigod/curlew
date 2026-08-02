@@ -24,7 +24,7 @@ Extend the HTML report generator with data-driven visualizations (per-group iter
 
 2. **Propagate iteration row data through the runner.** The current `runner.RequestResult` struct carries iteration metadata (`IsDataDriven`, `IterationIndex`, `IterationTotal`, `DataDrivenName`) but not the row data itself. Behavior "filterable table shows each iteration with status, duration, and data values" requires the row. Decision: add `IterationData map[string]string` to `RequestResult`, populated by both `executeDataDriven` (sequential) and `executeDataDrivenParallel` (parallel). The map is nil for non-data-driven results. This is a low-risk additive field change.
 
-3. **Aggregate inside the output package, not the runner.** `buildHTMLReport` in `cmd/apitest/main.go` passes flat results to the output package. The output package is the right layer to **aggregate** iteration results into `HTMLDataDrivenGroup` (by `DataDrivenName`) and wave results into `HTMLWave` (by `WaveIndex`). This keeps `main.go` thin and the logic fully testable in `internal/output`.
+3. **Aggregate inside the output package, not the runner.** `buildHTMLReport` in `cmd/curlew/main.go` passes flat results to the output package. The output package is the right layer to **aggregate** iteration results into `HTMLDataDrivenGroup` (by `DataDrivenName`) and wave results into `HTMLWave` (by `WaveIndex`). This keeps `main.go` thin and the logic fully testable in `internal/output`.
 
 4. **Client-side filtering via inline JS.** Filtering by status (All / Passed / Failed) is implemented with a small inline `<script>` that toggles `display: none` on rows by CSS class. No external JS, consistent with existing `toggle(id)` inline function.
 
@@ -205,7 +205,7 @@ func TestHTMLReport_DataDrivenGroupFields(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/html.go` | modify | Add `BuildDataDrivenGroups`, `BuildWaves`, `computeSpeedup` helpers |
 | `internal/output/html_test.go` | modify | Add table-driven tests for the aggregation helpers |
-| `cmd/apitest/main.go` | modify | Call the new helpers in `buildHTMLReport` to populate the new fields |
+| `cmd/curlew/main.go` | modify | Call the new helpers in `buildHTMLReport` to populate the new fields |
 
 #### Proposed Signatures
 
@@ -244,7 +244,7 @@ func BuildWaves(waveInputs []WaveInput, waveDurations []int64) []HTMLWave
 func computeSpeedup(totalRequestDurationMs, totalWaveDurationMs int64) string
 ```
 
-`buildHTMLReport` (in `cmd/apitest/main.go`) collects iteration and wave inputs in a single pass over `results` and calls these helpers. It also sets `IsParallel`, `WaveCount`, `MaxParallelism`, and `SpeedupFactor` from `summary`.
+`buildHTMLReport` (in `cmd/curlew/main.go`) collects iteration and wave inputs in a single pass over `results` and calls these helpers. It also sets `IsParallel`, `WaveCount`, `MaxParallelism`, and `SpeedupFactor` from `summary`.
 
 #### Tests to Write FIRST (RED phase)
 
@@ -298,7 +298,7 @@ func TestComputeSpeedup(t *testing.T) {
 
 #### Impact on Existing Tests
 - `TestWriteHTML` cases: unchanged inputs produce reports where new sections are absent (guarded by `{{if}}`), so expected substrings still match and no new absent-asserted strings accidentally appear. Verify by rerunning the full test suite after Step 4.
-- No existing test in `cmd/apitest/main_test.go` asserts on `HTMLReport` internals.
+- No existing test in `cmd/curlew/main_test.go` asserts on `HTMLReport` internals.
 
 ---
 
@@ -551,14 +551,14 @@ func TestWriteHTML_ParallelSection(t *testing.T) {
 ---
 
 ### Step 6: Wire runner results into new output helpers inside `main.go`
-**Rationale:** End-to-end wiring. Touches `cmd/apitest/main.go` only; the helpers and template are already covered by unit tests. Done last so any regression surfaces against a stable output layer.
+**Rationale:** End-to-end wiring. Touches `cmd/curlew/main.go` only; the helpers and template are already covered by unit tests. Done last so any regression surfaces against a stable output layer.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | In `buildHTMLReport`: map data-driven results into `IterationInput`s, map parallel results into `WaveInput`s, call the new helpers, set `IsParallel`/`WaveCount`/`MaxParallelism`/`SpeedupFactor` |
-| `cmd/apitest/main_test.go` | modify (if it tests `buildHTMLReport`) | Add assertions on populated groups/waves; otherwise rely on smoke test |
+| `cmd/curlew/main.go` | modify | In `buildHTMLReport`: map data-driven results into `IterationInput`s, map parallel results into `WaveInput`s, call the new helpers, set `IsParallel`/`WaveCount`/`MaxParallelism`/`SpeedupFactor` |
+| `cmd/curlew/main_test.go` | modify (if it tests `buildHTMLReport`) | Add assertions on populated groups/waves; otherwise rely on smoke test |
 
 #### New Logic (pseudo)
 
@@ -623,7 +623,7 @@ func buildHTMLReport(name string, results []runner.RequestResult, summary *runne
 
 #### Tests to Write FIRST (RED phase)
 
-If `cmd/apitest/main_test.go` already has a test for `buildHTMLReport`, add cases:
+If `cmd/curlew/main_test.go` already has a test for `buildHTMLReport`, add cases:
 - Data-driven result produces `DataDrivenGroups` populated with row data.
 - Parallel result sets `IsParallel`, `WaveCount`, `MaxParallelism`, `SpeedupFactor`, `Waves`.
 - Non-data-driven non-parallel result produces empty new sections.
@@ -666,7 +666,7 @@ If no test for `buildHTMLReport` exists, add one in this step.
 | `internal/output/html_test.go` | `TestWriteHTML_ParallelSection` | new | Template rendering for parallel |
 | `internal/runner/runner_test.go` | data-driven tests | none | Additive `IterationData` field |
 | `internal/runner/runner_test.go` | `TestExecuteDataDriven_PopulatesIterationData` | new | Verifies row propagation |
-| `cmd/apitest/main_test.go` | `buildHTMLReport` tests (if present) | extended | New assertions on aggregated fields |
+| `cmd/curlew/main_test.go` | `buildHTMLReport` tests (if present) | extended | New assertions on aggregated fields |
 
 ## Risks and Edge Cases
 
@@ -685,7 +685,7 @@ If no test for `buildHTMLReport` exists, add one in this step.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/output/...
 go test ./internal/runner/...
 go test ./...
@@ -697,11 +697,11 @@ Observable verification (from task YAML):
 
 ```bash
 # Data-driven report
-./apitest run examples/data-driven-collection.yaml --report-html /tmp/dd.html
+./curlew run examples/data-driven-collection.yaml --report-html /tmp/dd.html
 open /tmp/dd.html   # confirm iteration summary card and filterable table
 
 # Parallel report
-./apitest run examples/parallel-collection.yaml --parallel --report-html /tmp/par.html
+./curlew run examples/parallel-collection.yaml --parallel --report-html /tmp/par.html
 open /tmp/par.html  # confirm wave diagram and speedup factor
 
 # Unit tests
@@ -712,7 +712,7 @@ go test ./internal/output/...
 
 - [x] Every file to be modified has been fully read
 - [x] Every affected `_test.go` file has been read
-- [x] All call sites of changed interfaces identified (`buildHTMLReport` in `cmd/apitest/main.go`, runner data-driven paths)
+- [x] All call sites of changed interfaces identified (`buildHTMLReport` in `cmd/curlew/main.go`, runner data-driven paths)
 - [x] Before/after code snippets for non-trivial changes
 - [x] Impact on existing tests explicitly listed (none break)
 - [x] Edge cases and risks identified with mitigations

@@ -1,6 +1,6 @@
 {
   "slug": "account_deletion_completed",
-  "subject": "Your ApiTool account has been deleted",
+  "subject": "Your Curlew account has been deleted",
   "variables": {
     "user_email":     "string",
     "deleted_at_local": "string (e.g. '2026-06-17 12:00 UTC')"

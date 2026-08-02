@@ -9,7 +9,7 @@ phase: "M13: Faker depth"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestDynPattern_DottedNamespace' -v ./internal/variable/...
   # Expected: PASS — dynPattern matches `{{$faker.firstName}}` capturing
@@ -29,7 +29,7 @@ observable: |
   # Expected: PASS — `{{$timestamp}}`, `{{$uuid}}`, `{{$base64('a')}}`,
   # `{{$hmacSha256('p','k')}}` continue to match unchanged.
 
-  printf '{{$faker.firstName}}\n' | ./apitest exec --stdin --format json 2>&1 \
+  printf '{{$faker.firstName}}\n' | ./curlew exec --stdin --format json 2>&1 \
     | grep -F 'unknown dynamic function "faker.firstName"'
   # Expected: success — the runtime error names the dotted function (proves
   # the regex resolved the dot-form rather than rejecting it as a literal).

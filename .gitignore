@@ -1,5 +1,5 @@
 # Go binaries
-/apitest
+/curlew
 *.exe
 *.exe~
 *.dll
@@ -61,7 +61,7 @@ TestResults/
 .claude/scheduled_tasks.lock
 
 # Auth profile credential cache (contains obfuscated sensitive values)
-.apitest/cache/
+.curlew/cache/
 
 # Web project
 web/node_modules/
@@ -77,7 +77,7 @@ testdata/m14/*.log
 __pycache__/
 *.pyc
 
-# apitest ui built assets — only the committed placeholder index.html is tracked.
+# curlew ui built assets — only the committed placeholder index.html is tracked.
 # The directory must be re-included first: the blanket dist/ rule above ignores
 # the directory itself, and negations cannot resurrect files inside an ignored dir.
 !internal/uiserver/assets/dist/

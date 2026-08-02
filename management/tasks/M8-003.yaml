@@ -15,41 +15,41 @@ observable: |
   ls schemas/project-v1.json
   # Expected: -rw-r--r--  schemas/project-v1.json
 
-  # `apitest schema --project` emits the project schema.
-  ./apitest schema --project | jq -r .title
-  # Expected: "ApiTest Project v1"
-  ./apitest schema --project | jq -r '.["$id"]'
-  # Expected: https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/project-v1.json
+  # `curlew schema --project` emits the project schema.
+  ./curlew schema --project | jq -r .title
+  # Expected: "Curlew Project v1"
+  ./curlew schema --project | jq -r '.["$id"]'
+  # Expected: https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json
 
-  # `apitest schema` (no flag) still emits the collection schema.
-  ./apitest schema | jq -r .title
-  # Expected: "ApiTest Collection v1"
+  # `curlew schema` (no flag) still emits the collection schema.
+  ./curlew schema | jq -r .title
+  # Expected: "Curlew Collection v1"
 
   # Precedence: CLI flag > collection output > project output > built-in.
-  go test -run TestOutputPrecedence ./cmd/apitest/...
+  go test -run TestOutputPrecedence ./cmd/curlew/...
   # Expected: PASS — four sub-tests (builtin-default, project-wins,
   # collection-wins, cli-wins).
 
   # End-to-end: project-level output.format=json with no CLI flag produces
   # valid JSON on stdout.
-  ./apitest run examples/output-block/collection.yaml | jq -r '.summary.total'
+  ./curlew run examples/output-block/collection.yaml | jq -r '.summary.total'
   # Expected: a number; stdout is valid JSON under the project default.
 
   # Unknown format in YAML fails before any request runs.
-  ./apitest run examples/output-block/bad-format.yaml
+  ./curlew run examples/output-block/bad-format.yaml
   # Expected: exit 3, stderr contains 'unknown output format "markdown"'
   # and lists the supported formats.
 
-  # `apitest init` scaffolds an active output: block in apitest.yaml.
-  cd "$(mktemp -d)" && /path/to/apitest init --project-name demo \
-    && grep -A3 '^output:' apitest.yaml
+  # `curlew init` scaffolds an active output: block in curlew.yaml.
+  cd "$(mktemp -d)" && /path/to/curlew init --project-name demo \
+    && grep -A3 '^output:' curlew.yaml
   # Expected: format: terminal / verbosity: normal block present.
 
   # Manual: with redhat.vscode-yaml installed and both yaml.schemas entries
-  # from MANUAL.md §1.5 applied locally, editing apitest.yaml offers
+  # from MANUAL.md §1.5 applied locally, editing curlew.yaml offers
   # autocomplete for output.format and flags unknown formats inline.
 behaviors:
-  - "schemas/project-v1.json exists at repo root as a Draft 2020-12 schema with $id https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/project-v1.json, title 'ApiTest Project v1', and additionalProperties: false at top level."
+  - "schemas/project-v1.json exists at repo root as a Draft 2020-12 schema with $id https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json, title 'Curlew Project v1', and additionalProperties: false at top level."
   - "Both schemas/project-v1.json and schemas/collection-v1.json accept an optional top-level output: object with keys format, report, events, verbosity (additionalProperties: false, all optional)."
   - "output.format enum is exactly [terminal, json, tap, junit, html]; markdown is intentionally excluded until W4 ships."
   - "output.verbosity enum is [quiet, normal, verbose, debug] and maps to output.VerbosityQuiet, VerbosityDefault, VerbosityVerbose, VerbosityDebug."
@@ -58,19 +58,19 @@ behaviors:
   - "runFlags records explicit-set status for format, report, events, and verbosity (parallel bools) so the zero value of --format terminal is distinguishable from 'flag not passed'."
   - "Unknown output.format or empty output.report / output.events path fails validation at schema-compile time with exit code 3 and a structured stderr message; watch and run both honor this before any HTTP request."
   - "schema.ProjectSchema is a byte-slice alias (var ProjectSchema = schemas.ProjectV1), mirroring schema.CollectionSchema."
-  - "apitest schema --project emits the project schema on stdout; apitest schema (no flag) continues to emit the collection schema (backward-compatible)."
-  - "scaffold.Init emits an active minimal output: block (format: terminal, verbosity: normal) in apitest.yaml, and the scaffolded file validates against schemas/project-v1.json."
-  - "docs/MANUAL.md §1.5 documents a second yaml.schemas entry mapping schemas/project-v1.json to **/apitest.yaml; CHANGELOG.md [Unreleased] -> Added has an M8-003 bullet."
+  - "curlew schema --project emits the project schema on stdout; curlew schema (no flag) continues to emit the collection schema (backward-compatible)."
+  - "scaffold.Init emits an active minimal output: block (format: terminal, verbosity: normal) in curlew.yaml, and the scaffolded file validates against schemas/project-v1.json."
+  - "docs/MANUAL.md §1.5 documents a second yaml.schemas entry mapping schemas/project-v1.json to **/curlew.yaml; CHANGELOG.md [Unreleased] -> Added has an M8-003 bullet."
 scope: |
-  Add a typed output: block accepted at both apitest.yaml (project default)
+  Add a typed output: block accepted at both curlew.yaml (project default)
   and collection YAML (override), with CLI > collection > project > built-in
-  precedence resolved once in cmd/apitest/main.go before formatter and
+  precedence resolved once in cmd/curlew/main.go before formatter and
   events-emitter construction. Publish schemas/project-v1.json at the repo
   root so both levels are editor-validated; mirror the M8-001 pattern
   (schemas/ owns the //go:embed, internal/schema aliases as schema.ProjectSchema,
   MANUAL.md §1.5 documents the second yaml.schemas entry, drift-guard and
   reachability tests mirror the collection schema's). Extend scaffold.Init to
-  emit an active minimal output: block. Extend apitest schema with a --project
+  emit an active minimal output: block. Extend curlew schema with a --project
   flag. Duplicate the $defs.output subschema across the two schema files with
   a drift-guard test to keep them byte-identical — cross-file $ref is solvable
   but not worth the resolver ceremony for a 20-line block.
@@ -78,7 +78,7 @@ scope: |
   Implementation is TDD-paired per behavior. Parametric TestSchema_accepts_output
   drives fixtures under internal/schema/testdata/ (project output, collection
   output, each format, each verbosity, negatives). TestOutputPrecedence in
-  cmd/apitest/ drives the four precedence cases with in-process runCmdInner
+  cmd/curlew/ drives the four precedence cases with in-process runCmdInner
   calls over io.Writer buffers. OutputConfig lives in internal/output/ alongside
   Verbosity; parser.Collection and config.ProjectConfig both import it.
   runFlags gains formatSet/reportSet/eventsSet/verbositySet parallel bools —
@@ -103,19 +103,19 @@ definition_of_done:
   - "TestSchema_rejects_empty_output_path passes (negative control)"
   - "TestSchema_project_published_path_matches_embed passes (drift guard)"
   - "TestSchema_project_file_exists_at_published_path passes (reachability guard)"
-  - "TestSchema_scaffolded_apitest_yaml_validates passes (DoD: init output is schema-valid)"
+  - "TestSchema_scaffolded_curlew_yaml_validates passes (DoD: init output is schema-valid)"
   - "TestOutputPrecedence passes with four sub-tests: builtin, project-wins, collection-wins, cli-wins"
   - "parser.Collection.Output and config.ProjectConfig.Output round-trip through YAML unmarshal"
   - "scaffold.Init emits an active output: block (format: terminal, verbosity: normal)"
-  - "apitest schema --project emits project schema; apitest schema (no flag) emits collection schema"
+  - "curlew schema --project emits project schema; curlew schema (no flag) emits collection schema"
   - "docs/MANUAL.md §1.5 documents the project-schema yaml.schemas mapping"
   - "docs/MANUAL.md has a short section on the output: block (fields + precedence table)"
   - "CHANGELOG.md updated with M8-003 entry"
   - "go test ./... passes with no regressions"
-  - "go test -cover ./internal/schema/... ./cmd/apitest/... ./internal/config/... ./internal/parser/... ./internal/output/... >= 80%"
+  - "go test -cover ./internal/schema/... ./cmd/curlew/... ./internal/config/... ./internal/parser/... ./internal/output/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"
-  - "Manual VS Code smoke verified: opening apitest.yaml with an invalid output.format key surfaces a squiggle"
+  - "Manual VS Code smoke verified: opening curlew.yaml with an invalid output.format key surfaces a squiggle"
 complexity: medium
 estimated_effort: "1-2 days"

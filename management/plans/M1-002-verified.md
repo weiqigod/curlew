@@ -47,7 +47,7 @@ Result: MATCH
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all pass | PASS |
-| 2 | Observable output works | `./apitest run sample/hello.yaml` — 2 passed, 0 failed | PASS |
+| 2 | Observable output works | `./curlew run sample/hello.yaml` — 2 passed, 0 failed | PASS |
 | 3 | Test coverage >= 80% | 93.0% total | PASS |
 | 4 | No build warnings or lint errors | `golangci-lint run` — 0 issues | PASS |
 | 5 | Help text updated (if user-facing) | No new commands/flags — N/A | PASS |

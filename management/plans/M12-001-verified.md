@@ -20,7 +20,7 @@
 ## Observable Output
 
 ```
-go build ./cmd/apitest
+go build ./cmd/curlew
 # BUILD OK
 
 go test -run 'TestDynPattern_ParensSyntax' -v ./internal/variable/...

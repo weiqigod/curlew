@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://apitest.dev/events-schema/v1.3.json",
-  "title": "ApiTool Agent Event Stream v1.3",
-  "description": "NDJSON event stream emitted by apitest run when --events is provided. Each line is one event object matching exactly one of the definitions below. v1.3 adds an optional 'timing' object to request.end carrying the connection-phase breakdown (integer microseconds) and retry attempt count.",
+  "$id": "https://curlew.dev/events-schema/v1.3.json",
+  "title": "Curlew Agent Event Stream v1.3",
+  "description": "NDJSON event stream emitted by curlew run when --events is provided. Each line is one event object matching exactly one of the definitions below. v1.3 adds an optional 'timing' object to request.end carrying the connection-phase breakdown (integer microseconds) and retry attempt count.",
   "version_status": "stable",
   "oneOf": [
     {
@@ -129,7 +129,7 @@
         "at_ms",
         "kind",
         "started_at",
-        "apitest_version",
+        "curlew_version",
         "cli_args"
       ],
       "properties": {
@@ -156,9 +156,9 @@
           "type": "string",
           "description": "RFC3339Nano UTC timestamp when the run began."
         },
-        "apitest_version": {
+        "curlew_version": {
           "type": "string",
-          "description": "apitest binary version.",
+          "description": "curlew binary version.",
           "minLength": 1
         },
         "cli_args": {

@@ -1,7 +1,7 @@
 # Implementation Plan: M3-002
 
 ## Overview
-Add glob pattern discovery to `apitest run` as a Professional-tier feature. A new
+Add glob pattern discovery to `curlew run` as a Professional-tier feature. A new
 `internal/discovery` package expands patterns like `**/*_test.yaml` into a
 deterministic, ignore-aware list of collection files, which `runCmd` executes
 sequentially and aggregates into a single summary (terminal, JSON, TAP, JUnit, or
@@ -9,7 +9,7 @@ HTML).
 
 ## Task Details
 - **ID:** M3-002
-- **Title:** Glob pattern discovery for apitest run
+- **Title:** Glob pattern discovery for curlew run
 - **Phase:** M3: Professional Tier
 - **Priority:** 2
 - **Complexity:** medium
@@ -43,7 +43,7 @@ user confirmation, per pipeline mode):
 4. **Walk root:** When the pattern is a glob, the discovery root is the
    current working directory (`.`). The pattern is always interpreted as
    relative to that root. We resolve CWD once up-front.
-5. **`.apitestignore` location:** We look for `.apitestignore` at the CWD
+5. **`.curlewignore` location:** We look for `.curlewignore` at the CWD
    (the walk root). Ignore patterns use the same matcher as the primary
    glob. Behavior mirrors `.gitignore`: blank lines and `#` comments are
    skipped, patterns are matched against the relative path.
@@ -72,7 +72,7 @@ user confirmation, per pipeline mode):
    keep consistent feature-gate output.
 9. **Per-collection context:** Each collection is parsed with its own
    `collectionDir` (the directory of the file), so relative paths inside
-   each collection resolve as they do today. Environments / `apitest.yaml` /
+   each collection resolve as they do today. Environments / `curlew.yaml` /
    `.env` are re-discovered per collection (mirrors existing single-file
    semantics). This is expensive but correct — caching is out of scope
    for this slice.
@@ -100,13 +100,13 @@ unblocks every subsequent integration step.
 | `internal/discovery/match.go` | create | Internal `matchPattern(pattern, path string) bool` supporting `*`, `?`, `[...]`, and `**`. |
 | `internal/discovery/discovery_test.go` | create | Table-driven tests for `Expand`, glob detection, ignore semantics, traversal rejection, sort order. |
 | `internal/discovery/match_test.go` | create | Table-driven tests for the matcher covering `**`, `*`, `?`, `[...]`, and edge cases. |
-| `internal/discovery/testdata/` | create | Fixture tree used by discovery_test (a.yaml, b.yaml, sub/c.yaml, drafts/d.yaml, ignored.txt, .apitestignore). |
+| `internal/discovery/testdata/` | create | Fixture tree used by discovery_test (a.yaml, b.yaml, sub/c.yaml, drafts/d.yaml, ignored.txt, .curlewignore). |
 
 #### New Code (sketch)
 
 ```go
 // Package discovery expands glob patterns into collection file paths,
-// honoring .apitestignore and rejecting unsafe patterns.
+// honoring .curlewignore and rejecting unsafe patterns.
 //
 // Supported glob syntax (relative to the walk root):
 //   *        matches any sequence of non-separator characters
@@ -130,11 +130,11 @@ var (
 func IsGlob(pattern string) bool
 
 // Expand walks root and returns all files matching pattern, sorted
-// deterministically, with .apitestignore rules applied. Returns
+// deterministically, with .curlewignore rules applied. Returns
 // ErrNoMatches when nothing matches.
 func Expand(root, pattern string) ([]string, error)
 
-// LoadIgnore reads .apitestignore at root (if present) and returns
+// LoadIgnore reads .curlewignore at root (if present) and returns
 // its non-comment, non-blank patterns.
 func LoadIgnore(root string) ([]string, error)
 ```
@@ -184,7 +184,7 @@ func TestExpand(t *testing.T) {
         }, nil},
         {"excludes ignored drafts directory", "**/*.yaml", []string{
             "a.yaml", "b.yaml", "sub/c.yaml",
-        }, nil}, // drafts/d.yaml excluded via .apitestignore
+        }, nil}, // drafts/d.yaml excluded via .curlewignore
         {"zero matches returns ErrNoMatches", "**/*.nomatch", nil, ErrNoMatches},
         {"traversal rejected", "../etc/passwd", nil, ErrTraversalOutsideRoot},
         {"absolute rejected", "/etc/*.yaml", nil, ErrAbsolutePattern},
@@ -305,7 +305,7 @@ table in `TestDefaultRegistry`.
 
 ---
 
-### Step 3: Aggregation helpers in `cmd/apitest`
+### Step 3: Aggregation helpers in `cmd/curlew`
 **Rationale:** Pure functions with no global state — can be unit tested
 against in-memory `runner.Summary`/`output.JSONOutput` without touching
 I/O. Establishing them before the CLI wiring keeps Step 4 focused on
@@ -315,19 +315,19 @@ orchestration.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/discovery_run.go` | create | Aggregation helpers: `aggregateSummaries`, `aggregateExitCodes`, `buildMultiJSONOutput`, etc. |
-| `cmd/apitest/discovery_run_test.go` | create | Unit tests for each helper. |
+| `cmd/curlew/discovery_run.go` | create | Aggregation helpers: `aggregateSummaries`, `aggregateExitCodes`, `buildMultiJSONOutput`, etc. |
+| `cmd/curlew/discovery_run_test.go` | create | Unit tests for each helper. |
 | `internal/output/json.go` | modify | Add `MultiJSONOutput` and `WriteMultiJSON`. |
 | `internal/output/json_test.go` | modify | Add a round-trip test for `MultiJSONOutput`. |
 
 #### New Code (sketch)
 
 ```go
-// cmd/apitest/discovery_run.go
+// cmd/curlew/discovery_run.go
 package main
 
 import (
-    "github.com/peterlindqvist/apitest/internal/runner"
+    "github.com/weiqigod/curlew/internal/runner"
 )
 
 // collectionOutcome holds the fully-rendered result of running one
@@ -356,7 +356,7 @@ func aggregateExitCodes(codes []int) int
 // internal/output/json.go (addition)
 
 // MultiJSONOutput wraps multiple per-collection JSON outputs into a
-// single document produced by `apitest run <glob>`.
+// single document produced by `curlew run <glob>`.
 type MultiJSONOutput struct {
     Status      string       `json:"status"`
     DurationMs  int64        `json:"duration_ms"`
@@ -431,9 +431,9 @@ so literal-path callers are unaffected.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | In `runCmdInner`, if positional arg is a glob, gate-check `test_discovery`, call `discovery.Expand`, loop over matches, aggregate results and exit codes. Help text updated. |
-| `cmd/apitest/main_test.go` | modify | Integration-level tests: glob matches 3 files, zero-match error, traversal rejected, literal path unchanged, Free-tier gate. |
-| `cmd/apitest/testdata/discovery/` | create | Fixture tree: `a_test.yaml`, `b_test.yaml`, `sub/c_test.yaml`, `ignore.yaml`, `.apitestignore`. |
+| `cmd/curlew/main.go` | modify | In `runCmdInner`, if positional arg is a glob, gate-check `test_discovery`, call `discovery.Expand`, loop over matches, aggregate results and exit codes. Help text updated. |
+| `cmd/curlew/main_test.go` | modify | Integration-level tests: glob matches 3 files, zero-match error, traversal rejected, literal path unchanged, Free-tier gate. |
+| `cmd/curlew/testdata/discovery/` | create | Fixture tree: `a_test.yaml`, `b_test.yaml`, `sub/c_test.yaml`, `ignore.yaml`, `.curlewignore`. |
 
 #### Current Code (runCmdInner, around line 234)
 ```go
@@ -508,12 +508,12 @@ format-dispatching already duplicated in `runCmdInner` for
 #### Help Text Update
 Add a new line to `printHelp`:
 ```
-fmt.Println("  apitest run <pattern>   Run all collections matching a glob (Professional tier)")
+fmt.Println("  curlew run <pattern>   Run all collections matching a glob (Professional tier)")
 ```
 and in Run Options:
 ```
 fmt.Println("                          Glob patterns support *, ?, [abc], and ** (Professional tier)")
-fmt.Println("                          Honors .apitestignore in the working directory")
+fmt.Println("                          Honors .curlewignore in the working directory")
 ```
 
 #### Tests to Write FIRST (RED phase)
@@ -555,19 +555,19 @@ func TestRunCmd_GlobDiscovery_JSONFormat(t *testing.T) {
 }
 
 func TestRunCmd_GlobDiscovery_Ignored(t *testing.T) {
-    // .apitestignore with **/drafts/*.yaml; assert drafts file excluded.
+    // .curlewignore with **/drafts/*.yaml; assert drafts file excluded.
 }
 ```
 
 #### Impact on Existing Tests
-- `TestRunCmd_*` literal-file tests in `cmd/apitest/main_test.go`:
+- `TestRunCmd_*` literal-file tests in `cmd/curlew/main_test.go`:
   no change expected because `IsGlob("foo.yaml") == false`.
 - The refactor of `runCmdInner` body into `runSingleCollection` must
   preserve every existing exit-code branch. Risk: any code path that
   previously returned from `runCmdInner` must return from the helper
   identically. Mitigation: the refactor is a rename-and-wrap, not a
   rewrite — we move the body into a new function and call it once,
-  verifying all existing `cmd/apitest` tests still pass before adding
+  verifying all existing `cmd/curlew` tests still pass before adding
   glob tests.
 - `run_test.go` may need adjustment only if its signatures reference the
   (private) helper — we keep them green as a pre-condition of Step 4.
@@ -592,15 +592,15 @@ fulfills the `observable` section of the task YAML.
 #### Smoke Additions
 ```bash
 echo "--- Discovery: glob matches 3 collections (Professional tier) ---"
-APITEST_TIER=professional ./apitest run "testdata/discovery/**/*_test.yaml" \
+CURLEW_TIER=professional ./curlew run "testdata/discovery/**/*_test.yaml" \
   && echo "Pass: exit 0" || echo "Exit: $?"
 
 echo "--- Discovery: free-tier gate (expect exit 6) ---"
-./apitest run "testdata/discovery/**/*_test.yaml" \
+./curlew run "testdata/discovery/**/*_test.yaml" \
   && echo "ERROR: expected gate" || echo "Exit: $?"
 ```
 
-The Professional tier override is achieved via an existing `APITEST_TIER`
+The Professional tier override is achieved via an existing `CURLEW_TIER`
 env var hook — if one does not yet exist, we add a one-liner in
 `currentTier()` that reads it (documented as test-only). This is the
 same mechanism used by existing tier-gated smoke tests.
@@ -620,9 +620,9 @@ same mechanism used by existing tier-gated smoke tests.
 | `internal/auth/registry_test.go` | `TestDefaultRegistry` | extends table | add row for `test_discovery` |
 | `internal/auth/registry_test.go` | new | adds case | `TestDefaultRegistry_TestDiscovery` |
 | `internal/discovery/*_test.go` | new | adds package | implement per Step 1 |
-| `cmd/apitest/discovery_run_test.go` | new | adds aggregation helpers | implement per Step 3 |
-| `cmd/apitest/main_test.go` | new tests | adds integration | implement per Step 4 |
-| `cmd/apitest/main_test.go` | existing `TestRunCmd_*` | unchanged | verify still green after Step 4 refactor |
+| `cmd/curlew/discovery_run_test.go` | new | adds aggregation helpers | implement per Step 3 |
+| `cmd/curlew/main_test.go` | new tests | adds integration | implement per Step 4 |
+| `cmd/curlew/main_test.go` | existing `TestRunCmd_*` | unchanged | verify still green after Step 4 refactor |
 | `internal/output/json_test.go` | new | adds MultiJSONOutput round-trip | implement per Step 3 |
 
 ## Risks and Edge Cases
@@ -635,7 +635,7 @@ same mechanism used by existing tier-gated smoke tests.
 - **Risk — refactoring `runCmdInner` silently breaks an existing exit
   code branch.**
   **Mitigation:** Move the body wholesale into `runSingleCollection`
-  without editing the logic; verify all existing `cmd/apitest` tests pass
+  without editing the logic; verify all existing `cmd/curlew` tests pass
   as a pre-commit gate before adding glob tests.
 
 - **Risk — Windows path separators.**
@@ -649,11 +649,11 @@ same mechanism used by existing tier-gated smoke tests.
 
 - **Edge case — `**` matching hidden directories.**
   **Handling:** Skip directory entries whose name starts with `.`
-  (matches `.git`, `.apitest/`, `node_modules`-style conventions only
+  (matches `.git`, `.curlew/`, `node_modules`-style conventions only
   if user opts in via pattern). Document this and provide an ignore-
-  list escape hatch via `.apitestignore`.
+  list escape hatch via `.curlewignore`.
 
-- **Edge case — `.apitestignore` missing.**
+- **Edge case — `.curlewignore` missing.**
   **Handling:** `LoadIgnore` returns `nil, nil`; `Expand` proceeds.
 
 - **Edge case — pattern matches directories, not files.**
@@ -678,7 +678,7 @@ same mechanism used by existing tier-gated smoke tests.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -702,14 +702,14 @@ name: ignored
 requests: []
 YAML
 
-go build ./cmd/apitest
+go build ./cmd/curlew
 
 # Professional tier: three collections executed, exit code reflects worst
-APITEST_TIER=professional ./apitest run "testdata/discovery/**/*_test.yaml"
+CURLEW_TIER=professional ./curlew run "testdata/discovery/**/*_test.yaml"
 echo "exit: $?"
 
 # Free tier: exit code 6 + test_discovery feature gate message
-./apitest run "testdata/discovery/**/*_test.yaml"
+./curlew run "testdata/discovery/**/*_test.yaml"
 echo "exit: $?"
 
 # Unit tests

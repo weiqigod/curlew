@@ -3,7 +3,7 @@ package parallel
 import (
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // set is a test helper to create a map[string]bool from names.

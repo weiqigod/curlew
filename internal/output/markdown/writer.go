@@ -69,7 +69,7 @@ func writeFile(path, slug string, content []byte, errW io.Writer) error {
 	action, loc, decideErr := decideAction(existing, slug)
 	if decideErr != nil {
 		// Malformed sentinel: write .md.new; original untouched.
-		_, _ = fmt.Fprintf(errW, "apitest: markdown: malformed sentinel in %s; writing %s.new\n", path, path)
+		_, _ = fmt.Fprintf(errW, "curlew: markdown: malformed sentinel in %s; writing %s.new\n", path, path)
 		return writeAtomic(path+".new", content)
 	}
 
@@ -81,13 +81,13 @@ func writeFile(path, slug string, content []byte, errW io.Writer) error {
 
 	case actionAppendOrphan:
 		// Existing slug differs: append new sentinel block below the existing content.
-		_, _ = fmt.Fprintf(errW, "apitest: markdown: slug changed (orphaned slug: %s); preserving orphan block in %s\n", loc.Begin.Slug, path)
+		_, _ = fmt.Fprintf(errW, "curlew: markdown: slug changed (orphaned slug: %s); preserving orphan block in %s\n", loc.Begin.Slug, path)
 		newContent := appendOrphanBlock(existing, content)
 		return writeAtomic(path, newContent)
 
 	case actionDotNew:
 		// No sentinels: treat file as user-owned; write .md.new alongside.
-		_, _ = fmt.Fprintf(errW, "apitest: markdown: no sentinel pair in %s; writing %s.new\n", path, path)
+		_, _ = fmt.Fprintf(errW, "curlew: markdown: no sentinel pair in %s; writing %s.new\n", path, path)
 		return writeAtomic(path+".new", content)
 	}
 	// All spliceAction values are handled above; this line is unreachable.

@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All 26 packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS* | 1 pre-existing TAP-help failure on `main` too; not introduced by M3-003 |
@@ -117,8 +117,8 @@ Branch A: Review PASS trusted (verdict in `management/reviews/M3-003-review.md`)
 | `internal/schema/schema_test.go` | modified — schema test coverage |
 | `internal/watch/paths.go` | modified — include paths tracked |
 | `internal/watch/watch.go` | modified — IncludeGate wired |
-| `cmd/apitest/main.go` | modified — IncludeGate wired from CLI |
-| `cmd/apitest/main_test.go` | modified — binary-level integration tests |
+| `cmd/curlew/main.go` | modified — IncludeGate wired from CLI |
+| `cmd/curlew/main_test.go` | modified — binary-level integration tests |
 | `smoke/run.sh` | modified — include smoke test cases added |
 | `CHANGELOG.md` | modified — M3-003 entry added |
 

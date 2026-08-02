@@ -1,7 +1,7 @@
 // Package templates embeds default skill files that scaffold.Init can copy
 // into a user project. Mirror of schemas/schemas.go (M8-001): files in
 // templates/skills/<name>/... are the source of truth; this package exposes
-// a thin Render helper that performs the {{apitest_version}} substitution.
+// a thin Render helper that performs the {{curlew_version}} substitution.
 package templates
 
 import (
@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-//go:embed all:skills/claude/apitest
+//go:embed all:skills/claude/curlew
 var claudeSkillFS embed.FS
 
 // ErrUnknownSkill is returned by Render and Walk when the named skill has no
@@ -26,24 +26,24 @@ var ErrUnknownSkill = errors.New("unknown skill")
 var SupportedSkills = []string{"claude"}
 
 // SkillRelativePath returns the in-project path where a skill's SKILL.md
-// should land (e.g. ".claude/skills/apitest/SKILL.md"). Currently identical
+// should land (e.g. ".claude/skills/curlew/SKILL.md"). Currently identical
 // for every skill name; kept as a function so the path can vary by skill if
 // a future agent platform expects a different layout.
 func SkillRelativePath(_ string) string {
-	return ".claude/skills/apitest/SKILL.md"
+	return ".claude/skills/curlew/SKILL.md"
 }
 
 // SkillRootDir returns the in-project directory where a skill's files land
-// (e.g. ".claude/skills/apitest"). Callers that need to enumerate files use
+// (e.g. ".claude/skills/curlew"). Callers that need to enumerate files use
 // this together with Walk.
 func SkillRootDir(_ string) string {
-	return ".claude/skills/apitest"
+	return ".claude/skills/curlew"
 }
 
 // Walk returns an iterator that yields (relativePath, body) pairs for every
 // file under the named skill's embedded directory tree. relativePath is
 // relative to the skill root (e.g. "SKILL.md", "variables.md"). Bodies are
-// returned verbatim — {{apitest_version}} substitution is NOT applied here;
+// returned verbatim — {{curlew_version}} substitution is NOT applied here;
 // callers (installSkill, Render) handle substitution where needed.
 //
 // Returns ErrUnknownSkill for any skillName outside SupportedSkills.
@@ -69,7 +69,7 @@ func Walk(skillName string) (iter.Seq2[string, []byte], error) {
 				return err
 			}
 			// CutPrefix strips the embedded base path to produce the skill-relative
-			// name (e.g. "skills/claude/apitest/SKILL.md" → "SKILL.md"). The prefix
+			// name (e.g. "skills/claude/curlew/SKILL.md" → "SKILL.md"). The prefix
 			// must always be present for entries under base; the !ok branch is a
 			// structural invariant guard that keeps rel well-formed if the FS
 			// somehow yields a path outside the expected subtree.
@@ -96,14 +96,14 @@ func Walk(skillName string) (iter.Seq2[string, []byte], error) {
 func embeddedBase(skillName string) (string, error) {
 	switch skillName {
 	case "claude":
-		return "skills/claude/apitest", nil
+		return "skills/claude/curlew", nil
 	default:
 		return "", fmt.Errorf("%w %q (supported: %s)", ErrUnknownSkill, skillName, strings.Join(SupportedSkills, ", "))
 	}
 }
 
 // Render returns the SKILL.md content for the named skill with
-// {{apitest_version}} replaced by version. Returns ErrUnknownSkill for any
+// {{curlew_version}} replaced by version. Returns ErrUnknownSkill for any
 // skillName outside SupportedSkills.
 //
 // Backwards-compatible with pre-M19-006 callers that consumed only the entry-
@@ -117,7 +117,7 @@ func Render(skillName, version string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading embedded %s/SKILL.md: %w", base, err)
 	}
-	return strings.ReplaceAll(string(raw), "{{apitest_version}}", version), nil
+	return strings.ReplaceAll(string(raw), "{{curlew_version}}", version), nil
 }
 
 // IsSupportedSkill reports whether s is one of the known skill names.

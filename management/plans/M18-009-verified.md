@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | No findings |
@@ -55,7 +55,7 @@ Results: 6 passed, 0 failed
 | 4 | schedules.env_vars: envelope pattern via ScheduleEnvKeyProvider round-trips cleanly | `ScheduleEnvVarsRoundTripTests` (3 tests) | PASS |
 | 5 | Self-hosted without KMS: FileTeamVaultKeyProvider and FileScheduleEnvKeyProvider envelope round-trips with file-backed KEK | `FileTeamVaultKeyProviderTests` (6 tests), `FileScheduleEnvKeyProviderTests` (6 tests) | PASS |
 | 6 | SaaS profile: check-signing-keys.sh fails when any signing_keys row has kms_key_id IS NULL | `check-signing-keys_test.sh: saas_profile_null_kms_key_id_fails` | PASS |
-| 7 | Self-hosted (APITEST_SIGNING_KEY_MODE=file): CI lint skipped with logged note | `check-signing-keys_test.sh: file_mode_skips_regardless_of_profile` | PASS |
+| 7 | Self-hosted (CURLEW_SIGNING_KEY_MODE=file): CI lint skipped with logged note | `check-signing-keys_test.sh: file_mode_skips_regardless_of_profile` | PASS |
 | 8 | v3-10 manifest validator runs against cleartext before encryption (encryption is addition not replacement) | `TeamVaultEncryptionRoundTripTests` — VaultConfigService.PutAsync calls validator before EncryptAsync | PASS |
 
 ## Definition of Done

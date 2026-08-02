@@ -376,7 +376,7 @@ Runner tests:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -385,5 +385,5 @@ go test ./...
 Observable verification:
 ```bash
 # Create collection with header and timing assertions, run and verify
-./apitest run sample/hello.yaml
+./curlew run sample/hello.yaml
 ```

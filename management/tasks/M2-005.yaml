@@ -9,9 +9,9 @@ dependencies:
   - M2-004
 
 observable: |
-  Configure Azure Key Vault and HashiCorp Vault profiles in apitest.yaml.
+  Configure Azure Key Vault and HashiCorp Vault profiles in curlew.yaml.
   Run `go test ./internal/vault/...` with mocked CLI calls for both providers.
-  Run `apitest run tests.yaml` with an Azure vault profile and verify secrets load.
+  Run `curlew run tests.yaml` with an Azure vault profile and verify secrets load.
 
 behaviors:
   - "Given a configured `azure-key-vault` provider with vault_name, when secrets are requested, then values are fetched via `az keyvault secret show`"

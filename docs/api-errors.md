@@ -1,6 +1,6 @@
 # API Error Codes
 
-This document is the stable reference for machine-readable error codes returned by the ApiTool Backend.
+This document is the stable reference for machine-readable error codes returned by the Curlew Backend.
 All error responses use RFC 7807 problem-details format (`Content-Type: application/problem+json`).
 
 Every problem-details response includes a `code` extension field for machine-readable identification
@@ -28,10 +28,10 @@ Refs docs/SPECIFICATION.md:8243–8267.
 
 | Code | HTTP Status | Type URL | Description | Recommended client action |
 |------|-------------|----------|-------------|--------------------------|
-| `AUTH_REFRESH_REUSED` | 401 | `.../errors/refresh-token-reused` | Refresh token has already been rotated. The entire token family has been revoked as a security precaution. The account owner receives an `account_security_alert` email. | Discard all stored tokens and redirect the user to `apitest login`. |
-| `AUTH_REFRESH_EXPIRED` | 401 | `.../errors/refresh-token-expired` | Refresh token has exceeded its absolute 365-day maximum lifetime. | Discard all stored tokens and redirect the user to `apitest login`. |
-| `AUTH_DEVICE_MISMATCH` | 401 | `.../errors/auth-device-mismatch` | The `device_id` in the request does not match the device the refresh token was issued to. | Discard the stored refresh token for this device and redirect to `apitest login`. |
-| `AUTH_INVALID_REFRESH` | 401 | `.../errors/auth-invalid-refresh` | The refresh token is not recognised, has been revoked, or the request body is malformed (missing `refresh_token` or `device_id`). | Discard all stored tokens and redirect the user to `apitest login`. |
+| `AUTH_REFRESH_REUSED` | 401 | `.../errors/refresh-token-reused` | Refresh token has already been rotated. The entire token family has been revoked as a security precaution. The account owner receives an `account_security_alert` email. | Discard all stored tokens and redirect the user to `curlew login`. |
+| `AUTH_REFRESH_EXPIRED` | 401 | `.../errors/refresh-token-expired` | Refresh token has exceeded its absolute 365-day maximum lifetime. | Discard all stored tokens and redirect the user to `curlew login`. |
+| `AUTH_DEVICE_MISMATCH` | 401 | `.../errors/auth-device-mismatch` | The `device_id` in the request does not match the device the refresh token was issued to. | Discard the stored refresh token for this device and redirect to `curlew login`. |
+| `AUTH_INVALID_REFRESH` | 401 | `.../errors/auth-invalid-refresh` | The refresh token is not recognised, has been revoked, or the request body is malformed (missing `refresh_token` or `device_id`). | Discard all stored tokens and redirect the user to `curlew login`. |
 
 ### Notes
 
@@ -54,10 +54,10 @@ The base type URL prefix is `https://api.apitool.dev/errors`.
 |------|-------------|----------|-------------|--------------------------|
 | `PRCHECK_TOKEN_LEAK_DETECTED` | 400 | `.../errors/prcheck-token-leak-detected` | The request body contains a pattern matching a GitHub installation token (`ghs_…`). Sending tokens in the body is a security violation. | Remove the token from the payload and retry. Never include raw GitHub tokens in pr-check payloads. |
 | `PRCHECK_INVALID_STATE` | 400 | `.../errors/prcheck-invalid-state` | The `state` field is not one of the six valid conclusion values (`success`, `failure`, `cancelled`, `timed_out`, `neutral`, `skipped`). | Correct the `state` field and retry. Note: `action_required` is not supported in M14. |
-| `PRCHECK_NO_INSTALLATION` | 404 | `.../errors/prcheck-no-installation` | No GitHub App installation exists for this organisation. | Install the ApiTool GitHub App from the dashboard before posting PR checks. |
+| `PRCHECK_NO_INSTALLATION` | 404 | `.../errors/prcheck-no-installation` | No GitHub App installation exists for this organisation. | Install the Curlew GitHub App from the dashboard before posting PR checks. |
 | `PRCHECK_REPO_NOT_COVERED` | 403 | `.../errors/prcheck-repo-not-covered` | The `repo` is not covered by the installation's repository selection. | Grant access to the repository in the GitHub App settings, then retry after the next reconciliation cycle (≤ 24 h). |
 | `PRCHECK_INSTALLATION_SUSPENDED` | 423 | `.../errors/prcheck-installation-suspended` | The GitHub App installation is suspended. | Resume the installation from GitHub App settings. |
-| `PRCHECK_INSTALLATION_DELETED` | 410 | `.../errors/prcheck-installation-deleted` | The GitHub App installation was deleted. The check cannot be posted. | Reinstall the ApiTool GitHub App from the dashboard. |
+| `PRCHECK_INSTALLATION_DELETED` | 410 | `.../errors/prcheck-installation-deleted` | The GitHub App installation was deleted. The check cannot be posted. | Reinstall the Curlew GitHub App from the dashboard. |
 | `PRCHECK_GITHUB_RATE_LIMITED` | 429 | `.../errors/prcheck-github-rate-limited` | GitHub's API rate-limited the outbound POST. The row is marked `queued` and will be retried automatically. | No immediate action required. The CLI can poll for status if needed. |
 | `PRCHECK_GITHUB_UNAVAILABLE` | 502 | `.../errors/prcheck-github-unavailable` | GitHub returned a 5xx error. The row is marked `queued` and will be retried automatically. | No immediate action required. If the problem persists, check [githubstatus.com](https://www.githubstatus.com). |
 | `PRCHECK_PERMANENT_FAILURE` | 500 | `.../errors/prcheck-permanent-failure` | Posting the check run failed permanently after exhausting retries. | Contact support with the `request_id` from the response. |
@@ -120,7 +120,7 @@ Refs docs/SPECIFICATION.md :5654-5715.
 
 | Code | HTTP Status | Type URL | Description | Recommended client action |
 |------|-------------|----------|-------------|--------------------------|
-| `VAULT_CONFIG_SUSPICIOUS_VALUE` | 422 | `.../errors/vault-template-suspicious-value` | One or more template fields match the literal-secret heuristic (≥16 alphanumeric chars under a sensitive key name that is not a recognized provider coordinate). The `offending_paths` extension lists the dot-separated JSON paths. | Replace the literal values with provider coordinate references (ARN, vault:// URI, etc.) and retry. In development mode (APITOOL__VAULTCONFIG__VALIDATORMODE=warn) the save succeeds with a warning instead. |
+| `VAULT_CONFIG_SUSPICIOUS_VALUE` | 422 | `.../errors/vault-template-suspicious-value` | One or more template fields match the literal-secret heuristic (≥16 alphanumeric chars under a sensitive key name that is not a recognized provider coordinate). The `offending_paths` extension lists the dot-separated JSON paths. | Replace the literal values with provider coordinate references (ARN, vault:// URI, etc.) and retry. In development mode (CURLEW__VAULTCONFIG__VALIDATORMODE=warn) the save succeeds with a warning instead. |
 
 ### Example Response (422)
 

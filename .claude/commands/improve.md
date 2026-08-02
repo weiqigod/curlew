@@ -135,7 +135,7 @@ Read the file containing the finding. Understand the context around the problema
 Run after EVERY individual fix, not just at the end:
 
 ```bash
-go build ./cmd/apitest && go test ./... && ~/go/bin/golangci-lint run
+go build ./cmd/curlew && go test ./... && ~/go/bin/golangci-lint run
 ```
 
 **STOP** if any command fails. Fix before continuing to the next finding.
@@ -163,7 +163,7 @@ Alternatively, if multiple related findings affect the same file, they may be co
 ### Step 7: Run Final Quality Gate
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out
 ~/go/bin/golangci-lint run
@@ -199,7 +199,7 @@ Create `management/plans/<TASK-ID>-improved.md` using this template:
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS/FAIL |
+| `go build ./cmd/curlew` | PASS/FAIL |
 | `go test ./...` | PASS/FAIL |
 | `golangci-lint run` | PASS/FAIL |
 | Coverage | <X>% |

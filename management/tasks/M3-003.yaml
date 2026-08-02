@@ -16,7 +16,7 @@ observable: |
   and `include: [./shared/auth.yaml, ./shared/common.yaml]`. Create
   `shared/auth.yaml` and `shared/common.yaml` each with their own `requests:`
   blocks and a `variables:` block that references `{{base_url}}`. Run
-  `go build ./cmd/apitest && ./apitest run parent.yaml` at Professional tier and
+  `go build ./cmd/curlew && ./curlew run parent.yaml` at Professional tier and
   verify all included requests execute with the parent's `base_url` interpolated.
   Run at Free tier and verify exit code 6 with `include_directive` gate.
   Run `go test ./internal/parser/...` (include tests) and verify all pass.

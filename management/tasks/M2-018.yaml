@@ -11,9 +11,9 @@ dependencies:
   - M1-021
 
 observable: |
-  Run `apitest run --parallel tests.yaml --format json` and confirm parallel results in JSON.
-  Run `apitest run --parallel tests.yaml --format tap` and confirm TAP output with wave info.
-  Run `apitest run --parallel tests.yaml` and confirm terminal output shows wave grouping.
+  Run `curlew run --parallel tests.yaml --format json` and confirm parallel results in JSON.
+  Run `curlew run --parallel tests.yaml --format tap` and confirm TAP output with wave info.
+  Run `curlew run --parallel tests.yaml` and confirm terminal output shows wave grouping.
   Run `go test ./internal/output/...` for parallel output tests.
 
 behaviors:

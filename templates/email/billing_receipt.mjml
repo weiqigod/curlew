@@ -8,7 +8,7 @@
         </mj-text>
         <mj-text>
           Your payment of {{amount_total}} for the {{billing_period}} billing period has been received.
-          We appreciate your continued use of ApiTool.
+          We appreciate your continued use of Curlew.
         </mj-text>
         <mj-button href="{{invoice_url}}" background-color="#0066cc" font-size="16px">
           View invoice

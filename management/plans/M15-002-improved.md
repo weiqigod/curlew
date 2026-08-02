@@ -24,7 +24,7 @@ No findings deferred. All findings resolved.
 | `dotnet build /warnaserror` (tests) | PASS |
 | `dotnet test --filter "FullyQualifiedName~Sso"` | PASS — 182 passed, 0 failed |
 | `dotnet test` (all tests) | PASS — 1260 passed, 8 skipped, 0 failed |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS — 0 issues |
 

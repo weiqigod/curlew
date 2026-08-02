@@ -1,5 +1,5 @@
 // Package ids mints 32-char lowercase hex identifiers used as run IDs across
-// apitest's output surfaces (events stream, exec --log, markdown sentinels).
+// curlew's output surfaces (events stream, exec --log, markdown sentinels).
 //
 // The events emitter, runner, and exec command all delegate to NewRunID so a
 // single invocation produces correlatable identifiers in every artifact.

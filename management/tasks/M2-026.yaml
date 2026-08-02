@@ -10,7 +10,7 @@ dependencies:
   - M1-028
 
 observable: |
-  Run `apitest run tests.yaml --format junit` and confirm valid JUnit XML output.
+  Run `curlew run tests.yaml --format junit` and confirm valid JUnit XML output.
   Import the XML into a CI tool (or xmllint) and confirm it parses correctly.
   Run `go test ./internal/output/...` for JUnit output tests.
 

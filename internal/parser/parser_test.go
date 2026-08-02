@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	graphqlfiles "github.com/peterlindqvist/apitest/internal/graphql/files"
-	"github.com/peterlindqvist/apitest/internal/httpbody"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	graphqlfiles "github.com/weiqigod/curlew/internal/graphql/files"
+	"github.com/weiqigod/curlew/internal/httpbody"
+	"github.com/weiqigod/curlew/internal/variable"
 	"gopkg.in/yaml.v3"
 )
 

@@ -1,5 +1,5 @@
 id: M19-006
-title: "Expand templates/skills/claude/apitest/ to multi-file skill"
+title: "Expand templates/skills/claude/curlew/ to multi-file skill"
 status: done
 priority: 1
 created: 2026-05-16
@@ -9,12 +9,12 @@ dependencies:
   - M19-005
 
 observable: |
-  go build ./cmd/apitest && \
-    rm -rf /tmp/apitest-skill-check && mkdir -p /tmp/apitest-skill-check && \
-    (cd /tmp/apitest-skill-check && ../apitest-skill-check/../../$(basename $PWD)/apitest init --skill claude) && \
-    ls /tmp/apitest-skill-check/.claude/skills/apitest/ && \
-    go test ./cmd/apitest/... -run TestSkillPlaybook -count=1
-  Expected: the materialised directory under `/tmp/apitest-skill-check`
+  go build ./cmd/curlew && \
+    rm -rf /tmp/curlew-skill-check && mkdir -p /tmp/curlew-skill-check && \
+    (cd /tmp/curlew-skill-check && ../curlew-skill-check/../../$(basename $PWD)/curlew init --skill claude) && \
+    ls /tmp/curlew-skill-check/.claude/skills/curlew/ && \
+    go test ./cmd/curlew/... -run TestSkillPlaybook -count=1
+  Expected: the materialised directory under `/tmp/curlew-skill-check`
   contains a root `SKILL.md` plus per-topic reference files
   (`variables.md`, `output-formats.md`, `assertions.md`, `retry.md`,
   `parallel.md`, `vault.md`, `signing.md`, `expressions.md`,
@@ -25,15 +25,15 @@ observable: |
   PASS for TestSkillPlaybook and any new TestSkillMultiFile_* subtests.
 
 behaviors:
-  - "Given a fresh empty directory and a built apitest binary, when the user runs `apitest init --skill claude`, then the materialised directory contains a root `SKILL.md` and at least the per-topic files `variables.md`, `output-formats.md`, `assertions.md`, `retry.md`, `parallel.md`, `vault.md`, `signing.md`, `expressions.md`, `exit-codes.md`, `failure-playbook.md`."
+  - "Given a fresh empty directory and a built curlew binary, when the user runs `curlew init --skill claude`, then the materialised directory contains a root `SKILL.md` and at least the per-topic files `variables.md`, `output-formats.md`, `assertions.md`, `retry.md`, `parallel.md`, `vault.md`, `signing.md`, `expressions.md`, `exit-codes.md`, `failure-playbook.md`."
   - "Given the materialised `SKILL.md`, when an agent reads it, then it contains trigger phrases (preserved from the existing 134-line version) and a section that names each per-topic reference file with a one-line summary of when to load it."
   - "Given the materialised `expressions.md`, when an agent reads it, then it documents the `if:` field (CEL boolean, standard activation `previous`, `vars`, `env`), the `assertions: - cel:` shape (standard activation `response`, `previous`, `vars`, `env`), the disabled-function list (`now`, zero-arg `timestamp`), and the decision table for `cel:` vs operator assertions."
-  - "Given the materialised `failure-playbook.md`, when an agent reads it, then it contains one entry per existing apitest exit code AND new entries for `ERR_CEL_PARSE` and `ERR_CEL_TYPE` linking each to the diagnostic action (`apitest validate`)."
-  - "Given the embedded-FS walker in `cmd/apitest/init.go`, when `--skill claude` is requested, then every file under the embedded `templates/skills/claude/apitest/` tree is written to disk (recursive walk; subdirectory support if any topic files are nested)."
+  - "Given the materialised `failure-playbook.md`, when an agent reads it, then it contains one entry per existing curlew exit code AND new entries for `ERR_CEL_PARSE` and `ERR_CEL_TYPE` linking each to the diagnostic action (`curlew validate`)."
+  - "Given the embedded-FS walker in `cmd/curlew/init.go`, when `--skill claude` is requested, then every file under the embedded `templates/skills/claude/curlew/` tree is written to disk (recursive walk; subdirectory support if any topic files are nested)."
   - "Given the multi-file skill payload, when the existing `TestSkillPlaybook` test runs, then it still passes (the test is updated to assert the multi-file structure rather than a single-file SKILL.md)."
 
 scope: |
-  Restructure `templates/skills/claude/apitest/` from the existing single
+  Restructure `templates/skills/claude/curlew/` from the existing single
   134-line `SKILL.md` into a multi-file skill payload following Claude skill
   conventions: a root `SKILL.md` that loads (with trigger phrases and a brief
   index of the topic files) plus per-topic reference files in the same
@@ -48,9 +48,9 @@ scope: |
   `ERR_CEL_PARSE` and `ERR_CEL_TYPE`). Content is rewritten in the existing
   SKILL.md's second-person operator voice (not a verbatim copy of MANUAL.md)
   with examples lifted from MANUAL.md reference sections. Verify the
-  embedded-FS walker in `cmd/apitest/init.go` recursively walks the directory
+  embedded-FS walker in `cmd/curlew/init.go` recursively walks the directory
   tree and writes every file; extend it if it currently only handles a flat
-  layout. Update `cmd/apitest/skill_playbook_test.go` (the existing
+  layout. Update `cmd/curlew/skill_playbook_test.go` (the existing
   TestSkillPlaybook) to assert the multi-file structure, the presence of
   CEL error-code entries in the playbook, and the trigger-phrase preservation
   in the root `SKILL.md`. NOT in scope: any edits to `docs/MANUAL.md` —
@@ -61,10 +61,10 @@ scope: |
 
 definition_of_done:
   - "All behavior tests pass"
-  - "Test coverage >= 80% for any new code paths in cmd/apitest/init.go (recursive walker, if extended)"
+  - "Test coverage >= 80% for any new code paths in cmd/curlew/init.go (recursive walker, if extended)"
   - "No build warnings or lint errors"
   - "./scripts/ci-local.sh passes (touches templates as well as Go)"
-  - "`apitest init --skill claude` in a fresh empty directory materialises the multi-file skill (root SKILL.md plus all listed per-topic files)"
+  - "`curlew init --skill claude` in a fresh empty directory materialises the multi-file skill (root SKILL.md plus all listed per-topic files)"
   - "Existing TestSkillPlaybook is updated and passes against the new multi-file layout"
   - "`failure-playbook.md` includes entries for `ERR_CEL_PARSE` and `ERR_CEL_TYPE`"
   - "docs/MANUAL.md is untouched by this commit (collision guard with M19-005)"

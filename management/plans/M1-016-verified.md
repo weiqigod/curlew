@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 10 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All cases pass, setup/teardown headers verified |
@@ -18,7 +18,7 @@
 | `internal/runner` | 90.8% | Above threshold |
 | `internal/parser` | 91.5% | Above threshold |
 | `internal/output` | 100.0% | Above threshold |
-| `cmd/apitest` | 85.2% | Above threshold |
+| `cmd/curlew` | 85.2% | Above threshold |
 
 ## Observable Output
 
@@ -130,8 +130,8 @@ TDD pattern visible: `test(...)` commits precede corresponding `feat(...)` commi
 | `internal/runner/runner_test.go` | modified — `TestRun_phases` (8 sub-tests) |
 | `internal/output/terminal.go` | modified — `PrintSectionHeader` |
 | `internal/output/terminal_test.go` | modified — `TestPrintSectionHeader` |
-| `cmd/apitest/main.go` | modified — phase-aware rendering, teardown-excluded exit code |
-| `cmd/apitest/main_test.go` | modified — 2 CLI integration tests |
+| `cmd/curlew/main.go` | modified — phase-aware rendering, teardown-excluded exit code |
+| `cmd/curlew/main_test.go` | modified — 2 CLI integration tests |
 | `smoke/run.sh` | modified — 2 new smoke cases |
 | `CHANGELOG.md` | modified — M1-016 entry |
 | `management/backlog.yaml` | modified — status update |

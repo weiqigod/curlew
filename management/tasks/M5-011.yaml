@@ -7,10 +7,10 @@ phase: "M5: Enterprise Tier"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/loadgen/...
   # Expected: ok  internal/loadgen  (>=8 tests passing)
-  ./apitest perf testdata/perf/sample-request.yaml \
+  ./curlew perf testdata/perf/sample-request.yaml \
     --vus 10 --duration 5s --ramp-up 2s
   # Expected stdout:
   #   "Load test: 10 virtual users, 5s duration, 2s ramp-up"
@@ -19,7 +19,7 @@ observable: |
   #   "Requests sent: N; successes: N; failures: 0"
   # exit 0
 behaviors:
-  - "Given apitest perf <request> --vus 10 --duration 5s, when invoked, then 10 virtual users execute the request repeatedly for 5 seconds and exit 0 on success"
+  - "Given curlew perf <request> --vus 10 --duration 5s, when invoked, then 10 virtual users execute the request repeatedly for 5 seconds and exit 0 on success"
   - "Given --ramp-up 2s, when the perf run starts, then the VU count increases linearly from 1 to --vus over the ramp-up window before steady-state begins"
   - "Given --vus 0, when invoked, then the CLI prints 'error: --vus must be >= 1' and exits with code 2"
   - "Given --duration 0s, when invoked, then the CLI prints 'error: --duration must be > 0' and exits with code 2"
@@ -29,7 +29,7 @@ behaviors:
   - "Given --rps 100 (throughput mode), when invoked, then requests are paced to target 100 req/s and the stdout header reports the requested rate"
 scope: |
   New internal/loadgen package implementing a simple worker-pool load generator
-  inspired by k6/Vegeta. New subcommand apitest perf in cmd/apitest/perf.go.
+  inspired by k6/Vegeta. New subcommand curlew perf in cmd/curlew/perf.go.
   Request execution reuses internal/httpexec. Concurrency via goroutines,
   pacing via time.Ticker. Spec is thin — concrete design: VU model (goroutine
   per VU) with optional constant-RPS throughput mode (token bucket). No
@@ -40,6 +40,6 @@ definition_of_done:
   - "Test coverage >= 80%"
   - "No build warnings or lint errors"
   - "Help text documents the perf subcommand and flags"
-  - "Smoke test exercises apitest perf on a local httptest server"
+  - "Smoke test exercises curlew perf on a local httptest server"
 complexity: high
 estimated_effort: "8-12 hours"

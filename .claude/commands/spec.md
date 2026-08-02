@@ -93,7 +93,7 @@ These summaries help orient you, but **always read the actual specification** fo
 - **Variable System**: `${var}` interpolation. Resolution order: CLI flags → environment → file-level → collection-level. Supports extraction from responses.
 - **Assertions**: Status code, header, body, JSON path, response time checks. Multiple assertion types per request.
 - **Output Formats**: Terminal (human), JSON (machine), TAP (CI). Verbosity levels. Color support.
-- **CLI Interface**: `apitest run <file>` as primary command. Flags for environment, variables, output format, verbosity.
+- **CLI Interface**: `curlew run <file>` as primary command. Flags for environment, variables, output format, verbosity.
 - **Error Handling**: Structured error types, meaningful messages, appropriate exit codes (0 = success, 1 = assertion failure, 2 = execution error).
 - **Milestones**: M1 = CLI tool (Go), M2 = advanced features, M3 = backend (C#).
 

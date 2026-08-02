@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FormatDate_FromUnix' -v ./internal/variable/...
   # Expected: PASS — $formatDate('1713701401', '2006-01-02') returns

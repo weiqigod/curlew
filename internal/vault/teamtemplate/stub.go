@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/peterlindqvist/apitest/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault"
 )
 
 // stubValueFormat is the deterministic value pattern returned by StubProvider.
@@ -13,7 +13,7 @@ import (
 const stubValueFormat = "stub::%s::%s"
 
 // StubProvider is a deterministic in-memory vault provider used when
-// APITEST_VAULT_STUB=1. It returns values of the form
+// CURLEW_VAULT_STUB=1. It returns values of the form
 //
 //	stub::<envName>::<path>[#<field>]
 //

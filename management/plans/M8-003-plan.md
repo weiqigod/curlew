@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a typed `output:` block to both `apitest.yaml` (project default) and collection YAML (override), with precedence CLI flag > collection > project > built-in default resolved once in `runCmdInner`. Publish `schemas/project-v1.json` at repo root so both levels are editor-validated; mirror the M8-001 pattern (the repo-root `schemas/` package owns `//go:embed`, `internal/schema` aliases bytes, MANUAL.md §1.5 is extended, drift-guard and reachability tests mirror the collection schema's). Extend `scaffold.Init` to emit an active minimal `output:` block and `apitest schema` with a `--project` flag.
+Add a typed `output:` block to both `curlew.yaml` (project default) and collection YAML (override), with precedence CLI flag > collection > project > built-in default resolved once in `runCmdInner`. Publish `schemas/project-v1.json` at repo root so both levels are editor-validated; mirror the M8-001 pattern (the repo-root `schemas/` package owns `//go:embed`, `internal/schema` aliases bytes, MANUAL.md §1.5 is extended, drift-guard and reachability tests mirror the collection schema's). Extend `scaffold.Init` to emit an active minimal `output:` block and `curlew schema` with a `--project` flag.
 
 ## Task Details
 
@@ -34,10 +34,10 @@ Add a typed `output:` block to both `apitest.yaml` (project default) and collect
 | Validation failure exit code | **Exit 3** when YAML `output:` contains an unknown format or empty path (schema-compile time) | Matches existing parse-error convention; task YAML requires exit 3 for this case. |
 | CLI `--format` invalid value | **Exit 1** preserved (flag-parsing error, not parse error) | Unchanged — flag-parsing errors stay at exit 1 per existing main.go:494. |
 | Precedence point | Single resolution block in `runCmdInner` after `parser.ParseFileWithOptions` returns `col` AND after `config.LoadProjectConfig` returns `projectCfg` | All three sources are populated by then and before any formatter/emitter construction. |
-| Scaffold default | Active block `format: terminal`, `verbosity: normal` written into `apitest.yaml` (no `report`/`events` fields — those default to empty) | Matches DoD "scaffold.Init emits an active minimal output: block". |
-| Schema `--project` flag | New `parseSchemaArgs` field; unknown flags still rejected | Backward-compatible: `apitest schema` (no flag) → collection schema. |
-| Init `--project-name` flag | Add `--project-name <value>` parser to `initCmdOut` so observable-YAML example works | Observable in task YAML references `apitest init --project-name demo`; currently flag is not parsed. |
-| MANUAL.md docs | Extend §1.5 with a **second** `yaml.schemas` line mapping `schemas/project-v1.json` → `**/apitest.yaml`; add a short "output: block" section describing fields + precedence table | Matches DoD. |
+| Scaffold default | Active block `format: terminal`, `verbosity: normal` written into `curlew.yaml` (no `report`/`events` fields — those default to empty) | Matches DoD "scaffold.Init emits an active minimal output: block". |
+| Schema `--project` flag | New `parseSchemaArgs` field; unknown flags still rejected | Backward-compatible: `curlew schema` (no flag) → collection schema. |
+| Init `--project-name` flag | Add `--project-name <value>` parser to `initCmdOut` so observable-YAML example works | Observable in task YAML references `curlew init --project-name demo`; currently flag is not parsed. |
+| MANUAL.md docs | Extend §1.5 with a **second** `yaml.schemas` line mapping `schemas/project-v1.json` → `**/curlew.yaml`; add a short "output: block" section describing fields + precedence table | Matches DoD. |
 
 ## Implementation Steps
 
@@ -76,7 +76,7 @@ var ErrEmptyReportPath = errors.New("empty output report path")
 var ErrEmptyEventsPath = errors.New("empty output events path")
 
 // Config is the typed form of a YAML `output:` block declared at either the
-// project (apitest.yaml) or collection level. All fields are optional; zero
+// project (curlew.yaml) or collection level. All fields are optional; zero
 // values mean "not declared" and inherit from lower-precedence scopes.
 type Config struct {
 	Format    string `yaml:"format,omitempty"`    // terminal|json|tap|junit|html
@@ -254,7 +254,7 @@ func TestParseVerbosity(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `schemas/project-v1.json` | create | Draft 2020-12 project schema with `$id`, `title: "ApiTest Project v1"`, `additionalProperties: false`, and `$defs.output`. |
+| `schemas/project-v1.json` | create | Draft 2020-12 project schema with `$id`, `title: "Curlew Project v1"`, `additionalProperties: false`, and `$defs.output`. |
 | `schemas/collection-v1.json` | modify | Add top-level `output:` property referencing `#/$defs/output`; inline the `$defs.output` subschema (byte-identical to project). |
 | `schemas/schemas.go` | modify | Add `//go:embed project-v1.json` → `var ProjectV1 []byte`. |
 | `internal/schema/schema.go` | modify | Add `var ProjectSchema = schemas.ProjectV1`. |
@@ -280,7 +280,7 @@ import _ "embed"
 //go:embed collection-v1.json
 var CollectionV1 []byte
 
-// ProjectV1 is the JSON Schema (Draft 2020-12) for apitest.yaml project config
+// ProjectV1 is the JSON Schema (Draft 2020-12) for curlew.yaml project config
 // files, v1. See schemas/project-v1.json.
 //
 //go:embed project-v1.json
@@ -292,9 +292,9 @@ var ProjectV1 []byte
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/project-v1.json",
-  "title": "ApiTest Project v1",
-  "description": "Schema for apitest.yaml project configuration files",
+  "$id": "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json",
+  "title": "Curlew Project v1",
+  "description": "Schema for curlew.yaml project configuration files",
   "type": "object",
   "required": ["project_name"],
   "properties": {
@@ -329,12 +329,12 @@ var ProjectV1 []byte
 ```go
 package schema
 
-import "github.com/peterlindqvist/apitest/schemas"
+import "github.com/weiqigod/curlew/schemas"
 
-// CollectionSchema is the JSON Schema for apitest collection YAML files.
+// CollectionSchema is the JSON Schema for curlew collection YAML files.
 var CollectionSchema = schemas.CollectionV1
 
-// ProjectSchema is the JSON Schema for apitest.yaml project configuration files.
+// ProjectSchema is the JSON Schema for curlew.yaml project configuration files.
 var ProjectSchema = schemas.ProjectV1
 ```
 
@@ -369,14 +369,14 @@ func TestProjectSchema(t *testing.T) {
 		{"has_title", func(t *testing.T) {
 			var m map[string]any
 			_ = json.Unmarshal(ProjectSchema, &m)
-			if m["title"] != "ApiTest Project v1" {
-				t.Errorf("title = %v, want \"ApiTest Project v1\"", m["title"])
+			if m["title"] != "Curlew Project v1" {
+				t.Errorf("title = %v, want \"Curlew Project v1\"", m["title"])
 			}
 		}},
 		{"has_id", func(t *testing.T) {
 			var m map[string]any
 			_ = json.Unmarshal(ProjectSchema, &m)
-			want := "https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/project-v1.json"
+			want := "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json"
 			if m["$id"] != want {
 				t.Errorf("$id = %v, want %v", m["$id"], want)
 			}
@@ -569,7 +569,7 @@ type Collection struct {
 ```go
 import (
 	// ... existing imports
-	"github.com/peterlindqvist/apitest/internal/output"
+	"github.com/weiqigod/curlew/internal/output"
 )
 
 type Collection struct {
@@ -606,7 +606,7 @@ type projectFile struct {
 ```go
 import (
 	// ... existing
-	"github.com/peterlindqvist/apitest/internal/output"
+	"github.com/weiqigod/curlew/internal/output"
 )
 
 type ProjectConfig struct {
@@ -686,7 +686,7 @@ func TestParseProjectConfig_Output(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, _ := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, _ := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			_, _ = f.WriteString(tc.yaml)
 			_ = f.Close()
 			cfg, err := ParseProjectConfig(f.Name())
@@ -722,8 +722,8 @@ func TestParseProjectConfig_Output(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `formatSet, reportSet, eventsSet, verbositySet bool` to `runFlags`; set each when the corresponding flag is parsed. Insert precedence-resolution block in `runCmdInner` after `LoadProjectConfig` returns. |
-| `cmd/apitest/main_test.go` | modify | New `TestOutputPrecedence` with four sub-tests. |
+| `cmd/curlew/main.go` | modify | Add `formatSet, reportSet, eventsSet, verbositySet bool` to `runFlags`; set each when the corresponding flag is parsed. Insert precedence-resolution block in `runCmdInner` after `LoadProjectConfig` returns. |
+| `cmd/curlew/main_test.go` | modify | New `TestOutputPrecedence` with four sub-tests. |
 
 #### Current Code (main.go:140-163)
 
@@ -845,16 +845,16 @@ func resolveOutputPrecedence(flags *runFlags, colOut, projOut *output.Config) er
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/output_precedence_test.go (new)
+// cmd/curlew/output_precedence_test.go (new)
 func TestOutputPrecedence(t *testing.T) {
-	// Each sub-test sets up a temp project root with apitest.yaml + collection yaml,
+	// Each sub-test sets up a temp project root with curlew.yaml + collection yaml,
 	// invokes runCmdInner with captured stdout, and asserts the effective format.
 	//
 	// We detect the effective format by asserting stdout parses as the chosen format
 	// (e.g. json.Valid(stdout) for JSON; "1..N" for TAP).
 	tests := []struct {
 		name          string
-		projectOut    string // yaml output: block for apitest.yaml (or "")
+		projectOut    string // yaml output: block for curlew.yaml (or "")
 		collectionOut string // yaml output: block for collection (or "")
 		cliArgs       []string
 		wantStdoutHas string
@@ -871,13 +871,13 @@ func TestOutputPrecedence(t *testing.T) {
 A stub HTTP server serves `200 OK` so collections run without network dependency.
 
 #### Impact on Existing Tests
-- `cmd/apitest/main_test.go::TestParseRunArgs`: any test that inspects `runFlags` struct literals will need to be updated with the new bool fields or use `cmp.Diff` with `cmpopts.IgnoreFields`. Audit: grep `runFlags{` in `cmd/apitest/*_test.go` shows zero matches with explicit struct literals — all existing tests use `parseRunArgs` return values and assert individual fields. **No test breakage expected.**
+- `cmd/curlew/main_test.go::TestParseRunArgs`: any test that inspects `runFlags` struct literals will need to be updated with the new bool fields or use `cmp.Diff` with `cmpopts.IgnoreFields`. Audit: grep `runFlags{` in `cmd/curlew/*_test.go` shows zero matches with explicit struct literals — all existing tests use `parseRunArgs` return values and assert individual fields. **No test breakage expected.**
 - `TestRunCmd_*`: existing tests don't declare `output:` in their fixtures, so precedence resolution is a no-op — zero behaviour change.
 - Watch subcommand: `runCmdInner` is invoked via `RunFunc`; precedence resolution runs naturally on each watch iteration.
 
 ---
 
-### Step 5: Add `apitest schema --project` flag
+### Step 5: Add `curlew schema --project` flag
 
 **Rationale:** Small user-visible change, isolated to `schemaCmdOut`. Must come after `schema.ProjectSchema` exists (Step 2).
 
@@ -885,8 +885,8 @@ A stub HTTP server serves `200 OK` so collections run without network dependency
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | `parseSchemaArgs` returns `(format string, project bool, err error)`; `schemaCmdOut` writes `schema.ProjectSchema` when project is true. |
-| `cmd/apitest/main_test.go` | modify | Extend `TestSchemaCmd` with two new rows: `--project` emits project schema, `--project --format json` works. |
+| `cmd/curlew/main.go` | modify | `parseSchemaArgs` returns `(format string, project bool, err error)`; `schemaCmdOut` writes `schema.ProjectSchema` when project is true. |
+| `cmd/curlew/main_test.go` | modify | Extend `TestSchemaCmd` with two new rows: `--project` emits project schema, `--project --format json` works. |
 
 #### Current Code (main.go:2566-2601)
 
@@ -944,14 +944,14 @@ func parseSchemaArgs(args []string) (format string, project bool, err error) {
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/main_test.go — additions to TestSchemaCmd's table
+// cmd/curlew/main_test.go — additions to TestSchemaCmd's table
 {
 	name: "project_flag_emits_project_schema",
 	args: []string{"schema", "--project"},
 	wantExit: 0,
 	check: func(t *testing.T, stdout, stderr string) {
-		if !strings.Contains(stdout, "ApiTest Project v1") {
-			t.Errorf("want title 'ApiTest Project v1' in stdout; got %q", stdout)
+		if !strings.Contains(stdout, "Curlew Project v1") {
+			t.Errorf("want title 'Curlew Project v1' in stdout; got %q", stdout)
 		}
 	},
 },
@@ -960,8 +960,8 @@ func parseSchemaArgs(args []string) (format string, project bool, err error) {
 	args: []string{"schema"},
 	wantExit: 0,
 	check: func(t *testing.T, stdout, stderr string) {
-		if !strings.Contains(stdout, "ApiTest Collection v1") {
-			t.Errorf("want title 'ApiTest Collection v1' in stdout; got %q", stdout)
+		if !strings.Contains(stdout, "Curlew Collection v1") {
+			t.Errorf("want title 'Curlew Collection v1' in stdout; got %q", stdout)
 		}
 	},
 },
@@ -975,22 +975,22 @@ func parseSchemaArgs(args []string) (format string, project bool, err error) {
 
 ### Step 6: Extend `scaffold.Init` to emit `output:` block + support `--project-name`
 
-**Rationale:** After the schema accepts `output:`, the scaffolder can safely emit it. The DoD requires the scaffolded `apitest.yaml` validates against `schemas/project-v1.json`.
+**Rationale:** After the schema accepts `output:`, the scaffolder can safely emit it. The DoD requires the scaffolded `curlew.yaml` validates against `schemas/project-v1.json`.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `internal/scaffold/scaffold.go` | modify | `apitestYAML` emits `output:\n  format: terminal\n  verbosity: normal\n`. |
+| `internal/scaffold/scaffold.go` | modify | `curlewYAML` emits `output:\n  format: terminal\n  verbosity: normal\n`. |
 | `internal/scaffold/scaffold_test.go` | modify | Add test row asserting the emitted block is present. |
-| `internal/schema/validate_test.go` | modify | Add `TestSchema_scaffolded_apitest_yaml_validates` — runs `scaffold.Init`, reads `apitest.yaml`, validates against `schema.ProjectSchema`. |
-| `cmd/apitest/main.go` | modify | `initCmdOut` parses `--project-name <value>` flag. |
-| `cmd/apitest/main_test.go` | modify | Add test row for `init --project-name demo`. |
+| `internal/schema/validate_test.go` | modify | Add `TestSchema_scaffolded_curlew_yaml_validates` — runs `scaffold.Init`, reads `curlew.yaml`, validates against `schema.ProjectSchema`. |
+| `cmd/curlew/main.go` | modify | `initCmdOut` parses `--project-name <value>` flag. |
+| `cmd/curlew/main_test.go` | modify | Add test row for `init --project-name demo`. |
 
 #### Current Code (scaffold.go:112-114)
 
 ```go
-func apitestYAML(projectName string) string {
+func curlewYAML(projectName string) string {
 	return fmt.Sprintf("project_name: %s\nvariables:\n  base_url: \"https://httpbin.org\"\n", projectName)
 }
 ```
@@ -998,7 +998,7 @@ func apitestYAML(projectName string) string {
 #### New Code
 
 ```go
-func apitestYAML(projectName string) string {
+func curlewYAML(projectName string) string {
 	return fmt.Sprintf("project_name: %s\n"+
 		"variables:\n"+
 		"  base_url: \"https://httpbin.org\"\n"+
@@ -1069,37 +1069,37 @@ func initCmdOut(args []string, stdout, stderr io.Writer) int {
 ```go
 // internal/scaffold/scaffold_test.go — new row
 {
-	name: "apitest.yaml contains active output block",
+	name: "curlew.yaml contains active output block",
 	checkContent: map[string]string{
-		"apitest.yaml": "output:\n  format: terminal\n  verbosity: normal",
+		"curlew.yaml": "output:\n  format: terminal\n  verbosity: normal",
 	},
 },
 ```
 
 ```go
 // internal/schema/validate_test.go — new test
-func TestSchema_scaffolded_apitest_yaml_validates(t *testing.T) {
+func TestSchema_scaffolded_curlew_yaml_validates(t *testing.T) {
 	tmp := t.TempDir()
 	if err := scaffold.Init(scaffold.Options{Dir: tmp}); err != nil {
 		t.Fatal(err)
 	}
-	doc := decodeYAMLFile(t, filepath.Join(tmp, "apitest.yaml"))
+	doc := decodeYAMLFile(t, filepath.Join(tmp, "curlew.yaml"))
 	sch := compileProjectSchema(t)
 	if err := sch.Validate(doc); err != nil {
-		t.Fatalf("apitest.yaml did not validate against project schema: %v", err)
+		t.Fatalf("curlew.yaml did not validate against project schema: %v", err)
 	}
 }
 ```
 
 ```go
-// cmd/apitest/main_test.go — TestInitCmd extension
+// cmd/curlew/main_test.go — TestInitCmd extension
 {
 	name: "init --project-name sets explicit name",
 	args: []string{"init", "--project-name", "demo"},
 	check: func(t *testing.T, tmpDir, stdout, stderr string) {
-		data, _ := os.ReadFile(filepath.Join(tmpDir, "apitest.yaml"))
+		data, _ := os.ReadFile(filepath.Join(tmpDir, "curlew.yaml"))
 		if !strings.Contains(string(data), "project_name: demo") {
-			t.Errorf("want 'project_name: demo' in apitest.yaml; got:\n%s", data)
+			t.Errorf("want 'project_name: demo' in curlew.yaml; got:\n%s", data)
 		}
 	},
 },
@@ -1107,7 +1107,7 @@ func TestSchema_scaffolded_apitest_yaml_validates(t *testing.T) {
 
 #### Impact on Existing Tests
 - `TestInit` existing rows all continue to pass — the added `output:` block is additive; assertions match substrings.
-- `TestSchema_validates_scaffolded_sample` (existing collection-schema DoD test): **unaffected** — it validates `collections/sample.yaml`, not `apitest.yaml`. The new `TestSchema_scaffolded_apitest_yaml_validates` is the project-schema sibling.
+- `TestSchema_validates_scaffolded_sample` (existing collection-schema DoD test): **unaffected** — it validates `collections/sample.yaml`, not `curlew.yaml`. The new `TestSchema_scaffolded_curlew_yaml_validates` is the project-schema sibling.
 - `TestInitCmd` in main_test.go: existing rows use only positional args; the new `--project-name` row is additive.
 
 ---
@@ -1120,7 +1120,7 @@ func TestSchema_scaffolded_apitest_yaml_validates(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `examples/output-block/apitest.yaml` | create | `project_name: output-demo\noutput:\n  format: json\n  verbosity: normal\n` |
+| `examples/output-block/curlew.yaml` | create | `project_name: output-demo\noutput:\n  format: json\n  verbosity: normal\n` |
 | `examples/output-block/collection.yaml` | create | Runs one request against httpbin; no `output:` block (inherits from project). |
 | `examples/output-block/bad-format.yaml` | create | Collection with `output:\n  format: markdown\n` (triggers exit 3). |
 
@@ -1128,7 +1128,7 @@ Note: these examples will be excluded from `TestSchema_examples` automatic walke
 
 #### Impact on Existing Tests
 - `TestSchema_examples` glob: `internal/schema/testdata/*.yaml` — **unaffected** (examples live elsewhere).
-- Smoke test (`./smoke/run.sh`): optionally add a block exercising the new observables; at minimum verify `apitest schema --project` emits the project schema. Defer heavier smoke updates to `/verify`.
+- Smoke test (`./smoke/run.sh`): optionally add a block exercising the new observables; at minimum verify `curlew schema --project` emits the project schema. Defer heavier smoke updates to `/verify`.
 
 ---
 
@@ -1151,7 +1151,7 @@ Note: these examples will be excluded from `TestSchema_examples` automatic walke
 {
   "yaml.schemas": {
     "./schemas/collection-v1.json": "collections/*.yaml",
-    "./schemas/project-v1.json":    "apitest.yaml"
+    "./schemas/project-v1.json":    "curlew.yaml"
   }
 }
 ```
@@ -1160,7 +1160,7 @@ New subsection (approximate placement after §3.6 "Project-wide config"):
 
 > ### 3.6.1 The `output:` block
 >
-> ApiTool accepts an optional `output:` block at two levels: in `apitest.yaml` (project default) and in the collection YAML (per-collection override). The block supports four optional fields:
+> Curlew accepts an optional `output:` block at two levels: in `curlew.yaml` (project default) and in the collection YAML (per-collection override). The block supports four optional fields:
 >
 > | Field       | YAML type | Values                                    |
 > |-------------|-----------|-------------------------------------------|
@@ -1177,7 +1177,7 @@ New subsection (approximate placement after §3.6 "Project-wide config"):
 
 ```markdown
 ### Added
-- CLI: typed `output:` block accepted at both `apitest.yaml` (project default) and collection YAML (override); precedence CLI > collection > project > built-in resolved once in `runCmdInner` before formatter and events-emitter construction. New `schemas/project-v1.json` published at repo root (`$id = https://.../project-v1.json`, `title = "ApiTest Project v1"`); `schema.ProjectSchema` added as the byte-slice alias. `apitest schema --project` emits the project schema; `apitest schema` (no flag) continues to emit the collection schema. `scaffold.Init` now writes an active minimal `output:` block (`format: terminal`, `verbosity: normal`) into `apitest.yaml`, and the scaffolded file validates against the project schema (`TestSchema_scaffolded_apitest_yaml_validates`). `runFlags` gained `formatSet/reportSet/eventsSet/verbositySet` parallel bools so CLI zero-values are distinguishable from "flag not passed". The `$defs.output` subschema is byte-identical across both schema files (guarded by `TestSchema_output_defs_match`). New fixtures: `internal/schema/testdata/output_*.yaml` (one per format, per verbosity, plus project-level examples). MANUAL.md §1.5 gains the second `yaml.schemas` mapping for `schemas/project-v1.json` → `apitest.yaml`; new §3.6.1 describes the block and the precedence table. Markdown format remains excluded pending W4. (M8-003)
+- CLI: typed `output:` block accepted at both `curlew.yaml` (project default) and collection YAML (override); precedence CLI > collection > project > built-in resolved once in `runCmdInner` before formatter and events-emitter construction. New `schemas/project-v1.json` published at repo root (`$id = https://.../project-v1.json`, `title = "Curlew Project v1"`); `schema.ProjectSchema` added as the byte-slice alias. `curlew schema --project` emits the project schema; `curlew schema` (no flag) continues to emit the collection schema. `scaffold.Init` now writes an active minimal `output:` block (`format: terminal`, `verbosity: normal`) into `curlew.yaml`, and the scaffolded file validates against the project schema (`TestSchema_scaffolded_curlew_yaml_validates`). `runFlags` gained `formatSet/reportSet/eventsSet/verbositySet` parallel bools so CLI zero-values are distinguishable from "flag not passed". The `$defs.output` subschema is byte-identical across both schema files (guarded by `TestSchema_output_defs_match`). New fixtures: `internal/schema/testdata/output_*.yaml` (one per format, per verbosity, plus project-level examples). MANUAL.md §1.5 gains the second `yaml.schemas` mapping for `schemas/project-v1.json` → `curlew.yaml`; new §3.6.1 describes the block and the precedence table. Markdown format remains excluded pending W4. (M8-003)
 ```
 
 ---
@@ -1188,13 +1188,13 @@ New subsection (approximate placement after §3.6 "Project-wide config"):
 |-----------------------------------------------------------|--------------------------------------------|----------|---------------------------------------------------------|
 | `internal/output/config_test.go`                           | `TestConfig_Unmarshal`, `TestConfig_Validate`, `TestParseVerbosity` | new      | write (Step 1)                                          |
 | `internal/schema/project_schema_test.go`                   | `TestProjectSchema` (table-driven)         | new      | write (Step 2)                                          |
-| `internal/schema/validate_test.go`                         | `TestSchema_project_published_path_matches_embed`, `TestSchema_project_file_exists_at_published_path`, `TestSchema_output_defs_match`, `TestSchema_scaffolded_apitest_yaml_validates` | new      | write (Steps 2, 6)                                      |
+| `internal/schema/validate_test.go`                         | `TestSchema_project_published_path_matches_embed`, `TestSchema_project_file_exists_at_published_path`, `TestSchema_output_defs_match`, `TestSchema_scaffolded_curlew_yaml_validates` | new      | write (Steps 2, 6)                                      |
 | `internal/schema/validate_coverage_test.go`                | `TestSchema_accepts_output`, `TestSchema_rejects_unknown_output_format`, `TestSchema_rejects_empty_output_path` | new      | write (Step 2)                                          |
 | `internal/parser/collection_test.go`                       | `TestCollection_Output_Roundtrip`          | new      | write (Step 3)                                          |
 | `internal/config/project_test.go`                          | `TestParseProjectConfig_Output`            | new      | write (Step 3)                                          |
-| `cmd/apitest/output_precedence_test.go`                    | `TestOutputPrecedence` (4 sub-tests)       | new      | write (Step 4)                                          |
-| `cmd/apitest/main_test.go`                                 | `TestSchemaCmd` (existing)                 | additive | add 2 rows (Step 5)                                     |
-| `cmd/apitest/main_test.go`                                 | `TestInitCmd` (existing)                   | additive | add 1 row (Step 6)                                      |
+| `cmd/curlew/output_precedence_test.go`                    | `TestOutputPrecedence` (4 sub-tests)       | new      | write (Step 4)                                          |
+| `cmd/curlew/main_test.go`                                 | `TestSchemaCmd` (existing)                 | additive | add 2 rows (Step 5)                                     |
+| `cmd/curlew/main_test.go`                                 | `TestInitCmd` (existing)                   | additive | add 1 row (Step 6)                                      |
 | `internal/scaffold/scaffold_test.go`                       | `TestInit` (existing)                      | additive | add 1 row (Step 6)                                      |
 
 Net new tests: ~22. No deletions. No existing test assertions changed.
@@ -1209,7 +1209,7 @@ Net new tests: ~22. No deletions. No existing test assertions changed.
 - **Risk: Relocating the events-emitter-open block breaks early-fail guarantees.**
   **Mitigation:** Events-emitter open must still happen before any HTTP request runs. `parser.ParseFileWithOptions`, `LoadProjectConfig`, `LoadEnvironment`, `LoadTeamTemplate`, `LoadDotenv` all happen earlier — none of them perform network I/O. Moving `OpenFile(flags.events, ...)` to after `resolveOutputPrecedence` still keeps it strictly before any outbound HTTP. New ordering: `ParseFileWithOptions → LoadEnvironment → LoadProjectConfig → resolveOutputPrecedence → OpenFile(events) → feature-gate checks → runner.Run`. **Verify by auditing all `return` paths between current and new events-open location — none perform HTTP.**
 
-- **Risk: `col.Output` is set but `projectCfg` is the zero-value stub (no apitest.yaml found).**
+- **Risk: `col.Output` is set but `projectCfg` is the zero-value stub (no curlew.yaml found).**
   **Mitigation:** `LoadProjectConfig` returns `&ProjectConfig{Variables: map[string]string{}}` with `Output == nil` when no root is found (line 163). `resolveOutputPrecedence` nil-checks projOut. Collection-declared output still takes effect.
 
 - **Risk: Feature-gate checks at `main.go:554-590` read `format` from the pre-resolution struct.**
@@ -1252,7 +1252,7 @@ var ErrEmptyEventsPath error
 // internal/schema/schema.go
 var ProjectSchema = schemas.ProjectV1
 
-// cmd/apitest/main.go
+// cmd/curlew/main.go
 func resolveOutputPrecedence(flags *runFlags, colOut, projOut *output.Config) error
 func parseSchemaArgs(args []string) (format string, project bool, err error) // signature change
 
@@ -1274,7 +1274,7 @@ type ProjectConfig struct {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1289,24 +1289,24 @@ go test -run TestSchema_accepts_output ./internal/schema/...
 # 2. New project schema exists at the stable versioned path.
 ls -la schemas/project-v1.json
 
-# 3. apitest schema --project emits the project schema.
-./apitest schema --project | jq -r .title                           # "ApiTest Project v1"
-./apitest schema --project | jq -r '.["$id"]'                       # https://.../project-v1.json
+# 3. curlew schema --project emits the project schema.
+./curlew schema --project | jq -r .title                           # "Curlew Project v1"
+./curlew schema --project | jq -r '.["$id"]'                       # https://.../project-v1.json
 
-# 4. apitest schema (no flag) still emits the collection schema.
-./apitest schema | jq -r .title                                     # "ApiTest Collection v1"
+# 4. curlew schema (no flag) still emits the collection schema.
+./curlew schema | jq -r .title                                     # "Curlew Collection v1"
 
 # 5. Precedence: CLI > collection > project > built-in.
-go test -run TestOutputPrecedence ./cmd/apitest/...
+go test -run TestOutputPrecedence ./cmd/curlew/...
 
 # 6. End-to-end: project-level output.format=json → valid JSON on stdout.
-./apitest run examples/output-block/collection.yaml | jq -r '.summary.total'
+./curlew run examples/output-block/collection.yaml | jq -r '.summary.total'
 
 # 7. Unknown format in YAML fails before any request runs.
-./apitest run examples/output-block/bad-format.yaml                 # exit 3
+./curlew run examples/output-block/bad-format.yaml                 # exit 3
 
-# 8. apitest init scaffolds an active output block in apitest.yaml.
-cd "$(mktemp -d)" && /path/to/apitest init --project-name demo && grep -A3 '^output:' apitest.yaml
+# 8. curlew init scaffolds an active output block in curlew.yaml.
+cd "$(mktemp -d)" && /path/to/curlew init --project-name demo && grep -A3 '^output:' curlew.yaml
 ```
 
 Coverage gate:
@@ -1314,7 +1314,7 @@ Coverage gate:
 ```bash
 go test -cover \
   ./internal/schema/... \
-  ./cmd/apitest/... \
+  ./cmd/curlew/... \
   ./internal/config/... \
   ./internal/parser/... \
   ./internal/output/...
@@ -1336,11 +1336,11 @@ go test -cover \
 9. `test(cmd): failing TestOutputPrecedence four-case table` (RED) — Step 4 tests.
 10. `feat(cmd): resolve output precedence once before formatter/events construction` (GREEN) — Step 4 impl + 4a relocation.
 11. `test(cmd): failing schema --project flag tests` (RED) — Step 5 tests.
-12. `feat(cmd): apitest schema --project emits project schema` (GREEN) — Step 5 impl.
-13. `test(scaffold,cmd,schema): failing init --project-name + scaffolded apitest.yaml validates` (RED) — Step 6 tests.
+12. `feat(cmd): curlew schema --project emits project schema` (GREEN) — Step 5 impl.
+13. `test(scaffold,cmd,schema): failing init --project-name + scaffolded curlew.yaml validates` (RED) — Step 6 tests.
 14. `feat(scaffold,cmd): emit active output block and accept --project-name` (GREEN) — Step 6 impl.
 15. `chore(examples): add examples/output-block fixtures` — Step 7.
 16. `docs(manual,changelog): document output block + project schema snippet` — Step 8.
 
-Each pair must keep `go build ./cmd/apitest && go test ./...` green before the next RED begins.
+Each pair must keep `go build ./cmd/curlew && go test ./...` green before the next RED begins.
 

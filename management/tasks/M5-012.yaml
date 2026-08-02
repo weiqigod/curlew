@@ -8,17 +8,17 @@ track: go-cli
 dependencies:
   - M5-011
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/loadgen/report/...
   # Expected: ok  internal/loadgen/report  (>=6 tests passing)
-  ./apitest perf testdata/perf/sample-request.yaml \
+  ./curlew perf testdata/perf/sample-request.yaml \
     --vus 5 --duration 3s --output perf-report.json
   # Expected stdout (tail):
   #   "Results: requests=N, p50=Xms, p95=Yms, p99=Zms, error_rate=0%"
   #   "Wrote perf-report.json"
-  ./apitest perf testdata/perf/sample-request.yaml \
+  ./curlew perf testdata/perf/sample-request.yaml \
     --vus 5 --duration 3s --output perf-report.html
-  # Expected: perf-report.html created; file contains <title>apitest perf report</title>
+  # Expected: perf-report.html created; file contains <title>curlew perf report</title>
 behaviors:
   - "Given a completed perf run, when metrics are emitted, then the summary line includes requests, p50, p95, p99 latencies (ms), throughput (req/s), and error_rate (%)"
   - "Given --output report.json, when the run completes, then a JSON file is written containing a metrics object with percentiles, counts, and a time-series of requests/sec and latency per second"
@@ -40,6 +40,6 @@ definition_of_done:
   - "Test coverage >= 80%"
   - "No build warnings or lint errors"
   - "Help text documents --output, --format and example invocations"
-  - "Smoke test exercises apitest perf --output report.json and asserts file contents"
+  - "Smoke test exercises curlew perf --output report.json and asserts file contents"
 complexity: medium
 estimated_effort: "4-6 hours"

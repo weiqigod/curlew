@@ -1,6 +1,6 @@
 {
   "slug": "billing_payment_failed",
-  "subject": "Payment issue with your ApiTool subscription",
+  "subject": "Payment issue with your Curlew subscription",
   "variables": {
     "first_name":          "string",
     "amount_total":        "string (e.g. '$49.00')",

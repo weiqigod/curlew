@@ -19,13 +19,13 @@
 ## Observable Output
 
 ```
-$ TEST_API_KEY=my-secret apitest run precedence-test.yaml --env-var TEST_API_KEY --var shared_var=cli-level
+$ TEST_API_KEY=my-secret curlew run precedence-test.yaml --env-var TEST_API_KEY --var shared_var=cli-level
 Collection: Precedence Test
   ✓ Check precedence  200  502ms
   ✓ Check request vars dont leak  200  717ms
 2 request(s): 2 passed, 0 failed (1219ms)
 
-$ apitest run test.yaml --env-var MISSING_VAR_DOES_NOT_EXIST
+$ curlew run test.yaml --env-var MISSING_VAR_DOES_NOT_EXIST
 [ERROR] environment variable not set: "MISSING_VAR_DOES_NOT_EXIST" is not set in the environment
 Exit: 1
 ```
@@ -91,8 +91,8 @@ Review PASS trusted (management/reviews/M1-014-review.md), spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +44/-0 |
-| `cmd/apitest/main_test.go` | modified | +242/-0 |
+| `cmd/curlew/main.go` | modified | +44/-0 |
+| `cmd/curlew/main_test.go` | modified | +242/-0 |
 | `internal/parser/collection.go` | modified | +1/-0 |
 | `internal/parser/parser_test.go` | modified | +44/-0 |
 | `internal/parser/testdata/with_request_variables.yaml` | added | +9/-0 |

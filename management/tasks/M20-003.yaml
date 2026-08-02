@@ -12,21 +12,21 @@ dependencies:
   - M20-001
 
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   # 1. Each non-Latin locale produces region-appropriate names in the correct script.
-  printf '{{$faker.fullName}} | {{$faker.phone}}\n' | ./apitest exec --stdin --seed 42 --locale ja-JP --format json
+  printf '{{$faker.fullName}} | {{$faker.phone}}\n' | ./curlew exec --stdin --seed 42 --locale ja-JP --format json
   # Expected: a Japanese name in kanji with the family-name-first ordering (e.g. "山田 太郎")
   # and a +81-shaped phone per SPEC:980.
-  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale zh-CN --format json
+  printf '{{$faker.fullName}}\n' | ./curlew exec --stdin --seed 42 --locale zh-CN --format json
   # Expected: a Han-script name (e.g. "张伟").
-  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale ko-KR --format json
+  printf '{{$faker.fullName}}\n' | ./curlew exec --stdin --seed 42 --locale ko-KR --format json
   # Expected: a Hangul name (e.g. "김민준").
-  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale ru-RU --format json
+  printf '{{$faker.fullName}}\n' | ./curlew exec --stdin --seed 42 --locale ru-RU --format json
   # Expected: a Cyrillic name (e.g. "Иван Иванов").
 
   # 2. Multibyte output survives JSON encoding intact (no mojibake, valid UTF-8).
-  printf '{"n":"{{$faker.fullName}}"}\n' | ./apitest exec --stdin --seed 42 --locale ja-JP --format json \
+  printf '{"n":"{{$faker.fullName}}"}\n' | ./curlew exec --stdin --seed 42 --locale ja-JP --format json \
     | python3 -c 'import sys,json; json.load(sys.stdin); print("valid-json-utf8")'
   # Expected: "valid-json-utf8".
 
@@ -38,7 +38,7 @@ observable: |
   go test -run 'TestRegistry_Locale_SeedPositionInvariant' -v ./internal/variable/...
   # Expected: PASS.
 
-  go test ./internal/variable/... ./cmd/apitest/...
+  go test ./internal/variable/... ./cmd/curlew/...
   # Expected: PASS.
 
 behaviors:

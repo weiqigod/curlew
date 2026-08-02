@@ -1,5 +1,5 @@
 // Package discovery expands glob patterns into collection file paths,
-// honoring .apitestignore and rejecting unsafe patterns.
+// honoring .curlewignore and rejecting unsafe patterns.
 //
 // Supported glob syntax (relative to the walk root):
 //
@@ -41,7 +41,7 @@ func IsGlob(pattern string) bool {
 
 // Expand walks root and returns absolute paths of all files matching pattern,
 // sorted deterministically (lexicographic on the relative path). Ignore rules
-// from .apitestignore at root are applied before returning.
+// from .curlewignore at root are applied before returning.
 //
 // Returns ErrNoMatches when nothing matches, ErrTraversalOutsideRoot when
 // the pattern contains "..", and ErrAbsolutePattern when the pattern is
@@ -63,7 +63,7 @@ func Expand(root, pattern string) ([]string, error) {
 	// Load ignore rules.
 	ignorePatterns, err := LoadIgnore(root)
 	if err != nil {
-		return nil, fmt.Errorf("loading .apitestignore at %s: %w", root, err)
+		return nil, fmt.Errorf("loading .curlewignore at %s: %w", root, err)
 	}
 
 	// Normalize pattern to forward slashes for matching.
@@ -123,17 +123,17 @@ func Expand(root, pattern string) ([]string, error) {
 	return matches, nil
 }
 
-// LoadIgnore reads .apitestignore at root (if present) and returns
+// LoadIgnore reads .curlewignore at root (if present) and returns
 // its non-comment, non-blank patterns. Returns nil, nil when the file
 // does not exist.
 func LoadIgnore(root string) ([]string, error) {
-	ignoreFile := filepath.Join(root, ".apitestignore")
+	ignoreFile := filepath.Join(root, ".curlewignore")
 	f, err := os.Open(ignoreFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("opening .apitestignore: %w", err)
+		return nil, fmt.Errorf("opening .curlewignore: %w", err)
 	}
 	defer func() { _ = f.Close() }()
 
@@ -147,7 +147,7 @@ func LoadIgnore(root string) ([]string, error) {
 		patterns = append(patterns, line)
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading .apitestignore: %w", err)
+		return nil, fmt.Errorf("reading .curlewignore: %w", err)
 	}
 	return patterns, nil
 }

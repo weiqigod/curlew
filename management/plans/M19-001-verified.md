@@ -69,7 +69,7 @@ TestIfConditional runner tests (all 11 pass, 5 observable subtests confirmed):
 | 5 | Six output formatters render skipped and golden tests updated | terminal, JSON, TAP, JUnit, HTML, Markdown all have SkipReason tests | PASS |
 | 6 | Validate error catalogue includes ERR_CEL_PARSE and ERR_CEL_TYPE | TestValidate_If_ParseError, TestValidate_If_TypeError, TestValidate_If_FieldPath confirm | PASS |
 | 7 | Smoke fixture runs and asserts SKIPPED lines | smoke/run.sh M19-001 stanza: both PASS lines confirmed | PASS |
-| 8 | Help text for validate and run lists if: as request-item field | `docs(help)` commit; grep confirmed in cmd/apitest/main.go | PASS |
+| 8 | Help text for validate and run lists if: as request-item field | `docs(help)` commit; grep confirmed in cmd/curlew/main.go | PASS |
 
 ## Code Review
 
@@ -136,7 +136,7 @@ Branch A: Review PASS trusted (7dd165ca), spot-check clean on error handling, do
 | `internal/output/junit_test.go` | modified — new SkipReason test |
 | `internal/output/markdown/run_md_test.go` | modified — new SkippedEntry test |
 | `internal/variable/variable.go` | modified — supporting changes |
-| `cmd/apitest/main.go` | modified — help text, SkipReason mapping |
+| `cmd/curlew/main.go` | modified — help text, SkipReason mapping |
 | `smoke/run.sh` | modified — M19-001 stanza |
 | `CHANGELOG.md` | modified — unreleased entry |
 

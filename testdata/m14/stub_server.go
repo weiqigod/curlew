@@ -1,6 +1,6 @@
 //go:build ignore
 
-// stub_server.go is a tiny HTTP stub that implements the apitool device-code
+// stub_server.go is a tiny HTTP stub that implements the curlew device-code
 // authorization endpoints for local testing and smoke tests.
 //
 // Run via: go run testdata/m14/stub_server.go
@@ -83,8 +83,8 @@ func loadPrivateKey() (*ecdsa.PrivateKey, error) {
 func mintLicenseJWT(key *ecdsa.PrivateKey) (string, error) {
 	header := map[string]string{"alg": "ES256", "kid": "dev-es256-202605-a3f4d2", "typ": "license+jwt"}
 	claims := map[string]any{
-		"iss":   "apitest-license-server",
-		"aud":   "apitest-cli",
+		"iss":   "curlew-license-server",
+		"aud":   "curlew-cli",
 		"sub":   "stub-user",
 		"email": "smoke@example.com",
 		"tier":  "enterprise",

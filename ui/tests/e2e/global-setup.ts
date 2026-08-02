@@ -2,10 +2,10 @@
 //
 //  1. Rebuilds the SPA when internal/uiserver/assets/dist is stale relative
 //     to ui/src (the Go binary embeds those assets, so this must come first).
-//  2. Builds the real apitest binary to a temp dir.
+//  2. Builds the real curlew binary to a temp dir.
 //  3. Starts the in-process echo API + reserves a guaranteed-refused port.
 //  4. Writes the fixture project and launches one
-//     `apitest ui --port 0 --no-open --env dev`, parsing the printed
+//     `curlew ui --port 0 --no-open --env dev`, parsing the printed
 //     URL + token from stdout.
 //  5. Persists everything the tests/teardown need to a state file in tmpdir.
 import { execSync } from 'node:child_process';
@@ -54,9 +54,9 @@ function ensureSpaBuilt(): void {
 }
 
 function buildBinary(binDir: string): string {
-  const bin = path.join(binDir, 'apitest');
-  console.log('[e2e setup] building apitest binary');
-  execSync(`go build -o ${JSON.stringify(bin)} ./cmd/apitest`, { cwd: REPO_ROOT, stdio: 'inherit' });
+  const bin = path.join(binDir, 'curlew');
+  console.log('[e2e setup] building curlew binary');
+  execSync(`go build -o ${JSON.stringify(bin)} ./cmd/curlew`, { cwd: REPO_ROOT, stdio: 'inherit' });
   return bin;
 }
 
@@ -71,7 +71,7 @@ function launchUiServer(bin: string, dir: string): Promise<{ child: ChildProcess
     let err = '';
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new Error(`apitest ui did not print its URL in time.\nstdout: ${out}\nstderr: ${err}`));
+      reject(new Error(`curlew ui did not print its URL in time.\nstdout: ${out}\nstderr: ${err}`));
     }, 20_000);
     child.stderr?.on('data', (d: Buffer) => {
       err += d.toString();
@@ -83,7 +83,7 @@ function launchUiServer(bin: string, dir: string): Promise<{ child: ChildProcess
         clearTimeout(timer);
         const pid = child.pid;
         if (pid === undefined) {
-          reject(new Error('apitest ui has no pid'));
+          reject(new Error('curlew ui has no pid'));
           return;
         }
         resolve({ child, server: { origin: m[1], token: m[2], pid, dir } });
@@ -91,7 +91,7 @@ function launchUiServer(bin: string, dir: string): Promise<{ child: ChildProcess
     });
     child.on('exit', (code) => {
       clearTimeout(timer);
-      reject(new Error(`apitest ui exited early (code ${code}).\nstdout: ${out}\nstderr: ${err}`));
+      reject(new Error(`curlew ui exited early (code ${code}).\nstdout: ${out}\nstderr: ${err}`));
     });
   });
 }
@@ -115,7 +115,7 @@ async function waitReady(server: UiServer): Promise<void> {
 export default async function globalSetup(): Promise<void> {
   ensureSpaBuilt();
 
-  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apitest-e2e-bin-'));
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlew-e2e-bin-'));
   const bin = buildBinary(binDir);
 
   const echo = await startEchoServer();
@@ -128,7 +128,7 @@ export default async function globalSetup(): Promise<void> {
   const children: ChildProcess[] = [];
   let server: UiServer;
   try {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apitest-e2e-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'curlew-e2e-'));
     writeFixtureProject(dir, fixtureOpts);
     const launched = await launchUiServer(bin, dir);
     children.push(launched.child);
@@ -150,5 +150,5 @@ export default async function globalSetup(): Promise<void> {
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 
   // The teardown runs in this same process: stash live handles globally.
-  (globalThis as unknown as { __apitestE2E?: GlobalStash }).__apitestE2E = { echo, children };
+  (globalThis as unknown as { __curlewE2E?: GlobalStash }).__curlewE2E = { echo, children };
 }

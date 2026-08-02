@@ -426,7 +426,7 @@ func TestPrintAssertionDetail(t *testing.T) {
 
 ---
 
-### Step 5: Wire Everything in `cmd/apitest/main.go`
+### Step 5: Wire Everything in `cmd/curlew/main.go`
 
 **Rationale:** Final wiring — depends on all previous steps being complete.
 
@@ -434,9 +434,9 @@ func TestPrintAssertionDetail(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Pass assertion results to output, print assertion details, distinguish exit codes 1 vs 4 |
-| `cmd/apitest/run_test.go` | modify | Add assertion pass/fail test cases, update PrintResult calls |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for assertions |
+| `cmd/curlew/main.go` | modify | Pass assertion results to output, print assertion details, distinguish exit codes 1 vs 4 |
+| `cmd/curlew/run_test.go` | modify | Add assertion pass/fail test cases, update PrintResult calls |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for assertions |
 
 #### Current Code
 
@@ -538,7 +538,7 @@ func TestCLIIntegration_no_assertions_still_passes(t *testing.T) {
 
 ```bash
 echo "--- Running collection with status assertion (expect pass) ---"
-ASSERT_FILE=$(mktemp /tmp/apitest_assert_XXXXXX.yaml)
+ASSERT_FILE=$(mktemp /tmp/curlew_assert_XXXXXX.yaml)
 cat > "$ASSERT_FILE" << YAML
 name: Assert Pass
 requests:
@@ -549,13 +549,13 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$ASSERT_FILE"
+./curlew run "$ASSERT_FILE"
 echo "Exit code: $?"
 rm -f "$ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing assertion (expect exit 1) ---"
-ASSERT_FAIL_FILE=$(mktemp /tmp/apitest_assert_fail_XXXXXX.yaml)
+ASSERT_FAIL_FILE=$(mktemp /tmp/curlew_assert_fail_XXXXXX.yaml)
 cat > "$ASSERT_FAIL_FILE" << YAML
 name: Assert Fail
 requests:
@@ -566,7 +566,7 @@ requests:
     assertions:
       status: 404
 YAML
-./apitest run "$ASSERT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$ASSERT_FAIL_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$ASSERT_FAIL_FILE"
 echo
 ```
@@ -589,9 +589,9 @@ requests:
       headers:
         Accept: application/json
       query:
-        source: apitest
+        source: curlew
       body:
-        message: "Hello from ApiTool"
+        message: "Hello from Curlew"
         timestamp: "2026-01-01T00:00:00Z"
     assertions:
       status: 200
@@ -621,10 +621,10 @@ requests:
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/output/terminal_test.go` | `TestPrintResult` | signature change | add `true` as 4th arg to `PrintResult` calls |
-| `cmd/apitest/run_test.go` | all `TestRunCmd_*` | none | exit codes unchanged |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration_successful_run` | output format | still passes — uses `strings.Contains` |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration_stop_on_failure` | none | network error, exit 4 unchanged |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration_network_error` | none | exit 4 unchanged |
+| `cmd/curlew/run_test.go` | all `TestRunCmd_*` | none | exit codes unchanged |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration_successful_run` | output format | still passes — uses `strings.Contains` |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration_stop_on_failure` | none | network error, exit 4 unchanged |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration_network_error` | none | exit 4 unchanged |
 | `internal/runner/runner_test.go` | all `TestRun*` | none | no assertions = always pass, Summary gains field with zero default |
 
 ## Risks and Edge Cases
@@ -639,7 +639,7 @@ requests:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -658,7 +658,7 @@ requests:
     assertions:
       status: 200
 EOF
-./apitest run /tmp/assert_test.yaml
+./curlew run /tmp/assert_test.yaml
 # Expected: ✓ Check httpbin  200  Xms, exit code 0
 
 # Modify to expect wrong status
@@ -672,6 +672,6 @@ requests:
     assertions:
       status: 404
 EOF
-./apitest run /tmp/assert_test.yaml
+./curlew run /tmp/assert_test.yaml
 # Expected: ✗ Check httpbin  200  Xms, assertion detail line, exit code 1
 ```

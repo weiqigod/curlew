@@ -9,7 +9,7 @@ dependencies:
   - M2-004
 
 observable: |
-  Configure GCP and 1Password vault profiles in apitest.yaml.
+  Configure GCP and 1Password vault profiles in curlew.yaml.
   Run `go test ./internal/vault/...` with mocked CLI calls for both providers.
 
 behaviors:
@@ -17,7 +17,7 @@ behaviors:
   - "Given a configured `1password` provider, when secrets are requested, then values are fetched via `op item get`"
   - "Given a configured `gcp-secret-manager` with structured extraction, when fetched, then the JSON field is extracted"
   - "Given the `1password` CLI not installed, when secrets are requested, then a clear error suggests installing 1Password CLI"
-  - "Given all five providers implemented, when `apitest vault list` is run, then all providers are recognized"
+  - "Given all five providers implemented, when `curlew vault list` is run, then all providers are recognized"
 
 scope: |
   Implement `internal/vault/gcp.go` for GCP Secret Manager using `gcloud` CLI commands.

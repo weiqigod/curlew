@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // varScanPattern matches {{varName}} and {{varName|default}} patterns.

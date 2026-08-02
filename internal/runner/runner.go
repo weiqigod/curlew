@@ -15,26 +15,26 @@ import (
 
 	celgo "github.com/google/cel-go/cel"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/auth"
-	apicel "github.com/peterlindqvist/apitest/internal/cel"
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/datadriven"
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/graphql"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/output/ids"
-	"github.com/peterlindqvist/apitest/internal/parallel"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/plugin/hooks"
-	"github.com/peterlindqvist/apitest/internal/ratelimit"
-	"github.com/peterlindqvist/apitest/internal/requtil"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/signer"
-	"github.com/peterlindqvist/apitest/internal/variable"
-	"github.com/peterlindqvist/apitest/internal/vault"
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
-	"github.com/peterlindqvist/apitest/internal/websocket"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/auth"
+	apicel "github.com/weiqigod/curlew/internal/cel"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/datadriven"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/graphql"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/output/ids"
+	"github.com/weiqigod/curlew/internal/parallel"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/plugin/hooks"
+	"github.com/weiqigod/curlew/internal/ratelimit"
+	"github.com/weiqigod/curlew/internal/requtil"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/signer"
+	"github.com/weiqigod/curlew/internal/variable"
+	"github.com/weiqigod/curlew/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/websocket"
 )
 
 // HooksDispatcher is the interface used by the runner to invoke plugin lifecycle
@@ -75,7 +75,7 @@ func resolveAuthProfile(authName string, profiles []auth.Profile, scope *variabl
 
 	if found == nil {
 		if len(available) == 0 {
-			return "", "", fmt.Errorf("%w: %q; no auth profiles configured (add auth_profiles: to apitest.yaml)",
+			return "", "", fmt.Errorf("%w: %q; no auth profiles configured (add auth_profiles: to curlew.yaml)",
 				ErrAuthProfileNotFound, authName)
 		}
 		sort.Strings(available)
@@ -127,7 +127,7 @@ var MaxRequests = 1000
 type ExecuteFunc = requtil.ExecuteFunc
 
 // EventSink receives per-request lifecycle notifications from the runner so
-// callers (cmd/apitest) can translate them into an NDJSON event stream.
+// callers (cmd/curlew) can translate them into an NDJSON event stream.
 // Every method is non-blocking — implementations must not return errors that
 // halt execution; emission failures are logged to stderr by the adapter.
 //
@@ -165,7 +165,7 @@ type RequestEndEvent struct {
 	RequestBody  []byte
 	ResponseBody []byte
 	Err          error
-	// Additive fields for mid-run inspection (apitest ui, events schema v1.3).
+	// Additive fields for mid-run inspection (curlew ui, events schema v1.3).
 	// The NDJSON emitter ignores the header fields — headers stay out of the
 	// events schema; the UI's REST detail endpoint covers them.
 	RequestHeaders  map[string]string // interpolated request headers (same data as RequestResult.RequestHeaders)
@@ -272,33 +272,33 @@ type Summary struct {
 
 // VarSources bundles all variable sources for a collection run.
 type VarSources struct {
-	Project             map[string]string       // apitest.yaml global variables (precedence 2)
+	Project             map[string]string       // curlew.yaml global variables (precedence 2)
 	EnvFile             map[string]string       // --env file variables (precedence 3)
 	DotEnv              map[string]string       // .env variables (precedence 4)
 	EnvVar              map[string]string       // --env-var OS imports (precedence 9)
 	CLI                 map[string]string       // --var variables (precedence 10)
 	Seed                *int64                  // nil = real randomness; non-nil = deterministic seed
-	Secrets             *vault.SecretsConfig    // vault provider config from apitest.yaml (nil = no vault)
+	Secrets             *vault.SecretsConfig    // vault provider config from curlew.yaml (nil = no vault)
 	VaultExecutor       vault.CommandExecutor   // nil = use variable.ExecuteCommand
-	AuthProfiles        []auth.Profile          // from apitest.yaml auth_profiles: block
-	ProjectRoot         string                  // directory containing apitest.yaml (for resolving relative paths)
+	AuthProfiles        []auth.Profile          // from curlew.yaml auth_profiles: block
+	ProjectRoot         string                  // directory containing curlew.yaml (for resolving relative paths)
 	AuthExecuteFunc     auth.ExecuteFunc        // nil = use RunForExtraction; non-nil = use directly (for tests)
 	CacheStore          auth.CacheStore         // nil = auto-detect from ProjectRoot; non-nil for test injection
-	GlobalRetry         *retry.FullConfig       // from apitest.yaml defaults.retry
-	GlobalGraphQL       *config.GraphQLDefaults // from apitest.yaml defaults.graphql
+	GlobalRetry         *retry.FullConfig       // from curlew.yaml defaults.retry
+	GlobalGraphQL       *config.GraphQLDefaults // from curlew.yaml defaults.graphql
 	Parallel            bool                    // true = parallel execution for main phase
 	CollectionDir       string                  // directory of the collection file (for resolving relative data file paths)
 	ConfirmLargeDataset bool                    // true when user confirmed large dataset execution (>10,000 rows)
 	WebSocketDialer     websocket.Dialer        // nil = use websocket.DefaultDialer (injection point for tests)
 
 	// TeamTemplate is the parsed shared vault configuration template loaded from
-	// APITEST_TEAM_CONFIG. When non-nil the runner resolves {{secrets.X}}
+	// CURLEW_TEAM_CONFIG. When non-nil the runner resolves {{secrets.X}}
 	// references via the active environment (TeamEnv) before the first request.
 	TeamTemplate *teamtemplate.TeamTemplate
 	// TeamEnv is the --env name that selects which environment in TeamTemplate
 	// to use. Required when the collection references {{secrets.X}} tokens.
 	TeamEnv string
-	// TeamStub, when true, uses an in-memory stub provider (APITEST_VAULT_STUB=1)
+	// TeamStub, when true, uses an in-memory stub provider (CURLEW_VAULT_STUB=1)
 	// instead of real AWS/Azure credentials.
 	TeamStub bool
 
@@ -320,7 +320,7 @@ type VarSources struct {
 
 	// OnEvent receives per-request lifecycle callbacks. When nil, the runner
 	// incurs zero overhead. M6-005 adds this to support the --events NDJSON
-	// stream in cmd/apitest; no internal package imports output/events.
+	// stream in cmd/curlew; no internal package imports output/events.
 	OnEvent EventSink
 
 	// Selection is the list of main request names passed via --only. When
@@ -337,7 +337,7 @@ type VarSources struct {
 
 	// RequestIDPrefix prefixes every minted request id ("<prefix>req-N").
 	// Empty for single runs (existing id format unchanged); multi-collection
-	// batch runs (apitest ui) pass "c1-", "c2-", … per collection so ids stay
+	// batch runs (curlew ui) pass "c1-", "c2-", … per collection so ids stay
 	// unique across the shared event stream and detail map.
 	RequestIDPrefix string
 
@@ -364,7 +364,7 @@ type VarSources struct {
 	// Default < Project < Environment < Collection < CLI chain.
 	Locale string
 
-	// ProjectLocale is the config.locale from apitest.yaml (precedence 2).
+	// ProjectLocale is the config.locale from curlew.yaml (precedence 2).
 	// Empty means unset or the project file had no config: block.
 	ProjectLocale string
 
@@ -435,7 +435,7 @@ func resolveLocale(vars VarSources) (string, error) {
 // nextRequestID atomically increments and returns the next request ID string.
 // It is safe to call concurrently across goroutines. When RequestIDPrefix is
 // non-empty, ids are "<prefix>req-N" — used by multi-collection batch runs
-// (apitest ui) to keep request ids unique across per-collection Run calls
+// (curlew ui) to keep request ids unique across per-collection Run calls
 // sharing one event stream. request_id is an opaque pairing string per the
 // events schema, so prefixed ids are schema-legal.
 func (v VarSources) nextRequestID() string {
@@ -477,7 +477,7 @@ func compileIfProgram(cache map[string]apicel.Program, ev apicel.Evaluator, src 
 	return p, nil
 }
 
-// NewRunID produces a 32-char lowercase hex identifier. Exposed so cmd/apitest
+// NewRunID produces a 32-char lowercase hex identifier. Exposed so cmd/curlew
 // can generate a single run_id and pass it to both the events emitter and the
 // runner. Delegates to internal/output/ids so events, exec --log, and markdown
 // sentinels share one canonical implementation. M9-002, M11-004.
@@ -514,7 +514,7 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 	// Allocate the per-run runtime SensitiveSet and attach it to the scope.
 	// Dynamic-function dispatch (Scope.Interpolate) mutates this set when a
 	// credential-bearing argument (e.g. the key of $hmacSha256) resolves from
-	// a sensitive source. The set is exposed on the summary so cmd/apitest can
+	// a sensitive source. The set is exposed on the summary so cmd/curlew can
 	// merge it into the post-run redaction set.
 	runtimeSensitive := variable.NewSensitiveSet()
 	scope = scope.WithRuntimeSensitive(runtimeSensitive)
@@ -683,7 +683,7 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 				// one-line diagnostic on the Diagnostics writer.
 				if vars.Diagnostics != nil {
 					_, _ = fmt.Fprintf(vars.Diagnostics,
-						"apitest: --only minimal-setup analysis failed (%s); running full setup\n",
+						"curlew: --only minimal-setup analysis failed (%s); running full setup\n",
 						strings.Join(graph.Errors, "; "),
 					)
 				}
@@ -913,7 +913,7 @@ var undefinedVarRe = regexp.MustCompile(`^undefined variable "([^"]+)"$`)
 // when --only is active, checks whether the missing variable's producer is a
 // filtered-out main item. When the producer is not found in fullMainItems, it
 // additionally scans fullSetupItems — in that case the analyzer missed a
-// {{variable}} reference, which is a likely apitest bug; the enriched error
+// {{variable}} reference, which is a likely curlew bug; the enriched error
 // notes that. Returns err unchanged when Selection is empty, when the error is
 // not an undefined-variable error, or when no producer is found.
 func enrichSelectionCliff(err error, fullMainItems, fullSetupItems []parser.RequestItem, selection []string) error {
@@ -982,7 +982,7 @@ func enrichSelectionCliff(err error, fullMainItems, fullSetupItems []parser.Requ
 			continue
 		}
 		msg := fmt.Sprintf(
-			"variable {{%s}} is not defined; normally extracted from setup request %q which was pruned by --only (the minimal-setup analyser did not detect a reference; this is likely an apitest bug — please report)",
+			"variable {{%s}} is not defined; normally extracted from setup request %q which was pruned by --only (the minimal-setup analyser did not detect a reference; this is likely an curlew bug — please report)",
 			varName, it.Name,
 		)
 		hint := fmt.Sprintf(
@@ -1158,7 +1158,7 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 		// consistent. M20-001.
 		if vars.Diagnostics != nil && vars.LocaleVerbose {
 			localeOpts = append(localeOpts, variable.WithLocaleWarning(func(msg string) {
-				_, _ = fmt.Fprintln(vars.Diagnostics, "apitest: "+msg)
+				_, _ = fmt.Fprintln(vars.Diagnostics, "curlew: "+msg)
 			}))
 		}
 	}
@@ -1174,7 +1174,7 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 			return nil, 0, &apierrors.Structured{
 				Category: apierrors.CategoryConfig,
 				Message:  "shared template requires --env <name>",
-				Hint:     "Add --env <envname> to your apitest run invocation",
+				Hint:     "Add --env <envname> to your curlew run invocation",
 				Inner:    teamtemplate.ErrEnvFlagRequired,
 			}
 		}
@@ -1333,9 +1333,9 @@ func runPhases(ctx context.Context, col *parser.Collection, exec ExecuteFunc, sc
 		if vars.Parallel {
 			if vars.Diagnostics != nil {
 				if collectionHasIf(col) {
-					_, _ = fmt.Fprintln(vars.Diagnostics, "apitest: if: gate active; falling back to sequential main phase")
+					_, _ = fmt.Fprintln(vars.Diagnostics, "curlew: if: gate active; falling back to sequential main phase")
 				} else {
-					_, _ = fmt.Fprintln(vars.Diagnostics, "apitest: cel: gate active; falling back to sequential main phase")
+					_, _ = fmt.Fprintln(vars.Diagnostics, "curlew: cel: gate active; falling back to sequential main phase")
 				}
 			}
 			vars.Parallel = false

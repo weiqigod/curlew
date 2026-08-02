@@ -6,7 +6,7 @@ created: 2026-03-09
 phase: "M1: Core CLI"
 dependencies: [M1-019]
 observable: |
-  Run `./apitest run collection.yaml --format tap`. Verify valid TAP output
+  Run `./curlew run collection.yaml --format tap`. Verify valid TAP output
   that can be consumed by TAP consumers.
 behaviors:
   - "Given --format tap flag, when executed, then output follows TAP (Test Anything Protocol) format"

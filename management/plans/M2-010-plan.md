@@ -217,7 +217,7 @@ func resolveAuthProfile(authName string, profiles []auth.Profile, scope *variabl
 
 	if found == nil {
 		if len(available) == 0 {
-			return "", "", fmt.Errorf("%w: %q; no auth profiles configured (add auth_profiles: to apitest.yaml)",
+			return "", "", fmt.Errorf("%w: %q; no auth profiles configured (add auth_profiles: to curlew.yaml)",
 				ErrAuthProfileNotFound, authName)
 		}
 		sort.Strings(available)
@@ -645,7 +645,7 @@ func TestRun_PerRequestAuth(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/parser/...
 go test ./internal/runner/...
 go test ./...
@@ -668,8 +668,8 @@ requests:
       status: [200]
 EOF
 
-# Run with a mock auth profile (requires apitest.yaml with auth_profiles:)
-apitest run /tmp/test_auth_per_req.yaml
+# Run with a mock auth profile (requires curlew.yaml with auth_profiles:)
+curlew run /tmp/test_auth_per_req.yaml
 
 # Unit test verification
 go test ./internal/runner/... -run TestRun_PerRequestAuth -v

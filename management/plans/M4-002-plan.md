@@ -2,8 +2,8 @@
 
 ## Overview
 Wire the `internal/vault/teamtemplate` parser (M4-001) into the runtime so
-`apitest run` can resolve `{{secrets.ALIAS}}` placeholders through a shared
-vault template selected by `--env`, with a stub provider (`APITEST_VAULT_STUB=1`)
+`curlew run` can resolve `{{secrets.ALIAS}}` placeholders through a shared
+vault template selected by `--env`, with a stub provider (`CURLEW_VAULT_STUB=1`)
 that makes the slice runnable end-to-end without real cloud credentials.
 
 ## Task Details
@@ -41,7 +41,7 @@ can see the reasoning rather than reverse-engineering it from the diff.
 
 2. **Template loading lives in `internal/config`, not `internal/runner`.**
    A new `config.LoadTeamTemplate(envVarValue string)` helper reads
-   `APITEST_TEAM_CONFIG`, parses + validates via `teamtemplate.Parse/Validate`,
+   `CURLEW_TEAM_CONFIG`, parses + validates via `teamtemplate.Parse/Validate`,
    and returns a `*teamtemplate.TeamTemplate` or a structured error. Keeping
    I/O in `config` matches the pattern used by `LoadProjectConfig` and
    `LoadEnvironment` and keeps `runner` unit tests hermetic.
@@ -50,7 +50,7 @@ can see the reasoning rather than reverse-engineering it from the diff.
    The task says so explicitly. The stub satisfies `vault.Provider` and
    deterministically derives values from the path + environment name so tests
    can assert on the exact resolved value (`stub::<env>::<path>#<field>`). It
-   is only activated by `APITEST_VAULT_STUB=1` and must never be selected in
+   is only activated by `CURLEW_VAULT_STUB=1` and must never be selected in
    production code paths unless the env var is set — we make it explicit and
    testable by plumbing a `VaultStubEnabled bool` through `VarSources` rather
    than reading the env var inside the runner.
@@ -64,14 +64,14 @@ can see the reasoning rather than reverse-engineering it from the diff.
    and lives only for the duration of one run (no TTL, no persistence).
 
 5. **A new Team-tier feature gate, `shared_vault_templates`, is registered
-   in `auth.DefaultRegistry`.** `APITEST_TEAM_CONFIG` at Free/Solo tier
+   in `auth.DefaultRegistry`.** `CURLEW_TEAM_CONFIG` at Free/Solo tier
    returns exit code 6 with a `TierTeam` gate error — matching how every
    other paid feature behaves. Tests that need to bypass the gate set
-   `APITEST_TIER=team`.
+   `CURLEW_TIER=team`.
 
 6. **`--env` is required when and only when the collection actually
    references `{{secrets.X}}`.** If a collection uses no secrets references,
-   `APITEST_TEAM_CONFIG` still loads and validates (so misconfiguration fails
+   `CURLEW_TEAM_CONFIG` still loads and validates (so misconfiguration fails
    loudly) but `--env` is optional. This is important for the forward
    compatibility story: teams can roll out the env var to CI before all
    collections use it.
@@ -81,11 +81,11 @@ can see the reasoning rather than reverse-engineering it from the diff.
    output stays clean, and it prints before the first request is dispatched.
    The runner surfaces a `SharedSecretsResolved int` counter on
    `runner.Summary` for tests that want to assert on it; the stderr line is
-   produced by `cmd/apitest/main.go` (not the runner) to keep `runner` free
+   produced by `cmd/curlew/main.go` (not the runner) to keep `runner` free
    of I/O side effects.
 
 8. **Error taxonomy (all new sentinels):**
-   - `teamtemplate.ErrTemplateNotFound` — `APITEST_TEAM_CONFIG` points to a
+   - `teamtemplate.ErrTemplateNotFound` — `CURLEW_TEAM_CONFIG` points to a
      missing file.
    - `teamtemplate.ErrUnknownEnvironment` — `--env staging` but staging is
      not in the template.
@@ -280,11 +280,11 @@ import (
     "fmt"
     "sort"
 
-    "github.com/peterlindqvist/apitest/internal/vault"
+    "github.com/weiqigod/curlew/internal/vault"
 )
 
 // StubProvider is a deterministic in-memory vault provider used when
-// APITEST_VAULT_STUB=1. It returns values of the form
+// CURLEW_VAULT_STUB=1. It returns values of the form
 //
 //     stub::<envName>::<path>[#<field>]
 //
@@ -373,8 +373,8 @@ import (
     "fmt"
     "sync"
 
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
-    "github.com/peterlindqvist/apitest/internal/vault"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
+    "github.com/weiqigod/curlew/internal/vault"
 )
 
 // SecretsResolver resolves {{secrets.X}} aliases against a chosen environment
@@ -460,7 +460,7 @@ func (r *SecretsResolver) HasAlias(alias string) bool {
 ```go
 // internal/vault/teamtemplate/teamtemplate.go — add sentinels
 var (
-    // ErrTemplateNotFound is returned when APITEST_TEAM_CONFIG points to
+    // ErrTemplateNotFound is returned when CURLEW_TEAM_CONFIG points to
     // a file that does not exist or cannot be read.
     ErrTemplateNotFound = errors.New("shared vault template not found")
     // ErrUnknownEnvironment is returned when --env names an environment
@@ -484,8 +484,8 @@ import (
     "fmt"
     "os"
 
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
-    "github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
+    "github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 // LoadTeamTemplate reads, parses, and validates the shared vault template at
@@ -502,7 +502,7 @@ func LoadTeamTemplate(path string) (*teamtemplate.TeamTemplate, error) {
             return nil, &apierrors.Structured{
                 Category: apierrors.CategoryConfig,
                 Message:  fmt.Sprintf("shared vault template not found: %s", path),
-                Hint:     "Check APITEST_TEAM_CONFIG or remove it to disable team templates",
+                Hint:     "Check CURLEW_TEAM_CONFIG or remove it to disable team templates",
                 Inner:    teamtemplate.ErrTemplateNotFound,
             }
         }
@@ -562,7 +562,7 @@ func TestLoadTeamTemplate(t *testing.T) {
         wantErr error
     }{
         {"valid template", /* write testdata/team/shared-vault-template.yaml */, nil},
-        {"missing file", "/nonexistent/apitest-team.yaml", teamtemplate.ErrTemplateNotFound},
+        {"missing file", "/nonexistent/curlew-team.yaml", teamtemplate.ErrTemplateNotFound},
         {"invalid yaml", /* write broken yaml */, teamtemplate.ErrInvalidTemplate},
         {"validation fails", /* provider=foo */, teamtemplate.ErrInvalidTemplate},
         {"empty path returns nil,nil", "", nil},
@@ -579,7 +579,7 @@ func TestLoadTeamTemplate(t *testing.T) {
 ### Step 4: Feature gate + `VarSources` plumbing in runner
 
 **Rationale:** Before touching the CLI entrypoint, we teach the runner what a
-team template is. This keeps `cmd/apitest/main.go` changes in Step 5 small
+team template is. This keeps `cmd/curlew/main.go` changes in Step 5 small
 and focused on argument parsing and stderr.
 
 #### Files to Modify
@@ -615,13 +615,13 @@ type VarSources struct {
     Secrets             *vault.SecretsConfig
     VaultExecutor       vault.CommandExecutor
     // M4-002: shared vault template.
-    // TeamTemplate is the parsed template loaded from APITEST_TEAM_CONFIG.
+    // TeamTemplate is the parsed template loaded from CURLEW_TEAM_CONFIG.
     // When non-nil, the runner resolves {{secrets.X}} references via the
     // active environment (TeamEnv) and injects them into the scope's
     // secrets namespace.
     TeamTemplate *teamtemplate.TeamTemplate
     TeamEnv      string // from --env
-    TeamStub     bool   // from APITEST_VAULT_STUB=1
+    TeamStub     bool   // from CURLEW_VAULT_STUB=1
     ...
 }
 ```
@@ -649,7 +649,7 @@ if vars.TeamTemplate != nil {
         return nil, &apierrors.Structured{
             Category: apierrors.CategoryConfig,
             Message:  "shared template requires --env <name>",
-            Hint:     "Add --env <envname> to your apitest run invocation",
+            Hint:     "Add --env <envname> to your curlew run invocation",
             Inner:    teamtemplate.ErrEnvFlagRequired,
         }
     }
@@ -769,7 +769,7 @@ func TestRun_TeamSecrets(t *testing.T) {
 
 ---
 
-### Step 5: CLI wiring in `cmd/apitest/main.go`
+### Step 5: CLI wiring in `cmd/curlew/main.go`
 
 **Rationale:** Last because it is the entrypoint and pulls all previous
 steps together. `runCmdInner` is the single source of truth for run
@@ -779,22 +779,22 @@ invocation.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | read `APITEST_TEAM_CONFIG` + `APITEST_VAULT_STUB`, call `config.LoadTeamTemplate`, pass `TeamTemplate/TeamEnv/TeamStub` in `VarSources`, emit `Resolved N secrets from shared template (<env>)` on stderr, update gate-error printing to cover the new exit code path, extend `printHelp()` |
-| `cmd/apitest/main.go` | modify | extend sensitivity set — merge every alias from the resolved map into the redaction set |
-| `cmd/apitest/run_test.go` | modify | add `TestRunCmd_TeamSecrets_*` e2e cases using `t.Setenv` + `httptest` |
+| `cmd/curlew/main.go` | modify | read `CURLEW_TEAM_CONFIG` + `CURLEW_VAULT_STUB`, call `config.LoadTeamTemplate`, pass `TeamTemplate/TeamEnv/TeamStub` in `VarSources`, emit `Resolved N secrets from shared template (<env>)` on stderr, update gate-error printing to cover the new exit code path, extend `printHelp()` |
+| `cmd/curlew/main.go` | modify | extend sensitivity set — merge every alias from the resolved map into the redaction set |
+| `cmd/curlew/run_test.go` | modify | add `TestRunCmd_TeamSecrets_*` e2e cases using `t.Setenv` + `httptest` |
 
 #### New Code (inside `runCmdInner`, after `LoadProjectConfig`)
 
 ```go
 // Load shared vault template if configured.
-teamCfgPath := os.Getenv("APITEST_TEAM_CONFIG")
+teamCfgPath := os.Getenv("CURLEW_TEAM_CONFIG")
 teamTemplate, teamErr := config.LoadTeamTemplate(teamCfgPath)
 if teamErr != nil {
     // errors.Is check for ErrTemplateNotFound → exit 3
     errOut.StructuredError(teamErr)
     return 3, nil
 }
-teamStub := os.Getenv("APITEST_VAULT_STUB") == "1"
+teamStub := os.Getenv("CURLEW_VAULT_STUB") == "1"
 
 // ... existing runner.Run call ...
 results, summary, varErr := runner.Run(ctx, col, httpexec.Execute, runner.VarSources{
@@ -818,19 +818,19 @@ Update `printHelp()` to add a new section:
 
 ```
 Shared Vault Templates (Team tier):
-  APITEST_TEAM_CONFIG=path   Load a shared vault configuration template
+  CURLEW_TEAM_CONFIG=path   Load a shared vault configuration template
                              {{secrets.ALIAS}} references in collections resolve
                              through the template for the environment named by --env
-  APITEST_VAULT_STUB=1       Use an in-memory stub provider (for local/CI testing)
+  CURLEW_VAULT_STUB=1       Use an in-memory stub provider (for local/CI testing)
 ```
 
 And extend the `Run Options:` `--env` line to note that it selects the
-shared vault template environment when `APITEST_TEAM_CONFIG` is set.
+shared vault template environment when `CURLEW_TEAM_CONFIG` is set.
 
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/run_test.go
+// cmd/curlew/run_test.go
 func TestRunCmd_TeamSecrets_Success(t *testing.T) {
     srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         // echo Authorization header into response so we can assert on it
@@ -847,17 +847,17 @@ func TestRunCmd_TeamSecrets_Success(t *testing.T) {
     os.WriteFile(col, []byte(fmt.Sprintf(
         "name: T\nrequests:\n  - name: A\n    request:\n      method: GET\n      url: %s\n      headers:\n        Authorization: \"Bearer {{secrets.api_key}}\"\n", srv.URL)), 0o644)
 
-    t.Setenv("APITEST_TIER", "team")
-    t.Setenv("APITEST_TEAM_CONFIG", tpl)
-    t.Setenv("APITEST_VAULT_STUB", "1")
+    t.Setenv("CURLEW_TIER", "team")
+    t.Setenv("CURLEW_TEAM_CONFIG", tpl)
+    t.Setenv("CURLEW_VAULT_STUB", "1")
 
     code := runCmd([]string{col, "--env", "production"})
     if code != 0 { t.Fatalf("exit = %d", code) }
 }
 
 func TestRunCmd_TeamSecrets_MissingFile(t *testing.T) {
-    t.Setenv("APITEST_TIER", "team")
-    t.Setenv("APITEST_TEAM_CONFIG", "/does/not/exist.yaml")
+    t.Setenv("CURLEW_TIER", "team")
+    t.Setenv("CURLEW_TEAM_CONFIG", "/does/not/exist.yaml")
     code := runCmd([]string{"testdata/minimal.yaml"})
     if code != 3 { t.Fatalf("want 3, got %d", code) }
 }
@@ -865,12 +865,12 @@ func TestRunCmd_TeamSecrets_MissingFile(t *testing.T) {
 func TestRunCmd_TeamSecrets_MissingEnvFlag(t *testing.T) { /* exit 3 */ }
 func TestRunCmd_TeamSecrets_UnknownAlias(t *testing.T)   { /* exit 3 */ }
 func TestRunCmd_TeamSecrets_FreeTierBlocked(t *testing.T) { /* exit 6 */ }
-func TestRunCmd_Help_MentionsTeamTemplate(t *testing.T)  { /* help text contains APITEST_TEAM_CONFIG */ }
+func TestRunCmd_Help_MentionsTeamTemplate(t *testing.T)  { /* help text contains CURLEW_TEAM_CONFIG */ }
 ```
 
 #### Impact on Existing Tests
 - Every existing `TestRunCmd_*` continues passing because none of them set
-  `APITEST_TEAM_CONFIG`, and `LoadTeamTemplate("")` returns `(nil, nil)`.
+  `CURLEW_TEAM_CONFIG`, and `LoadTeamTemplate("")` returns `(nil, nil)`.
 - Help text tests that do an exact-string match will break; there is one
   at `TestRun_help` that only checks exit code, so we are safe. Any grep
   for specific strings has been audited — none will break.
@@ -887,7 +887,7 @@ verbatim and CI catches regressions.
 | File | Action | Description |
 |------|--------|-------------|
 | `testdata/team/uses-team-vault.yaml` | create | collection referencing `{{secrets.api_key}}` in URL or header |
-| `smoke/run.sh` | modify | add end-to-end scenario: export `APITEST_TEAM_CONFIG`, `APITEST_VAULT_STUB=1`, `APITEST_TIER=team`, spin up a local `python3 -m http.server` or use an existing test server pattern, run collection with `--env production`, assert exit 0 and stderr contains the resolved-log line |
+| `smoke/run.sh` | modify | add end-to-end scenario: export `CURLEW_TEAM_CONFIG`, `CURLEW_VAULT_STUB=1`, `CURLEW_TIER=team`, spin up a local `python3 -m http.server` or use an existing test server pattern, run collection with `--env production`, assert exit 0 and stderr contains the resolved-log line |
 | `CHANGELOG.md` | modify | add M4-002 entry under `## [Unreleased]` → `### Added` |
 
 #### `testdata/team/uses-team-vault.yaml` content
@@ -911,20 +911,20 @@ requests:
 
 ```bash
 echo "=== Shared vault template (M4-002) ==="
-echo "--- Run with APITEST_TEAM_CONFIG + stub ---"
+echo "--- Run with CURLEW_TEAM_CONFIG + stub ---"
 SMOKE_SRV_PORT=8099
 python3 -m http.server $SMOKE_SRV_PORT --bind 127.0.0.1 > /dev/null 2>&1 &
 SMOKE_SRV_PID=$!
 sleep 0.3
 trap 'kill $SMOKE_SRV_PID 2>/dev/null || true' EXIT
 
-export APITEST_TIER=team
-export APITEST_TEAM_CONFIG=testdata/team/shared-vault-template.yaml
-export APITEST_VAULT_STUB=1
+export CURLEW_TIER=team
+export CURLEW_TEAM_CONFIG=testdata/team/shared-vault-template.yaml
+export CURLEW_VAULT_STUB=1
 
-SMOKE_OUT=$(./apitest run testdata/team/uses-team-vault.yaml --env production 2>&1)
+SMOKE_OUT=$(./curlew run testdata/team/uses-team-vault.yaml --env production 2>&1)
 SMOKE_RC=$?
-unset APITEST_TEAM_CONFIG APITEST_VAULT_STUB APITEST_TIER
+unset CURLEW_TEAM_CONFIG CURLEW_VAULT_STUB CURLEW_TIER
 kill $SMOKE_SRV_PID 2>/dev/null || true
 trap - EXIT
 
@@ -953,8 +953,8 @@ keeps the smoke test hermetic.)
 | `internal/runner/runner_test.go` | `TestRun_VaultResolution` | none | pre-existing Layer-3 flow untouched |
 | `internal/runner/runner_test.go` | `TestRun_GateChecks/vault_*` | none | pre-existing gate flow untouched |
 | `internal/auth/registry_test.go` | feature list assertions | potentially breaks | update expected count if the test asserts on total feature count |
-| `cmd/apitest/run_test.go` | `TestRun_help`, `TestRunCmd_*` | none | existing tests do not set `APITEST_TEAM_CONFIG` |
-| `cmd/apitest/validate_team_test.go` | existing | none | this task does not touch `validate` |
+| `cmd/curlew/run_test.go` | `TestRun_help`, `TestRunCmd_*` | none | existing tests do not set `CURLEW_TEAM_CONFIG` |
+| `cmd/curlew/validate_team_test.go` | existing | none | this task does not touch `validate` |
 
 ## Risks and Edge Cases
 
@@ -996,7 +996,7 @@ keeps the smoke test hermetic.)
   collection request actually referenced `{{secrets.X}}`*. If no references,
   the log line is suppressed to keep output quiet.
 
-- **Edge case: `APITEST_TEAM_CONFIG` set but collection has no secrets
+- **Edge case: `CURLEW_TEAM_CONFIG` set but collection has no secrets
   references.**
   → **Handling:** template is loaded and validated (so config errors
   surface early) but `--env` is not required and the resolver is never
@@ -1076,7 +1076,7 @@ func stubTeamProviderFactory() func(*teamtemplate.ResolvedEnv) (vault.Provider, 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1085,11 +1085,11 @@ go test ./...
 Observable verification (exact commands from task YAML):
 
 ```bash
-go build ./cmd/apitest && \
-  APITEST_TEAM_CONFIG=testdata/team/shared-vault-template.yaml \
-  APITEST_VAULT_STUB=1 \
-  APITEST_TIER=team \
-  ./apitest run testdata/team/uses-team-vault.yaml --env production
+go build ./cmd/curlew && \
+  CURLEW_TEAM_CONFIG=testdata/team/shared-vault-template.yaml \
+  CURLEW_VAULT_STUB=1 \
+  CURLEW_TIER=team \
+  ./curlew run testdata/team/uses-team-vault.yaml --env production
 # Expected: exit 0; stderr includes "Resolved 2 secrets from shared template (production)";
 # the request body/header contains the resolved stub value.
 
@@ -1098,8 +1098,8 @@ go test ./internal/vault/teamtemplate/... ./internal/runner/... \
 # Expected: ok; >= 6 tests passing across both packages.
 ```
 
-Note: the task observable does not include `APITEST_TIER=team`. In practice
+Note: the task observable does not include `CURLEW_TIER=team`. In practice
 the feature gate must allow the run, so the smoke test and documentation
-set `APITEST_TIER=team`. This is noted here as a minor discrepancy with the
+set `CURLEW_TIER=team`. This is noted here as a minor discrepancy with the
 task YAML that will be resolved by updating the observable command in the
 verification report (not the task YAML).

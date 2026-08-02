@@ -11,7 +11,7 @@ dependencies:
 observable: |
   Create a `.graphql` query file and reference it via `query_file:`.
   Create fragment files and reference them via `fragments:`.
-  Run `apitest run tests.yaml` and confirm queries resolve correctly.
+  Run `curlew run tests.yaml` and confirm queries resolve correctly.
   Run `go test ./internal/graphql/...` for file loading tests.
 
 behaviors:

@@ -15,7 +15,7 @@
 | `golangci-lint run` | PASS | 0 findings |
 | `./smoke/run.sh` | PASS | Smoke test clean (part of ci-local.sh) |
 | `npm run test:unit -- account-data-export.spec.ts` | PASS | 7 tests pass |
-| Coverage | 81.5% (cmd/apitest); all relevant packages >= 80% | Meets >= 80% threshold |
+| Coverage | 81.5% (cmd/curlew); all relevant packages >= 80% | Meets >= 80% threshold |
 | `./scripts/ci-local.sh --go` | PASS | ci-local PASS |
 
 ## Observable Output

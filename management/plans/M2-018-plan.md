@@ -188,7 +188,7 @@ func TestSummary_ParallelMetadata(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/terminal.go` | modify | Add `WaveHeader` and `ParallelSummary` methods to `Printer` |
 | `internal/output/terminal_test.go` | modify | Add tests for new methods |
-| `cmd/apitest/main.go` | modify | Use wave headers in terminal output loop when parallel mode is active |
+| `cmd/curlew/main.go` | modify | Use wave headers in terminal output loop when parallel mode is active |
 
 #### New Code — terminal.go
 ```go
@@ -283,7 +283,7 @@ func TestPrinter_ParallelSummary(t *testing.T) {
 
 #### Impact on Existing Tests
 - No existing terminal tests break — new methods are additive.
-- `cmd/apitest/main.go` tests (integration) may need updates for parallel terminal output, but those are typically smoke tests.
+- `cmd/curlew/main.go` tests (integration) may need updates for parallel terminal output, but those are typically smoke tests.
 
 ---
 
@@ -296,7 +296,7 @@ func TestPrinter_ParallelSummary(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/json.go` | modify | Add `WaveIndex` to `JSONRequest`, add `ParallelExecution` struct and field to `JSONOutput` |
 | `internal/output/json_test.go` | modify | Add tests for new JSON fields |
-| `cmd/apitest/main.go` | modify | Populate new JSON fields in `buildJSONOutput` |
+| `cmd/curlew/main.go` | modify | Populate new JSON fields in `buildJSONOutput` |
 
 #### Current Code — json.go
 ```go
@@ -463,7 +463,7 @@ func TestWriteJSON_ParallelExecution(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/tap.go` | modify | Add `WaveIndex` field to `TAPResult`, modify `WriteTAP` to emit wave comments |
 | `internal/output/tap_test.go` | modify | Add tests for wave annotations |
-| `cmd/apitest/main.go` | modify | Populate `WaveIndex` in `buildTAPOutput` |
+| `cmd/curlew/main.go` | modify | Populate `WaveIndex` in `buildTAPOutput` |
 
 #### Current Code — tap.go
 ```go
@@ -592,14 +592,14 @@ This way, existing tests that create `TAPResult{}` get `WaveIndex: nil` and no w
 
 ---
 
-### Step 5: Wire Everything in cmd/apitest/main.go
+### Step 5: Wire Everything in cmd/curlew/main.go
 **Rationale:** This is the integration layer. Depends on Steps 1-4 for the data types and formatter methods to exist.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update terminal rendering loop for wave headers, populate JSON parallel fields, populate TAP wave index |
+| `cmd/curlew/main.go` | modify | Update terminal rendering loop for wave headers, populate JSON parallel fields, populate TAP wave index |
 
 #### Current Code — terminal output loop (lines 494-531)
 ```go
@@ -837,7 +837,7 @@ func TestFormatWaves_Enhanced(t *testing.T) {
 | `internal/output/json_test.go` | All existing | none | New fields are omitempty |
 | `internal/output/tap_test.go` | `TestWriteTAP` | none | WaveIndex nil by default |
 | `internal/parallel/dot_test.go` | `TestFormatWaves` | breaks | Update expected output format |
-| `cmd/apitest/main.go` tests | buildTAPOutput callers | breaks | Add parallel parameter |
+| `cmd/curlew/main.go` tests | buildTAPOutput callers | breaks | Add parallel parameter |
 
 ## Risks and Edge Cases
 
@@ -858,7 +858,7 @@ func TestFormatWaves_Enhanced(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -867,16 +867,16 @@ go test ./...
 Observable verification:
 ```bash
 # Terminal output with wave grouping
-apitest run --parallel tests.yaml
+curlew run --parallel tests.yaml
 
 # JSON output with parallel_execution metadata
-apitest run --parallel tests.yaml --format json
+curlew run --parallel tests.yaml --format json
 
 # TAP output with wave annotations
-apitest run --parallel tests.yaml --format tap
+curlew run --parallel tests.yaml --format tap
 
 # Dry-run output with enhanced wave plan
-apitest run --parallel tests.yaml --dry-run --show-dependencies
+curlew run --parallel tests.yaml --dry-run --show-dependencies
 
 # Unit tests
 go test ./internal/output/...

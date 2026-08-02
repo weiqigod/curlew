@@ -2,7 +2,7 @@
 
 ## Notes
 
-<!-- BEGIN apitest:response id=req-1 slug=get-user run=0123456789abcdef0123456789abcdef -->
+<!-- BEGIN curlew:response id=req-1 slug=get-user run=0123456789abcdef0123456789abcdef -->
 ## Response (deterministic)
 
 ### Request
@@ -31,7 +31,7 @@ started_at: 2026-04-25T12:00:00Z
 ### Assertions
 
 - [ ] status expected="201" actual="200"
-<!-- END apitest:response id=req-1 slug=get-user run=0123456789abcdef0123456789abcdef -->
+<!-- END curlew:response id=req-1 slug=get-user run=0123456789abcdef0123456789abcdef -->
 
 ## Analysis
 

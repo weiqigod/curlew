@@ -9,18 +9,18 @@ dependencies: [M10-001]
 observable: |
   # SKILL.md has the real content (frontmatter + sections), not the placeholder.
   TMP=$(mktemp -d); cd "$TMP"
-  apitest init --skill claude
-  awk '/^---$/{c++} c==2{exit} {print}' .claude/skills/apitest/SKILL.md | grep -E '^description: '
+  curlew init --skill claude
+  awk '/^---$/{c++} c==2{exit} {print}' .claude/skills/curlew/SKILL.md | grep -E '^description: '
   # Expected: one match (description present in frontmatter).
-  grep -cE '^## (When invoked|Invocation|Where results land|How to narrate|Failure playbook|What to edit|Notes)$' .claude/skills/apitest/SKILL.md
+  grep -cE '^## (When invoked|Invocation|Where results land|How to narrate|Failure playbook|What to edit|Notes)$' .claude/skills/curlew/SKILL.md
   # Expected: 7.
 
   # Failure playbook documents every implemented exit code.
-  grep -E '^\| [0-9] ' .claude/skills/apitest/SKILL.md | wc -l | tr -d ' '
+  grep -E '^\| [0-9] ' .claude/skills/curlew/SKILL.md | wc -l | tr -d ' '
   # Expected: 8 (codes 0, 1, 2, 3, 4, 5, 6, 9).
 
   # Mock-agent-loop test passes for every documented exit code.
-  go test -run 'TestSkillClaude_PlaybookMatchesBinary' -v ./cmd/apitest/...
+  go test -run 'TestSkillClaude_PlaybookMatchesBinary' -v ./cmd/curlew/...
   # Expected: PASS for sub-tests covering exit codes 0, 1, 2, 3-parse,
   # 3-config, 3-no-match, 4, 5, 6, 9.
 
@@ -29,7 +29,7 @@ observable: |
   # Expected: at least 1.
 
   # MANUAL.md has the agent-driven worked example.
-  grep -c 'Driving apitest with Claude Code' docs/MANUAL.md
+  grep -c 'Driving curlew with Claude Code' docs/MANUAL.md
   # Expected: at least 1.
 
   # CHANGELOG has the Added entry under [Unreleased].
@@ -53,14 +53,14 @@ observable: |
   go test ./...
   # Expected: PASS.
 behaviors:
-  - "templates/skills/claude/apitest/SKILL.md contains real content matching the M10-002 SKILL.md spec: frontmatter (name, description with trigger phrases), version comment (apitest-skill: claude v1.0 (apitest <version>)), H1 title, and seven H2 sections in fixed order: When invoked, Invocation, Where results land, How to narrate, Failure playbook by exit code, What to edit, Notes."
+  - "templates/skills/claude/curlew/SKILL.md contains real content matching the M10-002 SKILL.md spec: frontmatter (name, description with trigger phrases), version comment (curlew-skill: claude v1.0 (curlew <version>)), H1 title, and seven H2 sections in fixed order: When invoked, Invocation, Where results land, How to narrate, Failure playbook by exit code, What to edit, Notes."
   - "The Failure playbook table covers every exit code the binary actually produces: 0 (all passed), 1 (assertion failed), 2 (guard rail), 3 (with three sub-cases: parse error, config error, --only no-match), 4 (network/runtime), 5 (undefined variable), 6 (feature gate), 9 (license grace expired). Each row names the artifact the agent should read."
   - "Skill content references responses/run.md as the canonical landing file (not the per-request markdown alone), names the request_id / request_slug correlation IDs, and instructs the agent never to paraphrase response bodies (file-path narration discipline)."
-  - "New cmd/apitest/skill_playbook_test.go contains TestSkillClaude_PlaybookMatchesBinary — for each documented exit code it (a) constructs a minimal scenario producing that exit, (b) runs the binary in-process via captureRunCmd or out-of-process via buildBinary/runBinary, (c) asserts the exit code matches the playbook's documented value, (d) asserts the artifact the playbook tells the agent to read exists and is parseable (e.g., for exit 5 the run.error event in .apitest/run.ndjson contains the missing variable name)."
+  - "New cmd/curlew/skill_playbook_test.go contains TestSkillClaude_PlaybookMatchesBinary — for each documented exit code it (a) constructs a minimal scenario producing that exit, (b) runs the binary in-process via captureRunCmd or out-of-process via buildBinary/runBinary, (c) asserts the exit code matches the playbook's documented value, (d) asserts the artifact the playbook tells the agent to read exists and is parseable (e.g., for exit 5 the run.error event in .curlew/run.ndjson contains the missing variable name)."
   - "Exit code 9 sub-test uses the deterministic grace-expired fixture pattern (internal/license/state_test.go:80-84): backdates LicenseRecord.LastValidatedAt by 30+ days; no clock injection or mocking required."
   - "docs/SPECIFICATION.md gains a #### init --skill flag subsection under the existing init/scaffold area: documents the flag, the enum, the output: extension, the .gitignore extension, and links the IMPROVEMENT.md §3.2 target experience."
-  - "docs/MANUAL.md gains a Driving apitest with Claude Code section with a worked example: init --skill claude → open the project in Claude Code → natural-language ask (run the sample collection) → agent invokes apitest run with no extra flags → narration via responses/run.md."
-  - "CHANGELOG.md [Unreleased] gains exactly one new entry: Added: --skill claude flag for apitest init scaffolds Claude Code agent skill at .claude/skills/apitest/SKILL.md, enables events stream by default, defaults output format to markdown."
+  - "docs/MANUAL.md gains a Driving curlew with Claude Code section with a worked example: init --skill claude → open the project in Claude Code → natural-language ask (run the sample collection) → agent invokes curlew run with no extra flags → narration via responses/run.md."
+  - "CHANGELOG.md [Unreleased] gains exactly one new entry: Added: --skill claude flag for curlew init scaffolds Claude Code agent skill at .claude/skills/curlew/SKILL.md, enables events stream by default, defaults output format to markdown."
   - "IMPROVEMENT.md §3 status header (line 3) is flipped from W5 pending to W5 complete (date stamp); §5 W5 status block (line 280) is flipped from Pending to Shipped with M10-001 and M10-002 PR references; §3.2 target experience and §10 minimum viable example are unchanged (already accurate)."
   - "Consistency gate: after merge, git grep for live W5 [Pp]ending or blocked on W4 against docs/ IMPROVEMENT.md CHANGELOG.md returns zero matches."
 scope: |
@@ -68,14 +68,14 @@ scope: |
   shipment. Closes IMPROVEMENT.md W5.
 
   1. SKILL.md content. Replace the M10-001 placeholder at
-     templates/skills/claude/apitest/SKILL.md with the full skill body.
+     templates/skills/claude/curlew/SKILL.md with the full skill body.
      Frontmatter follows the convention in the user's
      ~/.claude/skills/cut-prose/SKILL.md and review-nonfiction-draft/SKILL.md
      (verified during planning). Length target ~80-120 lines, Markdown
      prose with one table for the exit-code playbook. The skill version
-     stays v1.0; the apitest version is templated.
+     stays v1.0; the curlew version is templated.
 
-  2. Mock-agent-loop test. cmd/apitest/skill_playbook_test.go (new file).
+  2. Mock-agent-loop test. cmd/curlew/skill_playbook_test.go (new file).
      For each exit code documented in the SKILL.md playbook:
        0  - sample collection that passes; assert run.md plus the
             per-request .md exist.
@@ -84,7 +84,7 @@ scope: |
        2  - request limit guard rail (M1-029); assert the run.error event
             names the limit.
        3a - YAML parse error; assert stderr names the line.
-       3b - configuration error (e.g., missing apitest.yaml); assert
+       3b - configuration error (e.g., missing curlew.yaml); assert
             stderr names the config concern.
        3c - --only with no matching request; assert stderr lists the
             available request names.
@@ -102,7 +102,7 @@ scope: |
 
   3. Documentation shipment.
      - docs/SPECIFICATION.md: new #### init --skill flag subsection.
-     - docs/MANUAL.md: new Driving apitest with Claude Code section
+     - docs/MANUAL.md: new Driving curlew with Claude Code section
        with a worked example tying init --skill claude to the
        agent-driven workflow.
      - CHANGELOG.md [Unreleased]: one new Added line.
@@ -120,7 +120,7 @@ scope: |
      agent_skill_template capability with both tasks done.
 
   Not in scope.
-  - apitest skill upgrade / install / list subcommands (deferred).
+  - curlew skill upgrade / install / list subcommands (deferred).
   - Additional agent platforms (--skill copilot, --skill cursor) — single
     enum value (claude) only in v1; the flag shape is future-proof.
   - schemastore.org publishing (still deferred per IMPROVEMENT.md §8.6).
@@ -129,17 +129,17 @@ scope: |
     planning to not block W5; remain documented but unfiled.
 definition_of_done:
   - "All behavior tests pass"
-  - "templates/skills/claude/apitest/SKILL.md replaced with real content; the seven H2 section headers and the eight-row playbook table are present"
+  - "templates/skills/claude/curlew/SKILL.md replaced with real content; the seven H2 section headers and the eight-row playbook table are present"
   - "TestSkillClaude_PlaybookMatchesBinary passes for every sub-test (codes 0, 1, 2, 3-parse, 3-config, 3-no-match, 4, 5, 6, 9)"
-  - "TestSkillClaude_SkillFileSnapshot passes: the rendered SKILL.md from init --skill claude matches a golden snapshot byte-for-byte (modulo the {{apitest_version}} substitution), guarding against accidental edits to the embedded template"
+  - "TestSkillClaude_SkillFileSnapshot passes: the rendered SKILL.md from init --skill claude matches a golden snapshot byte-for-byte (modulo the {{curlew_version}} substitution), guarding against accidental edits to the embedded template"
   - "docs/SPECIFICATION.md contains an init --skill subsection that documents the flag, the enum, and the output: + .gitignore extensions"
-  - "docs/MANUAL.md contains a Driving apitest with Claude Code section with the worked example"
+  - "docs/MANUAL.md contains a Driving curlew with Claude Code section with the worked example"
   - "CHANGELOG.md [Unreleased] gains the --skill claude Added entry"
   - "IMPROVEMENT.md §3 status header is flipped to fully Shipped"
   - "IMPROVEMENT.md §5 W5 status block is flipped to Shipped with M10-001 + M10-002 PR references"
   - "git grep -n 'W5.*[Pp]ending|blocked on W4' against docs/, IMPROVEMENT.md, CHANGELOG.md returns zero matches"
   - "go test ./... passes"
-  - "go test -cover ./cmd/apitest/... >= 80%"
+  - "go test -cover ./cmd/curlew/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"

@@ -34,7 +34,7 @@ $ go test -v -count=1 ./internal/vault/...
 === RUN   TestResolve (7 subtests) --- PASS
 === RUN   TestParseSecretsYAML_NilNode --- PASS
 === RUN   TestParseSecretsYAML (10 subtests) --- PASS
-PASS ok github.com/peterlindqvist/apitest/internal/vault 0.402s
+PASS ok github.com/weiqigod/curlew/internal/vault 0.402s
 ```
 
 Expected: All vault tests pass with mocked AWS CLI calls

@@ -405,7 +405,7 @@ func toBodyInputs(items []parser.BodyAssertion) []assertion.BodyAssertionInput {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/run_test.go` | modify | Add CLI integration tests for body assertions |
+| `cmd/curlew/run_test.go` | modify | Add CLI integration tests for body assertions |
 | `smoke/run.sh` | modify | Add body assertion smoke test case |
 | `smoke/collections/body_assertions.yaml` | create | Smoke test collection |
 
@@ -444,7 +444,7 @@ func TestRunCmd_body_assertion_non_json(t *testing.T) {
 | `internal/runner/runner_test.go` | all assertion tests | breaks | update `assertion.Evaluate` calls to 4-arg signature |
 | `internal/httpexec/executor_test.go` | all | none | — |
 | `internal/parser/parser_test.go` | all | none | — |
-| `cmd/apitest/run_test.go` | all | none | — |
+| `cmd/curlew/run_test.go` | all | none | — |
 
 ## Risks and Edge Cases
 
@@ -469,7 +469,7 @@ func TestRunCmd_body_assertion_non_json(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -496,6 +496,6 @@ requests:
           type: string
 EOF
 
-./apitest run /tmp/body_test.yaml
+./curlew run /tmp/body_test.yaml
 # Should see pass/fail per assertion
 ```

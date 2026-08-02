@@ -1,7 +1,7 @@
 # Implementation Plan: M2-027
 
 ## Overview
-Add HTML report generation as a self-contained output format. When users run `apitest run tests.yaml --format html --report report.html`, a single HTML file is generated with embedded CSS/JS showing test summary, pass/fail status, timing, and assertion details. Registered as Professional-tier feature gate.
+Add HTML report generation as a self-contained output format. When users run `curlew run tests.yaml --format html --report report.html`, a single HTML file is generated with embedded CSS/JS showing test summary, pass/fail status, timing, and assertion details. Registered as Professional-tier feature gate.
 
 ## Task Details
 - **ID:** M2-027
@@ -333,7 +333,7 @@ func TestWriteHTML_validHTML(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `html` to format validation, feature gate check, `--format html` requires `--report`, HTML report generation and writing |
+| `cmd/curlew/main.go` | modify | Add `html` to format validation, feature gate check, `--format html` requires `--report`, HTML report generation and writing |
 
 #### Current Code — format validation (line ~200)
 ```go
@@ -455,7 +455,7 @@ func writeHTMLError(path string, err error) error {
     }
     defer f.Close()
     report := &output.HTMLReport{
-        Name:        "apitest",
+        Name:        "curlew",
         Status:      "error",
         GeneratedAt: time.Now().Format(time.RFC3339),
         Requests: []output.HTMLRequest{{
@@ -521,7 +521,7 @@ func TestRunCmd_format_html_stdout_empty_when_report_used(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update help text for --format and --report |
+| `cmd/curlew/main.go` | modify | Update help text for --format and --report |
 | `smoke/run.sh` | modify | Add HTML report smoke test |
 
 #### Help Text Changes
@@ -535,7 +535,7 @@ fmt.Println("  --report <file>     Write report to file (required for --format h
 #### Smoke Test Addition
 ```bash
 echo "--- Running with --format html (expect gate at free tier, exit 6) ---"
-./apitest run sample/hello.yaml --format html --report /tmp/test.html && echo "ERROR: should have been gated" || echo "Exit code: $?"
+./curlew run sample/hello.yaml --format html --report /tmp/test.html && echo "ERROR: should have been gated" || echo "Exit code: $?"
 echo
 ```
 
@@ -551,8 +551,8 @@ No additional tests needed for this step — covered by existing help and smoke 
 |-----------|--------------|--------|----------------|
 | `internal/auth/gate_test.go` | (new) `TestCheckFeature_HTMLReport` | new test | write |
 | `internal/output/html_test.go` | (new) all | new file | write |
-| `cmd/apitest/main_test.go` | (new) multiple HTML tests | new tests | write |
-| `cmd/apitest/main_test.go` | tests checking "unknown format" error message | may break | update message to include "html" |
+| `cmd/curlew/main_test.go` | (new) multiple HTML tests | new tests | write |
+| `cmd/curlew/main_test.go` | tests checking "unknown format" error message | may break | update message to include "html" |
 | `smoke/run.sh` | n/a | update | add HTML smoke test |
 
 ## Risks and Edge Cases
@@ -577,7 +577,7 @@ No additional tests needed for this step — covered by existing help and smoke 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -586,12 +586,12 @@ go test ./...
 Observable verification:
 ```bash
 # Build and run with professional tier override (for testing)
-go build -o apitest ./cmd/apitest
+go build -o curlew ./cmd/curlew
 # Test gate at free tier
-./apitest run sample/hello.yaml --format html --report /tmp/test.html
+./curlew run sample/hello.yaml --format html --report /tmp/test.html
 # Expected: exit code 6 (feature gated)
 
 # Run tests directly
 go test ./internal/output/... -run TestWriteHTML -v
-go test ./cmd/apitest/... -run TestRunCmd_format_html -v
+go test ./cmd/curlew/... -run TestRunCmd_format_html -v
 ```

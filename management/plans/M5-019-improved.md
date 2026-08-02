@@ -20,7 +20,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` (main module) | PASS |
 | `golangci-lint run` | PASS |
 | `go test ./...` (example module) | PASS |

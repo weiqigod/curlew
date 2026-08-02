@@ -24,7 +24,7 @@ test.afterAll(async () => {
 test('boot strips the token from the URL into sessionStorage', async () => {
   await gotoApp(page);
   expect(page.url()).not.toContain('token=');
-  const stored = await page.evaluate(() => sessionStorage.getItem('apitest.token'));
+  const stored = await page.evaluate(() => sessionStorage.getItem('curlew.token'));
   expect(stored).toBe(server().token);
   // Shell chrome is up: project name + sidebar tree.
   await expect(page.getByText('e2e-fixture')).toBeVisible();

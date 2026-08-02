@@ -1,9 +1,9 @@
 ---
 title: Parallel execution by dependency waves
-intent: Declare what depends on what; ApiTool topologically sorts your requests into concurrent waves and proves the plan before running it.
+intent: Declare what depends on what; Curlew topologically sorts your requests into concurrent waves and proves the plan before running it.
 group: core
 features: [parallel, chaining, setup-teardown]
-command: apitest run collections/order-graph.yaml --parallel
+command: curlew run collections/order-graph.yaml --parallel
 order: 30
 runnable: false
 ---
@@ -14,7 +14,7 @@ runnable: false
 
 When requests are independent, running them one after another just wastes wall-clock.
 You don't hand-write a thread pool, though — you declare dependencies with
-`depends_on`, and ApiTool computes the execution **waves** with a topological sort.
+`depends_on`, and Curlew computes the execution **waves** with a topological sort.
 Independent requests in the same wave run concurrently; extracted variables flow
 forward to the next wave.
 
@@ -62,7 +62,7 @@ resolve every variable and preview URLs and bodies with zero network traffic. A
 cycle (A→B→A) is rejected at parse time with a clear error.
 
 ```bash
-apitest run collections/order-graph.yaml --show-dependencies --dry-run
+curlew run collections/order-graph.yaml --show-dependencies --dry-run
 ```
 
 ```
@@ -77,7 +77,7 @@ Expected speedup: 1.5x
 ## Run it for real
 
 ```bash
-apitest run collections/order-graph.yaml --parallel
+curlew run collections/order-graph.yaml --parallel
 ```
 
 ```
@@ -97,7 +97,7 @@ Wave 2 (1 concurrent):
 ```
 
 <Callout type="tip">
-	This is ApiTool's real parallel output, captured from a run — the
+	This is Curlew's real parallel output, captured from a run — the
 	<code>Speedup</code> line corresponds to
 	<code>.parallel_execution.speedup_factor</code> in <code>--format json</code>.
 	Waves are computed from data flow: <code>Place order</code> uses values extracted by

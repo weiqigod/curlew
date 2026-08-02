@@ -409,8 +409,8 @@ func TestPrinterVerbosityVerbose_NoResponseBody(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add verbosity cases to `parseRunArgs` switch; update signature; update `runCmd` callers; update usage string |
-| `cmd/apitest/main_test.go` | modify | Update all `parseRunArgs` destructuring to accept 9th return value; add verbosity test cases |
+| `cmd/curlew/main.go` | modify | Add verbosity cases to `parseRunArgs` switch; update signature; update `runCmd` callers; update usage string |
+| `cmd/curlew/main_test.go` | modify | Update all `parseRunArgs` destructuring to accept 9th return value; add verbosity test cases |
 
 #### Current Code
 ```go
@@ -458,7 +458,7 @@ out = output.NewPrinter(os.Stdout, useColor, verbosity)
 
 Updated usage string in `runCmd`:
 ```go
-_, _ = fmt.Fprintln(os.Stderr, "Usage: apitest run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--no-color] [-v] [-vv] [-q]")
+_, _ = fmt.Fprintln(os.Stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--no-color] [-v] [-vv] [-q]")
 ```
 
 Updated test call sites (mechanical):
@@ -501,7 +501,7 @@ func TestParseRunArgs_Verbosity(t *testing.T) {
 ```
 
 #### Impact on Existing Tests
-- **`cmd/apitest/main_test.go`** — **Compilation break.** All four `parseRunArgs` call sites destructure 8 return values; adding a 9th causes a compile error. Fix by adding `_` for verbosity at each call site (mechanical). No test logic changes needed.
+- **`cmd/curlew/main_test.go`** — **Compilation break.** All four `parseRunArgs` call sites destructure 8 return values; adding a 9th causes a compile error. Fix by adding `_` for verbosity at each call site (mechanical). No test logic changes needed.
 
 ---
 
@@ -512,7 +512,7 @@ func TestParseRunArgs_Verbosity(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Call `RequestDetail`, `ResponseDetail`, `RequestBodyDump`, `ResponseBodyDump` in the results rendering loop |
+| `cmd/curlew/main.go` | modify | Call `RequestDetail`, `ResponseDetail`, `RequestBodyDump`, `ResponseBodyDump` in the results rendering loop |
 
 #### Current Code
 ```go
@@ -585,8 +585,8 @@ func TestRunCmdDirect_DebugMode_ShowsBody(t *testing.T) {
 | File | Action | Description |
 |------|--------|-------------|
 | `internal/output/json.go` | modify | Add `RequestHeaders`, `ResponseHeaders`, `ResponseBody` optional fields to `JSONRequest` |
-| `cmd/apitest/main.go` | modify | Add `verbosity` parameter to `buildJSONOutput`; populate optional fields when verbose |
-| `cmd/apitest/main_test.go` | modify | Update `buildJSONOutput` call sites to pass verbosity; add JSON verbosity tests |
+| `cmd/curlew/main.go` | modify | Add `verbosity` parameter to `buildJSONOutput`; populate optional fields when verbose |
+| `cmd/curlew/main_test.go` | modify | Update `buildJSONOutput` call sites to pass verbosity; add JSON verbosity tests |
 
 #### Current Code
 ```go
@@ -661,7 +661,7 @@ func TestBuildJSONOutput_Verbosity(t *testing.T) {
 ```
 
 #### Impact on Existing Tests
-- `cmd/apitest/main_test.go` — all `buildJSONOutput(...)` calls become compilation errors. Fix by appending `output.VerbosityDefault` as the last argument. Three call sites: lines 2460, 2489, 2521.
+- `cmd/curlew/main_test.go` — all `buildJSONOutput(...)` calls become compilation errors. Fix by appending `output.VerbosityDefault` as the last argument. Three call sites: lines 2460, 2489, 2521.
 
 ---
 
@@ -672,7 +672,7 @@ func TestBuildJSONOutput_Verbosity(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `-v`, `-vv`, `-q` to `printHelp()` and usage string |
+| `cmd/curlew/main.go` | modify | Add `-v`, `-vv`, `-q` to `printHelp()` and usage string |
 
 #### New Code
 ```go
@@ -709,7 +709,7 @@ func TestHelp_ContainsVerbosityFlags(t *testing.T) {
 #### New Code (additions to `smoke/run.sh`)
 ```bash
 # Test quiet mode: output should be a single summary line
-OUTPUT=$(./apitest run smoke/collection.yaml -q 2>&1)
+OUTPUT=$(./curlew run smoke/collection.yaml -q 2>&1)
 LINE_COUNT=$(echo "$OUTPUT" | wc -l | tr -d ' ')
 if [ "$LINE_COUNT" -gt 3 ]; then
   echo "FAIL: quiet mode produced $LINE_COUNT lines, expected <= 3"
@@ -718,7 +718,7 @@ fi
 echo "PASS: quiet mode output is minimal"
 
 # Test verbose mode: should contain header-like lines
-OUTPUT=$(./apitest run smoke/collection.yaml -v 2>&1)
+OUTPUT=$(./curlew run smoke/collection.yaml -v 2>&1)
 if ! echo "$OUTPUT" | grep -q "^  >"; then
   echo "FAIL: verbose mode missing request detail lines"
   exit 1
@@ -726,7 +726,7 @@ fi
 echo "PASS: verbose mode shows request detail"
 
 # Test help contains verbosity flags
-OUTPUT=$(./apitest --help 2>&1)
+OUTPUT=$(./curlew --help 2>&1)
 for flag in "-v" "-vv" "-q"; do
   if ! echo "$OUTPUT" | grep -q "$flag"; then
     echo "FAIL: --help missing $flag"
@@ -745,8 +745,8 @@ echo "PASS: help text contains verbosity flags"
 
 | File | Test Function | Impact | Action Required |
 |------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | All `parseRunArgs` calls | **Compilation break** | Add `_` for new 9th return value |
-| `cmd/apitest/main_test.go` | All `buildJSONOutput` calls | **Compilation break** | Append `output.VerbosityDefault` argument |
+| `cmd/curlew/main_test.go` | All `parseRunArgs` calls | **Compilation break** | Add `_` for new 9th return value |
+| `cmd/curlew/main_test.go` | All `buildJSONOutput` calls | **Compilation break** | Append `output.VerbosityDefault` argument |
 | `internal/output/terminal_test.go` | All existing tests | None | No changes needed |
 | `internal/output/json_test.go` | All existing tests | None | No changes needed |
 | `internal/runner/runner_test.go` | All existing tests | None | No changes needed |
@@ -764,7 +764,7 @@ echo "PASS: help text contains verbosity flags"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -773,20 +773,20 @@ go test ./...
 Observable verification:
 ```bash
 # Default: request name, status, assertion results
-./apitest run smoke/collection.yaml
+./curlew run smoke/collection.yaml
 
 # Verbose: + request/response headers
-./apitest run smoke/collection.yaml -v
+./curlew run smoke/collection.yaml -v
 
 # Debug: + full body dump
-./apitest run smoke/collection.yaml -vv
+./curlew run smoke/collection.yaml -vv
 
 # Quiet: summary line only
-./apitest run smoke/collection.yaml -q
+./curlew run smoke/collection.yaml -q
 
 # Quiet with all passing: single line
-./apitest run smoke/collection.yaml -q && echo "exit 0"
+./curlew run smoke/collection.yaml -q && echo "exit 0"
 
 # Verbose + JSON: headers appear in JSON output
-./apitest run smoke/collection.yaml -v --format json | jq .
+./curlew run smoke/collection.yaml -v --format json | jq .
 ```

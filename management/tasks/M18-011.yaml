@@ -30,7 +30,7 @@ behaviors:
   - "Given the first pen-test engagement is scheduled (Q2 2026 per v4-15 cadence), when the artefact docs/security/pentest-2026-Q2.md is read, then it carries Scope, Methodology, Findings (by severity), Remediation log (with PR references), Sign-off"
   - "Given the pen-test artefact references remediated items, when each is traced, then a corresponding git commit or PR link exists in the Remediation log column"
   - "Given the vendor inventory references each external dependency, when an auditor follows the DPA on file column, then a link or footnote points to the storage location of the executed DPA (S3 bucket path, contract management tool URL, or 'on file at legal@')"
-  - "Given the two DFDs reference internal architecture, when read against the live codebase, then every named component maps to an actual directory or service (CLI = cmd/apitest/, backend = src/ApiTool.Backend/, web = web/, KMS = Google Cloud KMS or FileKeyProvider per deployment)"
+  - "Given the two DFDs reference internal architecture, when read against the live codebase, then every named component maps to an actual directory or service (CLI = cmd/curlew/, backend = src/ApiTool.Backend/, web = web/, KMS = Google Cloud KMS or FileKeyProvider per deployment)"
   - "Given the pen-test cadence is annual per v4-15, when docs/COMPLIANCE.md is read, then it names the next pen-test target window (Q2 2027) and the budget-line owner"
 
 scope: |

@@ -10,7 +10,7 @@ dependencies:
 
 observable: |
   Configure an auth profile with TTL-based caching.
-  Run `apitest run tests.yaml` twice within TTL and confirm the auth profile only executes once.
+  Run `curlew run tests.yaml` twice within TTL and confirm the auth profile only executes once.
   Run `go test ./internal/auth/...` to verify caching and refresh behavior.
 
 behaviors:
@@ -22,7 +22,7 @@ behaviors:
 
 scope: |
   Extend `internal/auth/profile.go` with token caching that persists between runs
-  (file-based cache in `.apitest/cache/`). Implement TTL-based cache invalidation.
+  (file-based cache in `.curlew/cache/`). Implement TTL-based cache invalidation.
   Implement optional refresh-on-failure behavior where auth profile is re-executed when
   a 401 is encountered. Cache is per-profile, keyed by profile name.
 

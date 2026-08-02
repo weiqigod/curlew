@@ -8,39 +8,39 @@ track: go-cli
 dependencies: [M9-002]
 observable: |
   # Text body renders inside ```text fence, verbatim.
-  ./apitest run collections/text.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/text.yaml --format markdown --report /tmp/resp
   grep -A 1 '^```text$' /tmp/resp/echo-text.md | head -2
   # Expected: ```text fence followed by the verbatim text.
 
   # Empty body renders as `_(empty body)_`.
-  ./apitest run collections/empty.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/empty.yaml --format markdown --report /tmp/resp
   grep '_(empty body)_' /tmp/resp/health.md
   # Expected: marker present on its own line.
 
   # HEAD response renders as `_(HEAD — no body)_`.
-  ./apitest run collections/head.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/head.yaml --format markdown --report /tmp/resp
   grep '_(HEAD' /tmp/resp/ping-head.md
   # Expected: HEAD marker present.
 
   # Binary body (image/png) renders hex preview + total-bytes footer.
-  ./apitest run collections/binary.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/binary.yaml --format markdown --report /tmp/resp
   grep '^```hexdump$' /tmp/resp/fetch-image.md
   grep -E 'bytes total' /tmp/resp/fetch-image.md
   # Expected: hexdump fence present; `_<N> bytes total_` footer present.
 
   # YAML body renders canonicalized inside ```yaml fence.
-  ./apitest run collections/yaml-response.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/yaml-response.yaml --format markdown --report /tmp/resp
   grep '^```yaml$' /tmp/resp/config-yaml.md
   # Expected: yaml fence present.
 
   # XML and HTML bodies render verbatim inside their respective fences.
-  ./apitest run collections/xml-html.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/xml-html.yaml --format markdown --report /tmp/resp
   grep '^```xml$' /tmp/resp/fetch-xml.md
   grep '^```html$' /tmp/resp/fetch-html.md
   # Expected: both fences present.
 
   # 1 MiB body cap applies post-redaction with a truncation marker.
-  ./apitest run collections/large.yaml --format markdown --report /tmp/resp
+  ./curlew run collections/large.yaml --format markdown --report /tmp/resp
   grep 'truncated' /tmp/resp/huge.md
   # Expected: marker line like "_... truncated (body was 2097152 bytes, showing first 1048576)_"
   wc -c /tmp/resp/huge.md
@@ -48,14 +48,14 @@ observable: |
 
   # Volatile headers (Date, X-Request-ID, Set-Cookie, ETag, Server, Age)
   # appear under Response metadata only; absent from the signal blocks.
-  ./apitest run collections/volatile.yaml --format markdown --report /tmp/resp
-  awk '/BEGIN apitest:response/,/### Response metadata/' /tmp/resp/volatile-demo.md | grep -Ec '^(Date|X-Request-ID|Set-Cookie|ETag|Server|Age):'
+  ./curlew run collections/volatile.yaml --format markdown --report /tmp/resp
+  awk '/BEGIN curlew:response/,/### Response metadata/' /tmp/resp/volatile-demo.md | grep -Ec '^(Date|X-Request-ID|Set-Cookie|ETag|Server|Age):'
   # Expected: 0 (volatile headers are not in the request/response blocks).
   grep -A 20 '^### Response metadata' /tmp/resp/volatile-demo.md | grep -E '^(Date|X-Request-ID|Set-Cookie|ETag|Server|Age):'
   # Expected: each volatile header present in the metadata section.
 
   # Redaction invariant: --allow-sensitive does NOT leak secrets into markdown.
-  ./apitest run collections/secret.yaml --format markdown --report /tmp/resp --allow-sensitive
+  ./curlew run collections/secret.yaml --format markdown --report /tmp/resp --allow-sensitive
   grep 'sk_live' /tmp/resp/*.md
   # Expected: no matches. Body and headers contain [REDACTED].
 

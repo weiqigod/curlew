@@ -24,7 +24,7 @@ Pass-rate trajectory across four CI rounds:
 | 3 | 24635134031 | 6/7 | fake-idp accepts GET (HTTP-Redirect binding) |
 | 4 | **24635285508** | **7/7 ✓** | qa user as admin built-in + qa-lead custom overlay |
 
-Final CI run: <https://github.com/weiqigod/apitest/actions/runs/24635285508>
+Final CI run: <https://github.com/weiqigod/curlew/actions/runs/24635285508>
 - E2E enterprise-full: PASS in 3m58s
 - E2E full pipeline (M4 sibling): PASS in 3m57s
 
@@ -32,7 +32,7 @@ Final CI run: <https://github.com/weiqigod/apitest/actions/runs/24635285508>
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | clean |
+| `go build ./cmd/curlew` | PASS | clean |
 | `go test ./...` | PASS | all packages green |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | end-of-run marker reached |
@@ -46,7 +46,7 @@ Final CI run: <https://github.com/weiqigod/apitest/actions/runs/24635285508>
 
 ```
 scripts/test-stack.sh up
-APITEST_BACKEND_TOKEN=$(scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002) \
+CURLEW_BACKEND_TOKEN=$(scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002) \
   npx --prefix web playwright test tests/e2e/enterprise-full.spec.ts
 # Expected: 7/7 tests pass (was 1/7 passing on CI run 24632535770).
 scripts/test-stack.sh down
@@ -73,7 +73,7 @@ on the local verification host). Result: 7 passed (17.0s, second-attempt).
 | 3 | `go test ./...` passes | all packages green | PASS |
 | 4 | `golangci-lint run` passes | 0 issues | PASS |
 | 5 | `./smoke/run.sh` passes | end marker reached, all PASS lines | PASS |
-| 6 | CI job `E2E M5 enterprise-full` is green on the fix branch | https://github.com/weiqigod/apitest/actions/runs/24635285508 | PASS |
+| 6 | CI job `E2E M5 enterprise-full` is green on the fix branch | https://github.com/weiqigod/curlew/actions/runs/24635285508 | PASS |
 
 ## Code Review
 

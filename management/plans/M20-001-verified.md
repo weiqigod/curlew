@@ -16,7 +16,7 @@
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage `internal/variable` | 97.2% | Meets >= 80% threshold |
 | Coverage `internal/config` | 90.5% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 79.6% | DoD specifies internal/variable + internal/config >= 80%; both meet it |
+| Coverage `cmd/curlew` | 79.6% | DoD specifies internal/variable + internal/config >= 80%; both meet it |
 
 ## Observable Output
 
@@ -32,7 +32,7 @@ Result: MATCH
 
 ### Observable 4: CLI flag beats project config
 ```
-apitest: resolved locale: de-DE (source: --locale flag)
+curlew: resolved locale: de-DE (source: --locale flag)
 ```
 Expected: with collection config locale: en-US and --locale de-DE, the flag wins.
 Result: MATCH
@@ -60,7 +60,7 @@ These observables reference httpbin.org (live internet). Verified via hermetic u
 | 5 | `en-GB` fallback chain resolves to en-US, verbose warning logged | `TestNewRegistry_WithLocale_FallbackWarns`, `TestRun_Locale_FallbackChainEnGB` | PASS |
 | 6 | CLI flag beats collection/env/project config (precedence chain) | `TestRun_LocalePrecedence_FlagBeatsCollection`, `TestRun_LocalePrecedence_FlagBeatsProjectConfig` | PASS |
 | 7 | Collection config `locale: de-DE` honored when no `--locale` flag | `TestRun_CollectionLocale_HonoredWhenFlagAbsent` | PASS |
-| 8 | `apitest run --help` and `apitest exec --help` document `--locale` | `TestHelpText_ContainsLocaleFlag` | PASS |
+| 8 | `curlew run --help` and `curlew exec --help` document `--locale` | `TestHelpText_ContainsLocaleFlag` | PASS |
 
 ## Definition of Done
 
@@ -72,7 +72,7 @@ These observables reference httpbin.org (live internet). Verified via hermetic u
 | 4 | `golangci-lint run` passes with 0 issues | ci-local.sh lint gate clean | PASS |
 | 5 | `./smoke/run.sh` passes | ci-local.sh smoke gate clean | PASS |
 | 6 | `docs/REVIEW.md:75` and `:156` corrected | "unparsed (silently ignored)" wording confirmed at lines 75 and 156 | PASS |
-| 7 | `apitest run --help` and `apitest exec --help` document `--locale` | `--locale <code>` documented with de-DE example and supported locales list | PASS |
+| 7 | `curlew run --help` and `curlew exec --help` document `--locale` | `--locale <code>` documented with de-DE example and supported locales list | PASS |
 | 8 | Default en-US backward compat regression test | `TestRegistry_Locale_EnUS_ByteIdenticalToBaseline` passes | PASS |
 
 ## Code Review
@@ -132,7 +132,7 @@ Key files modified/added:
 | `internal/runner/runner.go` | modified — resolveLocale, VarSources.Locale, LocaleVerbose |
 | `internal/config/project.go` | modified — ConfigBlock with locale field |
 | `internal/parser/collection.go` | modified — CollectionConfigBlock with locale field |
-| `cmd/apitest/main.go` | modified — --locale flag in run/exec, precedence wiring |
+| `cmd/curlew/main.go` | modified — --locale flag in run/exec, precedence wiring |
 | `docs/REVIEW.md` | modified — corrected lines 75 and 156 |
 | `testdata/locale/simple.yaml` | added — hermetic locale test fixture |
 | `testdata/locale/de-project.yaml` | added — precedence test fixture |

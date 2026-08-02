@@ -1,6 +1,6 @@
 # Verification Report: M1-017
 
-**Task:** Global project config (apitest.yaml)
+**Task:** Global project config (curlew.yaml)
 **Verified by:** AI
 **Date:** 2026-03-14
 **Branch:** feature/M1-017-global-project-config
@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke tests pass including project config walk-up and help text |
@@ -25,7 +25,7 @@ Collection: Demo
 1 request(s): 1 passed, 0 failed (444ms)
 ```
 
-Setup: `apitest.yaml` in `/tmp/apitest-demo/` with `base_url: https://httpbin.org`; collection in `/tmp/apitest-demo/requests/` using `{{base_url}}/get`.
+Setup: `curlew.yaml` in `/tmp/curlew-demo/` with `base_url: https://httpbin.org`; collection in `/tmp/curlew-demo/requests/` using `{{base_url}}/get`.
 Expected: request succeeds, no "undefined variable" errors.
 Result: MATCH
 
@@ -33,11 +33,11 @@ Result: MATCH
 
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
-| 1 | Given apitest.yaml in project root with variables: block, when collection runs, then variables are loaded at precedence 2 | `TestRun_ProjectVariables/project_variables_available_in_interpolation`, `TestRunCmd_ProjectConfig/project_variables_resolved_in_collection` | PASS |
-| 2 | Given apitest.yaml variables and collection variables with same key, then collection wins as more specific | `TestRun_ProjectVariables/collection_overrides_project`, `TestRunCmd_ProjectConfig/project_variables_overridden_by_collection_variables` | PASS |
-| 3 | Given no apitest.yaml, when collection runs, then no error (file is optional) | `TestLoadProjectConfig/no_project_root_returns_empty_config_no_error`, `TestRunCmd_ProjectConfig/no_apitest.yaml_runs_without_error` | PASS |
-| 4 | Given apitest.yaml with project_name: field, when loaded, then it is available for output context | `TestParseProjectConfig/valid_with_project_name_and_variables` | PASS |
-| 5 | Given apitest.yaml in a parent directory, when collection is in subdirectory, then project config is found by walking up | `TestFindProjectRoot/found_in_grandparent_directory`, `TestRunCmd_ProjectConfig/project_config_in_parent_directory_(walk-up)`, smoke test | PASS |
+| 1 | Given curlew.yaml in project root with variables: block, when collection runs, then variables are loaded at precedence 2 | `TestRun_ProjectVariables/project_variables_available_in_interpolation`, `TestRunCmd_ProjectConfig/project_variables_resolved_in_collection` | PASS |
+| 2 | Given curlew.yaml variables and collection variables with same key, then collection wins as more specific | `TestRun_ProjectVariables/collection_overrides_project`, `TestRunCmd_ProjectConfig/project_variables_overridden_by_collection_variables` | PASS |
+| 3 | Given no curlew.yaml, when collection runs, then no error (file is optional) | `TestLoadProjectConfig/no_project_root_returns_empty_config_no_error`, `TestRunCmd_ProjectConfig/no_curlew.yaml_runs_without_error` | PASS |
+| 4 | Given curlew.yaml with project_name: field, when loaded, then it is available for output context | `TestParseProjectConfig/valid_with_project_name_and_variables` | PASS |
+| 5 | Given curlew.yaml in a parent directory, when collection is in subdirectory, then project config is found by walking up | `TestFindProjectRoot/found_in_grandparent_directory`, `TestRunCmd_ProjectConfig/project_config_in_parent_directory_(walk-up)`, smoke test | PASS |
 
 ## Definition of Done
 
@@ -47,7 +47,7 @@ Result: MATCH
 | 2 | Observable output works as specified | Collection with `{{base_url}}` resolves via project config | PASS |
 | 3 | Test coverage >= 80% | 92.4% overall; `internal/config/project.go` 100% | PASS |
 | 4 | No build warnings or lint errors | Clean `go build`; `golangci-lint` 0 issues | PASS |
-| 5 | Help text updated | `apitest.yaml` listed in Auto-loaded section | PASS |
+| 5 | Help text updated | `curlew.yaml` listed in Auto-loaded section | PASS |
 | 6 | Smoke test updated | Walk-up scenario and help text check added | PASS |
 
 ## Code Review
@@ -89,8 +89,8 @@ TDD pattern visible: `test(...)` commits precede `feat(...)` commits throughout.
 | `internal/config/project_test.go` | created |
 | `internal/runner/runner.go` | modified — Project field in VarSources |
 | `internal/runner/runner_test.go` | modified — TestRun_ProjectVariables |
-| `cmd/apitest/main.go` | modified — LoadProjectConfig wiring, help text |
-| `cmd/apitest/main_test.go` | modified — TestRunCmd_ProjectConfig |
+| `cmd/curlew/main.go` | modified — LoadProjectConfig wiring, help text |
+| `cmd/curlew/main_test.go` | modified — TestRunCmd_ProjectConfig |
 | `smoke/run.sh` | modified — project config walk-up smoke test |
 
 ## Issues Found

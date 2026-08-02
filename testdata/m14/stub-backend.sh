@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tiny apitool device-code stub server. Reusable by M14-005, M14-006, M14-007, M14-021.
+# Tiny curlew device-code stub server. Reusable by M14-005, M14-006, M14-007, M14-021.
 #
 # Usage:
 #   ./testdata/m14/stub-backend.sh start              # foreground

@@ -123,8 +123,8 @@ TDD pattern confirmed: test commits precede feat commits throughout.
 | `internal/parallel/waves_test.go` | modified — added TestParallel_AncestorClosure |
 | `internal/runner/runner.go` | modified — setup pruning, buildPreExecVarSet, cliff extension |
 | `internal/runner/runner_test.go` | modified — all M8-005 runner tests |
-| `cmd/apitest/main.go` | modified — wire Diagnostics to stderr |
-| `cmd/apitest/main_test.go` | modified — TestRun_OnlyAnalyzerFallback_StderrDiagnostic |
+| `cmd/curlew/main.go` | modified — wire Diagnostics to stderr |
+| `cmd/curlew/main_test.go` | modified — TestRun_OnlyAnalyzerFallback_StderrDiagnostic |
 | `CHANGELOG.md` | modified — [Unreleased] Changed entry |
 | `docs/SPECIFICATION.md` | modified — --only minimal-setup paragraph |
 | `docs/MANUAL.md` | modified — --only worked example |

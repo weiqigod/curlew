@@ -2,7 +2,7 @@
 
 ## Overview
 
-Relocate progress/confirmation text in `perf`, `license`, `worker`, and `exec --dry-run` from stdout to stderr so that piping stdout captures only the declared result payload. Route the `exec --dry-run` request rendering through `output.Printer` instead of raw `fmt.Fprintln(os.Stdout, ...)`. Fix the stray stdout warning in `internal/worker/run.go:133` so it matches its sibling warnings on stderr. Add a single regression test (`cmd/apitest/stream_progress_test.go`) that spawns each affected subcommand through the built binary and asserts the stream split.
+Relocate progress/confirmation text in `perf`, `license`, `worker`, and `exec --dry-run` from stdout to stderr so that piping stdout captures only the declared result payload. Route the `exec --dry-run` request rendering through `output.Printer` instead of raw `fmt.Fprintln(os.Stdout, ...)`. Fix the stray stdout warning in `internal/worker/run.go:133` so it matches its sibling warnings on stderr. Add a single regression test (`cmd/curlew/stream_progress_test.go`) that spawns each affected subcommand through the built binary and asserts the stream split.
 
 ## Task Details
 
@@ -35,7 +35,7 @@ The YAML task file declares no explicit `dependencies:` list. The task descripti
 
 6. **`internal/worker/integration_test.go` and `TestLicenseExport_HappyPath` similarly updated** to read from stderr for progress/confirmation lines.
 
-7. **`stream_progress_test.go`** lives in `cmd/apitest/` and reuses `buildBinary` + `runBinary` helpers from `main_test.go`. Runs each subcommand with a captive stdout/stderr split (which `runBinary` already provides via `exec.Command`'s pipe separation) and golden-files the stdout plus asserts every known progress string appears on stderr only. Fixtures use `httptest.Server` for perf/worker coordinator stubbing. License tests use `APITEST_CONFIG_DIR` with the existing test license fixture.
+7. **`stream_progress_test.go`** lives in `cmd/curlew/` and reuses `buildBinary` + `runBinary` helpers from `main_test.go`. Runs each subcommand with a captive stdout/stderr split (which `runBinary` already provides via `exec.Command`'s pipe separation) and golden-files the stdout plus asserts every known progress string appears on stderr only. Fixtures use `httptest.Server` for perf/worker coordinator stubbing. License tests use `CURLEW_CONFIG_DIR` with the existing test license fixture.
 
 ## Implementation Steps
 
@@ -229,13 +229,13 @@ t.Run("claim_execute_submit_one_shard_then_204", func(t *testing.T) {
 
 ### Step 3: Wire `stderr` from `workerCmdOut` into `worker.Run`
 
-**Rationale:** Now that `worker.RunOptions.Stderr` exists, pass it from the CLI boundary. Blast radius: one line in `cmd/apitest/worker.go`.
+**Rationale:** Now that `worker.RunOptions.Stderr` exists, pass it from the CLI boundary. Blast radius: one line in `cmd/curlew/worker.go`.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/worker.go` | modify | At line 44, pass `Stderr: stderr` into `worker.RunOptions`. |
+| `cmd/curlew/worker.go` | modify | At line 44, pass `Stderr: stderr` into `worker.RunOptions`. |
 
 #### Current Code (worker.go line 44)
 
@@ -257,7 +257,7 @@ Covered by Step 7's `stream_progress_test.go` which exercises the CLI end-to-end
 
 None.
 
-### Step 4: Relocate `cmd/apitest/perf.go` progress lines to stderr
+### Step 4: Relocate `cmd/curlew/perf.go` progress lines to stderr
 
 **Rationale:** With the worker done, perf is independent. All writes to `stdout` in this file except the two result-bearing lines (`report.SummaryLine` at line 136 and — still discuss below — `Requests sent:` at line 131) move to stderr. The task explicitly lists `Requests sent:` at line 131 as part of the relocation; it is part of the progress preamble before the final `Results: requests=...` summary.
 
@@ -269,8 +269,8 @@ None.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/perf.go` | modify | Change Fprintf/Fprintln targets at lines 98, 101, 103, 104, 131, 147, 155 from `stdout` to `stderr`. Keep line 136 (`report.SummaryLine`) on stdout. |
-| `cmd/apitest/perf_test.go` | modify | `TestPerfCmd_Run_HTTPTestServer_Success`, `TestPerfCmd_RPSHeaderInStdout` — switch `Load test:`, `Requests sent:`, `Target rate:` assertions from `stdout` to `stderr`. `TestPerfCmd_SummaryLinePrintedToStdout` remains unchanged (it already asserts stdout contains `Results: requests=`). |
+| `cmd/curlew/perf.go` | modify | Change Fprintf/Fprintln targets at lines 98, 101, 103, 104, 131, 147, 155 from `stdout` to `stderr`. Keep line 136 (`report.SummaryLine`) on stdout. |
+| `cmd/curlew/perf_test.go` | modify | `TestPerfCmd_Run_HTTPTestServer_Success`, `TestPerfCmd_RPSHeaderInStdout` — switch `Load test:`, `Requests sent:`, `Target rate:` assertions from `stdout` to `stderr`. `TestPerfCmd_SummaryLinePrintedToStdout` remains unchanged (it already asserts stdout contains `Results: requests=`). |
 
 #### Current Code (perf.go lines 97–104, 131, 147, 155)
 
@@ -341,7 +341,7 @@ Similar swap for `TestPerfCmd_RPSHeaderInStdout` — rename to `TestPerfCmd_RPSH
 | `TestPerfCmd_SummaryLinePrintedToStdout` | asserts stdout has "Results: requests=" | no change |
 | `TestPerfCmd_OutputJSON_WritesFile` / `_OutputHTML_WritesFile` / `_OutputJSON_OverwritesExistingFile` | check file contents, not stdout "Wrote" | no change |
 
-### Step 5: Relocate `cmd/apitest/license.go` progress lines to stderr
+### Step 5: Relocate `cmd/curlew/license.go` progress lines to stderr
 
 **Rationale:** Independent of perf/worker. Relocates six lines. Blast radius: one file, two existing tests.
 
@@ -349,8 +349,8 @@ Similar swap for `TestPerfCmd_RPSHeaderInStdout` — rename to `TestPerfCmd_RPSH
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/license.go` | modify | Change Fprintln/Fprintf targets at lines 58, 60, 155, 174, 176 from `stdout` to `stderr`. Lines 86–88 (Key source / Tier / State) stay on stdout. |
-| `cmd/apitest/license_test.go` | modify | `TestLicenseValidate_Offline_Valid` (line 115 asserts stdout has "Validating license offline..."; line 127 asserts `stderr == ""`) — move "Validating license" assertion to stderr; change the empty-stderr assertion to exact-match `"Validating license offline...\n"`. `TestLicenseExport_HappyPath` (lines 333–344 assert stdout has "Exporting", "Included:", "JWKS", "Wrote") — move all four to stderr; add a new "stdout is empty" guard. |
+| `cmd/curlew/license.go` | modify | Change Fprintln/Fprintf targets at lines 58, 60, 155, 174, 176 from `stdout` to `stderr`. Lines 86–88 (Key source / Tier / State) stay on stdout. |
+| `cmd/curlew/license_test.go` | modify | `TestLicenseValidate_Offline_Valid` (line 115 asserts stdout has "Validating license offline..."; line 127 asserts `stderr == ""`) — move "Validating license" assertion to stderr; change the empty-stderr assertion to exact-match `"Validating license offline...\n"`. `TestLicenseExport_HappyPath` (lines 333–344 assert stdout has "Exporting", "Included:", "JWKS", "Wrote") — move all four to stderr; add a new "stdout is empty" guard. |
 
 #### Current Code (license.go lines 57–61)
 
@@ -395,7 +395,7 @@ if !strings.Contains(stderr, "Validating license offline...") {
 if strings.Contains(stdout, "Validating license") {
     t.Errorf("'Validating license' leaked to stdout: %q", stdout)
 }
-if !strings.Contains(stdout, "Key source: embedded JWKS (kid=apitest-2025-01)") {
+if !strings.Contains(stdout, "Key source: embedded JWKS (kid=curlew-2025-01)") {
     t.Errorf("stdout missing key source line: %q", stdout)
 }
 if !strings.Contains(stdout, "Tier: enterprise") {
@@ -441,7 +441,7 @@ if stdout != "" {
 | `TestLicenseExport_HappyPath` | stdout contains "Exporting"/"Included"/"JWKS"/"Wrote" | move all to stderr; add stdout-empty guard |
 | `TestLicenseExportThenValidate_RoundTrip` | round-trip behaviour (see around line 408) | likely inspects stdout; re-check during execution and update if needed |
 
-### Step 6: Refactor `cmd/apitest/main.go` exec --dry-run to use `output.Printer`
+### Step 6: Refactor `cmd/curlew/main.go` exec --dry-run to use `output.Printer`
 
 **Rationale:** Independent of perf/license/worker. Rewrites the dry-run terminal branch to use `output.Printer`. Blast radius: one block in `main.go`.
 
@@ -449,7 +449,7 @@ if stdout != "" {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Replace the `fmt.Fprintln(stdout, "DRY RUN")` + method/URL/headers `fmt.Fprintf` block at lines 2843–2847 with a `output.NewPrinter(stdout, stdoutUseColor, output.VerbosityVerbose)` plus `printer.RequestDetail(req.Method, req.URL, req.Headers)`. Keep the "DRY RUN" banner as a single `fmt.Fprintln(stdout, "DRY RUN")` — it is the result label, not a request-detail bypass. |
+| `cmd/curlew/main.go` | modify | Replace the `fmt.Fprintln(stdout, "DRY RUN")` + method/URL/headers `fmt.Fprintf` block at lines 2843–2847 with a `output.NewPrinter(stdout, stdoutUseColor, output.VerbosityVerbose)` plus `printer.RequestDetail(req.Method, req.URL, req.Headers)`. Keep the "DRY RUN" banner as a single `fmt.Fprintln(stdout, "DRY RUN")` — it is the result label, not a request-detail bypass. |
 
 #### Current Code (main.go lines 2842–2848)
 
@@ -482,7 +482,7 @@ Note: `RequestDetail` renders as `  > GET http://...\n` (with `>` prefix), diffe
 Add a fresh test asserting the new rendered shape:
 
 ```go
-// cmd/apitest/main_test.go
+// cmd/curlew/main_test.go
 func TestExecCmd_DryRun_UsesPrinterRequestDetail(t *testing.T) {
     stdout, _, rc := captureExecCmd(t, "", "https://example.com", "--dry-run", "-H", "X-Test: 1")
     if rc != 0 {
@@ -507,7 +507,7 @@ func TestExecCmd_DryRun_UsesPrinterRequestDetail(t *testing.T) {
 | `TestExecCmd_*` "dry run shows request details" | asserts stdout contains "POST" | no change (RequestDetail emits `  > POST url`) |
 | `TestExecCmd_ViaBinary` "dry run via binary" | asserts stdout contains "DRY RUN" | no change |
 
-### Step 7: Add regression test `cmd/apitest/stream_progress_test.go`
+### Step 7: Add regression test `cmd/curlew/stream_progress_test.go`
 
 **Rationale:** This is the single end-to-end guard rail that the task's Definition of Done mandates. It runs the built binary, captures stdout and stderr separately, and asserts every known-progress string lives exclusively on stderr while the declared result lives exclusively on stdout.
 
@@ -515,12 +515,12 @@ func TestExecCmd_DryRun_UsesPrinterRequestDetail(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/stream_progress_test.go` | create | One `TestStreamProgress` top-level with four subtests: `perf`, `license_validate`, `license_export`, `worker_no_shards`, `exec_dry_run`. |
+| `cmd/curlew/stream_progress_test.go` | create | One `TestStreamProgress` top-level with four subtests: `perf`, `license_validate`, `license_export`, `worker_no_shards`, `exec_dry_run`. |
 
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/stream_progress_test.go
+// cmd/curlew/stream_progress_test.go
 package main
 
 import (
@@ -545,7 +545,7 @@ func TestStreamProgress(t *testing.T) {
         defer srv.Close()
 
         f := writeTempRequestFile(t, srv.URL)
-        env := []string{"APITEST_TIER=enterprise"}
+        env := []string{"CURLEW_TIER=enterprise"}
         stdout, stderr, rc := runBinaryWithEnv(t, binary, env,
             "perf", f, "--vus", "1", "--duration", "100ms")
         if rc != 0 {
@@ -570,10 +570,10 @@ func TestStreamProgress(t *testing.T) {
     t.Run("license_validate", func(t *testing.T) {
         cfgDir := setupValidLicenseDir(t)
         env := []string{
-            "APITEST_CONFIG_DIR=" + cfgDir,
-            "APITEST_OFFLINE=1",
-            "APITEST_LICENSE_BUNDLE=",
-            "APITEST_LAST_VALIDATION_OVERRIDE=",
+            "CURLEW_CONFIG_DIR=" + cfgDir,
+            "CURLEW_OFFLINE=1",
+            "CURLEW_LICENSE_BUNDLE=",
+            "CURLEW_LAST_VALIDATION_OVERRIDE=",
         }
         stdout, stderr, rc := runBinaryWithEnv(t, binary, env, "license", "--validate")
         if rc != 0 {
@@ -600,9 +600,9 @@ func TestStreamProgress(t *testing.T) {
         cfgDir := setupValidLicenseDir(t)
         out := filepath.Join(t.TempDir(), "bundle.tar.gz")
         env := []string{
-            "APITEST_CONFIG_DIR=" + cfgDir,
-            "APITEST_LICENSE_BUNDLE=",
-            "APITEST_OFFLINE=1",
+            "CURLEW_CONFIG_DIR=" + cfgDir,
+            "CURLEW_LICENSE_BUNDLE=",
+            "CURLEW_OFFLINE=1",
         }
         stdout, stderr, rc := runBinaryWithEnv(t, binary, env,
             "license", "export", "--output", out)
@@ -661,7 +661,7 @@ func writeTempRequestFile(t *testing.T, url string) string {
 
 **Worker omission rationale:** spawning the worker binary against a fake coordinator requires an in-process `httptest.Server` *plus* a separately-built binary that reads the server URL from env. This is achievable but expensive. The task's worker behavior statement says "against a mocked coordinator" — the library-level integration test at `internal/worker/integration_test.go` already runs the real `Run()` function against a `FakeCoordinator`. After Step 2, that test asserts progress lands on `stderr`. That covers the worker regression in the same way as the CLI-spawn test covers the others. Document this decision in the plan; the task's DoD says the test file "covers perf, license, worker, and exec --dry-run" — we meet it by counting the library-level worker coverage.
 
-**Alternative considered:** Wire a minimal coordinator stub into `stream_progress_test.go` using `httptest.Server` and the `APITEST_COORDINATOR_URL` env var. ~80 lines; doable. Decision: **skip** in Step 7. The integration_test.go update in Step 2 is equivalent coverage for stream-splitting, and the CI time cost of a second coordinator stub isn't justified. If review pushes back, add a coordinator subtest to `stream_progress_test.go` in follow-up.
+**Alternative considered:** Wire a minimal coordinator stub into `stream_progress_test.go` using `httptest.Server` and the `CURLEW_COORDINATOR_URL` env var. ~80 lines; doable. Decision: **skip** in Step 7. The integration_test.go update in Step 2 is equivalent coverage for stream-splitting, and the CI time cost of a second coordinator stub isn't justified. If review pushes back, add a coordinator subtest to `stream_progress_test.go` in follow-up.
 
 #### Impact on Existing Tests
 
@@ -680,7 +680,7 @@ None. New file.
 #### New Entry
 
 ```markdown
-- `apitest perf`, `apitest license [--validate|export]`, `apitest worker`, and `apitest exec --dry-run`: progress and confirmation text (`Load test:`, `Running...`, `Requests sent:`, `Wrote <path>`, `Validating license...`, `Exporting license bundle...`, `Included: ...`, `Claimed shard ...`, `Completed ...`, `No more shards; exiting`, `warning: submit failed ...`) now writes to stderr; stdout carries only the declared result payload (perf: `Results: requests=...`; license --validate: `Key source / Tier / State`; license export: empty; worker: empty). The stray `warning: submit failed` line in `internal/worker/run.go` that used to hit stdout has been moved to match its sibling heartbeat warning on stderr. `apitest exec --dry-run` renders the request method/URL/headers via `output.Printer.RequestDetail` instead of raw `fmt.Fprintln(os.Stdout, ...)`. Regression guard: `cmd/apitest/stream_progress_test.go::TestStreamProgress` spawns each subcommand via the built binary and asserts the stream split. New `worker.RunOptions.Stderr` field (default `os.Stderr`) adds a writer seam matching `Stdout`. (M7-002)
+- `curlew perf`, `curlew license [--validate|export]`, `curlew worker`, and `curlew exec --dry-run`: progress and confirmation text (`Load test:`, `Running...`, `Requests sent:`, `Wrote <path>`, `Validating license...`, `Exporting license bundle...`, `Included: ...`, `Claimed shard ...`, `Completed ...`, `No more shards; exiting`, `warning: submit failed ...`) now writes to stderr; stdout carries only the declared result payload (perf: `Results: requests=...`; license --validate: `Key source / Tier / State`; license export: empty; worker: empty). The stray `warning: submit failed` line in `internal/worker/run.go` that used to hit stdout has been moved to match its sibling heartbeat warning on stderr. `curlew exec --dry-run` renders the request method/URL/headers via `output.Printer.RequestDetail` instead of raw `fmt.Fprintln(os.Stdout, ...)`. Regression guard: `cmd/curlew/stream_progress_test.go::TestStreamProgress` spawns each subcommand via the built binary and asserts the stream split. New `worker.RunOptions.Stderr` field (default `os.Stderr`) adds a writer seam matching `Stdout`. (M7-002)
 ```
 
 ## Test Impact Summary
@@ -692,15 +692,15 @@ None. New file.
 | `internal/worker/run_test.go` | `TestRun/no_shards_available_exits_zero` | same | stdout → stderr buffer |
 | `internal/worker/run_test.go` | `TestRun/two_shards_then_204` | same | stdout → stderr buffer |
 | `internal/worker/integration_test.go` | `TestWorker_E2E_SingleShard` | same | stdout → stderr buffer |
-| `cmd/apitest/perf_test.go` | `TestPerfCmd_Run_HTTPTestServer_Success` | assertions move to stderr + leak guard | rewrite |
-| `cmd/apitest/perf_test.go` | `TestPerfCmd_RPSHeaderInStdout` | assertion moves to stderr | rename + rewrite |
-| `cmd/apitest/perf_test.go` | `TestPerfCmd_SummaryLinePrintedToStdout` | no change | — |
-| `cmd/apitest/license_test.go` | `TestLicenseValidate_Offline_Valid` | "Validating" moves stdout → stderr; stderr no longer empty | rewrite assertions |
-| `cmd/apitest/license_test.go` | `TestLicenseExport_HappyPath` | all progress assertions move stdout → stderr; stdout becomes empty | rewrite |
-| `cmd/apitest/license_test.go` | `TestLicenseExportThenValidate_RoundTrip` | likely inspects stdout for export and/or validate progress | re-check during execution; update |
-| `cmd/apitest/main_test.go` | `TestExecCmd_*_dry run*` | still asserts `contains "DRY RUN"`; the request-detail shape changes but current assertions don't care | no change |
-| `cmd/apitest/main_test.go` | new: `TestExecCmd_DryRun_UsesPrinterRequestDetail` | assert `"  > GET url"` rendered shape | add |
-| `cmd/apitest/stream_progress_test.go` | `TestStreamProgress` | new file | add |
+| `cmd/curlew/perf_test.go` | `TestPerfCmd_Run_HTTPTestServer_Success` | assertions move to stderr + leak guard | rewrite |
+| `cmd/curlew/perf_test.go` | `TestPerfCmd_RPSHeaderInStdout` | assertion moves to stderr | rename + rewrite |
+| `cmd/curlew/perf_test.go` | `TestPerfCmd_SummaryLinePrintedToStdout` | no change | — |
+| `cmd/curlew/license_test.go` | `TestLicenseValidate_Offline_Valid` | "Validating" moves stdout → stderr; stderr no longer empty | rewrite assertions |
+| `cmd/curlew/license_test.go` | `TestLicenseExport_HappyPath` | all progress assertions move stdout → stderr; stdout becomes empty | rewrite |
+| `cmd/curlew/license_test.go` | `TestLicenseExportThenValidate_RoundTrip` | likely inspects stdout for export and/or validate progress | re-check during execution; update |
+| `cmd/curlew/main_test.go` | `TestExecCmd_*_dry run*` | still asserts `contains "DRY RUN"`; the request-detail shape changes but current assertions don't care | no change |
+| `cmd/curlew/main_test.go` | new: `TestExecCmd_DryRun_UsesPrinterRequestDetail` | assert `"  > GET url"` rendered shape | add |
+| `cmd/curlew/stream_progress_test.go` | `TestStreamProgress` | new file | add |
 | `CHANGELOG.md` | — | add M7-002 bullet | add |
 
 Total: **11 test functions touched, 2 new tests, 1 new file.**
@@ -710,7 +710,7 @@ Total: **11 test functions touched, 2 new tests, 1 new file.**
 - **Risk:** a test I haven't surfaced still inspects stdout for a relocated progress string. → **Mitigation:** before GREEN, run `~/go/bin/golangci-lint run && go test ./...`; any stray breakage surfaces concretely; fix by switching to stderr buffer.
 - **Risk:** `TestLicenseExportThenValidate_RoundTrip` hidden assertions. → **Mitigation:** read it during Step 5 execution (test is visible at `license_test.go:408`); update any stdout-progress check.
 - **Risk:** `smoke/run.sh` perf and license-export grep checks rely on `2>&1` merged capture (confirmed at lines 1795, 1946). Since stderr stays captured, the greps still pass. → **Mitigation:** no smoke change needed. Manually verified both invocations use `2>&1`.
-- **Risk:** downstream automation that pipes stdout from `apitest perf --output file.json` and expects to see a "Wrote" line on stdout. → **Mitigation:** this is exactly the behaviour M7-002 exists to break; the CHANGELOG bullet makes the contract change explicit. The final stdout line remains `Results: requests=...` — unchanged — so grepping for the summary still works.
+- **Risk:** downstream automation that pipes stdout from `curlew perf --output file.json` and expects to see a "Wrote" line on stdout. → **Mitigation:** this is exactly the behaviour M7-002 exists to break; the CHANGELOG bullet makes the contract change explicit. The final stdout line remains `Results: requests=...` — unchanged — so grepping for the summary still works.
 - **Risk:** the `output.Printer.RequestDetail` shape (`  > GET url`) differs from the current dry-run shape (`  GET url`). Human consumers used to the old output will see a diff. → **Mitigation:** minor; this unifies dry-run with verbose-mode rendering, a usability win. Documented in CHANGELOG.
 - **Risk:** forcing `VerbosityVerbose` in the dry-run printer might surprise a user who passed `-q --dry-run`. → **Mitigation:** `--dry-run` and `-q` are near-contradictory; the DRY RUN banner + request detail is the declared result. A user passing `--dry-run` has committed to seeing the request. If `-q` silencing is wanted, a future task can add that.
 - **Edge case:** perf with `--output stdout` (the default). → **Handling:** `Results: requests=...` is on stdout; progress on stderr. Piping `perf ... | jq` still doesn't work (the line isn't JSON), but piping to `grep Results` does. That's the intended contract.
@@ -721,7 +721,7 @@ Total: **11 test functions touched, 2 new tests, 1 new file.**
 Build and local tests:
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -737,24 +737,24 @@ Observable verification (matches the task YAML):
 
 ```bash
 # perf: stdout = result-only; progress on stderr
-./apitest perf testdata/perf.yaml --vus 1 --duration 200ms > /tmp/out.txt 2> /tmp/err.txt
+./curlew perf testdata/perf.yaml --vus 1 --duration 200ms > /tmp/out.txt 2> /tmp/err.txt
 grep -q "Results: requests=" /tmp/out.txt
 ! grep -q "Load test:" /tmp/out.txt
 grep -q "Load test:" /tmp/err.txt
 
 # license --validate
-APITEST_OFFLINE=1 ./apitest license --validate > /tmp/out.txt 2> /tmp/err.txt
+CURLEW_OFFLINE=1 ./curlew license --validate > /tmp/out.txt 2> /tmp/err.txt
 grep -q "Tier:" /tmp/out.txt
 grep -q "Validating license" /tmp/err.txt
 ! grep -q "Validating license" /tmp/out.txt
 
 # license export
-./apitest license export --output /tmp/bundle.tar.gz > /tmp/out.txt 2> /tmp/err.txt
+./curlew license export --output /tmp/bundle.tar.gz > /tmp/out.txt 2> /tmp/err.txt
 test ! -s /tmp/out.txt   # stdout empty
 grep -q "Wrote /tmp/bundle.tar.gz" /tmp/err.txt
 
 # exec --dry-run
-./apitest exec --dry-run https://example.com > /tmp/out.txt 2> /tmp/err.txt
+./curlew exec --dry-run https://example.com > /tmp/out.txt 2> /tmp/err.txt
 grep -q "DRY RUN" /tmp/out.txt
 grep -q "  > GET https://example.com" /tmp/out.txt
 test ! -s /tmp/err.txt   # no progress on stderr
@@ -764,5 +764,5 @@ grep -n '"warning:' internal/worker/run.go
 # Expected: every match is inside fmt.Fprintf(stderr, ...) or fmt.Fprintf(os.Stderr, ...)
 
 # regression test
-go test -run TestStreamProgress ./cmd/apitest/...
+go test -run TestStreamProgress ./cmd/curlew/...
 ```

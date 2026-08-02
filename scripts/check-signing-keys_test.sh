@@ -51,35 +51,35 @@ make_psql_error_stub() {
 # ── Test 1: file key mode → always skip (exit 0) ──────────────────────────
 
 assert_exit 0 "file_mode_skips_regardless_of_profile" \
-  env APITEST_SIGNING_KEY_MODE=file APITEST_BUILD_PROFILE=saas "$TARGET"
+  env CURLEW_SIGNING_KEY_MODE=file CURLEW_BUILD_PROFILE=saas "$TARGET"
 
 # ── Test 2: non-saas profile → skip (exit 0) ──────────────────────────────
 
 assert_exit 0 "non_saas_profile_skips" \
-  env APITEST_BUILD_PROFILE=self-hosted "$TARGET"
+  env CURLEW_BUILD_PROFILE=self-hosted "$TARGET"
 
 assert_exit 0 "unset_profile_skips" \
-  env -u APITEST_BUILD_PROFILE -u APITEST_SIGNING_KEY_MODE "$TARGET"
+  env -u CURLEW_BUILD_PROFILE -u CURLEW_SIGNING_KEY_MODE "$TARGET"
 
 # ── Test 3: saas profile, COUNT=0 → pass (exit 0) ─────────────────────────
 
 stubdir="$(make_psql_stub 0)"
 assert_exit 0 "saas_profile_all_keys_enrolled_passes" \
-  env PATH="$stubdir:$PATH" APITEST_BUILD_PROFILE=saas DATABASE_URL="postgres://test/test" "$TARGET"
+  env PATH="$stubdir:$PATH" CURLEW_BUILD_PROFILE=saas DATABASE_URL="postgres://test/test" "$TARGET"
 rm -rf "$stubdir"
 
 # ── Test 4: saas profile, COUNT=2 → fail (exit 1) ─────────────────────────
 
 stubdir="$(make_psql_stub 2)"
 assert_exit 1 "saas_profile_null_kms_key_id_fails" \
-  env PATH="$stubdir:$PATH" APITEST_BUILD_PROFILE=saas DATABASE_URL="postgres://test/test" "$TARGET"
+  env PATH="$stubdir:$PATH" CURLEW_BUILD_PROFILE=saas DATABASE_URL="postgres://test/test" "$TARGET"
 rm -rf "$stubdir"
 
 # ── Test 5: saas profile, psql fails → propagate failure (exit 1) ─────────
 
 stubdir="$(make_psql_error_stub)"
 assert_exit 1 "psql_connection_error_propagates" \
-  env PATH="$stubdir:$PATH" APITEST_BUILD_PROFILE=saas DATABASE_URL="postgres://test/test" "$TARGET"
+  env PATH="$stubdir:$PATH" CURLEW_BUILD_PROFILE=saas DATABASE_URL="postgres://test/test" "$TARGET"
 rm -rf "$stubdir"
 
 # ── Summary ───────────────────────────────────────────────────────────────

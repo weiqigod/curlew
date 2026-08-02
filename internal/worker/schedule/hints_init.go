@@ -1,6 +1,6 @@
 package schedule
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("worker/schedule",
@@ -46,7 +46,7 @@ func init() {
 			Hint: apierrors.ClassifiedHint{
 				Category: apierrors.CategoryNetwork,
 				Code:     "SCHEDULE_POST_EXHAUSTED",
-				Hint:     "Result posting failed after retries. The payload has been queued locally under ~/.config/apitesttool/pending-uploads/. It will be retried on the next poll cycle.",
+				Hint:     "Result posting failed after retries. The payload has been queued locally under ~/.config/curlew/pending-uploads/. It will be retried on the next poll cycle.",
 			},
 		},
 	)

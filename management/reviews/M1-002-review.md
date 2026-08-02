@@ -26,7 +26,7 @@ No findings. All issues from the previous review have been resolved.
 - Total: 93.0%
 - `internal/parser`: 95.5%
 - `internal/httpexec`: 87.5%
-- `cmd/apitest`: 95.8%
+- `cmd/curlew`: 95.8%
 - Missing coverage: `prepareBody` JSON marshal error path, `applyQueryParams` URL parse error path — both practically unreachable with YAML-parsed data, acceptable.
 
 ## Behavior Coverage

@@ -31,7 +31,7 @@ No findings. All four issues from the previous review have been resolved:
 ## Test Coverage
 - `internal/variable` package overall: **96.7%** (requirement: ≥ 80% — PASS)
 - `internal/variable/redact.go`: 97.5% (`redactJSONString` encode-error path is 87.5% — intentional defensive branch, documented)
-- `cmd/apitest` package overall: **81.7%** (PASS)
+- `cmd/curlew` package overall: **81.7%** (PASS)
 - `addSensitiveValues` helper: 100%
 
 ## Behavior Coverage
@@ -47,4 +47,4 @@ No findings. All four issues from the previous review have been resolved:
 
 ## Summary
 
-All four findings from the first review have been fully resolved. The implementation is correct and complete: `RedactBody` handles JSON and plain-text bodies with longest-first value matching, `SensitiveSet` now tracks concrete sensitive values alongside names, the main.go wiring mutates results before any formatter consumes them, and the end-to-end `TestRedact_BodyAcrossFormats` test covers all five output formats including JUnit. Coverage is 96.7% in `internal/variable` and 81.7% in `cmd/apitest`, both above the 80% threshold.
+All four findings from the first review have been fully resolved. The implementation is correct and complete: `RedactBody` handles JSON and plain-text bodies with longest-first value matching, `SensitiveSet` now tracks concrete sensitive values alongside names, the main.go wiring mutates results before any formatter consumes them, and the end-to-end `TestRedact_BodyAcrossFormats` test covers all five output formats including JUnit. Coverage is 96.7% in `internal/variable` and 81.7% in `cmd/curlew`, both above the 80% threshold.

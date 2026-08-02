@@ -2,7 +2,7 @@
 
 ## Notes
 
-<!-- BEGIN apitest:response id=run slug=run run=0123456789abcdef0123456789abcdef -->
+<!-- BEGIN curlew:response id=run slug=run run=0123456789abcdef0123456789abcdef -->
 ## Run Summary
 
 | | |
@@ -20,7 +20,7 @@ started_at: 2026-04-25T12:00:00Z
 - pass: [Get user](get-user.md)
 - pass: [List posts](list-posts.md)
 - fail: [Delete user](delete-user.md)
-<!-- END apitest:response id=run slug=run run=0123456789abcdef0123456789abcdef -->
+<!-- END curlew:response id=run slug=run run=0123456789abcdef0123456789abcdef -->
 
 ## Analysis
 

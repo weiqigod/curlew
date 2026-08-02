@@ -22,7 +22,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run sample/hello.yaml --events /tmp/run.ndjson
+$ ./curlew run sample/hello.yaml --events /tmp/run.ndjson
 Collection: Hello API
   ✓ Get httpbin  200  745ms
   ✓ Post with JSON body  200  115ms
@@ -136,7 +136,7 @@ TDD pattern visible: `test(...)` commits precede `feat(...)` commits throughout.
 | `internal/runner/runner_test.go` | modified — TestRunner_RequestSlugAllEmitSites |
 | `internal/parallel/executor.go` | modified — EventSink interface widened with requestSlug |
 | `internal/parallel/executor_test.go` | modified — test sinks widened |
-| `cmd/apitest/main.go` | modified — eventsAdapter forwards RequestSlug |
+| `cmd/curlew/main.go` | modified — eventsAdapter forwards RequestSlug |
 | `docs/events-schema/v1.2.json` | created |
 | `docs/EVENTS_SCHEMA_v1.2.md` | created |
 | `go.mod` | modified — golang.org/x/text promoted to direct |

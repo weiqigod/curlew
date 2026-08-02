@@ -102,7 +102,7 @@ Branch A: Review PASS (iteration 2, post-improve). Spot-check clean:
 | `internal/variable/dynamic_test.go` | modified — `TestLocalePools_NameOrdering` added; `TestRegistry_Locale_SeedPositionInvariant` extended to all 15 locales; `TestNewRegistry_WithLocale_FallbackWarns` re-pointed to synthetic poolless code |
 | `internal/variable/locale_pools_test.go` | modified — `TestLocalePools_NonLatinScript_Shape`, `TestLocalePools_NonLatinScript_Class`, `TestLocalePools_NonLatinScript_JSONRoundTrip` added |
 | `internal/variable/locale_test.go` | modified — `TestResolveLocaleData` updated: ja-JP fallback case replaced with native-resolution; zh-CN/ko-KR/ru-RU native cases added |
-| `cmd/apitest/run_test.go` | modified — `TestRun_Locale_FallbackChainJaJP` converted to `TestRun_Locale_JaJP_NativePools` |
+| `cmd/curlew/run_test.go` | modified — `TestRun_Locale_FallbackChainJaJP` converted to `TestRun_Locale_JaJP_NativePools` |
 
 ## Issues Found
 None.

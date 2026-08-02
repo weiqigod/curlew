@@ -239,7 +239,7 @@ func TestRun_nil_dotenv_vars_works(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add .env loading before runner.Run(), update help text |
+| `cmd/curlew/main.go` | modify | Add .env loading before runner.Run(), update help text |
 
 #### Current Code
 ```go
@@ -314,7 +314,7 @@ func TestRun_nil_dotenv_vars_works(t *testing.T) {
 #### New smoke test section
 ```bash
 echo "--- Running collection with .env auto-loading (expect pass) ---"
-DOTENV_DIR=$(mktemp -d /tmp/apitest_dotenv_XXXXXX)
+DOTENV_DIR=$(mktemp -d /tmp/curlew_dotenv_XXXXXX)
 cat > "$DOTENV_DIR/.env" << 'ENV'
 BASE_URL=https://httpbin.org
 ENV
@@ -328,12 +328,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$DOTENV_DIR"
 echo
 
 echo "--- Running collection without .env (expect pass, no error) ---"
-NO_DOTENV_DIR=$(mktemp -d /tmp/apitest_no_dotenv_XXXXXX)
+NO_DOTENV_DIR=$(mktemp -d /tmp/curlew_no_dotenv_XXXXXX)
 cat > "$NO_DOTENV_DIR/test.yaml" << 'YAML'
 name: No Dotenv Test
 requests:
@@ -344,7 +344,7 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$NO_DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$NO_DOTENV_DIR/test.yaml" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -rf "$NO_DOTENV_DIR"
 echo
 ```
@@ -371,7 +371,7 @@ echo
 |-----------|--------------|--------|----------------|
 | `internal/runner/runner_test.go` | All `Run()` call sites (~44) | breaks (missing parameter) | Insert `nil` for `dotenvVars` |
 | `internal/config/dotenv_test.go` | — | new file | Write tests first (TDD) |
-| `cmd/apitest/main.go` | — | recompile | Smoke test validates |
+| `cmd/curlew/main.go` | — | recompile | Smoke test validates |
 
 ## Risks and Edge Cases
 - **Risk:** Runner signature change breaks all existing call sites → **Mitigation:** Mechanical update (insert `nil`), all within this project. Compile-time error ensures nothing is missed.
@@ -387,7 +387,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -410,6 +410,6 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run /tmp/dotenv-test/test.yaml
+./curlew run /tmp/dotenv-test/test.yaml
 rm -rf /tmp/dotenv-test
 ```

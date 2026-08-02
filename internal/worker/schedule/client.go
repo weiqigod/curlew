@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 )
 
 // HTTPClient is the subset of backend.Client used by Client. Exposed

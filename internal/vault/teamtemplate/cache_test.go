@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/backend"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 // stubFetcher is a test double for teamtemplate.Fetcher.

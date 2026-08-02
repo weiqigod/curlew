@@ -10,11 +10,11 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build |
+| `go build ./cmd/curlew` | PASS | Clean build |
 | `go test ./...` | PASS | All Go suites green (`./scripts/ci-local.sh --go` clean end-to-end) |
 | `go test -race ./...` | PASS | No races |
 | `golangci-lint run` | PASS | No findings |
-| `./smoke/run.sh` | PASS | Smoke test clean (stale `/tmp/apitest_json_XXXXXX.yaml` removed pre-run, per review gate note) |
+| `./smoke/run.sh` | PASS | Smoke test clean (stale `/tmp/curlew_json_XXXXXX.yaml` removed pre-run, per review gate note) |
 | `dotnet build ApiTool.Backend.sln` | PASS | 0 Warning(s), 0 Error(s) |
 | `dotnet test src/ApiTool.Backend.Tests` (filter `~Gdpr`) | PASS | 80 passed, 1 skipped (M18-005 deferral) |
 | `dotnet test src/ApiTool.Backend.Tests` (filter `~GdprInventory`) | PASS | 41 passed, 0 skipped (Observable #1) |

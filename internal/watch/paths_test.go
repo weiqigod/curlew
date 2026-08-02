@@ -45,12 +45,12 @@ func TestPaths_All(t *testing.T) {
 				ExternalFiles: []string{"/proj/req/a.yaml", "/proj/req/b.yaml"},
 				EnvFile:       "/proj/env/dev.yaml",
 				DotEnv:        "/proj/.env",
-				ProjectConfig: "/proj/apitest.yaml",
+				ProjectConfig: "/proj/curlew.yaml",
 			},
 			want: []string{
 				"/proj/.env",
-				"/proj/apitest.yaml",
 				"/proj/col.yaml",
+				"/proj/curlew.yaml",
 				"/proj/env/dev.yaml",
 				"/proj/req/a.yaml",
 				"/proj/req/b.yaml",
@@ -206,12 +206,12 @@ requests:
     request:
       method: GET
       url: https://example.com`)
-				writeFile(t, filepath.Join(dir, "apitest.yaml"), `project_name: myproj`)
+				writeFile(t, filepath.Join(dir, "curlew.yaml"), `project_name: myproj`)
 				return dir
 			},
 			checkFunc: func(t *testing.T, wp *Paths, tmpDir string) {
 				t.Helper()
-				want := filepath.Join(tmpDir, "apitest.yaml")
+				want := filepath.Join(tmpDir, "curlew.yaml")
 				if wp.ProjectConfig != want {
 					t.Errorf("ProjectConfig = %q, want %q", wp.ProjectConfig, want)
 				}
@@ -260,7 +260,7 @@ requests:
 				writeFile(t, filepath.Join(dir, "environments", "dev.yaml"), `variables:
   base_url: http://localhost`)
 				writeFile(t, filepath.Join(dir, ".env"), "KEY=val")
-				writeFile(t, filepath.Join(dir, "apitest.yaml"), `project_name: proj`)
+				writeFile(t, filepath.Join(dir, "curlew.yaml"), `project_name: proj`)
 				return dir
 			},
 			envName: "dev",

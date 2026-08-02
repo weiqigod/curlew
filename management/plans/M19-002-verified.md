@@ -46,7 +46,7 @@
 === RUN   TestEvaluator_SensitiveObserverFiresOnVarReference
 --- PASS: TestEvaluator_SensitiveObserverFiresOnVarReference (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/internal/cel  0.324s
+ok      github.com/weiqigod/curlew/internal/cel  0.324s
 ```
 
 Expected: PASS for all 12 named tests listed in task YAML observable field.
@@ -71,7 +71,7 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./internal/cel/... -v`: 20 tests PASS | PASS |
 | 2 | Test coverage >= 80% for `internal/cel/` | `go tool cover`: 92.6% | PASS |
-| 3 | No build warnings or lint errors | `golangci-lint run` 0 findings; `go build ./cmd/apitest` clean | PASS |
+| 3 | No build warnings or lint errors | `golangci-lint run` 0 findings; `go build ./cmd/curlew` clean | PASS |
 | 4 | `./scripts/ci-local.sh --go` passes | ci-local.sh exits 0 | PASS |
 | 5 | `go.mod` and `go.sum` updated with cel-go pinned to tagged release | `github.com/google/cel-go v0.28.1` in go.mod; `go mod tidy` leaves no diff | PASS |
 | 6 | Public package documentation (doc.go) | `internal/cel/doc.go` explains standard activation, disabled time-of-day, and sensitive-observer contract | PASS |

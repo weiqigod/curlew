@@ -27,11 +27,11 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | `internal/plugin` coverage | 87.9% |
-| `cmd/apitest` overall coverage | 81.3% |
+| `cmd/curlew` overall coverage | 81.3% |
 | `pluginsListCmd` coverage | 91.3% (was 69.6%) |
 | Total coverage | 86.7% |
 

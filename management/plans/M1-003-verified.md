@@ -96,8 +96,8 @@ Review PASS trusted, spot-check clean.
 | `internal/parser/parser_test.go` | modified | +24 |
 | `internal/output/terminal.go` | modified | +24/-6 |
 | `internal/output/terminal_test.go` | modified | +70/-36 |
-| `cmd/apitest/main.go` | modified | +19/-11 |
-| `cmd/apitest/main_test.go` | modified | +139 |
+| `cmd/curlew/main.go` | modified | +19/-11 |
+| `cmd/curlew/main_test.go` | modified | +139 |
 | `smoke/run.sh` | modified | +10 |
 
 ## Issues Found

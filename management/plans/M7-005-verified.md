@@ -19,10 +19,10 @@
 ## Observable Output
 
 ```
-grep -rn "os.Stdout = " cmd/apitest/   → ZERO MATCHES
-grep -n "^func runCmdInner" cmd/apitest/main.go → func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
-go test -run TestConcurrentDiscovery ./cmd/apitest/...  → PASS
-go test -run TestNoOsStdoutAssignment ./cmd/apitest/... → PASS
+grep -rn "os.Stdout = " cmd/curlew/   → ZERO MATCHES
+grep -n "^func runCmdInner" cmd/curlew/main.go → func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
+go test -run TestConcurrentDiscovery ./cmd/curlew/...  → PASS
+go test -run TestNoOsStdoutAssignment ./cmd/curlew/... → PASS
 ```
 
 Expected: zero `os.Stdout = ` matches; `runCmdInner` with explicit writer parameters; both anti-regression gates pass.
@@ -46,11 +46,11 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | go test ./... — all PASS | PASS |
 | 2 | runCmdInner signature is (args []string, stdout, stderr io.Writer) (int, *runner.Summary) | grep confirmed exact match at main.go:468 | PASS |
-| 3 | grep -rn 'os.Stdout = ' cmd/apitest/ returns zero matches | grep output: ZERO MATCHES | PASS |
-| 4 | grep -rn 'os.Stderr = ' cmd/apitest/ returns zero matches | grep output: ZERO MATCHES | PASS |
+| 3 | grep -rn 'os.Stdout = ' cmd/curlew/ returns zero matches | grep output: ZERO MATCHES | PASS |
+| 4 | grep -rn 'os.Stderr = ' cmd/curlew/ returns zero matches | grep output: ZERO MATCHES | PASS |
 | 5 | TestConcurrentDiscovery verifies no interleaving | go test -run TestConcurrentDiscovery: PASS | PASS |
 | 6 | TestNoOsStdoutAssignment uses go/ast to reject future reassignment | go test -run TestNoOsStdoutAssignment: PASS | PASS |
-| 7 | All tests that hijacked os.Stdout migrated to writer injection | grep -rn "os.Stdout = " cmd/apitest/ → zero results | PASS |
+| 7 | All tests that hijacked os.Stdout migrated to writer injection | grep -rn "os.Stdout = " cmd/curlew/ → zero results | PASS |
 | 8 | captureJSONCollection simplified to direct buffer injection | function uses bytes.Buffer + runCmdInner, no fd-swap | PASS |
 | 9 | go test ./... passes with no regressions | All packages PASS | PASS |
 | 10 | Test coverage does not regress below 80% | 86.2% total | PASS |
@@ -95,17 +95,17 @@ Branch A: Review PASS trusted (iteration 2, verdict PASS), spot-check clean:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — runCmdInner/runCmdWithWriters/runWithWriters writer injection |
-| `cmd/apitest/discovery_run.go` | modified — captureJSONCollection fd-swap removed |
-| `cmd/apitest/main_test.go` | modified — captureRunCmd/captureRun migrated; TestConcurrentDiscovery, TestNoOsStdoutAssignment added |
-| `cmd/apitest/discovery_run_test.go` | modified — TestCaptureJSONCollection_DoesNotTouchOsStdout added |
-| `cmd/apitest/run_test.go` | modified — os.Stdout swaps migrated |
-| `cmd/apitest/perf.go` | modified — perfCmdOut writer-injectable variant |
-| `cmd/apitest/perf_test.go` | modified — all os.Stdout/os.Stderr swaps migrated |
-| `cmd/apitest/plugins.go` | modified — pluginsCmdOut writer-injectable variant |
-| `cmd/apitest/plugins_test.go` | modified — capturePluginsOutput rewritten with writer injection |
-| `cmd/apitest/license.go` | modified — licenseCmdOut writer-injectable variant |
-| `cmd/apitest/worker.go` | modified — workerCmdOut writer-injectable variant |
+| `cmd/curlew/main.go` | modified — runCmdInner/runCmdWithWriters/runWithWriters writer injection |
+| `cmd/curlew/discovery_run.go` | modified — captureJSONCollection fd-swap removed |
+| `cmd/curlew/main_test.go` | modified — captureRunCmd/captureRun migrated; TestConcurrentDiscovery, TestNoOsStdoutAssignment added |
+| `cmd/curlew/discovery_run_test.go` | modified — TestCaptureJSONCollection_DoesNotTouchOsStdout added |
+| `cmd/curlew/run_test.go` | modified — os.Stdout swaps migrated |
+| `cmd/curlew/perf.go` | modified — perfCmdOut writer-injectable variant |
+| `cmd/curlew/perf_test.go` | modified — all os.Stdout/os.Stderr swaps migrated |
+| `cmd/curlew/plugins.go` | modified — pluginsCmdOut writer-injectable variant |
+| `cmd/curlew/plugins_test.go` | modified — capturePluginsOutput rewritten with writer injection |
+| `cmd/curlew/license.go` | modified — licenseCmdOut writer-injectable variant |
+| `cmd/curlew/worker.go` | modified — workerCmdOut writer-injectable variant |
 | `internal/watch/watch.go` | modified — RunFunc type extended to carry io.Writer params |
 | `internal/watch/watch_test.go` | modified — RunFunc closures updated; TestRun_PassesConfigWritersToRunFunc added |
 | `CHANGELOG.md` | modified — entry added under Unreleased |

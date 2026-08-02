@@ -24,7 +24,7 @@ No findings.
 | Test Quality | PASS | 7 entity tests (4 for `PasswordResetToken`, 3 for `EmailVerificationToken`) cover persist/round-trip, unique index enforcement, and partial index DDL existence. `User_email_verified_column_defaults_false` covers behavior #3. 7 parameterized theories × 8 slugs in `EmailTemplateInventoryManifestTests` cover manifest loading, MJML compilation, variable allowlists, test_data key alignment, unknown variable rejection, placeholder-copy header, and full variable usage in MJML. All 7 task behaviors are covered. |
 
 ## Test Coverage
-- Go gate: all packages >= 80% (lowest: 81.4% on `cmd/apitest`)
+- Go gate: all packages >= 80% (lowest: 81.4% on `cmd/curlew`)
 - Backend gate: 1322 passed, 0 failed, 8 skipped (Stripe integration tests — pre-existing skip)
 - New entity tests: 74 targeted tests pass
 - Coverage on new code: entity classes and inventory at effectively 100% (all properties and configuration paths exercised); `AppDbContext.cs` new config blocks exercised by migration tests

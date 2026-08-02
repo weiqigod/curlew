@@ -1,6 +1,6 @@
 # Verification Report: M3-002
 
-**Task:** Glob pattern discovery for apitest run
+**Task:** Glob pattern discovery for curlew run
 **Verified by:** AI
 **Date:** 2026-04-11
 **Branch:** feature/M3-002-glob-discovery
@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All 26 packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS* | *Pre-existing TAP help-text failure on `main` is not introduced by M3-002; confirmed by running on `main` branch |
@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ APITEST_TIER=professional ./apitest run "testdata/discovery/**/*_test.yaml"
+$ CURLEW_TIER=professional ./curlew run "testdata/discovery/**/*_test.yaml"
 Collection: A
   ✓ Get  200  527ms
 
@@ -40,12 +40,12 @@ Collection: C
   3 request(s): 3 passed, 0 failed (831ms)
 exit: 0
 
-$ ./apitest run "testdata/discovery/**/*_test.yaml"
+$ ./curlew run "testdata/discovery/**/*_test.yaml"
 [ERROR] Glob pattern test discovery requires Professional tier ($19/month)
 exit: 6
 
 $ go test ./internal/discovery/...
-ok  	github.com/peterlindqvist/apitest/internal/discovery	0.164s
+ok  	github.com/weiqigod/curlew/internal/discovery	0.164s
 ```
 
 Expected: three collections executed at Professional tier (exit 0); exit code 6 with gate message at Free tier.
@@ -58,7 +58,7 @@ Result: MATCH
 | 1 | `**/*_test.yaml` expands to all matching YAML files in deterministic (sorted) order | `TestExpand/sort_is_deterministic_across_two_calls`, `TestMatchPattern` | PASS |
 | 2 | Zero matches → exit code 2 + 'no collections matched' error | `TestRunCmd_GlobDiscovery_ZeroMatches` | PASS |
 | 3 | Literal file path (no metachars) bypasses discovery entirely | `TestRunCmd_GlobDiscovery_LiteralPathUnchanged` | PASS |
-| 4 | `.apitestignore` with `**/drafts/*.yaml` excludes matched files | `TestRunCmd_GlobDiscovery_Ignored` | PASS |
+| 4 | `.curlewignore` with `**/drafts/*.yaml` excludes matched files | `TestRunCmd_GlobDiscovery_Ignored` | PASS |
 | 5 | Three collections where B fails: A and C still run, exit code reflects failure | `TestRunCmd_GlobDiscovery_MiddleFailureDoesNotAbort` | PASS |
 | 6 | `--format json` with glob → single `MultiJSONOutput` document with one entry per collection | `TestRunCmd_GlobDiscovery_JSONFormat` | PASS |
 | 7 | Free tier → exit code 6 + `test_discovery` gate message before any file I/O | `TestRunCmd_GlobDiscovery_FreeTierGate` | PASS |
@@ -71,8 +71,8 @@ Result: MATCH
 | 1 | All behavior tests pass | `go test ./...` — all 26 packages pass | PASS |
 | 2 | Observable output works as specified | Three collections executed at Professional tier (exit 0); gate at Free tier (exit 6) | PASS |
 | 3 | Test coverage >= 80% | `go tool cover` total: 89.3% | PASS |
-| 4 | No build warnings or lint errors | `go build ./cmd/apitest` clean; `golangci-lint run` 0 issues | PASS |
-| 5 | Help text updated (if user-facing) | `apitest run <pattern>` and glob discovery section added to help | PASS |
+| 4 | No build warnings or lint errors | `go build ./cmd/curlew` clean; `golangci-lint run` 0 issues | PASS |
+| 5 | Help text updated (if user-facing) | `curlew run <pattern>` and glob discovery section added to help | PASS |
 | 6 | Smoke test updated (if new capability) | Discovery smoke tests added to `smoke/run.sh` | PASS |
 
 ## Code Review
@@ -105,7 +105,7 @@ Branch A: Review PASS (iteration 3) trusted; spot-check clean — `discovery.go`
 | 0a0149e | chore(task): mark M3-002 as review |
 | 775953d | feat(discovery): add smoke fixtures, help text, CHANGELOG, and improve coverage |
 | e87e617 | refactor(discovery): eliminate duplicate summaries extraction in runDiscoveredCollections |
-| 87c1838 | feat(cli): wire glob discovery into runCmdInner with APITEST_TIER support |
+| 87c1838 | feat(cli): wire glob discovery into runCmdInner with CURLEW_TIER support |
 | 6348268 | test(cli): add failing integration tests for glob discovery wiring |
 | 6a23cb6 | refactor(output): fix gofumpt alignment in MultiJSONOutput |
 | 27a7ae8 | feat(discovery): implement aggregation helpers and MultiJSONOutput |
@@ -132,11 +132,11 @@ Branch A: Review PASS (iteration 3) trusted; spot-check clean — `discovery.go`
 | `internal/auth/registry_test.go` | modified |
 | `internal/output/json.go` | modified (MultiJSONOutput) |
 | `internal/output/json_test.go` | modified |
-| `cmd/apitest/discovery_run.go` | added |
-| `cmd/apitest/discovery_run_test.go` | added |
-| `cmd/apitest/discovery_integration_test.go` | added |
-| `cmd/apitest/main.go` | modified (glob wiring, help text) |
-| `cmd/apitest/testdata/discovery/` | added (fixture tree) |
+| `cmd/curlew/discovery_run.go` | added |
+| `cmd/curlew/discovery_run_test.go` | added |
+| `cmd/curlew/discovery_integration_test.go` | added |
+| `cmd/curlew/main.go` | modified (glob wiring, help text) |
+| `cmd/curlew/testdata/discovery/` | added (fixture tree) |
 | `testdata/discovery/` | added (observable fixtures) |
 | `smoke/run.sh` | modified (discovery smoke tests) |
 | `CHANGELOG.md` | modified |

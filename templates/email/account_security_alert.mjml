@@ -4,7 +4,7 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Security alert on your ApiTool account
+          Security alert on your Curlew account
         </mj-text>
         <mj-text>
           Hi {{first_name}},

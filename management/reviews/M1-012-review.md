@@ -23,7 +23,7 @@ No findings. All code meets project standards.
 | Test Quality | PASS | All 7 behaviors covered, table-driven tests with `t.Run`, integration tests with real binary via `os/exec`, error paths tested, edge cases (nil envVars, missing dir, invalid YAML) covered |
 
 ## Test Coverage
-- Coverage: 93.2% overall (config: 92.0%, runner: 100.0%, cmd/apitest: 86.7%)
+- Coverage: 93.2% overall (config: 92.0%, runner: 100.0%, cmd/curlew: 86.7%)
 - All coverage exceeds 80% threshold
 
 ## Summary

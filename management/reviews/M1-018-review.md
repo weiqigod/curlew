@@ -28,7 +28,7 @@ No findings.
 |---------|----------|
 | `internal/variable` | 95.8% |
 | `internal/runner` | 91.2% |
-| `cmd/apitest` | 85.5% |
+| `cmd/curlew` | 85.5% |
 
 All packages exceed the 80% threshold.
 
@@ -51,7 +51,7 @@ All 8 task behaviors are covered by at least one test:
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (all 10 packages) |
 | `golangci-lint run` | PASS (0 issues) |
 

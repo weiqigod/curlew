@@ -106,7 +106,7 @@
 
       <div class="narrow at-root" data-theme={effectiveTheme === 'light' ? 'light' : undefined}>
         <div class="narrowbox">
-          <div class="ntitle">apitest ui needs more room</div>
+          <div class="ntitle">curlew ui needs more room</div>
           <div class="nsub">widen this window to at least 960 px</div>
         </div>
       </div>

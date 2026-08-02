@@ -1,21 +1,21 @@
 id: M1-025
-title: "Validate command (apitest validate)"
+title: "Validate command (curlew validate)"
 status: done
 priority: 25
 created: 2026-03-09
 phase: "M1: Core CLI"
 dependencies: [M1-016]
 observable: |
-  Run `./apitest validate collection.yaml` on valid and invalid files. Verify
+  Run `./curlew validate collection.yaml` on valid and invalid files. Verify
   pass/fail output without HTTP requests.
 behaviors:
-  - "Given a valid collection file, when apitest validate runs, then exit code 0 and valid message"
+  - "Given a valid collection file, when curlew validate runs, then exit code 0 and valid message"
   - "Given invalid YAML syntax, when validated, then exit code 3 with parse error and line number"
   - "Given missing required fields, when validated, then exit code 3 listing missing fields"
   - "Given undefined variable references, when validated, then warning about potentially unresolved variables"
   - "Given external file references (path:) to non-existent files, when validated, then exit code 3 with file not found"
-  - "Given apitest validate with --format json, then validation results are output as JSON"
-  - "Given apitest validate on multiple files (glob pattern), when executed, then all files are validated"
+  - "Given curlew validate with --format json, then validation results are output as JSON"
+  - "Given curlew validate on multiple files (glob pattern), when executed, then all files are validated"
 scope: |
   Add `validate` command to CLI. Reuse parsing logic without execution. Add
   structural validation checks. Report all issues (not just first).

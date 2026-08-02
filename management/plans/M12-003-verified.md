@@ -34,7 +34,7 @@ $ go test -run 'TestRegistry_UrlEncode' -v ./internal/variable/...
 === RUN   TestRegistry_UrlEncode_NestedVar
 --- PASS: TestRegistry_UrlEncode_NestedVar (0.00s)
 PASS
-ok  github.com/peterlindqvist/apitest/internal/variable
+ok  github.com/weiqigod/curlew/internal/variable
 
 $ go test -run 'TestRegistry_JsonEncode' -v ./internal/variable/...
 === RUN   TestRegistry_JsonEncode
@@ -48,9 +48,9 @@ $ go test -run 'TestRegistry_JsonEncode' -v ./internal/variable/...
     --- PASS: TestRegistry_JsonEncode/contains_carriage_return (0.00s)
     --- PASS: TestRegistry_JsonEncode/unicode_multibyte (0.00s)
 PASS
-ok  github.com/peterlindqvist/apitest/internal/variable
+ok  github.com/weiqigod/curlew/internal/variable
 
-$ apitest run /tmp/test_urlencode.yaml --dry-run --format json --var base_url=http://example.com
+$ curlew run /tmp/test_urlencode.yaml --dry-run --format json --var base_url=http://example.com
 {
   "url": "http://example.com/search?q=hello+world+%26+co",
   ...

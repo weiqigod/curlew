@@ -26,7 +26,7 @@ No findings.
 ## Test Coverage
 
 - Overall coverage: **86.2%** (above 80% requirement)
-- `cmd/apitest` package: **80.3%**
+- `cmd/curlew` package: **80.3%**
 - `internal/watch` package: **89.7%**
 - Missing coverage: acceptable — no coverage regressions; key paths exercised by new and existing tests.
 
@@ -45,12 +45,12 @@ No findings.
 ## Observable Verification
 
 ```
-grep -rn "os.Stdout = " cmd/apitest/  → zero matches ✓
-grep -rn "os.Stderr = " cmd/apitest/  → zero matches ✓
-grep -n "^func runCmdInner" cmd/apitest/main.go → func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary) ✓
-go test -run TestConcurrentDiscovery ./cmd/apitest/...  → PASS ✓
-go test -run TestNoOsStdoutAssignment ./cmd/apitest/... → PASS ✓
-go test -race ./cmd/apitest/...                         → PASS ✓
+grep -rn "os.Stdout = " cmd/curlew/  → zero matches ✓
+grep -rn "os.Stderr = " cmd/curlew/  → zero matches ✓
+grep -n "^func runCmdInner" cmd/curlew/main.go → func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary) ✓
+go test -run TestConcurrentDiscovery ./cmd/curlew/...  → PASS ✓
+go test -run TestNoOsStdoutAssignment ./cmd/curlew/... → PASS ✓
+go test -race ./cmd/curlew/...                         → PASS ✓
 ./scripts/ci-local.sh --go                              → PASS ✓
 Coverage                                                → 86.2% ✓
 ```

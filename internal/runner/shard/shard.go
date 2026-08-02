@@ -1,7 +1,7 @@
 // Package shard splits a request list into N shards for distributed execution.
 package shard
 
-import "github.com/peterlindqvist/apitest/internal/parser"
+import "github.com/weiqigod/curlew/internal/parser"
 
 // Plan is the per-shard slice plus original index map.
 type Plan struct {

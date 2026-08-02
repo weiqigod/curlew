@@ -30,7 +30,7 @@ go test -run 'TestRegistry_FakerFinancial' -v ./internal/variable/...
     --- PASS: TestRegistry_FakerFinancial/iban_shape_+_mod-97_valid (0.00s)
     --- PASS: TestRegistry_FakerFinancial/bic_shape (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/internal/variable     0.318s
+ok      github.com/weiqigod/curlew/internal/variable     0.318s
 
 go test -run 'TestRegistry_FakerFinancial_AutoSensitive' -v ./internal/variable/...
 --- PASS: TestRegistry_FakerFinancial_AutoSensitive (0.00s)

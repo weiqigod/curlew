@@ -35,7 +35,7 @@
 
 go test ./...  → PASS (all packages)
 
-apitest run collections/sample.yaml --dry-run --format json
+curlew run collections/sample.yaml --dry-run --format json
 → passed with X-Body-Hash header rendered as hex SHA-256 of resolved body
 ```
 

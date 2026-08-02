@@ -10,20 +10,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/output/events"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/runservice"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/output/events"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/runservice"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
-// writeProject scaffolds a minimal apitest project and returns the absolute
+// writeProject scaffolds a minimal curlew project and returns the absolute
 // collection path.
 func writeProject(t *testing.T, collectionYAML string) string {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "apitest.yaml"), []byte("project_name: t\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "curlew.yaml"), []byte("project_name: t\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	colDir := filepath.Join(root, "collections")
@@ -159,7 +159,7 @@ requests:
       url: "http://x.test/ping"
 `)
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "test", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "test", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ requests:
     request: {method: GET, url: "http://x.test"}
 `)
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "test", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "test", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}

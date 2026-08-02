@@ -10,7 +10,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerFile' -v ./internal/variable/...
   # Expected: PASS — all 4 file functions registered.
@@ -32,9 +32,9 @@ observable: |
   go test -run 'TestRegistry_FakerFile_Unseeded' -v ./internal/variable/...
   # Expected: PASS — without --seed, two consecutive runs differ.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Body: {"upload":"{{$faker.fileName}}","mime":"{{$faker.mimeType}}","thumb":"{{$faker.imageUrl('320','240')}}"}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: upload is filename.ext; mime is type/subtype; thumb is the picsum URL with 320x240.
 
   go test ./...

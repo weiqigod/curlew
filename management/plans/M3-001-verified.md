@@ -24,7 +24,7 @@
 
 ```
 # Free tier gate (default binary):
-$ ./apitest run collection.yaml   # rate_limit_rps: 5
+$ ./curlew run collection.yaml   # rate_limit_rps: 5
 Collection: Rate Limit Test
 [ERROR] Global rate_limit_rps requires Professional tier ($19/month)
 Exit: 6
@@ -57,7 +57,7 @@ Result: MATCH (Free tier gate verified with binary; timing verified via unit tes
 | 1 | All behavior tests pass | `go test ./...` all packages PASS | PASS |
 | 2 | Observable output works as specified | Free tier gate: exit 6, gate message verified with binary | PASS |
 | 3 | Test coverage >= 80% | Total 89.2%; all changed packages >= 80% | PASS |
-| 4 | No build warnings or lint errors | `go build ./cmd/apitest`: clean; `golangci-lint run`: 0 issues | PASS |
+| 4 | No build warnings or lint errors | `go build ./cmd/curlew`: clean; `golangci-lint run`: 0 issues | PASS |
 | 5 | Help text updated (if user-facing) | No new user-facing flags; feature is collection-level YAML field | N/A |
 | 6 | Smoke test updated (if new capability) | Smoke test passes; rate limiting is a Professional tier feature gated at Free tier | PASS |
 

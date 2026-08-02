@@ -50,7 +50,7 @@ $ go test -run 'TestRegistry_RandomPassword_TooShort' -v ./internal/variable/...
     --- PASS: TestRegistry_RandomPassword_TooShort/length=-1 (0.00s)
 PASS
 
-$ apitest run collections/sample.yaml --dry-run -vv
+$ curlew run collections/sample.yaml --dry-run -vv
   > (body): map[temp_password:xv%71e,TG1r5X9vxm1.Y]
   ✓ Hello World  200  572ms
 ```

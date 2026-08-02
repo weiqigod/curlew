@@ -144,7 +144,7 @@ func (h *Host) handshakeOne(ctx context.Context, path string) (*Plugin, []LoadEr
 	br := bufio.NewReaderSize(stdout, handshakeBufSize)
 	go func() {
 		if err := writeRequest(stdin, rpcRequest{
-			ID: 1, Method: "apitest/hello",
+			ID: 1, Method: "curlew/hello",
 			Params: []byte(`{}`),
 		}); err != nil {
 			ch <- readResult{err: fmt.Errorf("write handshake: %w", err)}
@@ -309,7 +309,7 @@ func (h *Host) handshakeOneForRun(ctx context.Context, path string) (*Plugin, *C
 	ch := make(chan readResult, 1)
 	go func() {
 		if err := writeRequest(stdin, rpcRequest{
-			ID: 1, Method: "apitest/hello",
+			ID: 1, Method: "curlew/hello",
 			Params: []byte(`{}`),
 		}); err != nil {
 			ch <- readResult{err: fmt.Errorf("write handshake: %w", err)}

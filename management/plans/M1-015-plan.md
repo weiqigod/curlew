@@ -253,7 +253,7 @@ func TestParseFile_ExternalReferences(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add integration tests for external request references |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for external request references |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -296,7 +296,7 @@ func TestCLIIntegration_ExternalRequestReference(t *testing.T) {
 |-----------|--------------|--------|----------------|
 | `internal/parser/parser_test.go` | All existing | none | — |
 | `internal/runner/runner_test.go` | All existing | none | — |
-| `cmd/apitest/main_test.go` | All existing | none | — |
+| `cmd/curlew/main_test.go` | All existing | none | — |
 
 ## Risks and Edge Cases
 
@@ -311,7 +311,7 @@ func TestCLIIntegration_ExternalRequestReference(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -320,8 +320,8 @@ go test ./...
 Observable verification:
 ```bash
 # Create external request file
-mkdir -p /tmp/apitest-test/requests
-cat > /tmp/apitest-test/requests/get-user.yaml << 'EOF'
+mkdir -p /tmp/curlew-test/requests
+cat > /tmp/curlew-test/requests/get-user.yaml << 'EOF'
 name: Get User
 request:
   method: GET
@@ -329,12 +329,12 @@ request:
 EOF
 
 # Create collection referencing it
-cat > /tmp/apitest-test/collection.yaml << 'EOF'
+cat > /tmp/curlew-test/collection.yaml << 'EOF'
 name: External Reference Test
 requests:
   - path: requests/get-user.yaml
 EOF
 
 # Run and verify
-./apitest run /tmp/apitest-test/collection.yaml
+./curlew run /tmp/curlew-test/collection.yaml
 ```

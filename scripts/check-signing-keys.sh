@@ -5,17 +5,17 @@
 # This guards SaaS deployments against signing keys that were provisioned without
 # a KMS key reference, ensuring all signing keys are enrolled in the KMS envelope.
 #
-# Skipped (exit 0 + log note) when APITEST_BUILD_PROFILE != "saas" OR when
-# APITEST_SIGNING_KEY_MODE == "file" (self-hosted / developer laptops).
+# Skipped (exit 0 + log note) when CURLEW_BUILD_PROFILE != "saas" OR when
+# CURLEW_SIGNING_KEY_MODE == "file" (self-hosted / developer laptops).
 #
 # Usage:
 #   ./scripts/check-signing-keys.sh
-#   APITEST_BUILD_PROFILE=saas DATABASE_URL=postgres://... ./scripts/check-signing-keys.sh
+#   CURLEW_BUILD_PROFILE=saas DATABASE_URL=postgres://... ./scripts/check-signing-keys.sh
 #
 # Environment variables:
-#   APITEST_BUILD_PROFILE   — must be "saas" to enable the check (default: unset → skip)
-#   APITEST_SIGNING_KEY_MODE — "file" overrides profile and skips the check
-#   DATABASE_URL             — Postgres connection string (default: postgres://localhost/apitool)
+#   CURLEW_BUILD_PROFILE   — must be "saas" to enable the check (default: unset → skip)
+#   CURLEW_SIGNING_KEY_MODE — "file" overrides profile and skips the check
+#   DATABASE_URL             — Postgres connection string (default: postgres://localhost/curlew)
 #
 # Exit codes:
 #   0 — check passed (no NULL kms_key_id rows) OR check was skipped
@@ -23,19 +23,19 @@
 
 set -euo pipefail
 
-PROFILE="${APITEST_BUILD_PROFILE:-}"
-KEY_MODE="${APITEST_SIGNING_KEY_MODE:-}"
-DATABASE_URL="${DATABASE_URL:-postgres://localhost/apitool}"
+PROFILE="${CURLEW_BUILD_PROFILE:-}"
+KEY_MODE="${CURLEW_SIGNING_KEY_MODE:-}"
+DATABASE_URL="${DATABASE_URL:-postgres://localhost/curlew}"
 
 # Skip in self-hosted / file-key-mode scenarios.
 if [ "$KEY_MODE" = "file" ]; then
-  echo "check-signing-keys: SKIPPED (APITEST_SIGNING_KEY_MODE=file — self-hosted mode)"
+  echo "check-signing-keys: SKIPPED (CURLEW_SIGNING_KEY_MODE=file — self-hosted mode)"
   exit 0
 fi
 
 # Skip if not a SaaS build.
 if [ "$PROFILE" != "saas" ]; then
-  echo "check-signing-keys: SKIPPED (APITEST_BUILD_PROFILE=${PROFILE:-<unset>} — only enforced in saas profile)"
+  echo "check-signing-keys: SKIPPED (CURLEW_BUILD_PROFILE=${PROFILE:-<unset>} — only enforced in saas profile)"
   exit 0
 fi
 

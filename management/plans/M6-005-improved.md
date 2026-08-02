@@ -19,10 +19,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
-| Coverage `cmd/apitest` | 80.3% |
+| Coverage `cmd/curlew` | 80.3% |
 | Coverage `internal/runner` | 83.8% |
 | Coverage `internal/parallel` | 89.7% |
 | Coverage `internal/output/events` | 95.7% |
@@ -58,10 +58,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
-| Coverage `cmd/apitest` | 80.2% |
+| Coverage `cmd/curlew` | 80.2% |
 | Coverage `internal/runner` | 83.8% |
 | Coverage `internal/parallel` | 89.7% |
 | Coverage `internal/output/events` | 95.7% |
@@ -87,8 +87,8 @@ Iteration 4: 1/1 findings resolved. 0 deferred.
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | High | Coverage regression: cmd/apitest at 79.9%, below 80% DoD threshold. Uncovered branches: HTML format gate error, HTML missing --report, parallel gate error, and other `if eventsEmitter != nil` emission branches in `runCmdInner`. | Added four targeted tests: `TestRunCmd_Events_HTMLGateError_EmitsRunError`, `TestRunCmd_Events_HTMLMissingReport_EmitsRunError`, `TestRunCmd_Events_ParallelGateError_EmitsRunError`, `TestRunCmd_Events_Parallel_WaveIndexAndMonotonicIDs`. Coverage raised from 79.9% → 80.2%. | ✓ tests pass |
-| 2 | Medium | No CLI-level integration test combining `--parallel` with `--events`. Behavior 5 (parallel execution wave events) only exercised at unit level in `internal/parallel/executor_test.go`. | Added `TestRunCmd_Events_Parallel_WaveIndexAndMonotonicIDs` in `cmd/apitest/main_test.go`. Test runs two independent requests with `--parallel --events`, reads the resulting NDJSON file, and asserts: (a) run.start and run.end frame events are present, (b) at least 2 request.end events exist with unique request_ids across goroutines, (c) event_count matches total line count. | ✓ tests pass |
+| 1 | High | Coverage regression: cmd/curlew at 79.9%, below 80% DoD threshold. Uncovered branches: HTML format gate error, HTML missing --report, parallel gate error, and other `if eventsEmitter != nil` emission branches in `runCmdInner`. | Added four targeted tests: `TestRunCmd_Events_HTMLGateError_EmitsRunError`, `TestRunCmd_Events_HTMLMissingReport_EmitsRunError`, `TestRunCmd_Events_ParallelGateError_EmitsRunError`, `TestRunCmd_Events_Parallel_WaveIndexAndMonotonicIDs`. Coverage raised from 79.9% → 80.2%. | ✓ tests pass |
+| 2 | Medium | No CLI-level integration test combining `--parallel` with `--events`. Behavior 5 (parallel execution wave events) only exercised at unit level in `internal/parallel/executor_test.go`. | Added `TestRunCmd_Events_Parallel_WaveIndexAndMonotonicIDs` in `cmd/curlew/main_test.go`. Test runs two independent requests with `--parallel --events`, reads the resulting NDJSON file, and asserts: (a) run.start and run.end frame events are present, (b) at least 2 request.end events exist with unique request_ids across goroutines, (c) event_count matches total line count. | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -98,16 +98,16 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
-| Coverage (`cmd/apitest`) | 80.2% |
+| Coverage (`cmd/curlew`) | 80.2% |
 
 ## Fix Commits (Iteration 3)
 
 | Commit | Message | Findings Resolved |
 |--------|---------|-------------------|
-| `5543984` | test(events): add targeted tests to raise cmd/apitest coverage above 80% | #1, #2 |
+| `5543984` | test(events): add targeted tests to raise cmd/curlew coverage above 80% | #1, #2 |
 
 ## Summary
 Iteration 3: 2/2 findings resolved. 0 deferred.
@@ -138,23 +138,23 @@ Iteration 3: 2/2 findings resolved. 0 deferred.
 |---|----------|---------|------------|----------|
 | 1 | Medium | `executeDataDrivenParallel` emitted no events for any iteration — behavior 3 violation | Added `RequestStart`, `AssertionResult`, and `RequestEnd` emission inside the `execFn` closure in `executeDataDrivenParallel`. Each iteration emits paired events with unique monotonic request IDs via `vars.nextRequestID()`. Added `TestRun_EventSink_DataDrivenParallel` test. | ✓ tests pass |
 | 2 | Medium | `--show-dependencies` invalid-graph and DOT write-error paths set `evExitCode` but did not call `EmitRunError` | Added `eventsEmitter.EmitRunError(graphErr)` at the invalid-graph branch and `eventsEmitter.EmitRunError(writeErr)` at the DOT write-error branch. Added `TestRunCmd_Events_ShowDependencies_InvalidGraph_EmitsRunError`. | ✓ tests pass |
-| 3 | Low | `cmd/apitest` coverage at 79.7%, below 80% DoD threshold. Uncovered: eventsAdapter error branches and `redactedCLIArgs` sensitive-flag branch. | Added `TestEventsAdapter_EmissionError_LoggedToErrOut` (covers `fmt.Fprintf(a.errOut, ...)` in all three adapter methods) and `TestRedactedCLIArgs_SensitiveFlags`. Coverage improved to 79.9%. | ✓ tests pass |
+| 3 | Low | `cmd/curlew` coverage at 79.7%, below 80% DoD threshold. Uncovered: eventsAdapter error branches and `redactedCLIArgs` sensitive-flag branch. | Added `TestEventsAdapter_EmissionError_LoggedToErrOut` (covers `fmt.Fprintf(a.errOut, ...)` in all three adapter methods) and `TestRedactedCLIArgs_SensitiveFlags`. Coverage improved to 79.9%. | ✓ tests pass |
 | 4 | Low | Behavior 7 ("/dev/stdout as --events path") had no test | Added `TestRunCmd_Events_StdoutPath` using `buildBinary` + `runBinary` (real binary approach required because `/dev/stdout` bypasses in-process pipe redirects). | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
 No findings deferred. All findings resolved.
 
-Note on coverage: `cmd/apitest` coverage reached 79.9% (up from 79.7%). The remaining 0.1% gap is in pre-existing, out-of-scope functions (`main()` entry point, `workerCmd`, `printWorkerHelp`, `watchCmd`, HTML helper stubs) that predate M6-005 and are not in this task's scope.
+Note on coverage: `cmd/curlew` coverage reached 79.9% (up from 79.7%). The remaining 0.1% gap is in pre-existing, out-of-scope functions (`main()` entry point, `workerCmd`, `printWorkerHelp`, `watchCmd`, HTML helper stubs) that predate M6-005 and are not in this task's scope.
 
 ## Quality Gate
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
-| Coverage (`cmd/apitest`) | 79.9% |
+| Coverage (`cmd/curlew`) | 79.9% |
 | Coverage (overall) | 86.1% |
 
 ## Fix Commits (Iteration 2)

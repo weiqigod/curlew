@@ -215,7 +215,7 @@ func TestScope_WithOverrides(t *testing.T) {
 |------|--------|-------------|
 | `internal/runner/runner.go` | modify | Add `VarSources` struct, change `Run` signature |
 | `internal/runner/runner_test.go` | modify | Update all `Run()` call sites to use `VarSources{}` |
-| `cmd/apitest/main.go` | modify | Update `runCmd` to pass `VarSources` |
+| `cmd/curlew/main.go` | modify | Update `runCmd` to pass `VarSources` |
 
 #### Current Code
 ```go
@@ -259,7 +259,7 @@ No new tests — this is a pure refactor. Existing tests must continue to pass a
 
 #### Impact on Existing Tests
 - **All ~60 call sites in `runner_test.go`** need mechanical update from positional args to struct literal
-- **`cmd/apitest/main.go:117`** needs update from `runner.Run(ctx, col, httpexec.Execute, envVars, dotenvVars, cliVars)` to `runner.Run(ctx, col, httpexec.Execute, runner.VarSources{EnvFile: envVars, DotEnv: dotenvVars, CLI: cliVars})`
+- **`cmd/curlew/main.go:117`** needs update from `runner.Run(ctx, col, httpexec.Execute, envVars, dotenvVars, cliVars)` to `runner.Run(ctx, col, httpexec.Execute, runner.VarSources{EnvFile: envVars, DotEnv: dotenvVars, CLI: cliVars})`
 
 ---
 
@@ -394,8 +394,8 @@ func TestRun_request_level_vars_do_not_leak_to_next_request(t *testing.T)
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `--env-var` to `parseRunArgs`, wire through `runCmd`, update `printHelp` |
-| `cmd/apitest/main_test.go` | modify | Add `--env-var` test cases to `TestParseRunArgs`, add integration tests |
+| `cmd/curlew/main.go` | modify | Add `--env-var` to `parseRunArgs`, wire through `runCmd`, update `printHelp` |
+| `cmd/curlew/main_test.go` | modify | Add `--env-var` test cases to `TestParseRunArgs`, add integration tests |
 
 #### Current Code
 ```go
@@ -488,8 +488,8 @@ func TestCLIIntegration_full_precedence_chain(t *testing.T)
 | `internal/variable/variable_test.go` | (new tests) | new | Add `ParseEnvVarFlag` and `WithOverrides` tests |
 | `internal/runner/runner_test.go` | All ~60 `Run()` calls | signature change | Update from positional args to `VarSources{}` |
 | `internal/runner/runner_test.go` | (new tests) | new | Add request-level and env-var precedence tests |
-| `cmd/apitest/main_test.go` | `TestParseRunArgs` | return value change | Add `envVarVars` to all test cases |
-| `cmd/apitest/main_test.go` | (new tests) | new | Add `--env-var` integration tests |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs` | return value change | Add `envVarVars` to all test cases |
+| `cmd/curlew/main_test.go` | (new tests) | new | Add `--env-var` integration tests |
 | `smoke/run.sh` | (new test) | new | Add `--env-var` smoke test |
 
 ## Risks and Edge Cases
@@ -506,7 +506,7 @@ func TestCLIIntegration_full_precedence_chain(t *testing.T)
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -516,11 +516,11 @@ Observable verification:
 ```bash
 # Set OS env var and verify --env-var imports it
 export TEST_API_KEY=my-secret
-apitest run test.yaml --env-var TEST_API_KEY
+curlew run test.yaml --env-var TEST_API_KEY
 
 # Verify mapped env var
 export CI_API_KEY=ci-secret
-apitest run test.yaml --env-var API_KEY=$CI_API_KEY
+curlew run test.yaml --env-var API_KEY=$CI_API_KEY
 
 # Verify full precedence chain
 # Create collection with variables, env file, .env, request vars

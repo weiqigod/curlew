@@ -3,12 +3,12 @@
 name: e2e-failing-pipeline
 
 variables:
-  APITEST_BACKEND_URL: "http://localhost:5000"
+  CURLEW_BACKEND_URL: "http://localhost:5000"
 
 requests:
   - name: expect-status-999
     request:
       method: GET
-      url: "{{APITEST_BACKEND_URL}}/swagger/v1/swagger.json"
+      url: "{{CURLEW_BACKEND_URL}}/swagger/v1/swagger.json"
     assertions:
       status: 999

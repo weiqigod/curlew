@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 15 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All scenarios pass (exit 0) |
@@ -24,7 +24,7 @@
 
 ```
 Collection: per-request-auth-test
-[ERROR] request "Authenticated Request": auth profile not found: "admin_token"; no auth profiles configured (add auth_profiles: to apitest.yaml)
+[ERROR] request "Authenticated Request": auth profile not found: "admin_token"; no auth profiles configured (add auth_profiles: to curlew.yaml)
 ```
 
 Expected: `auth:` field parsed; clear error when no auth profiles configured.
@@ -44,7 +44,7 @@ Result: MATCH — `auth:` field is parsed and runner produces a clear, actionabl
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all 15 packages pass | PASS |
-| 2 | Observable output works as specified | `apitest run` with `auth:` field produces clear error | PASS |
+| 2 | Observable output works as specified | `curlew run` with `auth:` field produces clear error | PASS |
 | 3 | Test coverage >= 80% | 91.6% total | PASS |
 | 4 | No build warnings or lint errors | Clean build + `golangci-lint run` 0 issues | PASS |
 | 5 | Help text updated | N/A — no new CLI flags | PASS |

@@ -14,14 +14,14 @@
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | All smoke checks pass |
-| Coverage | 80.3% | Meets >= 80% threshold (cmd/apitest) |
+| Coverage | 80.3% | Meets >= 80% threshold (cmd/curlew) |
 
-Note: A stale `/tmp/apitest_seed_XXXXXX.yaml` env-contamination file caused `ci-local.sh` to fail on first run; removing it caused the script to exit 0. This is an environment contamination issue pre-existing and documented in the review (not caused by M7-001).
+Note: A stale `/tmp/curlew_seed_XXXXXX.yaml` env-contamination file caused `ci-local.sh` to fail on first run; removing it caused the script to exit 0. This is an environment contamination issue pre-existing and documented in the review (not caused by M7-001).
 
 ## Observable Output
 
 ```
-# After running: ./apitest run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt
+# After running: ./curlew run /tmp/m7-001-check.yaml > /tmp/out.txt 2> /tmp/err.txt
 # grep -c $'\033[' /tmp/err.txt
 0
 ```
@@ -46,12 +46,12 @@ TTY-dependent test cases (behaviors 1 and 2) skip gracefully when `/dev/tty` is 
 
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
-| 1 | All behavior tests pass | `go test -run TestStderrColorFlag ./cmd/apitest/...` → PASS | PASS |
+| 1 | All behavior tests pass | `go test -run TestStderrColorFlag ./cmd/curlew/...` → PASS | PASS |
 | 2 | stream_color_test.go exercises all six TTY/pipe combinations | 6 test cases in `TestStderrColorFlag` | PASS |
 | 3 | `grep -rn 'NewPrinter(os.Stderr, useColor)'` returns zero matches | No output from grep | PASS |
 | 4 | `newStderrPrinter` helper exists and used at every former site | 19 call sites found in main.go + perf.go | PASS |
 | 5 | `go test ./...` passes with no regressions | All packages pass | PASS |
-| 6 | Coverage does not regress below 80% | cmd/apitest: 80.3% | PASS |
+| 6 | Coverage does not regress below 80% | cmd/curlew: 80.3% | PASS |
 | 7 | `golangci-lint run` passes with 0 issues | Clean lint output | PASS |
 | 8 | `./smoke/run.sh` passes | All smoke checks pass | PASS |
 | 9 | `./scripts/ci-local.sh` passes | Exits 0 after env cleanup | PASS |
@@ -94,9 +94,9 @@ TDD pattern: `test(cli)` commits appear before `feat(cli)` commits. Refs not in 
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — added `newStderrPrinter`, renamed `useColor→stdoutUseColor`, migrated all stderr printer call sites |
-| `cmd/apitest/stream_color_test.go` | added — regression test with 6 TTY/pipe combinations |
-| `cmd/apitest/perf.go` | modified — migrated stderr printer to `newStderrPrinter` |
+| `cmd/curlew/main.go` | modified — added `newStderrPrinter`, renamed `useColor→stdoutUseColor`, migrated all stderr printer call sites |
+| `cmd/curlew/stream_color_test.go` | added — regression test with 6 TTY/pipe combinations |
+| `cmd/curlew/perf.go` | modified — migrated stderr printer to `newStderrPrinter` |
 | `CHANGELOG.md` | modified — added M7-001 entry |
 | `management/tasks/M7-001.yaml` | modified — status updated |
 | `management/plans/M7-001-plan.md` | added |

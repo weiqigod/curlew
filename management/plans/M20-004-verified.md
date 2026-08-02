@@ -37,7 +37,7 @@ testdata/locale/reproducibility-matrix.yaml
 
 # 5. internal/variable tests (expected: PASS)
 $ go test ./internal/variable/...
-ok  github.com/peterlindqvist/apitest/internal/variable
+ok  github.com/weiqigod/curlew/internal/variable
 ```
 
 Expected: all checks pass
@@ -52,7 +52,7 @@ Result: MATCH
 | 3 | Fixed seed + any locale: `$faker.fullName` byte-identical across two runs | `TestLocale_ReproducibilityMatrix` — 15 locales x 4 funcs, two independent registries | PASS |
 | 4 | Fixed seed: `$faker.firstName` pool-membership verified per locale | `TestLocale_ReproducibilityMatrix_SameDrawOrder` — 15 locales, pool membership checked | PASS |
 | 5 | MANUAL.md precedence chain: Default < Project < Environment < Collection < CLI flag | MANUAL.md:1297 contains the 5-level chain | PASS |
-| 6 | `testdata/locale/reproducibility-matrix.yaml` runs via `apitest run` with `--seed 12345` | Fixture present and structurally valid; not run in hermetic CI (requires httpbin.org) per KAD-5 | CONDITIONAL/PASS |
+| 6 | `testdata/locale/reproducibility-matrix.yaml` runs via `curlew run` with `--seed 12345` | Fixture present and structurally valid; not run in hermetic CI (requires httpbin.org) per KAD-5 | CONDITIONAL/PASS |
 | 7 | MANUAL.md documents ERR_LOCALE_UNKNOWN with supported-locale list | MANUAL.md:1315-1321 documents error code and hint message | PASS |
 
 ## Definition of Done

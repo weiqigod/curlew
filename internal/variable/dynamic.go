@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // DynFunc generates a dynamic variable value. args is the resolved argument

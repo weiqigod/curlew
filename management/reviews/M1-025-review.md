@@ -1,6 +1,6 @@
 # Code Review: M1-025
 
-**Task:** Validate command (apitest validate)
+**Task:** Validate command (curlew validate)
 **Reviewer:** AI
 **Date:** 2026-03-17
 **Branch:** feature/M1-025-validate-command
@@ -30,7 +30,7 @@ No findings.
 | `internal/validator` | 100.0% | PASS (≥80%) |
 | `internal/output` | 91.6% | PASS (≥80%) |
 | `internal/variable` | 96.1% | PASS (≥80%) |
-| `cmd/apitest` | 88.6% | PASS (≥80%) |
+| `cmd/curlew` | 88.6% | PASS (≥80%) |
 
 **Function-level detail (validate-related):**
 - `parseValidateArgs`: 100.0% ✓

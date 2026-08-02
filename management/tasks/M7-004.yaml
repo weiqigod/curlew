@@ -12,7 +12,7 @@ dependencies:
 observable: |
   # The matrix test exercises (command × format × TTY-state) combinations
   # and asserts clean stream separation for every cell.
-  go test -run TestStreamDisciplineMatrix ./cmd/apitest/...
+  go test -run TestStreamDisciplineMatrix ./cmd/curlew/...
   # Expected: PASS — stdout is only the declared format's payload, stderr
   # contains no ANSI on pipes, progress strings never appear on stdout.
 
@@ -26,7 +26,7 @@ observable: |
       assertions:
         status: 200
   YAML
-  ./apitest run /tmp/m7-004-check.yaml --format json | jq -e '.status == "passed"'
+  ./curlew run /tmp/m7-004-check.yaml --format json | jq -e '.status == "passed"'
   # Expected: exit 0 (jq parses the JSON and the assertion evaluates true).
 
   # The ci-local.sh Go gate invokes the matrix test by name so failures
@@ -34,19 +34,19 @@ observable: |
   ./scripts/ci-local.sh --go
   # Expected: PASS; TestStreamDisciplineMatrix appears in the test log.
 behaviors:
-  - "Given apitest run with --format json and a passing collection, when stdout is piped into jq, then the JSON parses cleanly and contains the expected status/total/passed fields."
-  - "Given apitest run with --format tap, when stdout is piped, then stdout begins with 'TAP version 13' and contains no progress or help lines."
-  - "Given apitest run with --format junit, when stdout is piped (no --report flag), then stdout is well-formed JUnit XML; stderr contains no ANSI escape sequences when also piped."
-  - "Given apitest run with --format html --report <tmp>, when executed, then stdout is empty; the HTML file on disk contains the expected section markers; stderr has no ANSI on pipes."
-  - "Given apitest run with the default terminal format and stderr piped, when an error occurs, then stderr contains no ANSI escape sequences."
-  - "Given any apitest subcommand with stdout piped, when stdout is captured, then no known-progress string (Running..., Load test:, Validating license..., Claimed shard) appears on stdout."
+  - "Given curlew run with --format json and a passing collection, when stdout is piped into jq, then the JSON parses cleanly and contains the expected status/total/passed fields."
+  - "Given curlew run with --format tap, when stdout is piped, then stdout begins with 'TAP version 13' and contains no progress or help lines."
+  - "Given curlew run with --format junit, when stdout is piped (no --report flag), then stdout is well-formed JUnit XML; stderr contains no ANSI escape sequences when also piped."
+  - "Given curlew run with --format html --report <tmp>, when executed, then stdout is empty; the HTML file on disk contains the expected section markers; stderr has no ANSI on pipes."
+  - "Given curlew run with the default terminal format and stderr piped, when an error occurs, then stderr contains no ANSI escape sequences."
+  - "Given any curlew subcommand with stdout piped, when stdout is captured, then no known-progress string (Running..., Load test:, Validating license..., Claimed shard) appears on stdout."
   - "Given ./scripts/ci-local.sh --go, when run, then TestStreamDisciplineMatrix executes and must pass before the Go gate succeeds."
 scope: |
-  New integration test file: cmd/apitest/stream_discipline_matrix_test.go.
+  New integration test file: cmd/curlew/stream_discipline_matrix_test.go.
 
   Structure: a matrix helper that iterates
   (subcommand × format × stdout-TTY × stderr-TTY) and for each
-  combination spawns the real ./apitest binary via exec.Command with
+  combination spawns the real ./curlew binary via exec.Command with
   stdout/stderr redirected per the matrix entry. Assertions per cell:
 
     1. stdout contains only the declared format's payload.
@@ -72,7 +72,7 @@ scope: |
   feature-gate-denial paths.
 
   ./scripts/ci-local.sh — extend the Go gate section so
-      go test -run TestStreamDisciplineMatrix ./cmd/apitest/... -count=1
+      go test -run TestStreamDisciplineMatrix ./cmd/curlew/... -count=1
   runs explicitly with a named marker. The goal is failures in CI logs
   show the matrix name so triage is one grep away.
 
@@ -81,11 +81,11 @@ scope: |
   M7-001/002/003, that indicates a bug in those tasks, not this one.
 definition_of_done:
   - "All behavior tests pass"
-  - "cmd/apitest/stream_discipline_matrix_test.go exists and covers every command × format combination documented in the scope"
+  - "cmd/curlew/stream_discipline_matrix_test.go exists and covers every command × format combination documented in the scope"
   - "testdata/stream-discipline/ contains the four documented fixtures"
   - "./scripts/ci-local.sh --go invokes TestStreamDisciplineMatrix explicitly"
   - "The matrix test would fail against the pre-M7-001 codebase (verified on a scratch branch by reverting one M7-001 site and re-running)"
-  - "Smoke-level assertion 'apitest run <fixture> --format json | jq .' passes in CI"
+  - "Smoke-level assertion 'curlew run <fixture> --format json | jq .' passes in CI"
   - "go test ./... passes with no regressions"
   - "Test coverage does not regress below 80%"
   - "golangci-lint run passes with 0 issues"

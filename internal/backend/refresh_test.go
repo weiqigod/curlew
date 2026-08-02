@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 )
 
 // problemResponse writes an application/problem+json response with the given

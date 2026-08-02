@@ -29,7 +29,7 @@ No findings. All previous review findings have been resolved.
 - output: 100%
 - parser: 97.1% (UnmarshalYAML: 100%)
 - httpexec: 87.5% (unchanged, pre-existing)
-- cmd/apitest: 90.9%
+- cmd/curlew: 90.9%
 
 ## Behavior Coverage
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a `watch` command that monitors collection files and related resources (external requests, environments, .env, apitest.yaml) for changes, automatically re-running the collection with debouncing on file save.
+Add a `watch` command that monitors collection files and related resources (external requests, environments, .env, curlew.yaml) for changes, automatically re-running the collection with debouncing on file save.
 
 ## Task Details
 - **ID:** M2-011
@@ -161,8 +161,8 @@ package watch
 import (
 	"path/filepath"
 
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // WatchPaths holds all file paths that should be monitored for a collection run.
@@ -171,7 +171,7 @@ type WatchPaths struct {
 	ExternalFiles []string // absolute paths to external request files
 	EnvFile       string   // absolute path to environment file (empty if not used)
 	DotEnv        string   // absolute path to .env file (empty if not found)
-	ProjectConfig string   // absolute path to apitest.yaml (empty if not found)
+	ProjectConfig string   // absolute path to curlew.yaml (empty if not found)
 }
 
 // All returns a deduplicated, sorted list of all non-empty file paths to watch.
@@ -364,7 +364,7 @@ func TestRun(t *testing.T) {
 
 ---
 
-### Step 5: Wire Up `watchCmd` in `cmd/apitest/main.go`
+### Step 5: Wire Up `watchCmd` in `cmd/curlew/main.go`
 
 **Rationale:** Integration point where watch becomes a user-visible command. Must come after the watch package is built (Steps 3-4).
 
@@ -372,8 +372,8 @@ func TestRun(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `case "watch":`, `watchCmd` function, update `printHelp` |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for watch command |
+| `cmd/curlew/main.go` | modify | Add `case "watch":`, `watchCmd` function, update `printHelp` |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for watch command |
 
 #### New Code
 
@@ -388,7 +388,7 @@ New function:
 func watchCmd(args []string) int {
     file, envName, _, _, _, _, noColor, _, _, err := parseRunArgs(args)
     if err != nil {
-        _, _ = fmt.Fprintln(os.Stderr, "Usage: apitest watch <collection-file> [--env <name>] [--var key=value ...] [--no-color] [-v] [-vv] [-q]")
+        _, _ = fmt.Fprintln(os.Stderr, "Usage: curlew watch <collection-file> [--env <name>] [--var key=value ...] [--no-color] [-v] [-vv] [-q]")
         errOut := output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, noColor))
         errOut.StructuredError(err)
         return 1
@@ -459,7 +459,7 @@ func TestWatchCmd_missing_file(t *testing.T) {
 
 ```bash
 # Watch mode: start watcher, modify file, verify re-run, send SIGINT
-apitest watch smoke/tests.yaml &
+curlew watch smoke/tests.yaml &
 WATCH_PID=$!
 sleep 1
 touch smoke/tests.yaml  # trigger a re-run
@@ -477,7 +477,7 @@ wait $WATCH_PID
 |-----------|--------------|--------|----------------|
 | `internal/parser/external_test.go` | Tests calling `resolveExternalReferences` | signature change | add `_` for extra return value |
 | `internal/parser/parser_test.go` | existing ParseFile tests | none | no changes needed |
-| `cmd/apitest/main_test.go` | help/unknown command tests | minor | verify no breakage, add watch tests |
+| `cmd/curlew/main_test.go` | help/unknown command tests | minor | verify no breakage, add watch tests |
 | All other test files | — | none | — |
 
 ## Risks and Edge Cases
@@ -509,7 +509,7 @@ wait $WATCH_PID
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -518,7 +518,7 @@ go test ./...
 Observable verification:
 ```bash
 # Terminal 1:
-apitest watch tests.yaml
+curlew watch tests.yaml
 
 # Terminal 2:
 # Edit tests.yaml and save

@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass (cached) |
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | 0 findings |
@@ -26,7 +26,7 @@
 
 The observable scenario requires a running Postgres instance and backend server (`dotnet ef database update`, live backend, web dev server). The observable is fully covered by the 58 backend integration tests and 7 Playwright E2E specs committed on this branch. The Go binary builds clean and all smoke tests pass.
 
-Expected: migration applies, vault-config page at `/org/[slug]/vault-config` saves YAML, returns 200 with version increment; suspicious-value YAML returns 422 in prod mode / 200+warning in dev mode; Free-tier returns 402; CLI snippet button produces `apitest license --refresh`.
+Expected: migration applies, vault-config page at `/org/[slug]/vault-config` saves YAML, returns 200 with version increment; suspicious-value YAML returns 422 in prod mode / 200+warning in dev mode; Free-tier returns 402; CLI snippet button produces `curlew license --refresh`.
 
 Result: All behaviors verified via test suite (58 backend + 7 E2E specs + 6 vitest). Infrastructure for live DB/browser run unavailable in local test environment due to Docker CLI version incompatibility.
 
@@ -42,7 +42,7 @@ Result: All behaviors verified via test suite (58 backend + 7 E2E specs + 6 vite
 | 6 | Suspicious-value template returns 422 in reject mode | `VaultConfigEndpointsTests.Put_returns_422_for_suspicious_value_in_reject_mode` | PASS |
 | 7 | Suspicious-value template returns 200+warning in warn mode | `VaultConfigEndpointsTests.Put_returns_200_with_warnings_in_warn_mode` | PASS |
 | 8 | DELETE removes row and logs audit event | `VaultConfigServiceTests.DeleteAsync_removes_row_and_records_audit` | PASS |
-| 9 | "Generate CLI snippet" button produces `apitest license --refresh` | `org-vault-config.spec.ts` E2E spec | PASS |
+| 9 | "Generate CLI snippet" button produces `curlew license --refresh` | `org-vault-config.spec.ts` E2E spec | PASS |
 | 10 | Successful save shows version diff toast | `org-vault-config.spec.ts` E2E spec | PASS |
 
 ## Definition of Done

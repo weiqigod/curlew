@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/project-v1.json",
-  "title": "ApiTest Project v1",
-  "description": "Schema for apitest.yaml project configuration files",
+  "$id": "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json",
+  "title": "Curlew Project v1",
+  "description": "Schema for curlew.yaml project configuration files",
   "type": "object",
   "required": [
     "project_name"
@@ -28,7 +28,7 @@
     },
     "ui": {
       "type": "object",
-      "description": "apitest ui server settings. Precedence per field: CLI flag > ui: block > built-in default.",
+      "description": "curlew ui server settings. Precedence per field: CLI flag > ui: block > built-in default.",
       "additionalProperties": false,
       "properties": {
         "port": {
@@ -60,7 +60,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Persist run history under .apitest/ui/ (default true; Solo tier and above)."
+              "description": "Persist run history under .curlew/ui/ (default true; Solo tier and above)."
             },
             "max_runs": {
               "type": "integer",

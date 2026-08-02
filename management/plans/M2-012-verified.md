@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ apitest watch col.yaml
+$ curlew watch col.yaml
 Collection: Watch Test
   ✓ Ping  200  503ms
 
@@ -101,7 +101,7 @@ Review PASS trusted, spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +67/-47 |
+| `cmd/curlew/main.go` | modified | +67/-47 |
 | `internal/watch/watch.go` | modified | +93/-6 |
 | `internal/watch/watch_test.go` | modified | +441/-5 |
 | `management/backlog.yaml` | modified | +4/-1 |

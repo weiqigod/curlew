@@ -1,6 +1,6 @@
 # Code Review: M1-017
 
-**Task:** Global project config (apitest.yaml)
+**Task:** Global project config (curlew.yaml)
 **Reviewer:** AI
 **Date:** 2026-03-14
 **Branch:** feature/M1-017-global-project-config
@@ -26,7 +26,7 @@ No findings.
 
 - `internal/config/project.go`: **100%** (all three exported functions)
 - `internal/runner/runner.go`: **90.9%**
-- `cmd/apitest/main.go`: **84.6%**
+- `cmd/curlew/main.go`: **84.6%**
 - Overall project: **92.4%**
 
 All five task behaviors have test coverage at unit and integration level. Smoke test includes project config walk-up and help text verification.

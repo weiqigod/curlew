@@ -695,7 +695,7 @@ Import addition:
 ```go
 import (
     // ... existing ...
-    "github.com/peterlindqvist/apitest/internal/graphql"
+    "github.com/weiqigod/curlew/internal/graphql"
 )
 ```
 
@@ -916,7 +916,7 @@ t.Run("graphql query and query_file are mutually exclusive", func(t *testing.T) 
 })
 ```
 
-Add the import `"github.com/peterlindqvist/apitest/internal/graphql/files"` and `"strings"` (if not present) to `parser_test.go`.
+Add the import `"github.com/weiqigod/curlew/internal/graphql/files"` and `"strings"` (if not present) to `parser_test.go`.
 
 #### Impact on Existing Tests
 - The existing `graphql without query field` subtest still passes: the parser's final `gql.Query == ""` check still fires when neither inline nor external content was supplied.
@@ -986,7 +986,7 @@ This test may already pass given the existing implementation in `requtil.go` lin
 
 ```bash
 echo "--- GraphQL query_file + fragments (expect parse success, then feature gate) ---"
-GQL_DIR=$(mktemp -d /tmp/apitest_gql_files_XXXXXX)
+GQL_DIR=$(mktemp -d /tmp/curlew_gql_files_XXXXXX)
 mkdir -p "$GQL_DIR/graphql/queries" "$GQL_DIR/graphql/fragments"
 cat > "$GQL_DIR/graphql/queries/get_user.graphql" << 'GQL'
 query GetUser {
@@ -1011,7 +1011,7 @@ requests:
         fragments:
           - graphql/fragments/user_fields.graphql
 YAML
-GQL_FILES_OUT=$(./apitest run "$GQL_DIR/tests.yaml" 2>&1 || true)
+GQL_FILES_OUT=$(./curlew run "$GQL_DIR/tests.yaml" 2>&1 || true)
 if echo "$GQL_FILES_OUT" | grep -q "Professional tier"; then
   echo "PASS: graphql query_file + fragments parsed successfully (gated at Free tier)"
 else
@@ -1092,7 +1092,7 @@ echo
 
 1. **Should fragments be interpolated for `{{var}}` placeholders?** Spec behavior 6 says "variable interpolation in external query files" — this naturally covers both the query file and fragments because after loading, everything is concatenated into `GraphQLConfig.Query`, which `requtil.InterpolateRequest` interpolates whole. **Resolved:** yes, for free via the existing pipeline.
 
-2. **Where should file loading happen — parser or runner?** Parser, so the loaded content participates in the existing interpolation pipeline without special-casing in the runner. Also ensures parse-time errors (missing file, cycle) surface during `apitest validate`, which is a nicer UX.
+2. **Where should file loading happen — parser or runner?** Parser, so the loaded content participates in the existing interpolation pipeline without special-casing in the runner. Also ensures parse-time errors (missing file, cycle) surface during `curlew validate`, which is a nicer UX.
 
 3. **What package owns the logic?** New subpackage `internal/graphql/files` to avoid import cycles with parser.
 
@@ -1101,7 +1101,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1146,7 +1146,7 @@ YAML
 
 # Run (will hit the Professional-tier feature gate on Free,
 # proving the parse + load pipeline works end-to-end)
-apitest run tests.yaml --var user_id=abc-123
+curlew run tests.yaml --var user_id=abc-123
 
 # Run the graphql package tests
 go test ./internal/graphql/...

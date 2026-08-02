@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 func TestBuildRequest(t *testing.T) {

@@ -29,7 +29,7 @@ No findings. All previous issues have been resolved.
 | Error Handling | PASS | All `fmt.Errorf` uses `%w` for wrapping. Sentinel `ErrCommandFailed` used correctly. No swallowed errors. Dual `%w` in non-ExitError path valid for Go 1.24. |
 | Input Validation | PASS | Empty `from_command` rejected at parse time. `value`/`from_command` mutual exclusion enforced. `sensitive` decoded as YAML boolean via `Decode()`. `cache` field decoded with type safety. |
 | Naming | PASS | No stuttering. Doc comments on all exported symbols (`CommandCache`, `CommandVar`, `ExecuteCommand`, `ErrCommandFailed`, `NewCommandCache`, `Get`, `Set`). Short names in tight scopes. |
-| Code Organization | PASS | Clean package boundaries: parsing in `parser`, execution in `variable`, integration in `runner`, CLI wiring in `cmd/apitest`. `internal/` enforced. Minimal exported surface. |
+| Code Organization | PASS | Clean package boundaries: parsing in `parser`, execution in `variable`, integration in `runner`, CLI wiring in `cmd/curlew`. `internal/` enforced. Minimal exported surface. |
 | Correctness | PASS | Precedence ordering correct (5 between dotenv/4 and collection/7). Skip checks for CLI, EnvVar, and collection-value overrides prevent unnecessary command execution. Cache scope documented. Context propagated via `exec.CommandContext`. |
 | Test Quality | PASS | All 7 behaviors covered. Error paths tested (non-zero exit, stderr capture, context cancellation). Edge cases handled (nil, empty, negative TTL, pipe syntax, cancelled context). Integration tests for exit code 6 in terminal and JSON formats. Table-driven tests with descriptive names. |
 
@@ -56,7 +56,7 @@ No findings. All previous issues have been resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (all 14 packages) |
 | `golangci-lint run` | PASS (0 issues) |
 | `./smoke/run.sh` | PASS |

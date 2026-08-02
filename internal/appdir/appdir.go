@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 )
 
-// ConfigEnv overrides the default ~/.config/apitesttool directory.
-const ConfigEnv = "APITEST_CONFIG_DIR"
+// ConfigEnv overrides the default ~/.config/curlew directory.
+const ConfigEnv = "CURLEW_CONFIG_DIR"
 
 // ResolveConfigDir returns the directory to use for CLI state files.
 // Precedence:
-//  1. APITEST_CONFIG_DIR
-//  2. os.UserConfigDir()/apitesttool
+//  1. CURLEW_CONFIG_DIR
+//  2. os.UserConfigDir()/curlew
 func ResolveConfigDir() (string, error) {
 	if c := os.Getenv(ConfigEnv); c != "" {
 		return c, nil
@@ -23,5 +23,5 @@ func ResolveConfigDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("locate config dir: %w", err)
 	}
-	return filepath.Join(base, "apitesttool"), nil
+	return filepath.Join(base, "curlew"), nil
 }

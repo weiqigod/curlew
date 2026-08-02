@@ -29,7 +29,7 @@ No findings.
 - `internal/variable`: 96.3% (new `WithSecrets`, `HasSecretsNamespace`, `SecretReferences` functions covered)
 - `internal/config`: 96.4%
 - `internal/parallel`: 90.6% (new `secrets.` exclusion logic covered)
-- `cmd/apitest`: 83.0%
+- `cmd/curlew`: 83.0%
 
 All packages meet the ≥80% threshold.
 
@@ -39,11 +39,11 @@ All packages meet the ≥80% threshold.
 |---|----------|--------|
 | 1 | production env resolves `{{secrets.api_key}}` via stub | PASS — `TestRun_TeamSecrets/resolves_production_alias_via_stub` + `TestRunCmd_TeamSecrets_Success` |
 | 2 | staging env uses staging provider and resolves to staging values | PASS — `TestRun_TeamSecrets/staging_uses_azure_provider` asserts resolved URL contains `"stub::staging"` |
-| 3 | missing APITEST_TEAM_CONFIG file exits with clear error | PASS — `TestRunCmd_TeamSecrets_MissingFile` + `TestLoadTeamTemplate/missing_file` |
+| 3 | missing CURLEW_TEAM_CONFIG file exits with clear error | PASS — `TestRunCmd_TeamSecrets_MissingFile` + `TestLoadTeamTemplate/missing_file` |
 | 4 | unknown alias fails before any HTTP traffic | PASS — `TestRun_TeamSecrets/unknown_alias_fails_before_http` (dispatcher count checked) |
 | 5 | logs "Resolved N secrets from shared template (<env>)" exactly once | PASS — `TestRunCmd_TeamSecrets_LogsResolvedCount` captures stderr via `os.Pipe` and asserts message presence and count |
 | 6 | `--env` omitted fails with explicit message | PASS — `TestRunCmd_TeamSecrets_MissingEnvFlag` + `TestRun_TeamSecrets/env_flag_required_when_secret_referenced` |
-| 7 | help text documents `--env` and `APITEST_TEAM_CONFIG` | PASS — `TestRunCmd_Help_MentionsTeamTemplate` |
+| 7 | help text documents `--env` and `CURLEW_TEAM_CONFIG` | PASS — `TestRunCmd_Help_MentionsTeamTemplate` |
 | 8 | vault provider queried once; second call served from cache | PASS — `TestSecretsResolver_CachedOnSecondCall` |
 
 ## Definition of Done Verification
@@ -51,11 +51,11 @@ All packages meet the ≥80% threshold.
 | Item | Status |
 |------|--------|
 | Behavior tests pass for `internal/vault/teamtemplate` and `internal/runner` | PASS — all 6+ tests passing in both packages |
-| `apitest run` produces expected resolved request against local test server | PASS — `TestRunCmd_TeamSecrets_Success` uses httptest server |
+| `curlew run` produces expected resolved request against local test server | PASS — `TestRunCmd_TeamSecrets_Success` uses httptest server |
 | Stub provider covers `aws-secrets-manager` and `azure-key-vault` shapes | PASS — `TestStubProvider_*` tests cover both; `TestRun_TeamSecrets/staging_uses_azure_provider` exercises Azure shape |
 | Error paths exercised by red-path fixtures and asserted on | PASS — missing file, unknown env, unknown alias, missing --env flag all covered |
-| Help text for `apitest run` mentions `--env` + shared template | PASS — `printHelp()` documents both `--env` and `APITEST_TEAM_CONFIG`; tested by `TestRunCmd_Help_MentionsTeamTemplate` |
-| `smoke/run.sh` adds an end-to-end team template scenario | PASS — M4-002 section added at end of smoke script with python3 server + `APITEST_VAULT_STUB=1` |
+| Help text for `curlew run` mentions `--env` + shared template | PASS — `printHelp()` documents both `--env` and `CURLEW_TEAM_CONFIG`; tested by `TestRunCmd_Help_MentionsTeamTemplate` |
+| `smoke/run.sh` adds an end-to-end team template scenario | PASS — M4-002 section added at end of smoke script with python3 server + `CURLEW_VAULT_STUB=1` |
 
 ## Summary
 

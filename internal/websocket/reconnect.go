@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // reconnectState holds per-request reconnection bookkeeping owned by the

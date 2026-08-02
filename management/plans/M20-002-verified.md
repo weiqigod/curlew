@@ -32,8 +32,8 @@ en-GB native pool OK
   All 9 new locales PASS
 
 # Observable scenario 5 (all tests):
-ok  github.com/peterlindqvist/apitest/internal/variable
-ok  github.com/peterlindqvist/apitest/cmd/apitest
+ok  github.com/weiqigod/curlew/internal/variable
+ok  github.com/weiqigod/curlew/cmd/curlew
 ```
 
 Expected: Locale-appropriate names and phones per-locale, no fallback for en-GB, PASS for invariant tests.
@@ -99,7 +99,7 @@ Branch A: Review PASS trusted (Iteration 2, post-improve). Spot-check confirmed:
 | `internal/variable/locale_pools_test.go` | added (shape + behaviour 6 tests) |
 | `internal/variable/locale.go` | modified (9 map entries + ErrLocaleUnknown doc) |
 | `internal/variable/dynamic_test.go` | modified (extended invariant + behaviour tests) |
-| `cmd/apitest/run_test.go` | modified (en-GB no-fallback CLI integration test) |
+| `cmd/curlew/run_test.go` | modified (en-GB no-fallback CLI integration test) |
 
 ## Issues Found
 None.

@@ -1,6 +1,6 @@
 # Compliance
 
-ApiTool's compliance artefacts. Each document below is a load-bearing input for the
+Curlew's compliance artefacts. Each document below is a load-bearing input for the
 SOC 2 Type II / ISO 27001 audit work tracked in M18 `compliance_artifacts` (v4-14).
 The audit engagement itself is out of scope per v4-14; M18 produces the evidence
 the audit will consume.
@@ -60,7 +60,7 @@ window opens).
 
 - **Signing-key plaintext fallback (v4-13)** — SaaS production builds run
   `scripts/check-signing-keys.sh` as a CI lint; self-hosted may opt out via
-  `APITEST_SIGNING_KEY_MODE=file`. Documented here as a build-time control.
+  `CURLEW_SIGNING_KEY_MODE=file`. Documented here as a build-time control.
 
 ## Review Cadence
 

@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerInternet' -v ./internal/variable/...
   # Expected: PASS — all 9 internet functions registered.
@@ -25,9 +25,9 @@ observable: |
   go test -run 'TestRegistry_FakerInternet_Unseeded' -v ./internal/variable/...
   # Expected: PASS — without --seed, two consecutive runs differ.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Body: {"site":"{{$faker.url}}","ip":"{{$faker.ip}}","mac":"{{$faker.mac}}"}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: site is a full https URL; ip is a dotted-quad; mac is uppercase hex.
 
   go test ./...

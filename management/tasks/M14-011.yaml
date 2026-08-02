@@ -13,7 +13,7 @@ observable: |
   dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~StripeWebhookIngest"
   # Expected: Passed: >=10, Failed: 0
   ASPNETCORE_ENVIRONMENT=Testing \
-    APITOOL__STRIPE__WEBHOOK_SECRETS=whsec_test \
+    CURLEW__STRIPE__WEBHOOK_SECRETS=whsec_test \
     dotnet run --project src/ApiTool.Backend &
   sleep 3
   BODY='{"id":"evt_test_1","type":"customer.subscription.created","data":{}}'
@@ -37,7 +37,7 @@ scope: |
   New endpoint POST /webhooks/stripe in
   src/ApiTool.Backend/Webhooks/StripeWebhookEndpoint.cs. Uses
   Stripe.Net.EventUtility.ConstructEvent per docs/SPECIFICATION.md:6818.
-  Multi-secret list parsed from APITOOL__STRIPE__WEBHOOK_SECRETS per :6850.
+  Multi-secret list parsed from CURLEW__STRIPE__WEBHOOK_SECRETS per :6850.
   Default 5-minute tolerance; tolerance=0 explicitly rejected per :6854.
   Adds the stripe_webhook_events table per the Database Schema appendix at
   :9268+ (event_id PRIMARY KEY, event_type, received_at, processed_at,

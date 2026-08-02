@@ -43,12 +43,12 @@ type jsonBucket struct {
 	P95Ms    int64 `json:"p95_ms"`
 }
 
-// WriteJSON encodes the metrics as the apitest perf JSON report.
+// WriteJSON encodes the metrics as the curlew perf JSON report.
 // The caller is responsible for writing to a truncated file (via os.WriteFile
 // or os.O_TRUNC) to guarantee overwrite semantics.
 func WriteJSON(w io.Writer, m Metrics, title string) error {
 	r := jsonReport{
-		Schema:             "apitest.perf.v1",
+		Schema:             "curlew.perf.v1",
 		GeneratedAt:        nowFn().UTC().Format(time.RFC3339),
 		Title:              title,
 		SmallSampleWarning: m.SmallSampleWarning,

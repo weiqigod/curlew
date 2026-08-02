@@ -1,7 +1,7 @@
 # Implementation Plan: M2-008
 
 ## Overview
-Extend ApiTool to support `auth_profiles:` in `apitest.yaml`, executing dynamic auth collections before main requests and injecting extracted variables into pre-execution scope.
+Extend Curlew to support `auth_profiles:` in `curlew.yaml`, executing dynamic auth collections before main requests and injecting extracted variables into pre-execution scope.
 
 ## Task Details
 - **ID:** M2-008
@@ -119,7 +119,7 @@ import (
     "fmt"
     "path/filepath"
 
-    "github.com/peterlindqvist/apitest/internal/variable"
+    "github.com/weiqigod/curlew/internal/variable"
 )
 
 // Sentinel errors for auth profile failures.
@@ -134,7 +134,7 @@ type ProfileType string
 
 const ProfileDynamic ProfileType = "dynamic"
 
-// Profile represents a single auth profile entry from apitest.yaml.
+// Profile represents a single auth profile entry from curlew.yaml.
 type Profile struct {
     Name       string      // profile key name (e.g., "admin_token")
     Type       ProfileType // "dynamic"
@@ -533,7 +533,7 @@ auth_profiles:
 ```go
 type VarSources struct {
     // ... existing fields unchanged ...
-    AuthProfiles []auth.Profile // from apitest.yaml
+    AuthProfiles []auth.Profile // from curlew.yaml
     ProjectRoot  string         // for resolving relative collection paths
 }
 ```
@@ -707,14 +707,14 @@ func TestRun_AuthProfiles(t *testing.T) {
 
 ---
 
-### Step 6: Wire auth profiles in `cmd/apitest/main.go`
+### Step 6: Wire auth profiles in `cmd/curlew/main.go`
 **Rationale:** Final plumbing — passes parsed config into runner. Also updates help text.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Pass `AuthProfiles` + `ProjectRoot` to `VarSources`; update help text |
+| `cmd/curlew/main.go` | modify | Pass `AuthProfiles` + `ProjectRoot` to `VarSources`; update help text |
 
 #### Current Code (VarSources construction in runCmd)
 ```go
@@ -732,11 +732,11 @@ results, summary, varErr := runner.Run(ctx, col, httpexec.Execute, runner.VarSou
     EnvFile:       envVars,
     // ... existing fields ...
     AuthProfiles:  projectCfg.AuthProfiles,
-    ProjectRoot:   projectRoot,  // directory containing apitest.yaml
+    ProjectRoot:   projectRoot,  // directory containing curlew.yaml
 })
 ```
 
-Also update `apitest.yaml` example in help text to document the `auth_profiles:` block:
+Also update `curlew.yaml` example in help text to document the `auth_profiles:` block:
 
 ```
 auth_profiles:
@@ -761,20 +761,20 @@ auth_profiles:
 | `smoke/run.sh` | modify | Add auth profile scenario (gate error path for Free tier) |
 
 The smoke test adds:
-1. Create temp `apitest.yaml` with `auth_profiles:` block
-2. Run `apitest run collection.yaml` and verify exit code 6 (gate blocked on Free tier)
+1. Create temp `curlew.yaml` with `auth_profiles:` block
+2. Run `curlew run collection.yaml` and verify exit code 6 (gate blocked on Free tier)
 3. This verifies the gate check fires correctly without requiring a live HTTP server
 
 ```bash
 # Smoke: auth_profiles gate check (Free tier → exit 6)
-cat > "$TMPDIR/apitest.yaml" <<'YAML'
+cat > "$TMPDIR/curlew.yaml" <<'YAML'
 project: smoke-auth
 auth_profiles:
   login:
     type: dynamic
     collection: auth/login.yaml
 YAML
-apitest run "$TMPDIR/collection.yaml" 2>&1 | grep -q "dynamic_auth_profiles"
+curlew run "$TMPDIR/collection.yaml" 2>&1 | grep -q "dynamic_auth_profiles"
 assert_exit 6 "auth profile gate blocked on Free tier"
 ```
 
@@ -804,7 +804,7 @@ assert_exit 6 "auth profile gate blocked on Free tier"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -812,7 +812,7 @@ go test ./...
 
 Observable verification:
 ```bash
-# Add auth_profiles: to apitest.yaml with a dynamic profile referencing a login collection.
-# Run apitest run tests.yaml and confirm the auth profile executes before main requests.
+# Add auth_profiles: to curlew.yaml with a dynamic profile referencing a login collection.
+# Run curlew run tests.yaml and confirm the auth profile executes before main requests.
 go test ./internal/auth/...
 ```

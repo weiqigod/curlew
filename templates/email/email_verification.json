@@ -1,6 +1,6 @@
 {
   "slug": "email_verification",
-  "subject": "Verify your ApiTool email",
+  "subject": "Verify your Curlew email",
   "variables": {
     "first_name":       "string",
     "verification_url": "string (HTTPS URL)"

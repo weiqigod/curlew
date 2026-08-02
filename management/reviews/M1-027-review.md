@@ -26,7 +26,7 @@ No findings. All previous findings from the initial review have been resolved.
 - `internal/config`: 96.8%
 - `internal/output`: 91.8%
 - `internal/schema`: no statements (only `go:embed` declaration)
-- `cmd/apitest`: 87.2%
+- `cmd/curlew`: 87.2%
 - All above 80% threshold
 
 ## Summary

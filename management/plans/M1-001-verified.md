@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 4 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All scenarios pass, sample collection returns 200 |
@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run sample/hello.yaml
+$ ./curlew run sample/hello.yaml
 Collection: Hello API
   Get httpbin  200  859ms
 
@@ -49,7 +49,7 @@ Result: MATCH
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all 4 packages pass | PASS |
-| 2 | Observable output works | `./apitest run sample/hello.yaml` — name, status, duration shown | PASS |
+| 2 | Observable output works | `./curlew run sample/hello.yaml` — name, status, duration shown | PASS |
 | 3 | Test coverage >= 80% | 94.8% overall | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint` 0 issues | PASS |
 | 5 | Help text updated | `--help` shows `run` command | PASS |
@@ -96,10 +96,10 @@ Review PASS trusted, spot-check clean:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified |
-| `cmd/apitest/main_test.go` | created |
-| `cmd/apitest/run_test.go` | created |
-| `cmd/apitest/testdata/*.yaml` | created (3 fixtures) |
+| `cmd/curlew/main.go` | modified |
+| `cmd/curlew/main_test.go` | created |
+| `cmd/curlew/run_test.go` | created |
+| `cmd/curlew/testdata/*.yaml` | created (3 fixtures) |
 | `internal/httpexec/executor.go` | created |
 | `internal/httpexec/errors.go` | created |
 | `internal/httpexec/executor_test.go` | created |

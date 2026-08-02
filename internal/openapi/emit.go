@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 	"gopkg.in/yaml.v3"
 )
 
@@ -45,7 +45,7 @@ func nilIfEmpty[K comparable, V any](m map[K]V) map[K]V {
 	return m
 }
 
-// Emit writes col to w as a YAML collection suitable for apitest run/validate.
+// Emit writes col to w as a YAML collection suitable for curlew run/validate.
 func Emit(w io.Writer, col *parser.Collection) (err error) {
 	out := writerCollection{
 		Name:      col.Name,

@@ -12,7 +12,7 @@ dependencies:
 
 observable: |
   Create a collection with `protocol: graphql` and a query against a GraphQL API.
-  Run `apitest run graphql_tests.yaml` and confirm the query executes and response is validated.
+  Run `curlew run graphql_tests.yaml` and confirm the query executes and response is validated.
   Run `go test ./internal/graphql/...` for GraphQL adapter tests.
 
 behaviors:

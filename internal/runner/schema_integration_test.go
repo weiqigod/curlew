@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // compileTestSchema creates a temp JSON Schema file from schemaJSON,

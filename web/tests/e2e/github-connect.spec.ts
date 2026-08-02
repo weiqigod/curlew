@@ -33,7 +33,7 @@ function makeInstallPayload(
 	const {
 		claimed = true,
 		suspended = false,
-		accountLogin = 'apitool-checks-test',
+		accountLogin = 'curlew-checks-test',
 		repoCount = 3
 	} = opts;
 	return {
@@ -67,7 +67,7 @@ test.describe('GitHub install entry-point + install-state view', () => {
 				status: 200,
 				body: JSON.stringify({
 					install_url:
-						'https://github.com/apps/apitool-checks-test/installations/new?state=abc',
+						'https://github.com/apps/curlew-checks-test/installations/new?state=abc',
 					state_expires_at: '2026-05-06T01:00:00Z'
 				})
 			})
@@ -84,7 +84,7 @@ test.describe('GitHub install entry-point + install-state view', () => {
 		await expect(btn).toBeVisible();
 		await expect(btn).toHaveAttribute(
 			'href',
-			/github\.com\/apps\/apitool-checks-test\/installations\/new\?state=/
+			/github\.com\/apps\/curlew-checks-test\/installations\/new\?state=/
 		);
 	});
 
@@ -117,7 +117,7 @@ test.describe('GitHub install entry-point + install-state view', () => {
 		await page.goto(INTEGRATIONS_URL);
 		const status = page.getByTestId('github-install-status');
 		await expect(status).toContainText('GitHub connected');
-		await expect(status).toContainText('apitool-checks-test');
+		await expect(status).toContainText('curlew-checks-test');
 		await expect(status).toContainText('3 repos covered');
 	});
 
@@ -131,7 +131,7 @@ test.describe('GitHub install entry-point + install-state view', () => {
 				status: 200,
 				body: JSON.stringify({
 					install_url:
-						'https://github.com/apps/apitool-checks-test/installations/new?state=abc',
+						'https://github.com/apps/curlew-checks-test/installations/new?state=abc',
 					state_expires_at: '2026-05-06T01:00:00Z'
 				})
 			})

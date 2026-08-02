@@ -1,5 +1,5 @@
 // Package teamtemplate parses and validates shared vault configuration
-// templates (the team_secrets.vault_configs section from apitest.yaml).
+// templates (the team_secrets.vault_configs section from curlew.yaml).
 // It defines only the file format; runtime resolution is handled by
 // internal/runner via M4-002.
 package teamtemplate
@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/peterlindqvist/apitest/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault"
 )
 
 // Sentinel errors — callers may match with errors.Is.
@@ -26,7 +26,7 @@ var (
 
 	// M4-002 runtime sentinels.
 
-	// ErrTemplateNotFound is returned when APITEST_TEAM_CONFIG points to a file
+	// ErrTemplateNotFound is returned when CURLEW_TEAM_CONFIG points to a file
 	// that does not exist or cannot be read.
 	ErrTemplateNotFound = errors.New("shared vault template not found")
 	// ErrUnknownEnvironment is returned when --env names an environment that is
@@ -65,7 +65,7 @@ type EnvConfig struct {
 }
 
 // Issue is a single validation finding. Mirrors validator.Issue shape
-// so cmd/apitest can render team-template results through the same
+// so cmd/curlew can render team-template results through the same
 // printer without an extra struct.
 type Issue struct {
 	Path    string // dotted key path, e.g. "team_secrets.vault_configs.production.provider"
@@ -174,7 +174,7 @@ func (t *TeamTemplate) Merge(local *TeamTemplate) *TeamTemplate {
 }
 
 // Summary returns the one-line "N environments, M secrets" summary
-// used by apitest validate.
+// used by curlew validate.
 func (t *TeamTemplate) Summary() string {
 	total := 0
 	for _, env := range t.Environments {

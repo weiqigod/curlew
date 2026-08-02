@@ -1,4 +1,4 @@
-// Global teardown: kill the apitest ui process, stop the echo server, and
+// Global teardown: kill the curlew ui process, stop the echo server, and
 // remove the temp fixture/binary directories + state file.
 import * as fs from 'node:fs';
 import type { ChildProcess } from 'node:child_process';
@@ -19,7 +19,7 @@ function killPid(pid: number): void {
 }
 
 export default async function globalTeardown(): Promise<void> {
-  const stash = (globalThis as unknown as { __apitestE2E?: GlobalStash }).__apitestE2E;
+  const stash = (globalThis as unknown as { __curlewE2E?: GlobalStash }).__curlewE2E;
 
   let state;
   try {

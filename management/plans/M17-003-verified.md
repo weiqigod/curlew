@@ -109,7 +109,7 @@ Branch A: Review PASS trusted (management/reviews/M17-003-review.md, iteration 2
 | `internal/signer/oauth1/testdata/rfc5849-example/base-string.txt` | created | RFC 5849 base string fixture |
 | `internal/signer/oauth1/testdata/rfc5849-example/signature.txt` | created | HMAC-SHA1 fixture (msrTmwtDEKqeVXeJaufuiXOpbJI=) |
 | `internal/signer/oauth1/testdata/rfc5849-example-sha256/signature.txt` | created | HMAC-SHA256 fixture (WRDBO0foVD0tBkZ2wz6TzQJ5c0/KFGz6dfY2eXCcJoA=) |
-| `cmd/apitest/main.go` | modified | blank import for oauth1 |
+| `cmd/curlew/main.go` | modified | blank import for oauth1 |
 | `smoke/run.sh` | modified | oauth1 smoke fixture |
 | `docs/MANUAL.md` | modified | oauth1 row in signing-types table + example block |
 

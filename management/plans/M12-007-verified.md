@@ -30,7 +30,7 @@
 === RUN   TestRegistry_FormatDate_Now
 --- PASS: TestRegistry_FormatDate_Now (0.00s)
 PASS
-ok  	github.com/peterlindqvist/apitest/internal/variable	0.375s
+ok  	github.com/weiqigod/curlew/internal/variable	0.375s
 ```
 
 Expected: All four observable tests pass.

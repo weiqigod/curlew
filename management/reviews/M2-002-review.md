@@ -51,7 +51,7 @@ No findings. All 3 findings from the first review have been resolved:
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (15 packages) |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage >= 80% | PASS (93.2%) |

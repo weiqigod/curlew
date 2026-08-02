@@ -8,7 +8,7 @@ import (
 
 	celgo "github.com/google/cel-go/cel"
 
-	apicel "github.com/peterlindqvist/apitest/internal/cel"
+	apicel "github.com/weiqigod/curlew/internal/cel"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

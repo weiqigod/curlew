@@ -57,7 +57,7 @@ Pass the Plan agent a prompt containing:
    - Read every file that will be touched (fully, not skimmed)
    - Trace imports in both directions (what does it import? what imports it?)
    - Read every related `_test.go` file and note test helpers/fixtures
-   - Check `cmd/apitest/main.go` for wiring and global state
+   - Check `cmd/curlew/main.go` for wiring and global state
    - Identify all exported functions/types that will change signatures
    - Search for all call sites of changed exports across `internal/` and `cmd/`
    - Identify which existing tests will break and why
@@ -163,7 +163,7 @@ func TestFunctionName(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh

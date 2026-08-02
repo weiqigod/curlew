@@ -10,13 +10,13 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke tests pass including M5-013 offline license section |
 | Coverage `internal/license` | 87.8% | Meets >= 80% threshold |
 | Coverage `internal/license/jwks` | 92.0% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 83.3% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 83.3% | Meets >= 80% threshold |
 | Coverage total | 87.1% | Meets >= 80% threshold |
 
 ## Observable Output
@@ -24,14 +24,14 @@
 ```
 --- Observable 1: OFFLINE VALID ---
 Validating license offline...
-Key source: embedded JWKS (kid=apitest-2025-01)
+Key source: embedded JWKS (kid=curlew-2025-01)
 Tier: enterprise
 State: VALID
 Exit: 0
 
 --- Observable 2: GRACE PERIOD day 25 ---
 Validating license offline...
-Key source: embedded JWKS (kid=apitest-2025-01)
+Key source: embedded JWKS (kid=curlew-2025-01)
 Tier: enterprise
 State: GRACE_PERIOD
 Warning: 5 days until grace period expires
@@ -45,7 +45,7 @@ Result: MATCH
 
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
-| 1 | APITEST_OFFLINE=1 + cached JWT → embedded JWKS verification, State: VALID, exit 0 | `TestLicenseValidate_Offline_Valid`, `TestValidator_OfflineValid` | PASS |
+| 1 | CURLEW_OFFLINE=1 + cached JWT → embedded JWKS verification, State: VALID, exit 0 | `TestLicenseValidate_Offline_Valid`, `TestValidator_OfflineValid` | PASS |
 | 2 | kid not in embedded → check cached JWKS | `TestKeyResolver_CachedFallback`, `TestValidator_KidInCachedJWKS` | PASS |
 | 3 | kid in neither + offline → exit 6 "key_not_found" | `TestLicenseValidate_UnknownKid`, `TestKeyResolver_OfflineFails` | PASS |
 | 4 | >24h elapsed → GRACE_PERIOD, tier features available | `TestValidator_OfflineGracePeriod`, `TestEvaluate` | PASS |
@@ -60,9 +60,9 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | All 8 behaviors tested; `go test ./...` all PASS | PASS |
 | 2 | Observable output works as specified | Offline VALID and GRACE_PERIOD day 25 output match spec exactly | PASS |
-| 3 | Test coverage >= 80% | `internal/license`: 87.8%, `internal/license/jwks`: 92.0%, `cmd/apitest`: 83.3%, total: 87.1% | PASS |
+| 3 | Test coverage >= 80% | `internal/license`: 87.8%, `internal/license/jwks`: 92.0%, `cmd/curlew`: 83.3%, total: 87.1% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint run` 0 issues | PASS |
-| 5 | Help text for `apitest license --validate` documents offline mode and grace-period states | `printLicenseHelp()` present in `cmd/apitest/license.go`, visible in `--help` output | PASS |
+| 5 | Help text for `curlew license --validate` documents offline mode and grace-period states | `printLicenseHelp()` present in `cmd/curlew/license.go`, visible in `--help` output | PASS |
 | 6 | Smoke test covers offline validation, grace-period warning, and grace-expired paths | `smoke/run.sh` M5-013 section: PASS offline VALID, grace warning at day 25, grace expired at day 31 | PASS |
 
 ## Code Review
@@ -88,14 +88,14 @@ Branch A: Review PASS (iteration 3) trusted, spot-check clean — `%w` error wra
 | cf9d4e5 | fix(license): gate premium commands with exit 9 on GRACE_EXPIRED |
 | 0f3939b | docs(review): add iteration 2 review with findings for M5-013 |
 | a4fce87 | docs(review): add improvement report for M5-013 |
-| 72d3c04 | fix(smoke): use APITEST_LAST_VALIDATION_OVERRIDE=1h for offline VALID test |
+| 72d3c04 | fix(smoke): use CURLEW_LAST_VALIDATION_OVERRIDE=1h for offline VALID test |
 | 2be374a | fix(license): make Token.signed and Token.signature unexported fields |
 | 079b985 | fix(license): use %w instead of %v in all error wrapping calls |
 | 512814a | docs(review): add review with findings for M5-013 |
 | 691ac9d | chore(task): mark M5-013 as review |
 | d0033ff | refactor(license): fix lint issues and format code |
 | ff72323 | feat(smoke): add offline license validation smoke tests (Step 8) |
-| f4f0c12 | feat(cli): implement apitest license --validate subcommand (Step 7) |
+| f4f0c12 | feat(cli): implement curlew license --validate subcommand (Step 7) |
 | d442b9d | test(cli): add failing tests for license --validate subcommand |
 | 170c4ac | feat(license): implement Validator orchestration (Step 6) |
 | b967a94 | test(license): add failing tests for validator orchestration |
@@ -117,9 +117,9 @@ Branch A: Review PASS (iteration 3) trusted, spot-check clean — `%w` error wra
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/license.go` | added — license subcommand, checkGraceExpired |
-| `cmd/apitest/license_test.go` | added — integration tests for license --validate |
-| `cmd/apitest/main.go` | modified — grace expired gating in runCmd/execCmd |
+| `cmd/curlew/license.go` | added — license subcommand, checkGraceExpired |
+| `cmd/curlew/license_test.go` | added — integration tests for license --validate |
+| `cmd/curlew/main.go` | modified — grace expired gating in runCmd/execCmd |
 | `internal/license/jwks/jwks.go` | added — JWKS parsing and RSA key lookup |
 | `internal/license/jwks/jwks_test.go` | added |
 | `internal/license/jwt.go` | added — JWT parsing and RS256 verification |

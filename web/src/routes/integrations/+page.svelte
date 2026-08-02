@@ -18,7 +18,7 @@
 	let toastDismissed = false;
 </script>
 
-<svelte:head><title>Integrations — ApiTool</title></svelte:head>
+<svelte:head><title>Integrations — Curlew</title></svelte:head>
 
 <div class="mx-auto max-w-3xl px-4 py-8">
 	<h1 class="mb-6 text-2xl font-bold text-gray-900">Integrations</h1>
@@ -84,7 +84,7 @@
 			</button>
 		{:else if data.isAdmin}
 			<p class="mt-3 text-sm text-gray-600">
-				Connect your GitHub organisation to post ApiTool results as PR checks.
+				Connect your GitHub organisation to post Curlew results as PR checks.
 			</p>
 			{#if data.installUrl}
 				<a

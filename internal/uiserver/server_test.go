@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/uiserver"
+	"github.com/weiqigod/curlew/internal/uiserver"
 )
 
 const testToken = "0123456789abcdef0123456789abcdef"
@@ -20,7 +20,7 @@ const testToken = "0123456789abcdef0123456789abcdef"
 func newTestServer(t *testing.T, opts ...func(*uiserver.Options)) (*httptest.Server, string) {
 	t.Helper()
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "apitest.yaml"), []byte("project_name: Test Project\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "curlew.yaml"), []byte("project_name: Test Project\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(root, "collections"), 0o755); err != nil {
@@ -99,10 +99,10 @@ func TestAPI_WrongToken_401(t *testing.T) {
 	}
 }
 
-func TestAPI_XApitestUITokenHeader_Accepted(t *testing.T) {
+func TestAPI_XCurlewUITokenHeader_Accepted(t *testing.T) {
 	ts, _ := newTestServer(t)
 	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/v1/meta", nil)
-	req.Header.Set("X-Apitest-UI-Token", testToken)
+	req.Header.Set("X-Curlew-UI-Token", testToken)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -230,7 +230,7 @@ func TestAssets_ServedWithoutToken(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	// The committed placeholder serves until a real UI build overwrites it.
-	if !strings.Contains(string(body), "apitest") {
+	if !strings.Contains(string(body), "curlew") {
 		t.Errorf("placeholder index.html not served: %q", string(body)[:min(len(body), 120)])
 	}
 	if cc := resp.Header.Get("Cache-Control"); cc != "no-cache" {

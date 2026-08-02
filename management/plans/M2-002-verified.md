@@ -21,11 +21,11 @@
 ## Observable Output
 
 ```
-$ cd /tmp/vault-test && apitest validate collection.yaml
+$ cd /tmp/vault-test && curlew validate collection.yaml
 OK collection.yaml is valid
 Exit code: 0
 
-$ apitest run collection.yaml
+$ curlew run collection.yaml
 Collection: Vault Test
 [ERROR] Vault provider profiles require Solo tier
 Exit code: 6
@@ -84,7 +84,7 @@ Review PASS trusted (management/reviews/M2-002-review.md), spot-check clean.
 | b57da90 | test(vault): add failing tests for YAML parsing |
 | b6c5429 | feat(vault): implement YAML parsing for secrets config |
 | cca9834 | test(config): add failing tests for secrets block in project config |
-| 3e8f7ee | feat(config): parse secrets block from apitest.yaml into ProjectConfig |
+| 3e8f7ee | feat(config): parse secrets block from curlew.yaml into ProjectConfig |
 | 57682d7 | test(runner): add failing tests for vault feature gate |
 | 8f694d8 | feat(runner): add vault feature gate check |
 | f710801 | feat(cli): wire vault secrets config into runner and sensitive set |
@@ -100,7 +100,7 @@ Review PASS trusted (management/reviews/M2-002-review.md), spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +4/-0 |
+| `cmd/curlew/main.go` | modified | +4/-0 |
 | `internal/config/project.go` | modified | +19/-1 |
 | `internal/config/project_test.go` | modified | +71/-0 |
 | `internal/runner/runner.go` | modified | +33/-1 |

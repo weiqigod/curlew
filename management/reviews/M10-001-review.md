@@ -18,16 +18,16 @@ No findings.
 |----------|--------|-------|
 | Error Handling | PASS | All errors wrapped with `%w`. `ErrUnknownSkill` sentinel defined in `templates` package for CLI branching. `ErrProjectExists` reused for project-already-exists path. `installSkill` wraps all sub-errors with descriptive context. No swallowed errors. No panics for expected failures. |
 | Input Validation | PASS | Unknown `--skill` value exits 3, stderr names the supported set and echoes the rejected value. Unknown `--output` validation unchanged from M9-005. `--skill` with no value exits 1. Empty entries slice passed to `ensureGitignore` is only reachable via the zero-value `Options{}` path (always has `.env`), and would create an empty gitignore rather than panic — no-op scenario not reachable from production paths. |
-| Naming | PASS | All exported symbols have doc comments (`ErrUnknownSkill`, `SupportedSkills`, `SkillRelativePath`, `Render`, `IsSupportedSkill`, `Options.SkillName`, `Options.ApitestVersion`). No stuttering. Package `templates` is lowercase single-word. `SkillRelativePath` correctly uses `_` parameter since v1 path is uniform; documented intent. |
-| Code Organization | PASS | Clean dependency layering: `templates` (no internal imports) → `internal/scaffold` → `cmd/apitest`. Single responsibility per package. No circular deps. `cmd/apitest` remains an entry-point-only package. |
-| Correctness | PASS | `outputBlock` splice correctly finds `verbosity: normal` insertion point in all 6 format branches; defensive fallback at end is unreachable by construction. `ensureGitignore` new-file path writes correctly for all reachable callers. `installSkill` skips write on pre-existing file (returns `nil`) matching `ErrProjectExists` semantics for `apitest.yaml`. Plan mentioned `ErrSkillExists` sentinel but implementation omits it — `installSkill` is only called from `Init` which has no need to branch on that sentinel; acceptable divergence. `formatForBlock` coupling is internal to scaffold, not CLI. |
+| Naming | PASS | All exported symbols have doc comments (`ErrUnknownSkill`, `SupportedSkills`, `SkillRelativePath`, `Render`, `IsSupportedSkill`, `Options.SkillName`, `Options.CurlewVersion`). No stuttering. Package `templates` is lowercase single-word. `SkillRelativePath` correctly uses `_` parameter since v1 path is uniform; documented intent. |
+| Code Organization | PASS | Clean dependency layering: `templates` (no internal imports) → `internal/scaffold` → `cmd/curlew`. Single responsibility per package. No circular deps. `cmd/curlew` remains an entry-point-only package. |
+| Correctness | PASS | `outputBlock` splice correctly finds `verbosity: normal` insertion point in all 6 format branches; defensive fallback at end is unreachable by construction. `ensureGitignore` new-file path writes correctly for all reachable callers. `installSkill` skips write on pre-existing file (returns `nil`) matching `ErrProjectExists` semantics for `curlew.yaml`. Plan mentioned `ErrSkillExists` sentinel but implementation omits it — `installSkill` is only called from `Init` which has no need to branch on that sentinel; acceptable divergence. `formatForBlock` coupling is internal to scaffold, not CLI. |
 | Test Quality | PASS | All 9 behaviors covered. All 11 DoD-named test functions present and passing. Integration test (`TestInit_SkillClaude_FullPipeline`) exercises the real binary via `captureRun`. Regression tests for bare-init byte-equality (`TestInit_BareInit_ByteIdenticalToM9005`, `TestInit_DefaultUnchanged`). Schema parity test (`TestSchema_scaffolded_all_output_formats_validate/skill_claude`). Table-driven tests used where multiple similar cases exist (`ExtendsOutputBlock`, `TestIsSupportedSkill`). Error paths tested: unknown skill, missing flag value, pre-existing files. `testdata/` fixture used for schema fixture. |
 
 ## Test Coverage
 
 - `templates`: 90.9% — 1 uncovered statement is the `ReadFile` error path inside `case "claude"` (unreachable since the embed is compile-time; acceptable)
 - `internal/scaffold`: 86.6% — uncovered paths are `MkdirAll` failure inside `installSkill` (no test for unwritable skill directory) and the defensive `outputBlock` end-append fallback (unreachable by construction); both acceptable
-- `cmd/apitest`: 81.3%
+- `cmd/curlew`: 81.3%
 - All three packages exceed the 80% threshold required by the DoD
 
 ## DoD Verification
@@ -40,15 +40,15 @@ No findings.
 | TestInit_SkillClaude_ExtendsGitignore | `internal/scaffold/scaffold_test.go` | PASS |
 | TestInit_SkillClaude_PreservesExistingResponsesDir | `internal/scaffold/scaffold_test.go` | PASS |
 | TestInit_SkillClaude_OutputOverride | `internal/scaffold/scaffold_test.go` | PASS |
-| TestInit_SkillClaude_VersionInTemplate | `cmd/apitest/main_test.go` | PASS |
-| TestInit_SkillFlag_DocumentsInHelp | `cmd/apitest/main_test.go` | PASS |
-| TestInit_SkillUnknown_Exit3 | `cmd/apitest/main_test.go` | PASS |
-| TestInit_SkillClaude_FullPipeline | `cmd/apitest/main_test.go` | PASS |
+| TestInit_SkillClaude_VersionInTemplate | `cmd/curlew/main_test.go` | PASS |
+| TestInit_SkillFlag_DocumentsInHelp | `cmd/curlew/main_test.go` | PASS |
+| TestInit_SkillUnknown_Exit3 | `cmd/curlew/main_test.go` | PASS |
+| TestInit_SkillClaude_FullPipeline | `cmd/curlew/main_test.go` | PASS |
 | TestSchema_scaffolded_all_output_formats_validate (extended) | `internal/schema/validate_test.go` | PASS |
-| Regression: bare init byte-identical | `cmd/apitest/main_test.go` + `internal/scaffold/scaffold_test.go` | PASS |
+| Regression: bare init byte-identical | `cmd/curlew/main_test.go` + `internal/scaffold/scaffold_test.go` | PASS |
 | Regression: existing M9-005 tests pass | `go test ./...` | PASS |
 | go test ./... passes | `./scripts/ci-local.sh --go` | PASS |
-| Coverage >= 80% (scaffold, cmd/apitest, templates) | 86.6% / 81.3% / 90.9% | PASS |
+| Coverage >= 80% (scaffold, cmd/curlew, templates) | 86.6% / 81.3% / 90.9% | PASS |
 | golangci-lint run passes 0 issues | `./scripts/ci-local.sh --go` | PASS |
 | ./smoke/run.sh passes | `./scripts/ci-local.sh --go` | PASS |
 

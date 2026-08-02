@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerContent' -v ./internal/variable/...
   # Expected: PASS — all 5 content functions registered with both
@@ -35,9 +35,9 @@ observable: |
   go test -run 'TestRegistry_FakerContent_Unseeded' -v ./internal/variable/...
   # Expected: PASS — without --seed, two consecutive runs differ.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Body: {"summary":"{{$faker.sentence('5')}}","body":"{{$faker.paragraph('2')}}"}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: summary is exactly 5 words; body is 2 sentences.
 
   go test ./...

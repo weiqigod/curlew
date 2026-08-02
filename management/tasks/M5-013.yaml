@@ -7,43 +7,43 @@ phase: "M5: Enterprise Tier"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/license/...
   # Expected: ok  internal/license  (>=12 tests passing)
   # Simulate offline mode:
-  APITEST_OFFLINE=1 ./apitest license --validate
+  CURLEW_OFFLINE=1 ./curlew license --validate
   # Expected stdout:
   #   "Validating license offline..."
-  #   "Key source: embedded JWKS (kid=apitest-2025-01)"
+  #   "Key source: embedded JWKS (kid=curlew-2025-01)"
   #   "Tier: enterprise"
   #   "State: VALID"
   # exit 0
   # Simulate grace period day 25:
-  APITEST_OFFLINE=1 APITEST_LAST_VALIDATION_OVERRIDE=25d ./apitest license --validate
+  CURLEW_OFFLINE=1 CURLEW_LAST_VALIDATION_OVERRIDE=25d ./curlew license --validate
   # Expected: stderr contains "Warning: 5 days until grace period expires"
   # exit 0
 behaviors:
-  - "Given APITEST_OFFLINE=1 and a cached JWT, when apitest license --validate is invoked, then the binary verifies the signature using the embedded JWKS, prints 'State: VALID', and exits 0"
-  - "Given the token's kid is not in the embedded JWKS, when verification is attempted, then the CLI checks ~/.config/apitesttool/jwks_cache.json and uses the cached key if present"
+  - "Given CURLEW_OFFLINE=1 and a cached JWT, when curlew license --validate is invoked, then the binary verifies the signature using the embedded JWKS, prints 'State: VALID', and exits 0"
+  - "Given the token's kid is not in the embedded JWKS, when verification is attempted, then the CLI checks ~/.config/curlew/jwks_cache.json and uses the cached key if present"
   - "Given the kid is in neither the embedded nor cached JWKS and the CLI is offline, when verification is attempted, then the CLI exits with code 6 and message 'key_not_found: cannot verify license offline'"
   - "Given the server was last reached >24 hours ago, when the state machine runs, then the state transitions from VALID to GRACE_PERIOD and the tier features remain available"
   - "Given the state is GRACE_PERIOD and days elapsed=21..29, when the CLI runs any command, then a warning 'Grace period: N days remaining' is printed to stderr after execution"
   - "Given 30 days have elapsed in GRACE_PERIOD, when the CLI runs, then the state transitions to GRACE_EXPIRED and tier features are gated (exit 9 feature_gated on premium commands)"
-  - "Given the CLI reconnects successfully, when validation succeeds, then the state transitions to VALID and the last_validated_at timestamp is updated in ~/.config/apitesttool/license.json"
+  - "Given the CLI reconnects successfully, when validation succeeds, then the state transitions to VALID and the last_validated_at timestamp is updated in ~/.config/curlew/license.json"
   - "Given a tampered signature, when offline verification runs, then the CLI exits with code 6 and prints 'signature_invalid'"
 scope: |
   Extend internal/license (or create if missing) with an offline verifier that
   implements the key lookup order (embedded -> cached -> online -> fail) and
   the grace-period state machine from spec lines 7411-7478. Embed a test
   JWKS under internal/license/keys/jwks.json via go:embed. State persists to
-  ~/.config/apitesttool/license.json. APITEST_LAST_VALIDATION_OVERRIDE env
+  ~/.config/curlew/license.json. CURLEW_LAST_VALIDATION_OVERRIDE env
   var exposed only in test builds to simulate grace-period days.
 definition_of_done:
   - "All behavior tests pass"
   - "Observable output works as specified"
   - "Test coverage >= 80%"
   - "No build warnings or lint errors"
-  - "Help text for apitest license --validate documents offline mode and grace-period states"
+  - "Help text for curlew license --validate documents offline mode and grace-period states"
   - "Smoke test covers offline validation, grace-period warning, and grace-expired paths"
 complexity: high
 estimated_effort: "8-12 hours"

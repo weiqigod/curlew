@@ -12,7 +12,7 @@ dependencies:
 
 observable: |
   Create a CSV file with test data and a collection with `data_driven: { source: ./data.csv }`.
-  Run `apitest run tests.yaml` and confirm the request executes once per row.
+  Run `curlew run tests.yaml` and confirm the request executes once per row.
   Run `go test ./internal/datadriven/...` to verify data-driven execution.
 
 behaviors:

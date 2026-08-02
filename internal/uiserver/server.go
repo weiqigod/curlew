@@ -1,4 +1,4 @@
-// Package uiserver implements the localhost HTTP server behind `apitest ui`:
+// Package uiserver implements the localhost HTTP server behind `curlew ui`:
 // a thin facade over the existing parser/validator/runner contracts that
 // serves the embedded single-page app, a JSON API under /api/v1/, and a
 // WebSocket event stream. See docs/UI_SPECIFICATION.md.
@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/uiserver/assets"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/uiserver/assets"
 )
 
 // Body-size limits (spec terminology table).
@@ -42,21 +42,21 @@ const (
 
 // Options configures a Server.
 type Options struct {
-	Root             string // absolute project root (directory of apitest.yaml)
+	Root             string // absolute project root (directory of curlew.yaml)
 	ProjectName      string
-	Version          string             // apitest binary version
+	Version          string             // curlew binary version
 	DefaultEnv       string             // --env preselection surfaced via /meta
 	CollectionFilter string             // root-relative collection restriction, or ""
 	Token            string             // required session token (32 hex chars)
 	HistoryEnabled   bool               // config ui.history.enabled
 	MaxRuns          int                // history retention; 0 = DefaultMaxRuns
 	Exec             runner.ExecuteFunc // nil = httpexec.Execute (injectable for tests)
-	EditorCommand    string             // editor template for /open ($APITEST_EDITOR > ui.editor)
-	DevProxy         string             // APITEST_UI_DEV_PROXY target, or ""
+	EditorCommand    string             // editor template for /open ($CURLEW_EDITOR > ui.editor)
+	DevProxy         string             // CURLEW_UI_DEV_PROXY target, or ""
 	Diagnostics      func(format string, args ...any)
 }
 
-// Server is the apitest ui HTTP server. Construct with NewServer; serve via
+// Server is the curlew ui HTTP server. Construct with NewServer; serve via
 // Handler().
 type Server struct {
 	opts      Options
@@ -98,7 +98,7 @@ func NewServer(opts Options) (*Server, error) {
 	if w, err := newWatcher(s); err == nil {
 		s.watcher = w
 	} else {
-		opts.Diagnostics("apitest ui: file watcher unavailable: %v", err)
+		opts.Diagnostics("curlew ui: file watcher unavailable: %v", err)
 	}
 	s.mux = s.routes()
 	return s, nil
@@ -174,7 +174,7 @@ func (s *Server) hostCheckMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !loopbackHostname(hostnameOf(r.Host)) {
 			writeAPIError(w, http.StatusForbidden, "forbidden_origin",
-				"request Host is not loopback", "apitest ui only serves localhost", nil)
+				"request Host is not loopback", "curlew ui only serves localhost", nil)
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" {
@@ -190,7 +190,7 @@ func (s *Server) hostCheckMiddleware(next http.Handler) http.Handler {
 }
 
 // tokenMiddleware requires the session token on every /api/* request.
-// Accepted carriers: Authorization: Bearer <t>, X-Apitest-UI-Token, and —
+// Accepted carriers: Authorization: Bearer <t>, X-Curlew-UI-Token, and —
 // for the WebSocket upgrade only — the token query parameter (browsers cannot
 // set headers on WS upgrades). Static assets are served without the token.
 func (s *Server) tokenMiddleware(next http.Handler) http.Handler {
@@ -202,7 +202,7 @@ func (s *Server) tokenMiddleware(next http.Handler) http.Handler {
 		token := ""
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 			token = strings.TrimPrefix(h, "Bearer ")
-		} else if h := r.Header.Get("X-Apitest-UI-Token"); h != "" {
+		} else if h := r.Header.Get("X-Curlew-UI-Token"); h != "" {
 			token = h
 		} else if r.URL.Path == "/api/v1/ws" {
 			token = r.URL.Query().Get("token")
@@ -210,7 +210,7 @@ func (s *Server) tokenMiddleware(next http.Handler) http.Handler {
 		if subtle.ConstantTimeCompare([]byte(token), []byte(s.opts.Token)) != 1 {
 			writeAPIError(w, http.StatusUnauthorized, "unauthorized",
 				"missing or invalid session token",
-				"restart apitest ui and open the printed URL", nil)
+				"restart curlew ui and open the printed URL", nil)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -269,7 +269,7 @@ func (s *Server) assetHandler() http.Handler {
 		if err == nil {
 			return newDevProxy(target)
 		}
-		s.opts.Diagnostics("apitest ui: invalid APITEST_UI_DEV_PROXY %q: %v", s.opts.DevProxy, err)
+		s.opts.Diagnostics("curlew ui: invalid CURLEW_UI_DEV_PROXY %q: %v", s.opts.DevProxy, err)
 	}
 	dist := assets.Dist()
 	fileServer := http.FileServerFS(dist)

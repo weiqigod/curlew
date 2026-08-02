@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/plugin"
+	"github.com/weiqigod/curlew/internal/plugin"
 )
 
 // HookTimeout is the hard per-hook wall-clock limit.
@@ -128,7 +128,7 @@ func (d *Dispatcher) OnRequest(ctx context.Context, req RequestPayload) (Request
 	regs := d.liveRegistrations("on_request")
 	cur := req
 	for _, r := range regs {
-		out, err := d.callOne(ctx, r, "apitest/on_request", cur)
+		out, err := d.callOne(ctx, r, "curlew/on_request", cur)
 		if err != nil {
 			if errors.Is(err, plugin.ErrCallTimeout) {
 				d.dropPlugin(r, "on_request")
@@ -163,7 +163,7 @@ func (d *Dispatcher) OnResponse(ctx context.Context, resp ResponsePayload) (Resp
 	orig := resp // preserve immutable fields
 	cur := resp
 	for _, r := range regs {
-		out, err := d.callOne(ctx, r, "apitest/on_response", cur)
+		out, err := d.callOne(ctx, r, "curlew/on_response", cur)
 		if err != nil {
 			if errors.Is(err, plugin.ErrCallTimeout) {
 				d.dropPlugin(r, "on_response")
@@ -194,7 +194,7 @@ func (d *Dispatcher) OnResponse(ctx context.Context, resp ResponsePayload) (Resp
 func (d *Dispatcher) OnResult(ctx context.Context, res ResultPayload) error {
 	regs := d.liveRegistrations("on_result")
 	for _, r := range regs {
-		out, err := d.callOne(ctx, r, "apitest/on_result", res)
+		out, err := d.callOne(ctx, r, "curlew/on_result", res)
 		if err != nil {
 			if errors.Is(err, plugin.ErrCallTimeout) {
 				d.dropPlugin(r, "on_result")

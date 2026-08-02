@@ -13,8 +13,8 @@ import (
 
 	gws "github.com/gorilla/websocket"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // fakeConn is an in-memory Conn implementation for unit tests.

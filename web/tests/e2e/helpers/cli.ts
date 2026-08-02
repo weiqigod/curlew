@@ -2,9 +2,9 @@ import { execSync, type ExecSyncOptionsWithStringEncoding } from 'child_process'
 import path from 'path';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const CLI_BIN = path.join(REPO_ROOT, 'apitest');
+const CLI_BIN = path.join(REPO_ROOT, 'curlew');
 
-export interface RunApitestOptions {
+export interface RunCurlewOptions {
 	/** Additional CLI flags (e.g. ['--report-upload', '--org', 'acme']) */
 	flags?: string[];
 	/** Path to the collection YAML file (relative to repo root or absolute) */
@@ -15,7 +15,7 @@ export interface RunApitestOptions {
 	env?: Record<string, string>;
 }
 
-export interface RunApitestResult {
+export interface RunCurlewResult {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
@@ -28,17 +28,17 @@ export interface RunApitestResult {
 }
 
 /**
- * Runs the apitest binary with the given flags and collection.
+ * Runs the curlew binary with the given flags and collection.
  * Returns parsed stdout/stderr and the result id.
  * Throws if the exit code doesn't match `expectExit` (default 0).
  */
-export function runApitest(opts: RunApitestOptions): RunApitestResult {
+export function runCurlew(opts: RunCurlewOptions): RunCurlewResult {
 	const { flags = [], collection, expectExit = 0, env = {} } = opts;
 	const importsBackendUrl = flags.some(
-		(flag, index) => flag === '--env-var' && flags[index + 1]?.startsWith('APITEST_BACKEND_URL')
+		(flag, index) => flag === '--env-var' && flags[index + 1]?.startsWith('CURLEW_BACKEND_URL')
 	);
-	const effectiveFlags = env.APITEST_BACKEND_URL && !importsBackendUrl
-		? ['--env-var', 'APITEST_BACKEND_URL', ...flags]
+	const effectiveFlags = env.CURLEW_BACKEND_URL && !importsBackendUrl
+		? ['--env-var', 'CURLEW_BACKEND_URL', ...flags]
 		: flags;
 
 	const collectionPath = path.isAbsolute(collection)
@@ -72,7 +72,7 @@ export function runApitest(opts: RunApitestOptions): RunApitestResult {
 
 	if (exitCode !== expectExit) {
 		throw new Error(
-			`apitest exited with ${exitCode} (expected ${expectExit})\nstdout:\n${stdout}\nstderr:\n${stderr}`
+			`curlew exited with ${exitCode} (expected ${expectExit})\nstdout:\n${stdout}\nstderr:\n${stderr}`
 		);
 	}
 

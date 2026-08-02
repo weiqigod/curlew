@@ -5,7 +5,7 @@ Add a `validate` command to the CLI that parses and structurally checks collecti
 
 ## Task Details
 - **ID:** M1-025
-- **Title:** Validate command (apitest validate)
+- **Title:** Validate command (curlew validate)
 - **Phase:** M1: Core CLI
 - **Priority:** 25
 - **Complexity:** medium
@@ -104,9 +104,9 @@ import (
 	"fmt"
 	"strings"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // Severity classifies a validation finding.
@@ -240,15 +240,15 @@ func TestWriteValidationJSON(t *testing.T) {
 
 ---
 
-### Step 4: Wire Up `validateCmd` in `cmd/apitest/main.go`
+### Step 4: Wire Up `validateCmd` in `cmd/curlew/main.go`
 **Rationale:** CLI wiring comes last so all dependencies are in place. Tests here exercise the full command end-to-end.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `case "validate"` dispatch, `validateCmd`, `parseValidateArgs`, `expandGlobs`, update `printHelp` |
-| `cmd/apitest/main_test.go` | modify | Add `TestValidateCmd` table-driven tests |
+| `cmd/curlew/main.go` | modify | Add `case "validate"` dispatch, `validateCmd`, `parseValidateArgs`, `expandGlobs`, update `printHelp` |
+| `cmd/curlew/main_test.go` | modify | Add `TestValidateCmd` table-driven tests |
 
 #### Current Code (`main.go` switch)
 ```go
@@ -357,15 +357,15 @@ func TestValidateCmd(t *testing.T) {
 echo "=== Validate command ==="
 
 echo "--- Validate: valid collection ---"
-./apitest validate requests/hello.yaml
+./curlew validate requests/hello.yaml
 check_exit 0 "validate valid collection"
 
 echo "--- Validate: missing file ---"
-./apitest validate nonexistent.yaml
+./curlew validate nonexistent.yaml
 check_exit 3 "validate nonexistent file"
 
 echo "--- Validate: help text shows validate ---"
-./apitest help | grep -q "validate"
+./curlew help | grep -q "validate"
 check_exit 0 "validate appears in help"
 ```
 
@@ -378,7 +378,7 @@ check_exit 0 "validate appears in help"
 | `internal/variable/variable_test.go` | `TestFindReferences` | new | write |
 | `internal/validator/validator_test.go` | `TestValidate` | new | write |
 | `internal/output/json_test.go` | `TestWriteValidationJSON` | new | write |
-| `cmd/apitest/main_test.go` | `TestValidateCmd` | new | write |
+| `cmd/curlew/main_test.go` | `TestValidateCmd` | new | write |
 | All existing tests | — | none | no change |
 
 ## Risks and Edge Cases
@@ -394,7 +394,7 @@ check_exit 0 "validate appears in help"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -403,19 +403,19 @@ go test ./...
 Observable verification:
 ```bash
 # Valid collection
-./apitest validate requests/hello.yaml
+./curlew validate requests/hello.yaml
 # Expected: exit 0, "✓ requests/hello.yaml is valid" (or similar)
 
 # Invalid YAML
 echo "invalid: yaml: :" > /tmp/bad.yaml
-./apitest validate /tmp/bad.yaml
+./curlew validate /tmp/bad.yaml
 # Expected: exit 3, error with line number
 
 # Multiple files with glob
-./apitest validate "requests/*.yaml"
+./curlew validate "requests/*.yaml"
 # Expected: exit 0 if all valid
 
 # JSON format
-./apitest validate --format json requests/hello.yaml
+./curlew validate --format json requests/hello.yaml
 # Expected: exit 0, JSON with {"files":[{"file":"...","valid":true,"issues":[]}],"valid":true}
 ```

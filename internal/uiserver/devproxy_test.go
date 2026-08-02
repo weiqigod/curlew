@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/uiserver"
+	"github.com/weiqigod/curlew/internal/uiserver"
 )
 
-// TestDevProxy_ForwardsNonAPIPaths covers APITEST_UI_DEV_PROXY mode: non-API
+// TestDevProxy_ForwardsNonAPIPaths covers CURLEW_UI_DEV_PROXY mode: non-API
 // paths reverse-proxy to the Vite dev server while /api stays local.
 func TestDevProxy_ForwardsNonAPIPaths(t *testing.T) {
 	vite := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

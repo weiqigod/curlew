@@ -28,7 +28,7 @@ No findings. All issues from the previous review have been resolved.
 - `internal/parser`: 89.9%
 - `internal/httpexec`: 87.2%
 - `internal/output`: 100.0%
-- `cmd/apitest`: 90.9%
+- `cmd/curlew`: 90.9%
 
 ## Behavior Verification
 

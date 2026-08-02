@@ -5,7 +5,7 @@
 **Effective date:** 2026-05-19
 **Next review:** 2027-05-19 (annual, aligned with policy review cadence)
 
-This inventory enumerates every external service vendor that processes ApiTool
+This inventory enumerates every external service vendor that processes Curlew
 customer data or holds infrastructure access. Each row records data shared,
 retention, breach-notification SLA, vendor SOC 2 status, and DPA location.
 
@@ -26,7 +26,7 @@ Vendor Management; [Data Classification Matrix](data-classification-matrix.md);
 | GitLab | GitLab PR-checks integration (M16-014/M16-015/M16-016) | Project-scoped PAT (encrypted at-rest); commit SHAs; pipeline status payloads | PAT retained until uninstall; check-run records 90 days | 72 h (GitLab DPA §6) | SOC 2 Type II (GitLab Trust Center) | `legal@apitool.dev` — GitLab DPA executed 2025-09-01 [^1] |
 
 [^1]: Executed DPA copies are filed in the legal mailbox (``legal@apitool.dev``)
-and mirrored in the `s3://apitool-legal-vault/dpa-<vendor>/` bucket
+and mirrored in the `s3://curlew-legal-vault/dpa-<vendor>/` bucket
 per Information Security Policy § Vendor Management. An auditor following
 this column should request access via the legal-mailbox principal.
 

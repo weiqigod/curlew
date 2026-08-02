@@ -17,12 +17,12 @@ The manifest schema is defined at `docs/SPECIFICATION.md:8941-8953`.
 
 | Slug | Subject | Variables |
 |------|---------|-----------|
-| `email_verification` | Verify your ApiTool email | `first_name`, `verification_url` |
-| `auth_device_code` | Your ApiTool device-login code | `user_code`, `verification_url`, `expires_in_minutes` |
-| `billing_receipt` | Your ApiTool receipt for `{{billing_period}}` | `first_name`, `billing_period`, `amount_total`, `invoice_url` |
-| `billing_payment_failed` | Payment issue with your ApiTool subscription | `first_name`, `amount_total`, `update_payment_url`, `attempt_count` |
-| `billing_subscription_canceled` | Your ApiTool subscription has been canceled | `first_name`, `tier`, `effective_date` |
-| `account_security_alert` | Security alert on your ApiTool account | `first_name`, `event_time`, `event_ip`, `relogin_url` |
+| `email_verification` | Verify your Curlew email | `first_name`, `verification_url` |
+| `auth_device_code` | Your Curlew device-login code | `user_code`, `verification_url`, `expires_in_minutes` |
+| `billing_receipt` | Your Curlew receipt for `{{billing_period}}` | `first_name`, `billing_period`, `amount_total`, `invoice_url` |
+| `billing_payment_failed` | Payment issue with your Curlew subscription | `first_name`, `amount_total`, `update_payment_url`, `attempt_count` |
+| `billing_subscription_canceled` | Your Curlew subscription has been canceled | `first_name`, `tier`, `effective_date` |
+| `account_security_alert` | Security alert on your Curlew account | `first_name`, `event_time`, `event_ip`, `relogin_url` |
 
 Spec citation: `docs/SPECIFICATION.md:8926-8933`.
 

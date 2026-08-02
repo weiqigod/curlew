@@ -20,7 +20,7 @@
 
 ```
 $ echo 'API_KEY=secret123' > /tmp/dotenv-test/.env
-$ ./apitest run /tmp/dotenv-test/test.yaml
+$ ./curlew run /tmp/dotenv-test/test.yaml
 Collection: Dotenv Observable
   ✓ Check  200  845ms
 
@@ -95,7 +95,7 @@ Review PASS trusted (3rd round), spot-check clean: error wrapping verified, doc 
 | `internal/config/dotenv_test.go` | created | +130 |
 | `internal/runner/runner.go` | modified | +8/-5 |
 | `internal/runner/runner_test.go` | modified | +182/-44 |
-| `cmd/apitest/main.go` | modified | +10/-2 |
+| `cmd/curlew/main.go` | modified | +10/-2 |
 | `smoke/run.sh` | modified | +35 |
 | `CHANGELOG.md` | modified | +1 |
 

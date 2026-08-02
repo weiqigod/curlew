@@ -15,17 +15,17 @@
 | `golangci-lint run` (ci-local) | PASS | No findings |
 | `./smoke/run.sh` (ci-local) | PASS | Smoke test clean |
 | Coverage `internal/scaffold` | 83.9% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 81.3% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 81.3% | Meets >= 80% threshold |
 | `./scripts/ci-local.sh --go` | PASS | ci-local PASS |
 
 ## Observable Output
 
 ### init --output markdown scaffolds markdown output block
 ```
-$ apitest init --output markdown "$TMP"
+$ curlew init --output markdown "$TMP"
 Project initialized successfully!
 ...
-$ grep -A 4 '^output:' "$TMP/apitest.yaml"
+$ grep -A 4 '^output:' "$TMP/curlew.yaml"
 output:
   format: markdown
   report: responses/
@@ -36,7 +36,7 @@ Result: MATCH
 
 ### Bare init has no markdown reference
 ```
-$ grep 'markdown' "$TMP2/apitest.yaml" || echo 'no markdown reference'
+$ grep 'markdown' "$TMP2/curlew.yaml" || echo 'no markdown reference'
 no markdown reference
 ```
 Expected: "no markdown reference"
@@ -44,7 +44,7 @@ Result: MATCH
 
 ### init --help documents --output flag
 ```
-$ apitest init --help | grep -E '^\s*--output'
+$ curlew init --help | grep -E '^\s*--output'
   --output <format>       Scaffold an output: block for the named format.
 ```
 Expected: one line documenting the flag + enum
@@ -52,7 +52,7 @@ Result: MATCH
 
 ### init --output unknown exits 3
 ```
-$ apitest init --output madeup 2>err.log; echo $?
+$ curlew init --output madeup 2>err.log; echo $?
 exit: 3
 $ cat err.log
 Error: unknown --output value "madeup" (supported: terminal, json, tap, junit, html, markdown)
@@ -62,9 +62,9 @@ Result: MATCH
 
 ### Schema parity
 ```
-$ apitest schema | jq '."$defs".output.properties.format.enum[]' | grep '^"markdown"$'
+$ curlew schema | jq '."$defs".output.properties.format.enum[]' | grep '^"markdown"$'
 "markdown"
-$ apitest schema --project | jq '."$defs".output.properties.format.enum[]' | grep '^"markdown"$'
+$ curlew schema --project | jq '."$defs".output.properties.format.enum[]' | grep '^"markdown"$'
 "markdown"
 ```
 Expected: one match each
@@ -112,9 +112,9 @@ Result: MATCH (2 matches)
 
 | # | Behavior | Test(s) | Status |
 |---|----------|---------|--------|
-| 1 | `apitest init --output <format>` flag scaffolds correct output: block; unknown value exits 3 | `TestInit_OutputAllFormats`, `TestInit_OutputMarkdownFlag`, `TestInit_OutputUnknownFormat` | PASS |
-| 2 | Bare `apitest init` preserves M8-003 baseline scaffold (no markdown output block) | `TestInit_DefaultUnchanged` | PASS |
-| 3 | `apitest init --help` documents `--output` flag and full enum | `TestInit_Help_DocumentsOutputFlag` | PASS |
+| 1 | `curlew init --output <format>` flag scaffolds correct output: block; unknown value exits 3 | `TestInit_OutputAllFormats`, `TestInit_OutputMarkdownFlag`, `TestInit_OutputUnknownFormat` | PASS |
+| 2 | Bare `curlew init` preserves M8-003 baseline scaffold (no markdown output block) | `TestInit_DefaultUnchanged` | PASS |
+| 3 | `curlew init --help` documents `--output` flag and full enum | `TestInit_Help_DocumentsOutputFlag` | PASS |
 | 4 | `docs/SPECIFICATION.md` gains `##### Markdown Output Format` subsection | Observable: `grep -c 'Markdown Output Format' docs/SPECIFICATION.md` = 2 | PASS |
 | 5 | `docs/MANUAL.md` gains VS Code split-pane worked example | Observable: `grep -c 'split-pane' docs/MANUAL.md` = 1 | PASS |
 | 6 | `CHANGELOG.md [Unreleased]` has Added + Changed W4 entries | Observable: awk+grep returns 2 matching lines | PASS |
@@ -141,7 +141,7 @@ Result: MATCH (2 matches)
 | 12 | IMPROVEMENT.md §8.1 extended with v1.2 note | resolution line mentions v1.2 | PASS |
 | 13 | Regression: all M9-001..M9-004 tests pass unmodified | `go test ./...` — all cached/pass | PASS |
 | 14 | go test ./... passes with no regressions | 0 failures across all packages | PASS |
-| 15 | go test -cover scaffold+cmd >= 80% | scaffold: 83.9%, cmd/apitest: 81.3% | PASS |
+| 15 | go test -cover scaffold+cmd >= 80% | scaffold: 83.9%, cmd/curlew: 81.3% | PASS |
 | 16 | golangci-lint run passes with 0 issues | ci-local PASS | PASS |
 | 17 | ./smoke/run.sh passes | ci-local PASS — Smoke Test Complete | PASS |
 | 18 | ./scripts/ci-local.sh passes | ci-local PASS | PASS |
@@ -188,9 +188,9 @@ TDD pattern visible: `test(scaffold)` before `feat(scaffold)`; `test(cli)` befor
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — `initCmdOut` gains `--output` flag + validation; `printInitHelpTo` added; top-level help line updated |
-| `cmd/apitest/main_test.go` | modified — `TestInit_OutputUnknownFormat`, `TestInit_OutputMarkdown_FullPipeline`, `TestInit_Help_DocumentsOutputFlag` added |
-| `internal/scaffold/scaffold.go` | modified — `Options.OutputFormat` field; `outputBlock()` function; `apitestYAML` threaded |
+| `cmd/curlew/main.go` | modified — `initCmdOut` gains `--output` flag + validation; `printInitHelpTo` added; top-level help line updated |
+| `cmd/curlew/main_test.go` | modified — `TestInit_OutputUnknownFormat`, `TestInit_OutputMarkdown_FullPipeline`, `TestInit_Help_DocumentsOutputFlag` added |
+| `internal/scaffold/scaffold.go` | modified — `Options.OutputFormat` field; `outputBlock()` function; `curlewYAML` threaded |
 | `internal/scaffold/scaffold_test.go` | modified — `TestInit_OutputAllFormats`, `TestInit_OutputMarkdownFlag`, `TestInit_DefaultUnchanged`, `TestOutputBlock_DefaultFallback` added |
 | `internal/schema/validate_test.go` | modified — `TestSchema_scaffolded_all_output_formats_validate`, `TestSchema_AcceptsMarkdownFormat` added |
 | `internal/schema/validate_coverage_test.go` | modified — markdown fixtures registered in `TestSchema_accepts_output` |

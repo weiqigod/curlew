@@ -1,5 +1,5 @@
 // Package prcheck implements the pr-check subcommand: uploading test results
-// to the ApiTool backend and posting a PR status check.
+// to the Curlew backend and posting a PR status check.
 package prcheck
 
 import (
@@ -11,18 +11,18 @@ import (
 
 // Sentinel errors for well-known failure modes.
 var (
-	// ErrBackendURLMissing is returned when APITEST_BACKEND_URL is not set.
+	// ErrBackendURLMissing is returned when CURLEW_BACKEND_URL is not set.
 	ErrBackendURLMissing = errors.New("backend URL not configured")
 	// ErrUnauthorized is returned when the backend responds with 401.
-	ErrUnauthorized = errors.New("unauthorized: refresh APITEST_BACKEND_TOKEN")
+	ErrUnauthorized = errors.New("unauthorized: refresh CURLEW_BACKEND_TOKEN")
 	// ErrNetworkFailure is returned when the backend is unreachable after retries.
 	ErrNetworkFailure = errors.New("network error: backend unreachable after retries")
 )
 
 // Config holds the pr-check configuration derived from flags and env vars.
 type Config struct {
-	BackendURL   string // APITEST_BACKEND_URL
-	BackendToken string // APITEST_BACKEND_TOKEN
+	BackendURL   string // CURLEW_BACKEND_URL
+	BackendToken string // CURLEW_BACKEND_TOKEN
 	Org          string // --org
 	PR           int    // --pr
 	Repo         string // --repo
@@ -34,8 +34,8 @@ type Config struct {
 // Flags must be set separately by the caller.
 func ConfigFromEnv() Config {
 	return Config{
-		BackendURL:   os.Getenv("APITEST_BACKEND_URL"),
-		BackendToken: os.Getenv("APITEST_BACKEND_TOKEN"),
+		BackendURL:   os.Getenv("CURLEW_BACKEND_URL"),
+		BackendToken: os.Getenv("CURLEW_BACKEND_TOKEN"),
 	}
 }
 
@@ -45,7 +45,7 @@ func (c *Config) Validate() error {
 		return ErrBackendURLMissing
 	}
 	if c.BackendToken == "" {
-		return fmt.Errorf("APITEST_BACKEND_TOKEN is required")
+		return fmt.Errorf("CURLEW_BACKEND_TOKEN is required")
 	}
 	if c.Org == "" {
 		return fmt.Errorf("--org is required")

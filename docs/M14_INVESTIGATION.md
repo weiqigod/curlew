@@ -2,7 +2,7 @@
 
 Investigation date: 2026-05-03
 Scope: ground REVIEW.md's M14 framing in the current code, surface design questions before `/backlog M14` is run.
-Sources audited: `docs/REVIEW.md`, `docs/SPECIFICATION.md`, `internal/license/`, `cmd/apitest/license.go`, `src/ApiTool.Backend/Subscriptions/`, `src/ApiTool.Backend/Notifications/`, `.claude/skills/backlog/milestone-mapping.md`, `management/backlog.yaml`.
+Sources audited: `docs/REVIEW.md`, `docs/SPECIFICATION.md`, `internal/license/`, `cmd/curlew/license.go`, `src/ApiTool.Backend/Subscriptions/`, `src/ApiTool.Backend/Notifications/`, `.claude/skills/backlog/milestone-mapping.md`, `management/backlog.yaml`.
 
 ---
 
@@ -110,15 +110,15 @@ REVIEW.md:187 frames this as "SMTP provider choice (SendGrid vs SES)." Reading t
 ### Gap 13 — CLI ↔ backend integration
 
 **What exists today:**
-- CLI license code in `cmd/apitest/license.go` handles `--validate` and `export` only. `--refresh` and `--debug` return `"Not yet implemented"` and exit 1 (lines 28–30).
+- CLI license code in `cmd/curlew/license.go` handles `--validate` and `export` only. `--refresh` and `--debug` return `"Not yet implemented"` and exit 1 (lines 28–30).
 - No HTTP client in `internal/` that calls the backend. Search for "api/v1" in `internal/` returns nothing relevant.
-- No `apitest login` command. No token storage path beyond the offline-validate cache. The `LicenseCache` shape (`docs/SPECIFICATION.md:7745`) is specified but nothing writes it.
+- No `curlew login` command. No token storage path beyond the offline-validate cache. The `LicenseCache` shape (`docs/SPECIFICATION.md:7745`) is specified but nothing writes it.
 
 **What's missing — which REVIEW.md correctly flags but doesn't decompose:**
-- `apitest login` interactive flow (browser-based OAuth-style? device-code? username/password?)
-- License-cache persistence at `~/.config/apitesttool/license_cache.json` (spec defines shape, no code writes it)
+- `curlew login` interactive flow (browser-based OAuth-style? device-code? username/password?)
+- License-cache persistence at `~/.config/curlew/license_cache.json` (spec defines shape, no code writes it)
 - Refresh-token storage and rotation
-- Online JWKS fetch from `/api/v1/public-key` to populate `~/.config/apitesttool/jwks_cache.json`
+- Online JWKS fetch from `/api/v1/public-key` to populate `~/.config/curlew/jwks_cache.json`
 - PR-check posting client (note: this is *CLI → backend*. The backend → GitHub posting is a separate gap, **#12, not in M14** — it's slated for M16 per REVIEW.md:191. Easy to confuse.)
 
 **Open questions REVIEW.md flagged:**
@@ -126,7 +126,7 @@ REVIEW.md:187 frames this as "SMTP provider choice (SendGrid vs SES)." Reading t
 
 **Open questions REVIEW.md missed:**
 - **Where does the CLI's machine identity come from?** Spec line 7758 has a `deviceId` claim. First-run device registration flow isn't specified.
-- **Network-failure behaviour for `--refresh`.** If the user runs `apitest license --refresh` and the backend is unreachable, what's the exit code? The existing `--validate` path has a careful taxonomy (exit 6 for verification fail, 2 for no cache, 1 for internal error — see `cmd/apitest/license.go:42–66`). `--refresh` needs an analogous one and the spec doesn't provide it.
+- **Network-failure behaviour for `--refresh`.** If the user runs `curlew license --refresh` and the backend is unreachable, what's the exit code? The existing `--validate` path has a careful taxonomy (exit 6 for verification fail, 2 for no cache, 1 for internal error — see `cmd/curlew/license.go:42–66`). `--refresh` needs an analogous one and the spec doesn't provide it.
 
 ---
 
@@ -159,7 +159,7 @@ REVIEW.md:187 names five sub-slices for the original M14 scope. Working from wha
 | Live Stripe gateway | 3 | (1) SDK wiring + checkout session; (2) portal session; (3) proration via upcoming-invoice preview (interface change to async) |
 | Stripe webhooks | 3 | (1) signature-verify middleware + `stripe_webhook_events` table migration + idempotency pattern; (2) subscription event handlers; (3) invoice + payment-method handlers |
 | SMTP / email | 2 | (1) SendGrid sender + EmailQueueProcessor channel host + MJML pipeline; (2) 6-template inventory + manifests + CI upload job + dev-mode preview |
-| CLI ↔ backend | 4 | (1) `apitest login` (device-code flow) + cache write + hybrid keychain storage + `flock`; (2) `license --refresh` + `--debug` + exit-code taxonomy; (3) JWKS fetch + cache; (4) HTTP client foundation in `internal/backend/` |
+| CLI ↔ backend | 4 | (1) `curlew login` (device-code flow) + cache write + hybrid keychain storage + `flock`; (2) `license --refresh` + `--debug` + exit-code taxonomy; (3) JWKS fetch + cache; (4) HTTP client foundation in `internal/backend/` |
 | GitHub Checks API integration (Gap 12, folded in) | 4–6 | (1) GitHub App registration runbook + private-key handling + JWT signing for installation-token requests; (2) `installations` table + per-org credential storage + linking flow; (3) `PrCheck` entity expansion (`check_run_id`, `installation_id`, `conclusion`, `details_url`, `output_summary`, `output_text`) + payload mapping from internal state to Checks API shape; (4) outbound `POST /repos/{owner}/{repo}/check-runs` + retry/error handling; (5, optional) inbound webhook handler for re-run events (`check_run.rerequested`); (6, optional) Web-dashboard wiring for the App-install entry point. Slices 5–6 may be deferred; minimum viable is slices 1–4 |
 
 **Total: ~19–21 slices.** The biggest milestone shipped to date is M2 at 34 slices, but those were highly parallel and lower-risk per slice. M14's ~20 are a tighter graph (the issuer slice gates Stripe webhooks and CLI-refresh both; the GitHub-installation slice gates the outbound Checks API slice), and each one has more T1 risk per slice than any of M2's. The Gap-12 cluster does NOT depend on the issuer or Stripe clusters — it's parallelisable with the SMTP cluster on a separate track.
@@ -228,17 +228,17 @@ Investigation date: 2026-05-03. All decisions resolved 2026-05-03. Research grou
 | Token | What it proves | Lifetime | Verified | Used for | If backend down |
 |---|---|---|---|---|---|
 | **License JWT** | "User is licensed at tier X with features Y" | 30 days valid + 14-day grace period | Offline (CLI uses embedded JWKS / cached JWKS) | Every CLI invocation; gates feature access | CLI keeps working until grace exhausted (~6 weeks worst case) |
-| **Access token** | "Bearer may call backend API endpoints" | 1 hour | Online (backend validates per call, or signed JWT it verifies locally) | Backend-touching commands only: `report upload`, `pr-checks post`, `account view`, `license refresh` itself | Those commands fail with "backend unreachable, retry later" — `apitest run` is unaffected |
-| **Refresh token** | "Bearer may mint new License JWT + Access token" | 90-day sliding / 365-day absolute | Online (DB lookup, family-revocation check) | `/auth/refresh` only | After 365-day absolute expiry, user runs `apitest login` once |
+| **Access token** | "Bearer may call backend API endpoints" | 1 hour | Online (backend validates per call, or signed JWT it verifies locally) | Backend-touching commands only: `report upload`, `pr-checks post`, `account view`, `license refresh` itself | Those commands fail with "backend unreachable, retry later" — `curlew run` is unaffected |
+| **Refresh token** | "Bearer may mint new License JWT + Access token" | 90-day sliding / 365-day absolute | Online (DB lookup, family-revocation check) | `/auth/refresh` only | After 365-day absolute expiry, user runs `curlew login` once |
 
-**Why 1 hour for access tokens (not the 15 minutes recommended for typical SaaS):** CLI usage is bursty — a developer runs `apitest run` ten times in a debugging session, then nothing for hours. With 15-minute tokens, every session boundary triggers a refresh. With 1-hour tokens, most active sessions need zero refreshes, and revocation latency remains acceptable for the threats this tool faces (chargeback, ToS violation, leaked CI credential). Industry comparison: `gh` CLI uses 8-hour tokens; `gcloud` uses ~1-hour tokens. 15 minutes is right for a banking app or admin console; for a CLI testing tool it produces unnecessary refresh churn.
+**Why 1 hour for access tokens (not the 15 minutes recommended for typical SaaS):** CLI usage is bursty — a developer runs `curlew run` ten times in a debugging session, then nothing for hours. With 15-minute tokens, every session boundary triggers a refresh. With 1-hour tokens, most active sessions need zero refreshes, and revocation latency remains acceptable for the threats this tool faces (chargeback, ToS violation, leaked CI credential). Industry comparison: `gh` CLI uses 8-hour tokens; `gcloud` uses ~1-hour tokens. 15 minutes is right for a banking app or admin console; for a CLI testing tool it produces unnecessary refresh churn.
 
 **Why 30+14 days for the License JWT:** the offline-grace machinery already shipped as M5-013/014 — the architecture exists; v4.2 only needs to use it correctly. 30-day validity means most users refresh once per month silently. 14-day grace means a single missed refresh window does not lock anyone out. Combined: a backend outage of up to 6 weeks (worst case for a user who refreshed just before the outage) does not interrupt the CLI's primary function.
 
 **Background refresh pattern:**
 - License JWT: when CLI is invoked AND license JWT is < 7 days from expiry AND backend is reachable, fire-and-forget background refresh. Never blocks the user. If refresh fails, retry on next invocation.
 - Access token: lazy refresh — only attempted when the CLI is about to call a backend endpoint AND the token has < 5 minutes remaining. If refresh fails, the backend-touching command fails with a clear "backend unreachable" message; the CLI invocation overall does not fail unless that command was the only thing requested.
-- Refresh token: never refreshed proactively; the user explicitly runs `apitest login` to start a new family.
+- Refresh token: never refreshed proactively; the user explicitly runs `curlew login` to start a new family.
 
 **Revocation latency trade-off (License JWT):** because the License JWT is offline-verified for up to 30 days valid + 14-day grace = 44 days, we cannot instantly revoke a user's license. Three escape valves:
 1. **Default — wait for expiry.** Acceptable for ToS violations, downgrades, cancellations: the user's "stolen window" is bounded by JWT lifetime.
@@ -246,8 +246,8 @@ Investigation date: 2026-05-03. All decisions resolved 2026-05-03. Research grou
 3. **Optional addition — lazy revocation list.** CLI fetches `/api/v1/license/revocations` once per refresh cycle; `jti` match → treat as revoked. Out of M14 scope by design: the value-add over expiry-plus-key-rotation is marginal for an API testing tool, and the architecture above does not need to change to add it later — it's a single endpoint plus a CLI cache file. Excluded unless a concrete revocation-latency requirement emerges before launch.
 
 **CLI flow:**
-1. `apitest run` → check License JWT validity (offline) → if valid, proceed → if expired but within grace, proceed with warning → if grace exhausted, refuse with clear instructions to run `apitest license --refresh` (or `apitest login`).
-2. `apitest report upload` → check Access token validity → if expired/expiring, attempt silent refresh → if refresh succeeds, upload → if refresh fails, queue upload to `~/.config/apitesttool/pending-uploads/` for next successful refresh.
+1. `curlew run` → check License JWT validity (offline) → if valid, proceed → if expired but within grace, proceed with warning → if grace exhausted, refuse with clear instructions to run `curlew license --refresh` (or `curlew login`).
+2. `curlew report upload` → check Access token validity → if expired/expiring, attempt silent refresh → if refresh succeeds, upload → if refresh fails, queue upload to `~/.config/curlew/pending-uploads/` for next successful refresh.
 3. Background daily timer (only when CLI is invoked) → if License JWT < 7 days from expiry and backend reachable, refresh silently.
 
 ### 1. Token claim shapes (resolves A and J)
@@ -274,7 +274,7 @@ Both tokens are signed by the same `IKeyProvider` — only one signing-key regis
 | Claim | Type | Notes |
 |---|---|---|
 | `iss` | string | `https://api.apitool.dev` (env-suffixed in dev/staging) |
-| `aud` | string | `apitool-license` — License JWT audience; verified offline by CLI |
+| `aud` | string | `curlew-license` — License JWT audience; verified offline by CLI |
 | `sub` | UUID string | User ID; immutable |
 | `exp` | int | 30-day lifetime |
 | `nbf` | int | `iat - 30s` skew tolerance |
@@ -298,7 +298,7 @@ The trial fields are why this resolves J: M14's issuer writes them with `none`/`
 | Claim | Type | Notes |
 |---|---|---|
 | `iss` | string | Same as License JWT |
-| `aud` | string | `apitool-cli-api` — Access token audience; backend rejects mismatched `aud` |
+| `aud` | string | `curlew-cli-api` — Access token audience; backend rejects mismatched `aud` |
 | `sub` | UUID string | User ID |
 | `exp` | int | 1-hour lifetime |
 | `nbf` | int | `iat - 30s` skew tolerance |
@@ -325,7 +325,7 @@ Authorization-relevant claims (`tier`, `org_id`, `device_id`) are duplicated int
 | `deploy/self-hosted/` | `FileKeyProvider` | `Keys/signing/<kid>.pem` mode 0600, owned by service account; operator generates at install |
 | SaaS multi-tenant | `GoogleKmsKeyProvider` | Asymmetric `EC_SIGN_P256_SHA256` key in Google Cloud KMS HSM tier (FIPS 140-2 Level 3). Signatures via `projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.asymmetricSign`. Private key never leaves the HSM |
 
-**Multi-product context.** ApiTool is one of four planned SaaS products at roughly the same scale, all sharing a single GCP account for KMS. Each product gets its own signing key (security boundary that matters); all keys live in the same KMS service (one ops surface, one billing line, one IAM model). Per-product backend service accounts have `roles/cloudkms.signerVerifier` granted only on their own product's keys, enforcing the boundary at the IAM layer. With ~3 active key versions per product × 4 products = ~12 active key versions, monthly KMS cost is ~$12 (or $0 for ~25 months on the $300 new-account credit). The `IKeyProvider` interface abstracts the per-product key URI so the same provider implementation serves all four.
+**Multi-product context.** Curlew is one of four planned SaaS products at roughly the same scale, all sharing a single GCP account for KMS. Each product gets its own signing key (security boundary that matters); all keys live in the same KMS service (one ops surface, one billing line, one IAM model). Per-product backend service accounts have `roles/cloudkms.signerVerifier` granted only on their own product's keys, enforcing the boundary at the IAM layer. With ~3 active key versions per product × 4 products = ~12 active key versions, monthly KMS cost is ~$12 (or $0 for ~25 months on the $300 new-account credit). The `IKeyProvider` interface abstracts the per-product key URI so the same provider implementation serves all four.
 
 Same `IKeyProvider` surface: `SignAsync(payload) → signature`, `GetActiveKidAsync()`, `GetVerificationJwksAsync() → JWKS`. Tests use an in-memory provider; integration tests use `FileKeyProvider` with ephemeral keys.
 
@@ -337,7 +337,7 @@ Same `IKeyProvider` surface: `SignAsync(payload) → signature`, `GetActiveKidAs
 - Active signing key rotated every **90 days**.
 - Old key kept in JWKS for **60 days** post-rotation (verification window). The window must exceed the longest-lived in-flight JWT, which is a License JWT signed just before rotation: 30 days valid + 14 days grace = 44 days. 60 days gives comfortable margin. (Refresh tokens are opaque DB-looked-up secrets and do not depend on the signing-key verification window — only JWTs do.)
 - A `next` key is always pre-staged (loaded but not yet signing) and published in JWKS so emergency rotation is a flag flip.
-- **Emergency rotation:** `apitest-backend keys rotate --emergency` promotes `next` to `current`, removes old key from JWKS within 1 minute (cache-bust), revokes all refresh tokens issued under the compromised key.
+- **Emergency rotation:** `curlew-backend keys rotate --emergency` promotes `next` to `current`, removes old key from JWKS within 1 minute (cache-bust), revokes all refresh tokens issued under the compromised key.
 
 **`signing_keys` table** (registry):
 
@@ -400,17 +400,17 @@ The loose refresh-token profile (90/365) is chosen deliberately to minimise re-a
 - On refresh: mark old token's `rotated_at`, mint new token sharing `family_id`, set new token's `parent_id` to old.
 - **Reuse detection:** if a presented token's `rotated_at` is non-null, **revoke the entire `family_id`** — the canonical OAuth security pattern (Auth0, Okta, Stripe). Force re-auth, log a high-priority security event, send `account_security_alert` email.
 
-**CLI-side single-flight lock for refresh.** Required because reuse-detection is unforgiving — two concurrent CLI invocations both attempting to refresh the same token would race: one succeeds and rotates the token; the other presents the now-rotated token and triggers family revocation, logging the user out as if they were under attack. The CLI implementation MUST hold an exclusive `flock` on `~/.config/apitesttool/refresh.lock` (or platform equivalent) for the duration of any refresh call. Concurrent invocations block on the lock; once the first refresh completes and updates the cache, subsequent invocations re-read the cache and find a fresh token, no second refresh needed. The lock has a hard timeout (5s) after which the waiting invocation falls back to re-reading the cache and proceeding with whatever token is there — preventing deadlock if a previous CLI process crashed mid-refresh and left a stale lock file. This is not optional once family-revocation is in play; without it, normal user behaviour (running two `apitest` commands in adjacent terminals) randomly nukes their session.
+**CLI-side single-flight lock for refresh.** Required because reuse-detection is unforgiving — two concurrent CLI invocations both attempting to refresh the same token would race: one succeeds and rotates the token; the other presents the now-rotated token and triggers family revocation, logging the user out as if they were under attack. The CLI implementation MUST hold an exclusive `flock` on `~/.config/curlew/refresh.lock` (or platform equivalent) for the duration of any refresh call. Concurrent invocations block on the lock; once the first refresh completes and updates the cache, subsequent invocations re-read the cache and find a fresh token, no second refresh needed. The lock has a hard timeout (5s) after which the waiting invocation falls back to re-reading the cache and proceeding with whatever token is there — preventing deadlock if a previous CLI process crashed mid-refresh and left a stale lock file. This is not optional once family-revocation is in play; without it, normal user behaviour (running two `curlew` commands in adjacent terminals) randomly nukes their session.
 
 **Device binding (resolves part of I):**
 - First-run CLI registers device: `POST /api/v1/devices` with `{name, fingerprint}`. Backend mints `device_id` UUID, returns it.
-- CLI persists `device_id` at `~/.config/apitesttool/device.json` (mode 0600).
+- CLI persists `device_id` at `~/.config/curlew/device.json` (mode 0600).
 - Refresh requests must include `device_id`; backend rejects if it doesn't match the refresh token's bound `device_id`.
 - Fingerprint = SHA-256 of `(machine-id + hostname + OS)`. Best-effort signal, NOT primary binding (machines can be cloned). Primary binding is the server-minted `device_id` UUID.
 
 **CLI-side storage:** RFC 9700 §4.10.1 forbids plaintext storage. Three options:
 - **(a)** OS keychain only (macOS Keychain, Windows Credential Manager, Linux `secret-tool` / libsecret). Strongest where available — but Linux `secret-tool` requires a running keyring daemon (gnome-keyring or KWallet) which is frequently absent on servers, headless boxes, CI runners, and Docker containers — exactly the environments an API testing tool is invoked in.
-- **(b)** Encrypted file only — AES-256-GCM with a key derived from `(device_id + machine-id)` via HKDF, stored at `~/.config/apitesttool/refresh_token.enc` mode 0600. Single code path, no native deps, always works. Loses to anything that can read the file as the user.
+- **(b)** Encrypted file only — AES-256-GCM with a key derived from `(device_id + machine-id)` via HKDF, stored at `~/.config/curlew/refresh_token.enc` mode 0600. Single code path, no native deps, always works. Loses to anything that can read the file as the user.
 - **(c)** Hybrid (the `gh` CLI pattern): try OS keychain first; fall back to encrypted file when keychain is unavailable. Two code paths but matches user expectations and handles every environment correctly.
 
 Recommendation: **(c) hybrid.** Without a phantom shipping window forcing an "easy now / harden later" trade-off, the right call is to do this correctly the first time. Cross-platform keychain integration is a known quantity — Go libraries (e.g. `zalando/go-keyring`) cover all three OSes, and the encrypted-file fallback is the same code path option (b) would have shipped. Costs ~1 extra slice in M14 vs (b); avoids re-opening the storage decision later.
@@ -442,7 +442,7 @@ Recommendation: **(c) hybrid.** Without a phantom shipping window forcing an "ea
 | `GET` | `/api/v1/me` | bearer | Account view: tier, features, request_limit consumed today, org details, billing summary |
 | `POST` | `/api/v1/pr-checks` | bearer | (already exists) PR-check upload from CLI |
 
-There is **no separate `/api/v1/license/issue`** endpoint — `/auth/refresh` is the unified issuance path that mints all three tokens. Simplifies the CLI surface: `apitest license --refresh` calls `/auth/refresh`, parses the response, persists all three tokens.
+There is **no separate `/api/v1/license/issue`** endpoint — `/auth/refresh` is the unified issuance path that mints all three tokens. Simplifies the CLI surface: `curlew license --refresh` calls `/auth/refresh`, parses the response, persists all three tokens.
 
 **Error model: RFC 7807 Problem Details (`application/problem+json`):**
 
@@ -451,7 +451,7 @@ There is **no separate `/api/v1/license/issue`** endpoint — `/auth/refresh` is
   "type": "https://api.apitool.dev/errors/refresh-token-reused",
   "title": "Refresh token reuse detected",
   "status": 401,
-  "detail": "Token has been rotated; entire token family revoked. Re-authenticate via 'apitest login'.",
+  "detail": "Token has been rotated; entire token family revoked. Re-authenticate via 'curlew login'.",
   "code": "AUTH_REFRESH_REUSED",
   "request_id": "req_a3f4d2c1"
 }
@@ -461,20 +461,20 @@ There is **no separate `/api/v1/license/issue`** endpoint — `/auth/refresh` is
 - `request_id` is the correlation ID (already a project pattern).
 - `type` URLs resolve to docs pages explaining each error.
 
-**CLI exit code taxonomy for `apitest license --refresh`** (mirrors and extends `--validate` at `cmd/apitest/license.go:42–66`). `--refresh` requests a new License JWT + Access token + rotated refresh token in one round-trip:
+**CLI exit code taxonomy for `curlew license --refresh`** (mirrors and extends `--validate` at `cmd/curlew/license.go:42–66`). `--refresh` requests a new License JWT + Access token + rotated refresh token in one round-trip:
 
 | Exit | Meaning | Triggers |
 |---|---|---|
 | 0 | Success | All three tokens refreshed and cached |
 | 1 | Internal error | Unexpected; bug |
-| 2 | No cache | No refresh token stored — run `apitest login` |
+| 2 | No cache | No refresh token stored — run `curlew login` |
 | 3 | Network failure | Cannot reach backend; previous License JWT still valid (within 30d + 14d grace) — CLI normal operation continues |
 | 4 | Refresh expired | Refresh token past sliding-window or absolute deadline; re-auth required |
 | 5 | Family revoked | Security event — reuse detected or admin-initiated revocation; re-auth required |
 | 6 | Server error | 5xx response; retry later. Previous License JWT remains valid |
-| 7 | Device not registered | First run; needs `apitest login` to register |
+| 7 | Device not registered | First run; needs `curlew login` to register |
 
-Note that exit codes 3 and 6 (network/server failure) are **non-fatal for normal CLI operation** — the user can keep running `apitest run` against their own APIs because the License JWT is offline-verified and remains valid until expiry+grace exhausts. The CLI logs a warning ("license refresh failed, will retry next invocation") and exits non-zero only because the user explicitly asked for a refresh.
+Note that exit codes 3 and 6 (network/server failure) are **non-fatal for normal CLI operation** — the user can keep running `curlew run` against their own APIs because the License JWT is offline-verified and remains valid until expiry+grace exhausts. The CLI logs a warning ("license refresh failed, will retry next invocation") and exits non-zero only because the user explicitly asked for a refresh.
 
 ### 5. Webhook idempotency + replay budget (resolves E, F)
 
@@ -550,7 +550,7 @@ First time → row returned → process. Duplicate → no row → return 200 imm
 
 ### 7. SendGrid template inventory (resolves G)
 
-**Source-of-truth: in-repo MJML + variables manifest.** Templates as files in `templates/email/<slug>.mjml` + `templates/email/<slug>.json` (variables declaration). MJML compiles to responsive HTML; provides a `apitest-backend dev email-preview <slug>` renderer for local review. SendGrid's UI-managed templates drift silently and resist code review — files in the repo do not.
+**Source-of-truth: in-repo MJML + variables manifest.** Templates as files in `templates/email/<slug>.mjml` + `templates/email/<slug>.json` (variables declaration). MJML compiles to responsive HTML; provides a `curlew-backend dev email-preview <slug>` renderer for local review. SendGrid's UI-managed templates drift silently and resist code review — files in the repo do not.
 
 **CI flow:** on tagged release, a CI job uploads templates to SendGrid, captures the resulting template ID, writes the mapping to `SENDGRID__TEMPLATES__<SLUG>` in the secrets store. SendGrid as the *delivery* mechanism without ceding *authoring* to it.
 
@@ -574,7 +574,7 @@ The 6 templates fully exercise the SendGrid pipeline: dynamic-template variables
 ```json
 {
   "slug": "billing_receipt",
-  "subject": "Your ApiTool receipt for {{billing_period}}",
+  "subject": "Your Curlew receipt for {{billing_period}}",
   "variables": {
     "first_name":      "string",
     "billing_period":  "string (e.g. 'May 2026')",
@@ -632,7 +632,7 @@ A fresh session can use this file as a self-contained design reference. The "Res
 **Verified end-to-end on 2026-05-06** (M14-021 convergence slice):
 
 The full M14 revenue loop was verified by the M14-021 convergence slice:
-- `apitest run testdata/m14/e2e-collection.yaml --report-upload --org acme --pr 7 --repo acme/api` exits 0 and prints `check-run posted; status=success`
+- `curlew run testdata/m14/e2e-collection.yaml --report-upload --org acme --pr 7 --repo acme/api` exits 0 and prints `check-run posted; status=success`
 - The backend persists the result, posts the check-run to the github-mock sidecar via the M14-018 `CheckRunPoster`, and records `posted_at` on the `pr_checks` row
 - The `/org/acme/integrations/github` web view surfaces `posted_at` and `check_run_id`
 - A replayed `invoice.payment_succeeded` Stripe event triggers the M14-013 `StripeInvoiceHandler`, which enqueues a `billing_receipt` `EmailMessage`; the `InMemoryRecentlySentEmailLog` records the send and the `/internal/test/email-audit` endpoint confirms the entry

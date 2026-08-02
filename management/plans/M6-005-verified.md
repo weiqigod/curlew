@@ -15,12 +15,12 @@
 | Suite | Result | Details |
 |-------|--------|---------|
 | `./scripts/ci-local.sh` | PASS | All gates pass (Go build, vet, test, race, lint, smoke) |
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Including new `--events` happy-path block |
 | Coverage (overall) | 86.1% | Above 80% threshold |
-| Coverage (cmd/apitest) | 80.3% | Above 80% threshold |
+| Coverage (cmd/curlew) | 80.3% | Above 80% threshold |
 | Coverage (internal/runner) | 83.8% | Above 80% threshold |
 | Coverage (internal/parallel) | 89.7% | Above 80% threshold |
 | Coverage (internal/output/events) | 95.7% | Above 80% threshold |
@@ -31,7 +31,7 @@
 
 Command:
 ```
-./apitest run /tmp/events-happy.yaml --events /tmp/events.jsonl
+./curlew run /tmp/events-happy.yaml --events /tmp/events.jsonl
 ```
 
 Stream produced (5 lines, matches `event_count=5`):
@@ -49,7 +49,7 @@ Result: MATCH (run.start → request.start → assertion.result → request.end 
 
 Command:
 ```
-./apitest run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl
+./curlew run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl
 ```
 
 Stream produced (3 lines):
@@ -85,9 +85,9 @@ Plus from review iterations:
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` clean | PASS |
 | 2 | go test ./... passes with no changes to existing format goldens | All pre-existing goldens still match | PASS |
-| 3 | End-to-end CLI test driving real ./apitest binary with --events against fixture | `TestBinary_Run_EventsFlag` | PASS |
+| 3 | End-to-end CLI test driving real ./curlew binary with --events against fixture | `TestBinary_Run_EventsFlag` | PASS |
 | 4 | golangci-lint run passes with 0 issues | ci-local.sh `=== go lint ===` PASS | PASS |
-| 5 | Test coverage does not regress below 80% | Overall 86.1%, cmd/apitest 80.3% | PASS |
+| 5 | Test coverage does not regress below 80% | Overall 86.1%, cmd/curlew 80.3% | PASS |
 | 6 | Smoke test passes; smoke also exercises --events on the happy path | `=== Smoke Test Complete ===` PASS, `PASS: --events stream shape` | PASS |
 | 7 | ./scripts/ci-local.sh passes | `=== ci-local PASS ===` | PASS |
 
@@ -114,7 +114,7 @@ Branch A: Review PASS report exists (iteration 6 spot-check verdict PASS, prior 
 | e13eb73 | docs(review): add review with findings for M6-005 |
 | 0f4261f | docs(review): add improvement report for M6-005 (iteration 4) |
 | 0883812 | fix(runner): emit request.end for WebSocket rate-limit cancelled skip |
-| 5543984 | test(events): add targeted tests to raise cmd/apitest coverage above 80% |
+| 5543984 | test(events): add targeted tests to raise cmd/curlew coverage above 80% |
 | 4bcaac2 | fix(main): emit run.error for --show-dependencies error paths; add coverage tests |
 | 3386cad | fix(runner): emit events for data-driven parallel iterations |
 | 476d324 | feat(cli): wire run.start/end/error events and OnEvent sink into runCmdInner (M6-005) |
@@ -125,13 +125,13 @@ TDD pattern visible: `test(...)` commits precede each `feat(...)` commit (e.g. 5
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +350/-? |
-| `cmd/apitest/main_test.go` | modified | +537/-0 |
-| `cmd/apitest/run_test.go` | modified | +342/-0 |
-| `cmd/apitest/perf.go` | modified | +2 |
-| `cmd/apitest/perf_test.go` | modified | +14 |
-| `cmd/apitest/worker.go` | modified | +2 |
-| `cmd/apitest/worker_test.go` | modified | +13 |
+| `cmd/curlew/main.go` | modified | +350/-? |
+| `cmd/curlew/main_test.go` | modified | +537/-0 |
+| `cmd/curlew/run_test.go` | modified | +342/-0 |
+| `cmd/curlew/perf.go` | modified | +2 |
+| `cmd/curlew/perf_test.go` | modified | +14 |
+| `cmd/curlew/worker.go` | modified | +2 |
+| `cmd/curlew/worker_test.go` | modified | +13 |
 | `internal/parallel/executor.go` | modified | +69/-? |
 | `internal/parallel/executor_test.go` | modified | +155/-0 |
 | `internal/runner/runner.go` | modified | +352/-? |

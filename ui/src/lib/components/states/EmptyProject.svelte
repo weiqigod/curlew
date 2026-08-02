@@ -12,24 +12,24 @@
     <div>
       <h1 class="hl" tabindex="-1">No collections in this repo yet</h1>
       <div class="sub">
-        apitest reads YAML files from <span class="at-mono">{dir}</span> — your files in git are
+        curlew reads YAML files from <span class="at-mono">{dir}</span> — your files in git are
         the only source of truth. Scaffold a starting point from your terminal:
       </div>
     </div>
     <div class="term at-mono">
-      <div><span class="p">$ </span><span class="c">apitest init</span></div>
+      <div><span class="p">$ </span><span class="c">curlew init</span></div>
       <div>&nbsp;</div>
-      <div><span class="ok">&nbsp;&nbsp;created&nbsp;&nbsp;</span><span class="f">apitest.yaml</span></div>
+      <div><span class="ok">&nbsp;&nbsp;created&nbsp;&nbsp;</span><span class="f">curlew.yaml</span></div>
       <div><span class="ok">&nbsp;&nbsp;created&nbsp;&nbsp;</span><span class="f">collections/example.yaml</span></div>
       <div><span class="ok">&nbsp;&nbsp;created&nbsp;&nbsp;</span><span class="f">environments/dev.yaml</span></div>
       <div>&nbsp;</div>
       <div class="dim">&nbsp;&nbsp;3 files written. Edit collections/example.yaml, then:</div>
       <div>&nbsp;</div>
-      <div><span class="p">$ </span><span class="c">apitest run</span><span class="cursor"></span></div>
+      <div><span class="p">$ </span><span class="c">curlew run</span><span class="cursor"></span></div>
     </div>
     <div class="foot">
       <Icon name="file" size={13} />
-      this view refreshes automatically when files appear — apitest is watching the repo
+      this view refreshes automatically when files appear — curlew is watching the repo
     </div>
   </div>
 </div>

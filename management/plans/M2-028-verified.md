@@ -10,11 +10,11 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 24 packages, 0 failures |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke checks pass |
-| Coverage (`cmd/apitest`) | 83.2% | Meets >= 80% threshold |
+| Coverage (`cmd/curlew`) | 83.2% | Meets >= 80% threshold |
 | Coverage (`internal/output`) | 93.5% | Meets >= 80% threshold |
 | Coverage (`internal/runner`) | 86.7% | Meets >= 80% threshold |
 | Coverage (total) | 89.3% | Meets >= 80% threshold |
@@ -22,9 +22,9 @@
 ## Observable Output
 
 ```
-go test ./internal/output/...  → ok  github.com/peterlindqvist/apitest/internal/output (93.5%)
-go test ./internal/runner/...  → ok  github.com/peterlindqvist/apitest/internal/runner (86.7%)
-go test ./cmd/apitest/...      → ok  github.com/peterlindqvist/apitest/cmd/apitest (83.2%)
+go test ./internal/output/...  → ok  github.com/weiqigod/curlew/internal/output (93.5%)
+go test ./internal/runner/...  → ok  github.com/weiqigod/curlew/internal/runner (86.7%)
+go test ./cmd/curlew/...      → ok  github.com/weiqigod/curlew/cmd/curlew (83.2%)
 ```
 
 Expected: Unit tests pass covering data-driven and parallel HTML visualization
@@ -88,8 +88,8 @@ Branch A: Review PASS trusted, spot-check clean.
 | `internal/output/html_test.go` | modified — 15+ new test cases |
 | `internal/runner/runner.go` | modified — `IterationData` field + `cloneRow` helper |
 | `internal/runner/runner_test.go` | modified — `TestExecuteDataDriven_PopulatesIterationData` |
-| `cmd/apitest/main.go` | modified — wiring in `buildHTMLReport` |
-| `cmd/apitest/main_test.go` | modified — 3 new integration tests |
+| `cmd/curlew/main.go` | modified — wiring in `buildHTMLReport` |
+| `cmd/curlew/main_test.go` | modified — 3 new integration tests |
 | `CHANGELOG.md` | modified — M2-028 unreleased entry |
 
 ## Issues Found

@@ -39,7 +39,7 @@ Note: The observable expected `[plugin:datadog-metrics] submitted 1 metric` whic
 
 Part 3: `go test ./examples/plugins/datadog-metrics/...`
 ```
-ok  github.com/peterlindqvist/apitest/examples/plugins/datadog-metrics  0.760s
+ok  github.com/weiqigod/curlew/examples/plugins/datadog-metrics  0.760s
 ```
 Expected: >= 4 tests passing — 17 tests pass. MATCH.
 
@@ -48,7 +48,7 @@ Expected: >= 4 tests passing — 17 tests pass. MATCH.
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
 | 1 | Given examples/plugins/datadog-metrics/main.go exists, when built, then binary runs handshake and declares on_response + on_result | `TestHandshake_ReturnsHello`, `TestStandalone_HelpExits0WithMetadata` | PASS |
-| 2 | Given plugin loaded with DATADOG_API_KEY set, when on_response fires, then metric apitest.request.duration is recorded | `TestOnResponse_SubmitsMetric` | PASS |
+| 2 | Given plugin loaded with DATADOG_API_KEY set, when on_response fires, then metric curlew.request.duration is recorded | `TestOnResponse_SubmitsMetric` | PASS |
 | 3 | Given DATADOG_API_KEY is missing, when plugin starts, then it disables metric submission and logs 'datadog-metrics: DATADOG_API_KEY not set, disabled' | `TestRun_MissingKey_LogsDisabledLine`, `TestOnResponse_Disabled_DoesNotSubmit`, `TestLoadConfig_MissingKey_Disabled` | PASS |
 | 4 | Given docs/plugins.md exists, when read, then it covers handshake protocol, hook schemas, full Go example, and troubleshooting checklist | File exists at 471 lines | PASS |
 | 5 | Given examples/plugins/README.md exists, when read, then lists datadog-metrics plugin with build and run instructions | File exists | PASS |

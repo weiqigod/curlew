@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 )
 
 func TestRefreshTokens_Concurrent_OnlyOneNetworkCall(t *testing.T) {

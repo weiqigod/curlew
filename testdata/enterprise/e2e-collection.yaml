@@ -5,19 +5,19 @@
 name: e2e-enterprise-full
 
 variables:
-  APITEST_BACKEND_URL: "http://localhost:5000"
+  CURLEW_BACKEND_URL: "http://localhost:5000"
 
 requests:
   - name: backend-health
     request:
       method: GET
-      url: "{{APITEST_BACKEND_URL}}/swagger/v1/swagger.json"
+      url: "{{CURLEW_BACKEND_URL}}/swagger/v1/swagger.json"
     assertions:
       status: 200
 
   - name: backend-root-redirect
     request:
       method: GET
-      url: "{{APITEST_BACKEND_URL}}/"
+      url: "{{CURLEW_BACKEND_URL}}/"
     assertions:
       status: 200

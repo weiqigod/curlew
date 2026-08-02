@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 )
 
 // CollectionExecutor executes a resolved collection and returns the outcome.

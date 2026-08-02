@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // ErrUnknownSecret is returned when {{secrets.NAME}} references an alias that

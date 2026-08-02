@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ APITEST_TIER=professional ./apitest import openapi testdata/openapi/petstore-full.yaml --output out.yaml
+$ CURLEW_TIER=professional ./curlew import openapi testdata/openapi/petstore-full.yaml --output out.yaml
 $ cat out.yaml
 name: Petstore Full
 variables:
@@ -61,13 +61,13 @@ requests:
         - 200
         - 404
 
-$ ./apitest validate out.yaml
+$ ./curlew validate out.yaml
 WARN out.yaml is valid (with warnings)
   [WARNING] variable "petId" may not be defined at runtime
            Hint: Variables can be defined via collection variables, --var, --env-var, --env, or .env file
 
 $ go test ./internal/openapi/...
-ok      github.com/peterlindqvist/apitest/internal/openapi      0.486s
+ok      github.com/weiqigod/curlew/internal/openapi      0.486s
 ```
 
 Expected: headers derived from parameters, JSON body placeholder, `assertions.status` unions, validates cleanly.
@@ -93,7 +93,7 @@ Result: MATCH — all three elements present, validation passes (warning about `
 | 1 | All behavior tests pass | `go test ./internal/openapi/...` — all 8 behaviors pass | PASS |
 | 2 | Observable output works as specified | Import produces headers, body, status assertions; validates cleanly | PASS |
 | 3 | Test coverage >= 80% | openapi pkg: 96.5% | PASS |
-| 4 | No build warnings or lint errors | `go build ./cmd/apitest` clean; `golangci-lint run` 0 issues | PASS |
+| 4 | No build warnings or lint errors | `go build ./cmd/curlew` clean; `golangci-lint run` 0 issues | PASS |
 | 5 | Help text updated | `import openapi` help shows headers/request bodies/status assertions | PASS |
 | 6 | Smoke test updated | M3-006 block added to `smoke/run.sh` with petstore-full.yaml | PASS |
 
@@ -144,7 +144,7 @@ Branch A: Review PASS trusted (Round 3, post-improve round 2), spot-check clean:
 | `internal/openapi/emit_test.go` | modified — emit tests |
 | `internal/openapi/testdata/petstore_full.yaml` | added — full fixture for integration test |
 | `testdata/openapi/petstore-full.yaml` | added — observable fixture |
-| `cmd/apitest/main.go` | modified — updated help text |
+| `cmd/curlew/main.go` | modified — updated help text |
 | `smoke/run.sh` | modified — M3-006 smoke block |
 | `CHANGELOG.md` | modified — M3-006 entry |
 

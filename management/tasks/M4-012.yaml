@@ -9,10 +9,10 @@ dependencies:
   - M4-007
 observable: |
   scripts/test-stack.sh up           # starts backend + web + postgres via docker-compose
-  go build ./cmd/apitest
-  APITEST_BACKEND_URL=http://localhost:5000 \
-  APITEST_BACKEND_TOKEN=$(scripts/test-token.sh owner@example.com) \
-    ./apitest run testdata/team/e2e-collection.yaml --report-upload \
+  go build ./cmd/curlew
+  CURLEW_BACKEND_URL=http://localhost:5000 \
+  CURLEW_BACKEND_TOKEN=$(scripts/test-token.sh owner@example.com) \
+    ./curlew run testdata/team/e2e-collection.yaml --report-upload \
       --org acme --pr 7 --repo acme/api
   # Expected: exit 0, stdout "Uploaded result res_...; status posted"
   cd web && npm run test:e2e -- tests/e2e/full-pipeline.spec.ts
@@ -25,13 +25,13 @@ behaviors:
   - "Given the docker-compose stack is up, when the CLI runs a collection with --report-upload and a valid backend token, then the run completes, the results appear in the backend results list, and the CLI exits 0"
   - "Given a CLI run that uploaded a result, when Playwright navigates to /org/[slug]/results, then the uploaded run is visible in the recent runs table within 5 seconds"
   - "Given the upload included --pr and --repo, when the web portal loads, then the pr-check row is visible with state=success"
-  - "Given a collection with a deliberately failing test, when apitest run --report-upload is invoked, then the CLI exits 1, the backend status is failure, and the dashboard shows the failure badge"
+  - "Given a collection with a deliberately failing test, when curlew run --report-upload is invoked, then the CLI exits 1, the backend status is failure, and the dashboard shows the failure badge"
   - "Given scripts/test-stack.sh up is run twice, when the second invocation starts, then it detects an existing stack and re-seeds the dev org without duplicating rows"
   - "Given scripts/test-stack.sh down is run after the spec, when invoked, then all containers stop and the test database volume is removed"
   - "Given svelte-check and golangci-lint run on the touched files, then no issues are reported"
 scope: |
   Glue slice. No new backend endpoints, no new CLI commands. Wire the
-  existing apitest run pipeline to --report-upload so a single CLI invocation
+  existing curlew run pipeline to --report-upload so a single CLI invocation
   uploads results and posts a pr-check (reusing M4-007's internal/prcheck
   package). Ship testdata/team/e2e-collection.yaml and
   web/tests/e2e/full-pipeline.spec.ts. Extend scripts/test-stack.sh to seed
@@ -39,7 +39,7 @@ scope: |
   proves all three tracks work together end-to-end.
 definition_of_done:
   - "Full-pipeline Playwright spec passes with >=4 assertions"
-  - "apitest run --report-upload documented in help text"
+  - "curlew run --report-upload documented in help text"
   - "scripts/test-stack.sh up/down covered by a smoke test in smoke/run.sh"
   - "E2E fixture checked in and referenced from both CLI and web tests"
   - "CI job e2e-m4 added that runs the full pipeline on a Linux runner"

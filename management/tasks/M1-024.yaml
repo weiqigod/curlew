@@ -1,20 +1,20 @@
 id: M1-024
-title: "Init command (apitest init)"
+title: "Init command (curlew init)"
 status: done
 priority: 24
 created: 2026-03-09
 phase: "M1: Core CLI"
 dependencies: [M1-003]
 observable: |
-  Run `./apitest init` in empty directory. Verify all files created. Run
-  `./apitest run collections/sample.yaml` on the generated project.
+  Run `./curlew init` in empty directory. Verify all files created. Run
+  `./curlew run collections/sample.yaml` on the generated project.
 behaviors:
-  - "Given apitest init in an empty directory, when executed, then project structure is created with all scaffolding files"
-  - "Given apitest init, when completed, then apitest.yaml contains project name and default config"
-  - "Given apitest init, when completed, then .gitignore includes .env entry"
-  - "Given apitest init, when completed, then .env.example documents available variables without real values"
-  - "Given apitest init in a directory that already has apitest.yaml, when executed, then error indicates project already exists"
-  - "Given the generated sample collection, when run with apitest run, then it executes successfully"
+  - "Given curlew init in an empty directory, when executed, then project structure is created with all scaffolding files"
+  - "Given curlew init, when completed, then curlew.yaml contains project name and default config"
+  - "Given curlew init, when completed, then .gitignore includes .env entry"
+  - "Given curlew init, when completed, then .env.example documents available variables without real values"
+  - "Given curlew init in a directory that already has curlew.yaml, when executed, then error indicates project already exists"
+  - "Given the generated sample collection, when run with curlew run, then it executes successfully"
 scope: |
   Add `init` command to CLI. Create template files. Generate working sample
   collection. Detect existing project.

@@ -1,7 +1,7 @@
 # Implementation Plan: M1-021
 
 ## Overview
-Add a TAP (Test Anything Protocol) version 13 output formatter so `apitest run --format tap` produces TAP-compatible output consumable by standard TAP harnesses.
+Add a TAP (Test Anything Protocol) version 13 output formatter so `curlew run --format tap` produces TAP-compatible output consumable by standard TAP harnesses.
 
 ## Task Details
 - **ID:** M1-021
@@ -265,7 +265,7 @@ func sanitizeTAPName(name string) string {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add TAP integration tests and `TestBuildTAPOutput` |
+| `cmd/curlew/main_test.go` | modify | Add TAP integration tests and `TestBuildTAPOutput` |
 
 #### Current Code
 ```go
@@ -319,7 +319,7 @@ func TestBuildTAPOutput(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Format validation, pre-exec error handling, post-exec TAP output, help text |
+| `cmd/curlew/main.go` | modify | Format validation, pre-exec error handling, post-exec TAP output, help text |
 
 #### Current Code (format validation, line 131)
 ```go
@@ -487,14 +487,14 @@ fmt.Println("  --format <type>     Output format: terminal (default), json, tap"
 ```bash
 # --- TAP format ---
 echo "--- TAP: passing collection ---"
-TAP_OUT=$(./apitest run "$SMOKE_COLLECTION" --format tap 2>&1)
+TAP_OUT=$(./curlew run "$SMOKE_COLLECTION" --format tap 2>&1)
 echo "$TAP_OUT" | grep -q "^TAP version 13" || fail "--format tap: missing version line"
 echo "$TAP_OUT" | grep -q "^1\.\." || fail "--format tap: missing plan line"
 echo "$TAP_OUT" | grep -q "^ok 1" || fail "--format tap: missing ok line"
 echo "$TAP_OUT" | grep -q "^# Summary:" || fail "--format tap: missing summary comment"
 
 echo "--- TAP: help text lists tap ---"
-./apitest --help | grep -q "tap" || fail "--help missing tap in --format description"
+./curlew --help | grep -q "tap" || fail "--help missing tap in --format description"
 ```
 
 ---
@@ -503,9 +503,9 @@ echo "--- TAP: help text lists tap ---"
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestRunCmdDirect_UnknownFormat` | breaks | Update expected message to include `tap` |
+| `cmd/curlew/main_test.go` | `TestRunCmdDirect_UnknownFormat` | breaks | Update expected message to include `tap` |
 | `internal/output/tap_test.go` | all new tests | new | Write in RED phase |
-| `cmd/apitest/main_test.go` | `TestRunCmdDirect_TAP*` (new) | new | Write in RED phase |
+| `cmd/curlew/main_test.go` | `TestRunCmdDirect_TAP*` (new) | new | Write in RED phase |
 | All other existing tests | — | none | No action required |
 
 ---
@@ -529,7 +529,7 @@ echo "--- TAP: help text lists tap ---"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -537,7 +537,7 @@ go test ./...
 
 Observable verification:
 ```bash
-./apitest run collection.yaml --format tap
+./curlew run collection.yaml --format tap
 # Expected output:
 # TAP version 13
 # 1..N

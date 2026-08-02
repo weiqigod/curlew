@@ -28,14 +28,14 @@ No findings. All 6 findings from the iteration 1 review have been addressed:
 | Error Handling | PASS | No new error paths introduced; new code is pure transformation/rendering. Existing error paths in `executeDataDriven` properly wrap errors with `%w`. |
 | Input Validation | PASS | Edge cases handled: empty group (early return), nil Result (zero duration), skipped iterations excluded from stats. Zero-value defaults for new fields maintain backward compat. |
 | Naming | PASS | No stuttering; doc comments on all exported types and methods (`DataDrivenJSON`, `DataDrivenHeader`, `DataDrivenCompactSummary`, `DataDrivenVerboseResult`, `DataDrivenSummary`). Package names clean. |
-| Code Organization | PASS | Package boundaries respected; terminal methods in `output` package; data-driven metadata on `RequestResult` in `runner` package; rendering logic in `cmd/apitest/main.go` alongside other rendering code. Shared `computeDataDrivenStats` eliminates duplication. |
+| Code Organization | PASS | Package boundaries respected; terminal methods in `output` package; data-driven metadata on `RequestResult` in `runner` package; rendering logic in `cmd/curlew/main.go` alongside other rendering code. Shared `computeDataDrivenStats` eliminates duplication. |
 | Correctness | PASS | Index manipulation in rendering loop (`i = nextIdx - 1` with `continue`) is correct. Compact/verbose threshold works. JSON `omitempty` ensures backward compat. TAP annotation only on first iteration. `failFast` edge case handled: `len(group)` for actual counts, `IterationTotal` for header. |
 | Test Quality | PASS | All 6 behaviors covered by tests. Unit tests for helper functions. Table-driven tests with descriptive names. Quiet-mode suppression tested. Integration tests cover terminal compact, terminal verbose, JSON, TAP, and failed iteration details in both modes. |
 
 ## Test Coverage
 - `internal/output`: 93.1%
 - `internal/runner`: 88.0%
-- `cmd/apitest`: 84.4%
+- `cmd/curlew`: 84.4%
 - Overall: 86.6%
 - All above 80% threshold.
 

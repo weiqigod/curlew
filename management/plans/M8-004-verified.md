@@ -16,7 +16,7 @@
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage | 86.4% | Meets >= 80% threshold |
 
-Key package coverage: `cmd/apitest` 81.3%, `internal/runner` 83.7%, `internal/output/events` 95.8%, `internal/parser` 89.8%
+Key package coverage: `cmd/curlew` 81.3%, `internal/runner` 83.7%, `internal/output/events` 95.8%, `internal/parser` 89.8%
 
 ## Observable Output
 
@@ -52,7 +52,7 @@ Result: MATCH
 | 10 | Events schema v1.1: run.start gains optional `selection` field | `TestEvents_v11_Selection` | PASS |
 | 11 | SchemaVersion bumped to "1.1"; v1.0.json retained as historical anchor | `TestSchema_v11_validates`, `TestEvents_v11_Selection` | PASS |
 | 12 | Watch mode propagates `--only` through CLI args without plumbing changes | `TestWatch_OnlyPropagates` | PASS |
-| 13 | `apitest validate` surfaces duplicate-name rejection as exit 3 | `TestRun_OnlyNoMatch` integration test | PASS |
+| 13 | `curlew validate` surfaces duplicate-name rejection as exit 3 | `TestRun_OnlyNoMatch` integration test | PASS |
 | 14 | Docs updated: SPECIFICATION.md, MANUAL.md, CHANGELOG.md | File inspection | PASS |
 
 ## Definition of Done
@@ -67,8 +67,8 @@ Result: MATCH
 | 6 | docs/events-schema/v1.1.json exists and validates | TestSchema_v11_validates PASS | PASS |
 | 7 | docs/events-schema/v1.0.json retained unchanged | File present, unchanged | PASS |
 | 8 | Watch-mode integration test passes | TestWatch_OnlyPropagates | PASS |
-| 9 | apitest validate surfaces duplicate-name rejection as exit 3 | Integration test confirms | PASS |
-| 10 | apitest run --only "Nope" exits 3 with stderr listing available names | TestRun_OnlyNoMatch PASS | PASS |
+| 9 | curlew validate surfaces duplicate-name rejection as exit 3 | Integration test confirms | PASS |
+| 10 | curlew run --only "Nope" exits 3 with stderr listing available names | TestRun_OnlyNoMatch PASS | PASS |
 | 11 | docs/SPECIFICATION.md documents --only | Line 2878: `### Request Selection (--only)` | PASS |
 | 12 | docs/MANUAL.md references --only | Line 1214: `### 4.2b Running a Single Request (--only)` | PASS |
 | 13 | CHANGELOG.md updated with M8-004 entries | Line 26: full entry present | PASS |
@@ -113,7 +113,7 @@ Branch A: Review PASS trusted (iteration 4, no findings). Spot-check:
 | b6b9a3e | test(cli): add TestWatch_OnlyPropagates guard for watch mode passthrough |
 | fab5db6 | refactor(runner): remove ineffectual emptySummary reassignment; fix gofumpt |
 | da316f4 | docs(task): update CHANGELOG, SPECIFICATION, MANUAL for M8-004 |
-| aab8500 | feat(cli): add --only flag to apitest run for single/union request selection |
+| aab8500 | feat(cli): add --only flag to curlew run for single/union request selection |
 | 4b3a9d0 | feat(output): bump events schema to v1.1; add selection field on run.start |
 | e98e9bb | test(output): add failing tests for events schema v1.1 (selection field) |
 | 11b2781 | feat(runner): add variable-cliff diagnostic for --only selection |
@@ -132,9 +132,9 @@ TDD pattern: all `test(...)` commits precede their corresponding `feat(...)` com
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — --only flag, integration with runner |
-| `cmd/apitest/main_test.go` | modified — TestRun_OnlyNoMatch, TestRun_OnlyVariableCliff, TestWatch_OnlyPropagates, TestRun_ShowDeps_OnlyFilter |
-| `cmd/apitest/validate_team_test.go` | modified — validate duplicate rejection test |
+| `cmd/curlew/main.go` | modified — --only flag, integration with runner |
+| `cmd/curlew/main_test.go` | modified — TestRun_OnlyNoMatch, TestRun_OnlyVariableCliff, TestWatch_OnlyPropagates, TestRun_ShowDeps_OnlyFilter |
+| `cmd/curlew/validate_team_test.go` | modified — validate duplicate rejection test |
 | `docs/EVENTS_SCHEMA_v1.1.md` | added — v1.1 diff documentation |
 | `docs/MANUAL.md` | modified — §4.2b --only section |
 | `docs/SPECIFICATION.md` | modified — Request Selection (--only) section |

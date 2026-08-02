@@ -1,6 +1,6 @@
 package plugin
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("plugin",
@@ -22,7 +22,7 @@ func init() {
 		apierrors.RegisteredError{
 			Name: "ErrHandshakeProtocol",
 			Err:  ErrHandshakeProtocol,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInternal, Code: "PLUGIN_HANDSHAKE_PROTOCOL", Hint: "The plugin responded with an unexpected handshake. Verify the plugin targets a compatible apitest version."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInternal, Code: "PLUGIN_HANDSHAKE_PROTOCOL", Hint: "The plugin responded with an unexpected handshake. Verify the plugin targets a compatible curlew version."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrCallTimeout",

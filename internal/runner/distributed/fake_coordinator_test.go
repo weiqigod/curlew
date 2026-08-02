@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/worker"
+	"github.com/weiqigod/curlew/internal/worker"
 )
 
 // fakeCoordinatorOpts configures the fake coordinator.

@@ -46,7 +46,7 @@ var errMalformedSentinel = errors.New("markdown: malformed sentinel pair")
 // sentinelLineRE matches a complete sentinel line (BEGIN or END).
 // Captures: 1=marker (BEGIN|END), 2=request_id, 3=slug, 4=run_id.
 var sentinelLineRE = regexp.MustCompile(
-	`^<!-- (BEGIN|END) apitest:response id=(\S+) slug=([a-z0-9-]+) run=(\S+) -->$`,
+	`^<!-- (BEGIN|END) curlew:response id=(\S+) slug=([a-z0-9-]+) run=(\S+) -->$`,
 )
 
 // parseSentinels scans the existing file bytes and returns the location of

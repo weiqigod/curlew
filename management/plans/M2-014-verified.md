@@ -80,7 +80,7 @@ Review PASS trusted (management/reviews/M2-014-review.md, round 2), spot-check c
 | 7ddbf01 | refactor(retry): fix gofumpt formatting in merge_test.go |
 | c36a35b | feat(parser): add Section type with retry config, replace RetryConfig with FullConfig |
 | 194a8e0 | test(config): add failing tests for defaults.retry parsing |
-| 075b75f | feat(config): add defaults.retry parsing from apitest.yaml |
+| 075b75f | feat(config): add defaults.retry parsing from curlew.yaml |
 | de4c227 | feat(runner): wire full retry precedence chain with global config |
 | 835b83c | chore(task): mark M2-014 as review |
 | 932c7a2 | docs(review): add review with findings for M2-014 |
@@ -92,7 +92,7 @@ Review PASS trusted (management/reviews/M2-014-review.md, round 2), spot-check c
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +17/-0 |
+| `cmd/curlew/main.go` | modified | +17/-0 |
 | `internal/config/project.go` | modified | +19/-0 |
 | `internal/config/project_test.go` | modified | +85/-0 |
 | `internal/httpexec/executor.go` | modified | +12/-0 |

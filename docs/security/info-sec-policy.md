@@ -11,10 +11,10 @@
 
 This policy applies to:
 
-- All ApiTool engineering personnel, contractors, and third-party service providers
-  with access to ApiTool systems or customer data.
-- The ApiTool SaaS backend (C# .NET, hosted on AWS).
-- The ApiTool CLI distribution chain (Go binary; distributed via GitHub Releases and
+- All Curlew engineering personnel, contractors, and third-party service providers
+  with access to Curlew systems or customer data.
+- The Curlew SaaS backend (C# .NET, hosted on AWS).
+- The Curlew CLI distribution chain (Go binary; distributed via GitHub Releases and
   Homebrew tap).
 - Development, staging, and production environments.
 
@@ -33,7 +33,7 @@ Vendor obligations are captured in the Vendor Inventory
 - Developer laptops must have full-disk encryption enabled and a lock screen
   activating within 5 minutes of inactivity.
 - Multi-factor authentication (MFA) is required for all SSO accounts used to access
-  AWS, GitHub, and the ApiTool Admin panel.
+  AWS, GitHub, and the Curlew Admin panel.
 - Personal accounts must not be used for work-related API access; all integrations
   use machine service tokens scoped to the minimum required permissions.
 
@@ -41,7 +41,7 @@ Vendor obligations are captured in the Vendor Inventory
 
 ## Access Control
 
-Access to ApiTool systems and customer data follows the principle of least privilege:
+Access to Curlew systems and customer data follows the principle of least privilege:
 
 - **RBAC model:** The backend enforces a two-layer permission model: built-in
   organisation roles (`Owner`, `Admin`, `Member`) plus `CustomRole` templates. The
@@ -84,7 +84,7 @@ Selection criteria:
   certification).
 - Data-processing agreements (DPAs) must be signed before any personal data is
   shared.
-- Breach-notification SLA from vendor to ApiTool: within 24 hours of confirmed
+- Breach-notification SLA from vendor to Curlew: within 24 hours of confirmed
   breach.
 
 See also `docs/security/incident-response-runbook.md` for vendor-breach escalation

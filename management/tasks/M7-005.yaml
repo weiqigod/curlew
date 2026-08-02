@@ -7,21 +7,21 @@ phase: "M7: Output Discipline"
 track: go-cli
 observable: |
   # captureJSONCollection no longer hijacks os.Stdout at the process level.
-  grep -rn "os.Stdout = " cmd/apitest/
+  grep -rn "os.Stdout = " cmd/curlew/
   # Expected: zero matches.
 
   # runCmdInner takes explicit writer parameters.
-  grep -n "^func runCmdInner" cmd/apitest/main.go
+  grep -n "^func runCmdInner" cmd/curlew/main.go
   # Expected: func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 
   # Concurrent glob discovery works without stream corruption.
-  go test -run TestConcurrentDiscovery ./cmd/apitest/...
+  go test -run TestConcurrentDiscovery ./cmd/curlew/...
   # Expected: PASS — two glob-matched collections run in parallel
   # goroutines with separate writer buffers and produce non-interleaved
   # JSON documents.
 
   # Static-analysis gate rejects future reassignment of os.Stdout.
-  go test -run TestNoOsStdoutAssignment ./cmd/apitest/...
+  go test -run TestNoOsStdoutAssignment ./cmd/curlew/...
   # Expected: PASS.
 behaviors:
   - "Given runCmdInner is called with a bytes.Buffer as stdout and another as stderr, when it completes, then all JSON/TAP/JUnit/HTML output targeted at os.Stdout now lands in the provided stdout buffer."
@@ -30,7 +30,7 @@ behaviors:
   - "Given watchCmd, when it invokes runCmdInner via RunFunc, then it passes watch.Config.Stdout / Stderr as the writers — not os.Stdout / os.Stderr globals."
   - "Given the binary invoked through the CLI entry point runCmd, when runCmdInner is called, then os.Stdout and os.Stderr are passed as the writers — preserving backward-compatible CLI behavior."
   - "Given the existing test suite, when migrated to the new signature, then tests inject writers directly instead of replacing os.Stdout or reading from a captured pipe."
-  - "Given TestNoOsStdoutAssignment using go/ast, when it scans cmd/apitest/*.go, then no source file contains an assignment whose left-hand side is os.Stdout or os.Stderr."
+  - "Given TestNoOsStdoutAssignment using go/ast, when it scans cmd/curlew/*.go, then no source file contains an assignment whose left-hand side is os.Stdout or os.Stderr."
 scope: |
   Architectural refactor. The root cause of captureJSONCollection's
   os.Stdout hijack (discovery_run.go:303-326) is that runCmdInner
@@ -38,7 +38,7 @@ scope: |
   goes, so they rewrite the process-global file descriptor. Fix:
   thread writers through the function boundary.
 
-  Signature change (cmd/apitest/main.go:428):
+  Signature change (cmd/curlew/main.go:428):
     func runCmdInner(args []string) (int, *runner.Summary)
   becomes
     func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
@@ -64,7 +64,7 @@ scope: |
       the stdout argument. Function simplifies from ~25 lines to ~10.
 
   Tests to migrate:
-    - cmd/apitest/main_test.go, run_test.go, discovery_run_test.go:
+    - cmd/curlew/main_test.go, run_test.go, discovery_run_test.go:
       any test that replaces os.Stdout or reads from a captured pipe
       now injects a bytes.Buffer directly. Net result: simpler,
       goroutine-safe, faster tests.
@@ -74,11 +74,11 @@ scope: |
       separate goroutines with separate stdout/stderr buffers; asserts
       each goroutine's output lands only in its own buffer and no
       interleaving occurs.
-    - TestNoOsStdoutAssignment — parses every cmd/apitest/*.go with
+    - TestNoOsStdoutAssignment — parses every cmd/curlew/*.go with
       go/ast, walks ast.AssignStmt nodes, fails if any LHS selector
       is os.Stdout or os.Stderr (anti-regression gate).
 
-  Prior art to mirror: cmd/apitest/discovery_run.go:126
+  Prior art to mirror: cmd/curlew/discovery_run.go:126
   writeGateForFormat(stdout, stderr io.Writer, ...) and
   internal/worker/run.go worker.RunOptions{Stdout}.
 
@@ -88,10 +88,10 @@ scope: |
 definition_of_done:
   - "All behavior tests pass"
   - "runCmdInner signature is (args []string, stdout, stderr io.Writer) (int, *runner.Summary)"
-  - "grep -rn 'os.Stdout = ' cmd/apitest/ returns zero matches"
-  - "grep -rn 'os.Stderr = ' cmd/apitest/ returns zero matches"
+  - "grep -rn 'os.Stdout = ' cmd/curlew/ returns zero matches"
+  - "grep -rn 'os.Stderr = ' cmd/curlew/ returns zero matches"
   - "TestConcurrentDiscovery verifies no interleaving when two runs execute in parallel goroutines with separate writers"
-  - "TestNoOsStdoutAssignment uses go/ast to reject any future reassignment of os.Stdout or os.Stderr in cmd/apitest/"
+  - "TestNoOsStdoutAssignment uses go/ast to reject any future reassignment of os.Stdout or os.Stderr in cmd/curlew/"
   - "All existing tests that hijacked os.Stdout are migrated to inject writers directly"
   - "captureJSONCollection function is simplified to direct buffer injection — no fd-swap"
   - "go test ./... passes with no regressions (existing format goldens are byte-identical)"

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Ship the W4 markdown shipment slice: extend `apitest init` with an `--output
+Ship the W4 markdown shipment slice: extend `curlew init` with an `--output
 <format>` flag that scaffolds the appropriate `output:` block (driven by the
 existing `output.SupportedFormats` enum), document the markdown format in
 SPECIFICATION.md and MANUAL.md, batch the W4 entries into CHANGELOG.md, and
@@ -37,20 +37,20 @@ Each is informed by reading the file the slice will touch.
    validation call would create an extra package edge for no benefit. Instead,
    `scaffold.Init` accepts a string `OutputFormat` and treats empty string as
    "no `output:` block" (preserving the bare-`init` byte-for-byte default).
-   Validation happens at the caller layer (`cmd/apitest/main.go::initCmdOut`),
+   Validation happens at the caller layer (`cmd/curlew/main.go::initCmdOut`),
    which already knows about `output.SupportedFormats` via the help-text
    rendering. This matches the existing pattern: `Options.ProjectName` is a
    string, validated at the caller layer.
 
 2. **Bare `init` (no `--output`) writes the same scaffold as today, byte-for-byte.**
-   The current `apitest.yaml` template (M8-003) emits an `output:` block with
+   The current `curlew.yaml` template (M8-003) emits an `output:` block with
    `format: terminal` and `verbosity: normal`. M9-005 changes that template
    path to **omit the `output:` block when `OutputFormat == ""`** (the new
    default). This is the only "behaviour change" risk in the task; the test
    `TestInit_DefaultUnchanged` is the regression guard. The task YAML's third
-   observable step explicitly demands `grep 'markdown' apitest.yaml || echo
+   observable step explicitly demands `grep 'markdown' curlew.yaml || echo
    'no markdown reference'` to succeed — but more importantly the
-   pre-existing `TestSchema_scaffolded_apitest_yaml_validates` must still
+   pre-existing `TestSchema_scaffolded_curlew_yaml_validates` must still
    pass with no `output:` block (the project schema accepts it as optional).
 
    **Decision recorded:** the task YAML behaviour line says "preserving the
@@ -58,7 +58,7 @@ Each is informed by reading the file the slice will touch.
    already emitted `output: { format: terminal, verbosity: normal }`), and the
    task's "Bare init stays on terminal (no backward-compat break)" observable
    in the YAML asserts `grep 'markdown' || echo 'no markdown reference'`
-   succeeds (i.e. `apitest.yaml` does not mention markdown). Two valid
+   succeeds (i.e. `curlew.yaml` does not mention markdown). Two valid
    readings: (a) keep the M8-003 active terminal block, or (b) emit no
    `output:` block. Both satisfy the observable. We pick (a) — keep the
    active terminal block from M8-003 — for two reasons:
@@ -66,12 +66,12 @@ Each is informed by reading the file the slice will touch.
    - It keeps the discoverability/learnability win from M8-003 intact: a
      new user sees the `output:` block in the file and learns it exists.
    - It minimises blast radius — `TestInit_DefaultUnchanged` simply asserts
-     that the bare-`init` apitest.yaml is byte-identical to the M8-003
-     baseline. No regression in `TestSchema_scaffolded_apitest_yaml_validates`,
-     no rewrite of the existing `apitest.yaml contains active output block`
+     that the bare-`init` curlew.yaml is byte-identical to the M8-003
+     baseline. No regression in `TestSchema_scaffolded_curlew_yaml_validates`,
+     no rewrite of the existing `curlew.yaml contains active output block`
      test in `scaffold_test.go`.
 
-   The behaviour line in the YAML — *"Bare apitest init (no --output flag)
+   The behaviour line in the YAML — *"Bare curlew init (no --output flag)
    produces a scaffold with no output: block — preserving the pre-M9 terminal
    default"* — is reconciled by interpreting "no `output:` block" as a
    shorthand for "no markdown-related `output:` block"; the prevailing
@@ -101,12 +101,12 @@ Each is informed by reading the file the slice will touch.
    SPECIFICATION.md: html requires a file, junit accepts one optionally,
    markdown is a directory, terminal/tap have no output target.
 
-4. **Validation surface stays in `cmd/apitest`, not `scaffold`.** Unknown
+4. **Validation surface stays in `cmd/curlew`, not `scaffold`.** Unknown
    `--output <value>` produces exit code 3 with a message naming the supported
    enum, *before* any file is written. This matches the task YAML's observable:
 
    ```
-   apitest init --output madeup 2>err.log; echo $?
+   curlew init --output madeup 2>err.log; echo $?
    # Expected: exit 3; err.log names supported values including markdown.
    ```
 
@@ -126,17 +126,17 @@ Each is informed by reading the file the slice will touch.
    - The help text includes the `--output` flag with its enum, plus the
      existing `--project-name` flag and the positional `dir` argument.
 
-6. **`apitest --help` (top-level) gets a one-line update** to mention the
+6. **`curlew --help` (top-level) gets a one-line update** to mention the
    new `--output` capability of `init`. Specifically, line 3597 changes from:
 
    ```
-   init [dir]      Initialize a new apitest project (default: current directory)
+   init [dir]      Initialize a new curlew project (default: current directory)
    ```
 
    to:
 
    ```
-   init [dir]      Initialize a new apitest project (use --output <fmt> to scaffold a per-format output: block)
+   init [dir]      Initialize a new curlew project (use --output <fmt> to scaffold a per-format output: block)
    ```
 
    The line is already long; the wording stays under the existing column
@@ -155,7 +155,7 @@ Each is informed by reading the file the slice will touch.
    - `docs/MANUAL.md` §5.7 (Watch mode), augmented with a worked example
      of the VS Code split-pane workflow at the bottom of the section. The
      example covers: open `collections/users.yaml` on the left, open
-     `responses/get-user.md` on the right, run `apitest watch
+     `responses/get-user.md` on the right, run `curlew watch
      collections/users.yaml --only "Get user"`, observe per-save updates.
      The text references `--format markdown --report responses/` with the
      `--only` flag for fast inner-loop iteration.
@@ -208,14 +208,14 @@ Each is informed by reading the file the slice will touch.
 
 The slice has six steps; tests come first (TDD) before any production change.
 Step ordering minimizes blast radius: step 1 is a unit-test-only addition
-in `scaffold/`, then the production change there, then `cmd/apitest/`
+in `scaffold/`, then the production change there, then `cmd/curlew/`
 helper text and parsing, then docs, then the IMPROVEMENT.md surgery, then
 CHANGELOG.
 
 ### Step 1: Add scaffold tests for OutputFormat and the format-to-block map
 
 **Rationale:** Smallest blast radius — `scaffold` package is leaf-level (no
-internal package imports it except `cmd/apitest`). Test additions only.
+internal package imports it except `cmd/curlew`). Test additions only.
 
 #### Files to Modify
 
@@ -230,11 +230,11 @@ Three new test functions, all in `internal/scaffold/scaffold_test.go`:
 
 ```go
 // TestInit_OutputAllFormats verifies that each supported output format
-// produces a scaffold whose apitest.yaml contains the correct output: block.
+// produces a scaffold whose curlew.yaml contains the correct output: block.
 func TestInit_OutputAllFormats(t *testing.T) {
     cases := []struct {
         format   string
-        wantBody string // exact substring expected in apitest.yaml
+        wantBody string // exact substring expected in curlew.yaml
     }{
         {"terminal", "format: terminal"},
         {"json",     "format: json\n  report: results.json"},
@@ -250,12 +250,12 @@ func TestInit_OutputAllFormats(t *testing.T) {
             if err != nil {
                 t.Fatalf("Init(format=%s): %v", tc.format, err)
             }
-            body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+            body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
             if err != nil {
                 t.Fatalf("read: %v", err)
             }
             if !strings.Contains(string(body), tc.wantBody) {
-                t.Fatalf("apitest.yaml missing %q\ngot:\n%s", tc.wantBody, body)
+                t.Fatalf("curlew.yaml missing %q\ngot:\n%s", tc.wantBody, body)
             }
         })
     }
@@ -268,13 +268,13 @@ func TestInit_OutputMarkdownFlag(t *testing.T) {
     if err := Init(Options{Dir: dir, OutputFormat: "markdown"}); err != nil {
         t.Fatal(err)
     }
-    body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+    body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
     if err != nil {
         t.Fatal(err)
     }
     want := "output:\n  format: markdown\n  report: responses/"
     if !strings.Contains(string(body), want) {
-        t.Fatalf("want %q in apitest.yaml; got:\n%s", want, body)
+        t.Fatalf("want %q in curlew.yaml; got:\n%s", want, body)
     }
 }
 
@@ -285,7 +285,7 @@ func TestInit_DefaultUnchanged(t *testing.T) {
     if err := Init(Options{Dir: dir, ProjectName: "demo"}); err != nil {
         t.Fatal(err)
     }
-    got, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+    got, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
     if err != nil {
         t.Fatal(err)
     }
@@ -297,7 +297,7 @@ output:
   verbosity: normal
 `
     if string(got) != want {
-        t.Fatalf("bare-init apitest.yaml diverged from M8-003 baseline\nwant:\n%s\ngot:\n%s", want, got)
+        t.Fatalf("bare-init curlew.yaml diverged from M8-003 baseline\nwant:\n%s\ngot:\n%s", want, got)
     }
 }
 ```
@@ -307,7 +307,7 @@ are targeted on observables required by the task YAML.
 
 #### Impact on Existing Tests
 
-- The existing `apitest.yaml contains active output block` case in `TestInit`
+- The existing `curlew.yaml contains active output block` case in `TestInit`
   still passes — it uses the bare-init path (no `OutputFormat`) and
   asserts `output:\n  format: terminal\n  verbosity: normal` is present, which
   is exactly what `TestInit_DefaultUnchanged` also asserts.
@@ -316,13 +316,13 @@ are targeted on observables required by the task YAML.
 ### Step 2: Implement Options.OutputFormat in scaffold
 
 **Rationale:** Make the Step 1 tests GREEN. Pure additive — adds a new field
-to `Options` and a new code path in `apitestYAML`.
+to `Options` and a new code path in `curlewYAML`.
 
 #### Files to Modify
 
 | File                                  | Action | Description                                                                                            |
 |---------------------------------------|--------|--------------------------------------------------------------------------------------------------------|
-| `internal/scaffold/scaffold.go`       | modify | Add `OutputFormat string` to `Options`. Branch in `apitestYAML` to render per-format `output:` block. |
+| `internal/scaffold/scaffold.go`       | modify | Add `OutputFormat string` to `Options`. Branch in `curlewYAML` to render per-format `output:` block. |
 
 #### Current Code
 
@@ -338,7 +338,7 @@ type Options struct {
 `internal/scaffold/scaffold.go:112-119`:
 
 ```go
-func apitestYAML(projectName string) string {
+func curlewYAML(projectName string) string {
     return fmt.Sprintf("project_name: %q\n"+
         "variables:\n"+
         "  base_url: \"https://httpbin.org\"\n"+
@@ -354,7 +354,7 @@ func apitestYAML(projectName string) string {
 type Options struct {
     Dir         string
     ProjectName string
-    // OutputFormat selects the output: block emitted in apitest.yaml. Empty
+    // OutputFormat selects the output: block emitted in curlew.yaml. Empty
     // selects the M8-003 default (format: terminal, verbosity: normal).
     // Validated by the caller against output.SupportedFormats.
     OutputFormat string
@@ -362,14 +362,14 @@ type Options struct {
 ```
 
 ```go
-func apitestYAML(projectName, outputFormat string) string {
+func curlewYAML(projectName, outputFormat string) string {
     return fmt.Sprintf("project_name: %q\n"+
         "variables:\n"+
         "  base_url: \"https://httpbin.org\"\n"+
         "%s", projectName, outputBlock(outputFormat))
 }
 
-// outputBlock returns the YAML output: section for a scaffolded apitest.yaml.
+// outputBlock returns the YAML output: section for a scaffolded curlew.yaml.
 // An empty format yields the M8-003 default block (terminal, verbosity: normal).
 // Any non-empty value is assumed valid (caller validates against
 // output.SupportedFormats).
@@ -398,10 +398,10 @@ func outputBlock(format string) string {
 ```
 
 The `Init` function is also modified to thread `opts.OutputFormat` into
-`apitestYAML`:
+`curlewYAML`:
 
 ```go
-if err := writeFile(filepath.Join(dir, "apitest.yaml"), apitestYAML(projectName, opts.OutputFormat)); err != nil {
+if err := writeFile(filepath.Join(dir, "curlew.yaml"), curlewYAML(projectName, opts.OutputFormat)); err != nil {
     return err
 }
 ```
@@ -416,7 +416,7 @@ Already specified in Step 1.
   `TestInit_DefaultUnchanged` (added in Step 1) flip from RED to GREEN.
 - All existing `TestInit` cases continue to pass (they use bare options;
   the default branch in `outputBlock` matches the M8-003 baseline byte-for-byte).
-- `TestSchema_scaffolded_apitest_yaml_validates` continues to pass (the
+- `TestSchema_scaffolded_curlew_yaml_validates` continues to pass (the
   bare-init scaffold is unchanged byte-for-byte).
 - `TestInit_error_*` tests are unaffected (they test error paths, not the
   YAML body).
@@ -432,13 +432,13 @@ parse the new flag, validate it, and pass it through. This step also adds
 
 | File                                   | Action | Description                                                                                |
 |----------------------------------------|--------|--------------------------------------------------------------------------------------------|
-| `cmd/apitest/main.go`                  | modify | Add `--output` flag parsing, `--help` short-circuit, `printInitHelpTo`. Validate format.  |
-| `cmd/apitest/main.go`                  | modify | Update top-level `printHelpTo` `init [dir]` line to mention `--output`.                    |
-| `cmd/apitest/main_test.go`             | modify | Add `TestInit_OutputUnknownFormat` and `TestInit_Help_DocumentsOutputFlag`.                |
+| `cmd/curlew/main.go`                  | modify | Add `--output` flag parsing, `--help` short-circuit, `printInitHelpTo`. Validate format.  |
+| `cmd/curlew/main.go`                  | modify | Update top-level `printHelpTo` `init [dir]` line to mention `--output`.                    |
+| `cmd/curlew/main_test.go`             | modify | Add `TestInit_OutputUnknownFormat` and `TestInit_Help_DocumentsOutputFlag`.                |
 
 #### Current Code
 
-`cmd/apitest/main.go:2829-2881` (initCmdOut, full body shown earlier).
+`cmd/curlew/main.go:2829-2881` (initCmdOut, full body shown earlier).
 
 #### New Code
 
@@ -509,10 +509,10 @@ func initCmdOut(args []string, stdout, stderr io.Writer) int {
 
 // printInitHelpTo writes the init subcommand help text to w.
 func printInitHelpTo(w io.Writer) {
-    _, _ = fmt.Fprintln(w, "Usage: apitest init [dir] [options]")
+    _, _ = fmt.Fprintln(w, "Usage: curlew init [dir] [options]")
     _, _ = fmt.Fprintln(w)
-    _, _ = fmt.Fprintln(w, "Initialize a new apitest project in [dir] (default: current directory).")
-    _, _ = fmt.Fprintln(w, "Creates apitest.yaml, .gitignore, .env.example, environments/dev.yaml,")
+    _, _ = fmt.Fprintln(w, "Initialize a new curlew project in [dir] (default: current directory).")
+    _, _ = fmt.Fprintln(w, "Creates curlew.yaml, .gitignore, .env.example, environments/dev.yaml,")
     _, _ = fmt.Fprintln(w, "and collections/sample.yaml.")
     _, _ = fmt.Fprintln(w)
     _, _ = fmt.Fprintln(w, "Options:")
@@ -527,13 +527,13 @@ func printInitHelpTo(w io.Writer) {
 The top-level help line at `main.go:3597` changes from:
 
 ```go
-_, _ = fmt.Fprintln(w, "  init [dir]      Initialize a new apitest project (default: current directory)")
+_, _ = fmt.Fprintln(w, "  init [dir]      Initialize a new curlew project (default: current directory)")
 ```
 
 to:
 
 ```go
-_, _ = fmt.Fprintln(w, "  init [dir]      Initialize a new apitest project (use --output <fmt> to scaffold an output: block)")
+_, _ = fmt.Fprintln(w, "  init [dir]      Initialize a new curlew project (use --output <fmt> to scaffold an output: block)")
 ```
 
 #### Tests to Write FIRST (RED phase)
@@ -553,14 +553,14 @@ func TestInit_OutputUnknownFormat(t *testing.T) {
     if !strings.Contains(stderr, "madeup") {
         t.Errorf("stderr should echo the rejected value; got: %q", stderr)
     }
-    // Verify no apitest.yaml was created (validation runs before scaffold).
-    if _, err := os.Stat(filepath.Join(dir, "apitest.yaml")); err == nil {
-        t.Errorf("apitest.yaml should not exist after rejected --output value")
+    // Verify no curlew.yaml was created (validation runs before scaffold).
+    if _, err := os.Stat(filepath.Join(dir, "curlew.yaml")); err == nil {
+        t.Errorf("curlew.yaml should not exist after rejected --output value")
     }
 }
 
 // TestInit_OutputMarkdown_FullPipeline runs init via the binary-like
-// runWithWriters and asserts the resulting apitest.yaml contains the markdown
+// runWithWriters and asserts the resulting curlew.yaml contains the markdown
 // output block.
 func TestInit_OutputMarkdown_FullPipeline(t *testing.T) {
     dir := t.TempDir()
@@ -568,13 +568,13 @@ func TestInit_OutputMarkdown_FullPipeline(t *testing.T) {
     if code != 0 {
         t.Fatalf("exit = %d, want 0; stderr=%q", code, stderr)
     }
-    body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+    body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
     if err != nil {
         t.Fatal(err)
     }
     want := "format: markdown\n  report: responses/"
     if !strings.Contains(string(body), want) {
-        t.Errorf("want %q in apitest.yaml; got:\n%s", want, body)
+        t.Errorf("want %q in curlew.yaml; got:\n%s", want, body)
     }
 }
 
@@ -635,9 +635,9 @@ or human-owned region and a CLI-owned region delimited by HTML comment
 sentinels:
 
 ```markdown
-<!-- BEGIN apitest:response id=req-3 slug=get-user run=abc123def456... -->
+<!-- BEGIN curlew:response id=req-3 slug=get-user run=abc123def456... -->
 ... CLI-owned 10-section block ...
-<!-- END apitest:response id=req-3 slug=get-user run=abc123def456... -->
+<!-- END curlew:response id=req-3 slug=get-user run=abc123def456... -->
 ```
 
 The opening and closing sentinels carry all three IDs. Re-running the
@@ -712,13 +712,13 @@ pairs naturally with watch mode for tight inner-loop iteration. Open
 your collection YAML in VS Code, then open the per-request markdown file
 in a right-side split:
 
-1. Scaffold a markdown-ready project: `apitest init --output markdown`
+1. Scaffold a markdown-ready project: `curlew init --output markdown`
 2. Open `collections/sample.yaml` on the left. Hit `Ctrl+\` (or Cmd+\)
    to split the editor, then open `responses/hello-world.md` on the right.
-3. Run `apitest watch collections/sample.yaml --only "Hello World"`.
+3. Run `curlew watch collections/sample.yaml --only "Hello World"`.
 
-On every save of the YAML, ApiTool re-runs that one request and rewrites
-the bytes between the `BEGIN/END apitest:response` sentinels in the
+On every save of the YAML, Curlew re-runs that one request and rewrites
+the bytes between the `BEGIN/END curlew:response` sentinels in the
 markdown file. VS Code's markdown preview (Ctrl+K V) updates in place,
 showing the formatted request, response (pretty-printed JSON, YAML, XML,
 or hex preview for binary), assertion outcomes, and timing. Notes you add
@@ -853,7 +853,7 @@ detail entry.
 Under `### Added` (insert after the existing M9-004 entry at line 27):
 
 ```markdown
-- CLI: `--format markdown` output documented and discoverable: `apitest init --output markdown` scaffolds an `apitest.yaml` with `output: { format: markdown, report: responses/ }`. Other supported `--output` values (`terminal`, `json`, `tap`, `junit`, `html`) scaffold equivalent blocks pointing at default per-format paths; unknown values exit 3 with an error naming the enum. New `apitest init --help` documents the flag. SPECIFICATION.md gains a Markdown Output Format subsection covering sentinel format, fixed 10-section order, splice rules, content-type matrix, 1 MiB body cap, and determinism tiers (referencing IMPROVEMENT.md §8.7). MANUAL.md §5.7 gains a VS Code split-pane worked example. Closes IMPROVEMENT.md W4 (M9-001..M9-005).
+- CLI: `--format markdown` output documented and discoverable: `curlew init --output markdown` scaffolds an `curlew.yaml` with `output: { format: markdown, report: responses/ }`. Other supported `--output` values (`terminal`, `json`, `tap`, `junit`, `html`) scaffold equivalent blocks pointing at default per-format paths; unknown values exit 3 with an error naming the enum. New `curlew init --help` documents the flag. SPECIFICATION.md gains a Markdown Output Format subsection covering sentinel format, fixed 10-section order, splice rules, content-type matrix, 1 MiB body cap, and determinism tiers (referencing IMPROVEMENT.md §8.7). MANUAL.md §5.7 gains a VS Code split-pane worked example. Closes IMPROVEMENT.md W4 (M9-001..M9-005).
 ```
 
 Under `### Changed` (insert after the existing M8-005 entry at line 10):
@@ -887,33 +887,33 @@ step.
 | `internal/scaffold/scaffold_test.go`       | `TestInit_DefaultUnchanged`            | new      | Write in Step 1                                |
 | `internal/scaffold/scaffold_test.go`       | `TestInit` (existing)                  | none     | Continues to pass; bare-init unchanged         |
 | `internal/scaffold/scaffold_test.go`       | `TestInit_error_*` (existing)          | none     | Continues to pass; tests error paths           |
-| `cmd/apitest/main_test.go`                 | `TestInit_OutputUnknownFormat`         | new      | Write in Step 3                                |
-| `cmd/apitest/main_test.go`                 | `TestInit_OutputMarkdown_FullPipeline` | new      | Write in Step 3                                |
-| `cmd/apitest/main_test.go`                 | `TestInit_Help_DocumentsOutputFlag`    | new      | Write in Step 3                                |
-| `cmd/apitest/main_test.go`                 | `TestRun_init_command_recognized`      | none     | Continues to pass                              |
-| `cmd/apitest/main_test.go`                 | `TestInitCmd_*` (existing)             | none     | Continue to pass                               |
-| `cmd/apitest/main_test.go`                 | `TestInitThenRun_integration`          | none     | Continues to pass                              |
-| `cmd/apitest/main_test.go`                 | `TestHelp_contains_init`               | none     | Top-level help still contains "init"           |
-| `internal/schema/validate_test.go`         | `TestSchema_scaffolded_apitest_yaml_validates` | none | Bare-init scaffold unchanged byte-for-byte    |
+| `cmd/curlew/main_test.go`                 | `TestInit_OutputUnknownFormat`         | new      | Write in Step 3                                |
+| `cmd/curlew/main_test.go`                 | `TestInit_OutputMarkdown_FullPipeline` | new      | Write in Step 3                                |
+| `cmd/curlew/main_test.go`                 | `TestInit_Help_DocumentsOutputFlag`    | new      | Write in Step 3                                |
+| `cmd/curlew/main_test.go`                 | `TestRun_init_command_recognized`      | none     | Continues to pass                              |
+| `cmd/curlew/main_test.go`                 | `TestInitCmd_*` (existing)             | none     | Continue to pass                               |
+| `cmd/curlew/main_test.go`                 | `TestInitThenRun_integration`          | none     | Continues to pass                              |
+| `cmd/curlew/main_test.go`                 | `TestHelp_contains_init`               | none     | Top-level help still contains "init"           |
+| `internal/schema/validate_test.go`         | `TestSchema_scaffolded_curlew_yaml_validates` | none | Bare-init scaffold unchanged byte-for-byte    |
 | `internal/schema/validate_test.go`         | `TestSchema_validates_scaffolded_sample` | none   | Bare-init sample.yaml unchanged                |
 
-Eight new tests total (three in scaffold, three in cmd/apitest, plus the
+Eight new tests total (three in scaffold, three in cmd/curlew, plus the
 two pure-observable shell-script assertions enforced by `smoke/run.sh` and
 the task YAML's observable harness).
 
 ## Risks and Edge Cases
 
-- **Risk:** Existing M8-003 baseline `output:` block in apitest.yaml is
+- **Risk:** Existing M8-003 baseline `output:` block in curlew.yaml is
   byte-sensitive (trailing newline, key ordering).
   → **Mitigation:** `TestInit_DefaultUnchanged` literal-string test
   pins the exact bytes. The new `outputBlock("")` returns the M8-003
   baseline verbatim.
 
 - **Risk:** New `--output` flag collides with the existing `--output`
-  flag on `apitest import openapi` (line 3895) or `apitest perf` (line
+  flag on `curlew import openapi` (line 3895) or `curlew perf` (line
   1554, 1605, 1766, etc.).
   → **Mitigation:** Subcommand-scoped flags. `init`'s `--output`
-  controls `output:` in apitest.yaml; `import openapi`'s `--output`
+  controls `output:` in curlew.yaml; `import openapi`'s `--output`
   controls the spec output file path; `perf`'s `--output` controls the
   perf report file path. No code-level conflict (flags are parsed in
   per-subcommand functions); only documentation risk if users confuse
@@ -921,7 +921,7 @@ the task YAML's observable harness).
   output: block".
 
 - **Risk:** Schema-parity check in the task YAML observable —
-  `apitest schema | jq -r '.properties.output.properties.format.enum[]'`
+  `curlew schema | jq -r '.properties.output.properties.format.enum[]'`
   must include `markdown`. Currently it does (since M9-001/002 added it
   to `schemas/collection-v1.json` and `schemas/project-v1.json`).
   → **Mitigation:** No change required; the existing schema files
@@ -957,7 +957,7 @@ the task YAML's observable harness).
   Following the W1/W2/W3 status-block pattern, the substitution is a
   one-line edit at verify time.
 
-- **Edge case:** Running `apitest init --output ""` (empty string flag
+- **Edge case:** Running `curlew init --output ""` (empty string flag
   value) — the parser treats empty-string as no-flag-passed in other
   subcommands. We do the same here: empty `OutputFormat` falls through
   to the M8-003 default block.
@@ -965,14 +965,14 @@ the task YAML's observable harness).
   rejects `--output` without a following arg via the standard
   "requires a value" error path.
 
-- **Edge case:** `apitest init` on an existing project with `--output
+- **Edge case:** `curlew init` on an existing project with `--output
   markdown` — the existing `ErrProjectExists` path triggers before any
   output-block logic runs.
   → **Handling:** No change needed; `scaffold.Init` already returns
   the existing error before writing any file.
 
 - **Edge case:** Format validation order — the YAML observable expects
-  `apitest init --output madeup 2>err.log; echo $?` to exit 3.
+  `curlew init --output madeup 2>err.log; echo $?` to exit 3.
   Validation runs after flag parsing, before `filepath.Abs`, before any
   file is written. The order is: parse flags → validate `outputFormat`
   → resolve dir → call scaffold. This is the order in the New Code
@@ -981,7 +981,7 @@ the task YAML's observable harness).
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -992,8 +992,8 @@ Observable verification (mirrors task YAML):
 ```bash
 # 1. init --output markdown
 TMP=$(mktemp -d) && cd "$TMP"
-./apitest init --output markdown
-grep -A 3 '^output:' apitest.yaml
+./curlew init --output markdown
+grep -A 3 '^output:' curlew.yaml
 # Expected:
 #   output:
 #     format: markdown
@@ -1002,20 +1002,20 @@ grep -A 3 '^output:' apitest.yaml
 
 # 2. Bare init preserves no-markdown default
 TMP2=$(mktemp -d) && cd "$TMP2"
-./apitest init
-grep 'markdown' apitest.yaml || echo 'no markdown reference'
+./curlew init
+grep 'markdown' curlew.yaml || echo 'no markdown reference'
 
 # 3. init --help documents --output
-./apitest init --help | grep -E '^\s*--output'
+./curlew init --help | grep -E '^\s*--output'
 
 # 4. init --output unknown exits 3
 TMP3=$(mktemp -d) && cd "$TMP3"
-./apitest init --output madeup 2>err.log; echo $?
+./curlew init --output madeup 2>err.log; echo $?
 cat err.log
 
 # 5. Schema parity at both levels
-./apitest schema | jq -r '.properties.output.properties.format.enum[]' | grep '^markdown$'
-./apitest schema --project | jq -r '.properties.output.properties.format.enum[]' | grep '^markdown$'
+./curlew schema | jq -r '.properties.output.properties.format.enum[]' | grep '^markdown$'
+./curlew schema --project | jq -r '.properties.output.properties.format.enum[]' | grep '^markdown$'
 
 # 6. Docs
 grep -c 'Markdown Output Format' docs/SPECIFICATION.md

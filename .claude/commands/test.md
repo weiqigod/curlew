@@ -66,7 +66,7 @@ Use `t.Fatalf` for errors that make further assertions meaningless. Use `t.Error
 
 ## Step 5: Table-driven Tests
 
-**Default pattern for all tests with multiple cases.** Use this for ApiTool:
+**Default pattern for all tests with multiple cases.** Use this for Curlew:
 
 ```go
 func TestParseCollection_Formats(t *testing.T) {
@@ -189,8 +189,8 @@ func TestIntegration_RunCommand(t *testing.T) {
     }
 
     // Build binary
-    binary := filepath.Join(t.TempDir(), "apitest")
-    build := exec.Command("go", "build", "-o", binary, "./cmd/apitest")
+    binary := filepath.Join(t.TempDir(), "curlew")
+    build := exec.Command("go", "build", "-o", binary, "./cmd/curlew")
     if out, err := build.CombinedOutput(); err != nil {
         t.Fatalf("build failed: %v\n%s", err, out)
     }

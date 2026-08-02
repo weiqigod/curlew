@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner/distributed"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner/distributed"
 )
 
 func makeCollection(n int) *parser.Collection {

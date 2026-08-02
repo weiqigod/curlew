@@ -1,6 +1,6 @@
 # Improvement Report: M18-008
 
-**Task:** CLI telemetry emitter: internal/telemetry package, persistent install_id, `apitest telemetry` subcommand
+**Task:** CLI telemetry emitter: internal/telemetry package, persistent install_id, `curlew telemetry` subcommand
 **Date:** 2026-05-19
 **Review:** management/reviews/M18-008-review.md
 **Iteration:** 2 (post second review)
@@ -30,7 +30,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/telemetry`) | 82.0% |

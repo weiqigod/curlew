@@ -24,7 +24,7 @@ func repoRoot(t *testing.T) string {
 //   - internal/schema/testdata/*.yaml   (gap-closing fixtures owned by M8-002)
 //   - sample/hello.yaml                 (repo-root sample)
 //
-// Deliberately invalid fixtures under internal/parser/testdata, cmd/apitest/testdata,
+// Deliberately invalid fixtures under internal/parser/testdata, cmd/curlew/testdata,
 // etc. are NOT included — those exercise parser error paths by design.
 func TestSchema_examples(t *testing.T) {
 	root := repoRoot(t)

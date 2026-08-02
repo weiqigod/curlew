@@ -14,13 +14,13 @@
 | `go test -run TestStreamDisciplineMatrix` | PASS | All 13 matrix cells pass |
 | `golangci-lint run` | PASS | 0 issues (confirmed by ci-local.sh) |
 | `./smoke/run.sh` | PASS | All smoke checks green |
-| Coverage | 82.0% (cmd/apitest) | Meets >= 80% threshold |
+| Coverage | 82.0% (cmd/curlew) | Meets >= 80% threshold |
 
 ## Observable Output
 
 ```
 === go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate) ===
-ok  	github.com/peterlindqvist/apitest/cmd/apitest	1.331s
+ok  	github.com/weiqigod/curlew/cmd/curlew	1.331s
 
 --- PASS: TestStreamDisciplineMatrix (0.80s)
     --- PASS: TestStreamDisciplineMatrix/run_json_happy (0.25s)
@@ -37,7 +37,7 @@ ok  	github.com/peterlindqvist/apitest/cmd/apitest	1.331s
     --- PASS: TestStreamDisciplineMatrix/license_validate (0.01s)
     --- PASS: TestStreamDisciplineMatrix/exec_dry_run (0.01s)
 PASS
-ok  	github.com/peterlindqvist/apitest/cmd/apitest	1.038s
+ok  	github.com/weiqigod/curlew/cmd/curlew	1.038s
 ```
 
 Expected: PASS — all 13 matrix cells pass
@@ -66,7 +66,7 @@ Result: MATCH
 | 5 | Matrix test would fail pre-M7-001 | Documented in improved.md; ANSI/progress invariants catch pre-M7 regressions | PASS |
 | 6 | Smoke-level --format json \| jq . passes | Validated via `run_json_happy` cell and smoke test | PASS |
 | 7 | go test ./... passes with no regressions | All packages pass in ci-local.sh | PASS |
-| 8 | Coverage does not regress below 80% | cmd/apitest: 82.0% | PASS |
+| 8 | Coverage does not regress below 80% | cmd/curlew: 82.0% | PASS |
 | 9 | golangci-lint run passes with 0 issues | ci-local.sh confirms 0 issues | PASS |
 | 10 | ./smoke/run.sh passes | Smoke Test Complete — all checks green | PASS |
 | 11 | ./scripts/ci-local.sh passes | ci-local PASS | PASS |
@@ -107,11 +107,11 @@ Branch A: Review PASS trusted (`management/reviews/M7-004-review.md` verdict PAS
 
 | File | Action | Notes |
 |------|--------|-------|
-| `cmd/apitest/stream_discipline_matrix_test.go` | added | 13 matrix cells, 3 invariants |
-| `cmd/apitest/testdata/stream-discipline/happy.yaml` | added | Happy-path fixture |
-| `cmd/apitest/testdata/stream-discipline/assertion_failure.yaml` | added | Assertion failure fixture |
-| `cmd/apitest/testdata/stream-discipline/gate_denied.yaml` | added | Feature gate denial fixture |
-| `cmd/apitest/testdata/stream-discipline/parse_error.yaml` | added | Parse error fixture |
+| `cmd/curlew/stream_discipline_matrix_test.go` | added | 13 matrix cells, 3 invariants |
+| `cmd/curlew/testdata/stream-discipline/happy.yaml` | added | Happy-path fixture |
+| `cmd/curlew/testdata/stream-discipline/assertion_failure.yaml` | added | Assertion failure fixture |
+| `cmd/curlew/testdata/stream-discipline/gate_denied.yaml` | added | Feature gate denial fixture |
+| `cmd/curlew/testdata/stream-discipline/parse_error.yaml` | added | Parse error fixture |
 | `scripts/ci-local.sh` | modified | Added TestStreamDisciplineMatrix named step |
 | `CHANGELOG.md` | modified | Added M7-004 entry under [Unreleased] |
 | `management/tasks/M7-004.yaml` | modified | Status updates |

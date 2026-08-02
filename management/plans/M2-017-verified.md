@@ -105,7 +105,7 @@ Review PASS trusted (management/reviews/M2-017-review.md). Spot-check clean:
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +29/-1 |
+| `cmd/curlew/main.go` | modified | +29/-1 |
 | `internal/output/json.go` | modified | +8/-0 |
 | `internal/output/terminal.go` | modified | +30/-0 |
 | `internal/output/terminal_test.go` | modified | +119/-0 |

@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean, 0 warnings |
+| `go build ./cmd/curlew` | PASS | Clean, 0 warnings |
 | `dotnet build src/ApiTool.Backend` | PASS | 0 warnings, 0 errors |
 | `dotnet test src/ApiTool.Backend.Tests` | PASS | 2128 passed, 0 failed, 16 skipped |
 | `dotnet test --filter "FullyQualifiedName~UserDeletion\|DeletionReauth\|Reauth"` | PASS | 34 tests, 5 s |

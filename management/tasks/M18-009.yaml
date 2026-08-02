@@ -10,24 +10,24 @@ dependencies: []
 observable: |
   Run `dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~TeamVaultEncryption|FullyQualifiedName~ScheduleEnvEncryption"` and see >= 16 tests pass. Apply the migration:
   `dotnet ef database update --project src/ApiTool.Backend`
-  `psql -d apitool -c "\d team_vaults"` shows new columns template_jsonb_ciphertext (bytea) + dek_ciphertext (bytea); old plaintext template_jsonb column is dropped after backfill.
-  `psql -d apitool -c "\d schedules"` shows env_vars_ciphertext + env_vars_dek_ciphertext; old env_vars dropped.
+  `psql -d curlew -c "\d team_vaults"` shows new columns template_jsonb_ciphertext (bytea) + dek_ciphertext (bytea); old plaintext template_jsonb column is dropped after backfill.
+  `psql -d curlew -c "\d schedules"` shows env_vars_ciphertext + env_vars_dek_ciphertext; old env_vars dropped.
   Round-trip test: write a team-vault row via PUT /api/v1/organizations/{orgId}/vault-config with a known payload; read it back via GET; confirm the cleartext value matches (envelope encrypt → decrypt round-trip). Inspect the raw DB row:
-  `psql -d apitool -c "SELECT encode(template_jsonb_ciphertext, 'hex') FROM team_vaults LIMIT 1"` returns a hex string (not readable plaintext). Same for schedules.env_vars. Force the CI lint:
-  `APITEST_BUILD_PROFILE=saas ./scripts/ci-local.sh --check-signing-keys` exits 0 when all signing_keys.kms_key_id IS NOT NULL; seed a NULL row and confirm exit 1 with the error message. With `APITEST_SIGNING_KEY_MODE=file` self-hosted profile the lint is skipped.
+  `psql -d curlew -c "SELECT encode(template_jsonb_ciphertext, 'hex') FROM team_vaults LIMIT 1"` returns a hex string (not readable plaintext). Same for schedules.env_vars. Force the CI lint:
+  `CURLEW_BUILD_PROFILE=saas ./scripts/ci-local.sh --check-signing-keys` exits 0 when all signing_keys.kms_key_id IS NOT NULL; seed a NULL row and confirm exit 1 with the error message. With `CURLEW_SIGNING_KEY_MODE=file` self-hosted profile the lint is skipped.
 
 behaviors:
   - "Given the migration runs against a DB with existing team_vaults plaintext rows, when backfill executes, then every row's template_jsonb is wrapped via TeamVaultKeyProvider into template_jsonb_ciphertext + dek_ciphertext, and the old plaintext column is dropped only after backfill verification (COUNT matches)"
   - "Given a write to /api/v1/organizations/{orgId}/vault-config, when the row is persisted, then template_jsonb_ciphertext contains AES-256-GCM ciphertext under a per-row DEK, and dek_ciphertext contains the KMS-wrapped DEK"
   - "Given a read from /api/v1/organizations/{orgId}/vault-config, when the row is decrypted, then the cleartext template matches what was written (round-trip)"
   - "Given the schedules.env_vars rows, when the same envelope pattern is applied via ScheduleEnvKeyProvider, then read/write round-trips cleanly"
-  - "Given a self-hosted deployment without KMS (APITEST_KMS_MODE=file), when FileTeamVaultKeyProvider and FileScheduleEnvKeyProvider are wired, then the envelope still round-trips using a file-backed KEK (mirrors the GitLab file-provider fallback)"
+  - "Given a self-hosted deployment without KMS (CURLEW_KMS_MODE=file), when FileTeamVaultKeyProvider and FileScheduleEnvKeyProvider are wired, then the envelope still round-trips using a file-backed KEK (mirrors the GitLab file-provider fallback)"
   - "Given the SaaS build profile, when scripts/ci-local.sh --check-signing-keys runs, then it SELECTs from production signing_keys and fails the build if any row has kms_key_id IS NULL (per v4-13)"
-  - "Given the self-hosted build profile with APITEST_SIGNING_KEY_MODE=file, when the same script runs, then the lint is skipped with a logged note (deployment-mode-dependent per v4-13)"
+  - "Given the self-hosted build profile with CURLEW_SIGNING_KEY_MODE=file, when the same script runs, then the lint is skipped with a logged note (deployment-mode-dependent per v4-13)"
   - "Given the v3-10 manifest validator (rejects literal-secret-shaped values in vault coordinates), when the new encryption layer wraps a coordinate, then the validator still runs against the cleartext before encryption (encryption is added in addition, not in replacement)"
 
 scope: |
-  New providers under src/ApiTool.Backend/VaultConfig/Keys/TeamVaultKeyProvider.cs (KMS path + FileTeamVaultKeyProvider fallback) and src/ApiTool.Backend/Schedules/Keys/ScheduleEnvKeyProvider.cs (KMS path + FileScheduleEnvKeyProvider fallback). Both clone the GoogleKmsGitLabKeyProvider per-row DEK + KMS-wrapped KEK pattern at src/ApiTool.Backend/Licensing/Keys/IKmsClient.cs:8-43. Single EF migration adds template_jsonb_ciphertext + dek_ciphertext to team_vaults and env_vars_ciphertext + env_vars_dek_ciphertext to schedules; backfills existing rows; drops plaintext columns after backfill verification (COUNT match). Wire reads/writes through providers in TeamVaultService.cs and ScheduleService.cs. Manifest validator from v3-10 stays — it runs against cleartext before encryption. New scripts/ci-local.sh --check-signing-keys flag SELECTs from signing_keys and fails build if any kms_key_id IS NULL when APITEST_BUILD_PROFILE=saas (per v4-13); skipped when APITEST_SIGNING_KEY_MODE=file.
+  New providers under src/ApiTool.Backend/VaultConfig/Keys/TeamVaultKeyProvider.cs (KMS path + FileTeamVaultKeyProvider fallback) and src/ApiTool.Backend/Schedules/Keys/ScheduleEnvKeyProvider.cs (KMS path + FileScheduleEnvKeyProvider fallback). Both clone the GoogleKmsGitLabKeyProvider per-row DEK + KMS-wrapped KEK pattern at src/ApiTool.Backend/Licensing/Keys/IKmsClient.cs:8-43. Single EF migration adds template_jsonb_ciphertext + dek_ciphertext to team_vaults and env_vars_ciphertext + env_vars_dek_ciphertext to schedules; backfills existing rows; drops plaintext columns after backfill verification (COUNT match). Wire reads/writes through providers in TeamVaultService.cs and ScheduleService.cs. Manifest validator from v3-10 stays — it runs against cleartext before encryption. New scripts/ci-local.sh --check-signing-keys flag SELECTs from signing_keys and fails build if any kms_key_id IS NULL when CURLEW_BUILD_PROFILE=saas (per v4-13); skipped when CURLEW_SIGNING_KEY_MODE=file.
 
 definition_of_done:
   - "All behavior tests pass (>=16 tests including KMS + file-provider both)"

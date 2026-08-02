@@ -9,8 +9,8 @@ dependencies:
   - M2-013
 
 observable: |
-  Configure retry at global (apitest.yaml), collection, section, and request levels.
-  Run `apitest run tests.yaml` and confirm request-level overrides collection-level.
+  Configure retry at global (curlew.yaml), collection, section, and request levels.
+  Run `curlew run tests.yaml` and confirm request-level overrides collection-level.
   Run `go test ./internal/retry/...` to verify config merging.
 
 behaviors:
@@ -23,9 +23,9 @@ behaviors:
 
 scope: |
   Extend `internal/retry/` with configuration merging following precedence: built-in defaults
-  < global (apitest.yaml defaults) < section-level (setup/requests/teardown) < collection-level
+  < global (curlew.yaml defaults) < section-level (setup/requests/teardown) < collection-level
   < request-level. Implement deep merge rules per spec: scalar fields replaced, array fields
-  replaced entirely, object fields deep-merged. Parse `defaults.retry` from apitest.yaml
+  replaced entirely, object fields deep-merged. Parse `defaults.retry` from curlew.yaml
   in `internal/config/project.go`.
 
 definition_of_done:

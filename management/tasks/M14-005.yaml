@@ -1,5 +1,5 @@
 id: M14-005
-title: "CLI: apitest login (RFC 8628 device-code flow)"
+title: "CLI: curlew login (RFC 8628 device-code flow)"
 status: done
 priority: 1
 created: 2026-05-03
@@ -8,13 +8,13 @@ dependencies:
   - M14-002
   - M14-004
 observable: |
-  go build ./cmd/apitest
-  go test ./cmd/apitest/... -run TestLogin -count=1
+  go build ./cmd/curlew
+  go test ./cmd/curlew/... -run TestLogin -count=1
   # Expected: ok, >=8 tests
   # Drive the device-code flow against a stub backend served by the test fixture
-  APITEST_BACKEND_URL=http://127.0.0.1:18080 \
+  CURLEW_BACKEND_URL=http://127.0.0.1:18080 \
     ./testdata/m14/stub-backend.sh start
-  ./apitest login --no-browser
+  ./curlew login --no-browser
   # Expected stdout (excerpts):
   #   "First, copy your one-time code: ABCD-EFGH"
   #   "Then visit: https://app.apitool.dev/device"
@@ -22,31 +22,31 @@ observable: |
   # Exit 0; refresh token persisted via the M14-004 storage layer.
   ./testdata/m14/stub-backend.sh stop
 behaviors:
-  - "Given an interactive TTY without --no-browser and a default browser detected, when apitest login runs, then verification_uri_complete is opened via os/exec and the user code + verification_uri are also printed as fallback"
-  - "Given --no-browser is passed, when apitest login runs, then no browser is invoked and only the print path runs"
+  - "Given an interactive TTY without --no-browser and a default browser detected, when curlew login runs, then verification_uri_complete is opened via os/exec and the user code + verification_uri are also printed as fallback"
+  - "Given --no-browser is passed, when curlew login runs, then no browser is invoked and only the print path runs"
   - "Given the backend returns authorization_pending, when the CLI polls, then it sleeps the indicated interval (default 5s) and retries until success or expired_token"
   - "Given the backend returns slow_down, when the CLI polls, then it adds 5s to the polling interval per RFC 8628 §3.5"
-  - "Given the backend returns expired_token, when the CLI polls, then apitest login exits with a non-zero code and a 'Code expired; run apitest login again' message"
-  - "Given a successful poll response containing license_jwt, access_token, refresh_token, device_id, when the CLI receives it, then license_jwt (via internal/license.Store), access_token and refresh_token (via internal/backend.Storage using the OS keychain or encrypted-file fallback), and device_id (via ~/.config/apitesttool/device.json mode 0600) are persisted"
-  - "Given the user runs apitest login twice, when the second invocation succeeds, then the previous refresh token's family is left intact server-side (a new family is started; revocation of the old family is the user's explicit choice via apitest logout, not implied)"
-  - "Given apitest login --help, when invoked, then it documents --no-browser and the verification_uri / user_code UX"
+  - "Given the backend returns expired_token, when the CLI polls, then curlew login exits with a non-zero code and a 'Code expired; run curlew login again' message"
+  - "Given a successful poll response containing license_jwt, access_token, refresh_token, device_id, when the CLI receives it, then license_jwt (via internal/license.Store), access_token and refresh_token (via internal/backend.Storage using the OS keychain or encrypted-file fallback), and device_id (via ~/.config/curlew/device.json mode 0600) are persisted"
+  - "Given the user runs curlew login twice, when the second invocation succeeds, then the previous refresh token's family is left intact server-side (a new family is started; revocation of the old family is the user's explicit choice via curlew logout, not implied)"
+  - "Given curlew login --help, when invoked, then it documents --no-browser and the verification_uri / user_code UX"
 scope: |
-  New cmd/apitest/login.go subcommand wiring the device-code grant per
+  New cmd/curlew/login.go subcommand wiring the device-code grant per
   docs/SPECIFICATION.md:8205–8222. Polls /api/v1/auth/device/start then
   /api/v1/auth/device/poll via internal/backend. Browser auto-open via
   os/exec invoking open / xdg-open / start, gated on isatty + --no-browser.
   Adopts Open Decision #3 default: print bare verification_uri and user_code
   as the primary path, use verification_uri_complete only for browser
   auto-open. testdata/m14/stub-backend.sh is a Go-based stub recording calls
-  and returning canned device-code transitions. cmd/apitest/main.go gains the
+  and returning canned device-code transitions. cmd/curlew/main.go gains the
   `login` subcommand registration.
 definition_of_done:
-  - "go test ./cmd/apitest/... -run TestLogin passes with >=8 tests"
+  - "go test ./cmd/curlew/... -run TestLogin passes with >=8 tests"
   - "Real binary invocation against the stub produces the documented stdout and exits 0"
-  - "Help text registers `apitest login --no-browser` and explains the device-code UX"
+  - "Help text registers `curlew login --no-browser` and explains the device-code UX"
   - "testdata/m14/stub-backend.sh checked in and reusable by M14-006/M14-007/M14-021"
-  - "smoke/run.sh extended with `apitest login --help` so the binary self-describes the new command"
-  - "docs/SPECIFICATION.md:8205–8222 cited in cmd/apitest/login.go header"
+  - "smoke/run.sh extended with `curlew login --help` so the binary self-describes the new command"
+  - "docs/SPECIFICATION.md:8205–8222 cited in cmd/curlew/login.go header"
 complexity: high
 estimated_effort: "8-12 hours"
 track: go-cli

@@ -1,7 +1,7 @@
 # Implementation Plan: M6-007
 
 ## Overview
-Build a new `cmd/apitest-agent-harness/` Go test binary that drives the real `apitest run --events` against a curated set of deliberately-broken fixture collections, asserts each failure event satisfies the agent-diagnosability contract (non-empty `category`, `code`, `file`, `line`, and a hint with a concrete-action verb), and once all scenarios pass, atomically promotes the event-stream schema from `0.1` to `1.0`. This is the gate task that converts the v0.x stream into a publicly-stable v1.0 contract — the only task that mutates `events.SchemaVersion`.
+Build a new `cmd/curlew-agent-harness/` Go test binary that drives the real `curlew run --events` against a curated set of deliberately-broken fixture collections, asserts each failure event satisfies the agent-diagnosability contract (non-empty `category`, `code`, `file`, `line`, and a hint with a concrete-action verb), and once all scenarios pass, atomically promotes the event-stream schema from `0.1` to `1.0`. This is the gate task that converts the v0.x stream into a publicly-stable v1.0 contract — the only task that mutates `events.SchemaVersion`.
 
 ## Task Details
 - **ID:** M6-007
@@ -23,17 +23,17 @@ Build a new `cmd/apitest-agent-harness/` Go test binary that drives the real `ap
 
 These decisions are made up-front so the harness implementation is unambiguous.
 
-### D1: Harness lives in `cmd/apitest-agent-harness/` as a Go test package, not a runnable binary
+### D1: Harness lives in `cmd/curlew-agent-harness/` as a Go test package, not a runnable binary
 
 The task wording says "Go test binary, excluded from release builds by a build tag." Two valid interpretations exist:
 - **(a)** A package that compiles to an actual binary plus tests that exercise it.
-- **(b)** A test-only package (no `main.go`) under `cmd/` whose `*_test.go` files build and exec the real `apitest` binary.
+- **(b)** A test-only package (no `main.go`) under `cmd/` whose `*_test.go` files build and exec the real `curlew` binary.
 
 I pick **(b)** because:
-1. The observable line is `go test ./cmd/apitest-agent-harness/...`, not a binary invocation.
-2. We already have `buildBinary(t)` / `runBinary(t,…)` helpers in `cmd/apitest/main_test.go` that build the real binary on demand; we follow the same pattern.
+1. The observable line is `go test ./cmd/curlew-agent-harness/...`, not a binary invocation.
+2. We already have `buildBinary(t)` / `runBinary(t,…)` helpers in `cmd/curlew/main_test.go` that build the real binary on demand; we follow the same pattern.
 3. There is nothing for the harness to expose other than the test scenarios — no daemon, no CLI of its own.
-4. A "build tag to exclude from release" is unnecessary for test files; they are already excluded from `go build ./cmd/apitest`. We add a stub `harness.go` file with `//go:build never` so the directory is not entirely test-only (some IDEs and tools dislike that), and we leave the entire test surface in `harness_test.go`. The build tag also makes the no-release-binary intent explicit.
+4. A "build tag to exclude from release" is unnecessary for test files; they are already excluded from `go build ./cmd/curlew`. We add a stub `harness.go` file with `//go:build never` so the directory is not entirely test-only (some IDEs and tools dislike that), and we leave the entire test surface in `harness_test.go`. The build tag also makes the no-release-binary intent explicit.
 
 ### D2: Each scenario is a YAML pair: `<scenario>.yaml` (fixture) and `<scenario>.expect.yaml` (contract)
 
@@ -41,7 +41,7 @@ The task scope says "Each fixture is paired with an expected-output YAML describ
 - `collection.yaml` — the fixture collection (or another base name when the input is intentionally not a collection, e.g. `not-a-collection.yaml` for `bad-yaml`).
 - `expect.yaml` — the contract: which event kind, which fields must be set, which must match patterns, which CLI args/env to set up.
 - Optional `env.yaml` — environment file for the run.
-- Optional `apitest-args.txt` — extra CLI args (one per line, `#` comments allowed).
+- Optional `curlew-args.txt` — extra CLI args (one per line, `#` comments allowed).
 - Optional `setup.yaml` — instructions to start a backing server (only `unreachable-host` needs none; `failing-assertion` needs an `httptest.Server`).
 
 This keeps each scenario a self-contained directory readable from the tree without hopping into Go code.
@@ -97,7 +97,7 @@ The fixture references an auth profile name that is not defined in the collectio
 
 ### D6: `feature-gate-denied` uses `--format junit` on free tier
 
-`junit_xml` is the smallest gated feature in `auth.DefaultRegistry()`. The fixture sets `APITEST_TIER=free` (env in `apitest-args.txt`) and runs with `--format junit`. This emits a `run.error` with `*GateError` — currently classified as `internal` (no sentinel match). **This is an issue we must fix as part of this task** — see D8.
+`junit_xml` is the smallest gated feature in `auth.DefaultRegistry()`. The fixture sets `CURLEW_TIER=free` (env in `curlew-args.txt`) and runs with `--format junit`. This emits a `run.error` with `*GateError` — currently classified as `internal` (no sentinel match). **This is an issue we must fix as part of this task** — see D8.
 
 ### D7: `circular-include` uses two YAML files: `a.yaml` includes `b.yaml`, `b.yaml` includes `a.yaml`
 
@@ -143,16 +143,16 @@ Steps are ordered by blast radius (smallest first). The harness is built and tig
 
 ### Step 1: Harness scaffolding and fixture loader (no production code changes)
 
-**Rationale:** Lowest blast radius — pure new files under `cmd/apitest-agent-harness/` and `testdata/agent-harness/`. No existing code or test affected. Establishes the testbed before exercising it.
+**Rationale:** Lowest blast radius — pure new files under `cmd/curlew-agent-harness/` and `testdata/agent-harness/`. No existing code or test affected. Establishes the testbed before exercising it.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest-agent-harness/harness.go` | create | `//go:build never` stub package declaration so `go build ./...` ignores the dir but `go test` finds it. |
-| `cmd/apitest-agent-harness/harness_test.go` | create | Main test driver: discovers scenarios, builds binary, executes each, asserts contract. |
-| `cmd/apitest-agent-harness/contract.go` | create | YAML contract loader and matcher (NOT under build tag — it is exercised by the tests). Plain Go code that parses `expect.yaml`. |
-| `cmd/apitest-agent-harness/contract_test.go` | create | Unit tests for the contract loader and matcher (pure Go, no binary). |
+| `cmd/curlew-agent-harness/harness.go` | create | `//go:build never` stub package declaration so `go build ./...` ignores the dir but `go test` finds it. |
+| `cmd/curlew-agent-harness/harness_test.go` | create | Main test driver: discovers scenarios, builds binary, executes each, asserts contract. |
+| `cmd/curlew-agent-harness/contract.go` | create | YAML contract loader and matcher (NOT under build tag — it is exercised by the tests). Plain Go code that parses `expect.yaml`. |
+| `cmd/curlew-agent-harness/contract_test.go` | create | Unit tests for the contract loader and matcher (pure Go, no binary). |
 | `testdata/agent-harness/README.md` | create | One-paragraph overview pointing at this plan and the contract format. |
 
 #### Tests to Write FIRST (RED phase)
@@ -186,15 +186,15 @@ func TestContract_Load(t *testing.T) {
 ```go
 // harness_test.go — the orchestrating driver. Negative test included.
 func TestHarness_AllScenarios(t *testing.T) {
-    if testing.Short() { t.Skip("harness builds the apitest binary; skipping in -short mode") }
-    binary := buildApitestBinary(t)              // similar to cmd/apitest/main_test.go:buildBinary
+    if testing.Short() { t.Skip("harness builds the curlew binary; skipping in -short mode") }
+    binary := buildCurlewBinary(t)              // similar to cmd/curlew/main_test.go:buildBinary
     scenarios := discoverScenarios(t, "testdata/agent-harness")
     if len(scenarios) < 7 {
         t.Fatalf("want at least 7 scenarios, got %d", len(scenarios))
     }
     for _, s := range scenarios {
         t.Run(s.Name, func(t *testing.T) {
-            evPath, exitCode := runApitestForScenario(t, binary, s)
+            evPath, exitCode := runCurlewForScenario(t, binary, s)
             stream := parseNDJSON(t, evPath)
             if err := s.Expect.Verify(stream, exitCode); err != nil {
                 t.Fatalf("scenario %q failed contract:\n%s", s.Name, err)
@@ -256,7 +256,7 @@ Specific contracts per scenario:
 | feature-gate-denied | run.error | (any non-empty, will be `auth` after D8.3 fix) | (any non-empty) | yes |
 | circular-include | run.error | parse | PARSE_CIRCULAR_INCLUDE | no |
 
-For `failing-assertion` and `unreachable-host` the harness must spawn an httptest.Server (or use a known-unreachable port like `127.0.0.1:1`) — wired in `runApitestForScenario` based on a `setup` field in `expect.yaml`. We keep this minimal:
+For `failing-assertion` and `unreachable-host` the harness must spawn an httptest.Server (or use a known-unreachable port like `127.0.0.1:1`) — wired in `runCurlewForScenario` based on a `setup` field in `expect.yaml`. We keep this minimal:
 - `failing-assertion` uses an httptest.Server returning 200; the collection expects status 201.
 - `unreachable-host` uses `http://127.0.0.1:1` (always-refused on macOS/Linux test runners). No setup needed.
 
@@ -283,7 +283,7 @@ For `failing-assertion` and `unreachable-host` the harness must spawn an httptes
 | `internal/variable/variable_test.go` | modify | Update assertions if they hard-code `CategoryConfig` for ErrUndefinedVariable. |
 | `internal/runner/runner_test.go` | add | New table-driven test `TestRun_VarUndefined_CarriesSourceLocation` verifying that a request with `{{MISSING}}` produces an error chain whose Structured carries the request's SourceFile and SourceLine. |
 | `internal/output/events/testdata/golden/run_error.ndjson` | unchanged | Still uses parse error — no regen needed. |
-| `cmd/apitest/run_test.go` | modify | `TestRunCmd_Events_UndefinedVariable_EmitsRunError` (lines 1208-1256) assertions extended to verify `error.file` non-empty and `error.line > 0` and `error.category == "input"`. |
+| `cmd/curlew/run_test.go` | modify | `TestRunCmd_Events_UndefinedVariable_EmitsRunError` (lines 1208-1256) assertions extended to verify `error.file` non-empty and `error.line > 0` and `error.category == "input"`. |
 
 #### Current Code
 
@@ -386,7 +386,7 @@ func TestRun_VarUndefined_CarriesSourceLocation(t *testing.T) {
 
 #### Impact on Existing Tests
 - `internal/variable/variable_test.go::TestInterpolate*` — any assertion that the Structured Category is `config` for undefined variables will break. Update to expect `input` and verify Code=VAR_UNDEFINED.
-- `cmd/apitest/run_test.go::TestRunCmd_Events_UndefinedVariable_EmitsRunError` — currently only asserts non-empty category and code; tighten to expect `category=="input"`, `code=="VAR_UNDEFINED"`, `error.file` non-empty, `error.line > 0`. This is a strengthening, not a breakage.
+- `cmd/curlew/run_test.go::TestRunCmd_Events_UndefinedVariable_EmitsRunError` — currently only asserts non-empty category and code; tighten to expect `category=="input"`, `code=="VAR_UNDEFINED"`, `error.file` non-empty, `error.line > 0`. This is a strengthening, not a breakage.
 
 ---
 
@@ -457,7 +457,7 @@ func LookupHint(err error) (ClassifiedHint, bool) {
 // internal/auth/hints_init.go
 import (
     "errors"
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 func init() {
@@ -497,7 +497,7 @@ func TestGateError_ClassifiedAsAuth(t *testing.T) {
 ```
 
 #### Impact on Existing Tests
-- `cmd/apitest/run_test.go::TestRunCmd_Events_FormatGateError_EmitsRunError` — loosely asserts a run.error appears; remains green and is strengthened in Step 6 to also check `error.code == "FEATURE_GATE_DENIED"` and `error.category == "auth"`.
+- `cmd/curlew/run_test.go::TestRunCmd_Events_FormatGateError_EmitsRunError` — loosely asserts a run.error appears; remains green and is strengthened in Step 6 to also check `error.code == "FEATURE_GATE_DENIED"` and `error.category == "auth"`.
 - Coverage tests in `internal/errors/coverage_test.go` — review for whether the new classifier path needs to be enumerated; likely safe (it's a different mechanism).
 
 ---
@@ -512,15 +512,15 @@ func TestGateError_ClassifiedAsAuth(t *testing.T) {
 |------|--------|-------------|
 | `internal/assertion/errors.go` (or add to existing file) | modify/create | Add `ErrAssertionFailed = errors.New("assertion failed")` sentinel. |
 | `internal/assertion/hints_init.go` | create or modify | Register `ErrAssertionFailed` with `Category: CategoryAssertion`, `Code: "ASSERTION_FAILED"`, `Hint: "Inspect the assertion.result events for this request and adjust either the assertion or the request to make them agree."` |
-| `cmd/apitest/main.go` | modify | In `eventsAdapter.RequestEnd` (around line 373), when `e.Err == nil && e.Outcome == events.OutcomeFailed`, set `in.Err = assertion.ErrAssertionFailed`. |
-| `cmd/apitest/main.go` | modify | Add `"github.com/peterlindqvist/apitest/internal/assertion"` to imports if not already present. |
-| `cmd/apitest/run_test.go` | modify | Existing `TestRunCmd_Events_HappyPath` uses status=200; passing assertion stays. Add `TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd` covering the new behavior. |
+| `cmd/curlew/main.go` | modify | In `eventsAdapter.RequestEnd` (around line 373), when `e.Err == nil && e.Outcome == events.OutcomeFailed`, set `in.Err = assertion.ErrAssertionFailed`. |
+| `cmd/curlew/main.go` | modify | Add `"github.com/weiqigod/curlew/internal/assertion"` to imports if not already present. |
+| `cmd/curlew/run_test.go` | modify | Existing `TestRunCmd_Events_HappyPath` uses status=200; passing assertion stays. Add `TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd` covering the new behavior. |
 | `internal/output/events/testdata/golden/run_failed_assertion.ndjson` | regenerate | Now carries an `error` field on the request.end line. Regen with `UPDATE_GOLDEN=1`. |
 
 #### Current Code
 
 ```go
-// cmd/apitest/main.go:373-394
+// cmd/curlew/main.go:373-394
 func (a *eventsAdapter) RequestEnd(e runner.RequestEndEvent) {
     var reqBody, respBody []byte
     /* …redaction… */
@@ -553,7 +553,7 @@ if in.Err == nil && in.Outcome == events.OutcomeFailed {
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/run_test.go
+// cmd/curlew/run_test.go
 func TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd(t *testing.T) {
     srv := httptest.NewServer(/* always 200 */)
     defer srv.Close()
@@ -589,15 +589,15 @@ func TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/run_test.go` | modify | Strengthen `TestRunCmd_Events_FormatGateError_EmitsRunError` to check the new code/hint. Strengthen `TestRunCmd_Events_UndefinedVariable_EmitsRunError` to check file/line/code/category. |
-| `cmd/apitest-agent-harness/harness_test.go` | run | Confirm `go test ./cmd/apitest-agent-harness/...` is GREEN for all seven scenarios. |
-| `scripts/ci-local.sh` (if it filters paths) | verify | Confirm `cmd/apitest-agent-harness/` is part of `./...`. |
+| `cmd/curlew/run_test.go` | modify | Strengthen `TestRunCmd_Events_FormatGateError_EmitsRunError` to check the new code/hint. Strengthen `TestRunCmd_Events_UndefinedVariable_EmitsRunError` to check file/line/code/category. |
+| `cmd/curlew-agent-harness/harness_test.go` | run | Confirm `go test ./cmd/curlew-agent-harness/...` is GREEN for all seven scenarios. |
+| `scripts/ci-local.sh` (if it filters paths) | verify | Confirm `cmd/curlew-agent-harness/` is part of `./...`. |
 
 #### Tests to Write FIRST (RED phase)
 - None new beyond Step 5. This step is verification.
 
 #### Impact on Existing Tests
-- The two strengthened tests in `cmd/apitest/run_test.go` may or may not pass depending on whether D8.1/D8.3 already landed; they should after Steps 3–5.
+- The two strengthened tests in `cmd/curlew/run_test.go` may or may not pass depending on whether D8.1/D8.3 already landed; they should after Steps 3–5.
 
 ---
 
@@ -616,7 +616,7 @@ func TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd(t *testing.T) {
 | `docs/EVENTS_SCHEMA_v0.1.md` | modify | Insert at top: `> **DEPRECATED.** The current stable schema is [v1.0](EVENTS_SCHEMA_v1.0.md). v0.1 is retained for historical reference only.` Otherwise unchanged. |
 | `internal/output/events/schema_test.go` | modify | `schemaPath` returns `v1.0.json`; `eventSchemaDocPath` returns `v1.0.md`. Add `TestSchema_v01ArtifactsRetained` asserting both v0.1.json and v0.1.md still exist (the gate's history requirement). |
 | `internal/output/events/testdata/golden/*.ndjson` | regenerate | Run `UPDATE_GOLDEN=1 go test ./internal/output/events/...` so `schema_version` strings are `"1.0"`. |
-| `cmd/apitest-agent-harness/contract.go` | review | If any expectation was hard-coded to `"0.1"`, update. (Should be none — contracts don't reference schema_version.) |
+| `cmd/curlew-agent-harness/contract.go` | review | If any expectation was hard-coded to `"0.1"`, update. (Should be none — contracts don't reference schema_version.) |
 | `CHANGELOG.md` | modify | Add an `### Added` entry under `[Unreleased]` documenting M6-007: harness, schema promotion, and the production-code fixes (variable category, gate classification, assertion error). |
 
 #### Tests to Write FIRST
@@ -627,7 +627,7 @@ func TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd(t *testing.T) {
 - `internal/output/events/schema_test.go::TestEmitter_GoldenSchemaValidates` — passes after golden regen.
 - `internal/output/events/schema_test.go::TestEmitter_GoldenRunHappy/RunError/RunFailedAssertion` — pass after golden regen.
 - `internal/output/events/schema_test.go::TestSchema_MarkdownExamplesValidate` — passes if the doc points at v1.0 and examples use `"1.0"`.
-- `cmd/apitest/run_test.go` — any test asserting `schema_version == "0.1"` must be updated to `"1.0"`. Search: only `TestRunCmd_Events_*` tests check via `kind` field and don't pin schema_version, so likely no breakage. Verify with `grep`.
+- `cmd/curlew/run_test.go` — any test asserting `schema_version == "0.1"` must be updated to `"1.0"`. Search: only `TestRunCmd_Events_*` tests check via `kind` field and don't pin schema_version, so likely no breakage. Verify with `grep`.
 
 ---
 
@@ -639,11 +639,11 @@ func TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd(t *testing.T) {
 | `internal/runner/runner_test.go` | (new) `TestRun_VarUndefined_CarriesSourceLocation` | new | Write per Step 3 |
 | `internal/errors/classify_test.go` | (new) `TestRegisterTypeClassifier` | new | Write per Step 4 |
 | `internal/auth/gate_test.go` | (new) `TestGateError_ClassifiedAsAuth` | new | Write per Step 4 |
-| `cmd/apitest/run_test.go` | `TestRunCmd_Events_UndefinedVariable_EmitsRunError` | strengthens | Add file/line/code/category assertions |
-| `cmd/apitest/run_test.go` | `TestRunCmd_Events_FormatGateError_EmitsRunError` | strengthens | Add code=FEATURE_GATE_DENIED, category=auth assertions |
-| `cmd/apitest/run_test.go` | (new) `TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd` | new | Write per Step 5 |
-| `cmd/apitest-agent-harness/contract_test.go` | full new | new | Write per Step 1 |
-| `cmd/apitest-agent-harness/harness_test.go` | `TestHarness_AllScenarios`, `TestHarness_FailsLoudlyOnContractBreach` | new | Write per Step 1 |
+| `cmd/curlew/run_test.go` | `TestRunCmd_Events_UndefinedVariable_EmitsRunError` | strengthens | Add file/line/code/category assertions |
+| `cmd/curlew/run_test.go` | `TestRunCmd_Events_FormatGateError_EmitsRunError` | strengthens | Add code=FEATURE_GATE_DENIED, category=auth assertions |
+| `cmd/curlew/run_test.go` | (new) `TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd` | new | Write per Step 5 |
+| `cmd/curlew-agent-harness/contract_test.go` | full new | new | Write per Step 1 |
+| `cmd/curlew-agent-harness/harness_test.go` | `TestHarness_AllScenarios`, `TestHarness_FailsLoudlyOnContractBreach` | new | Write per Step 1 |
 | `internal/output/events/schema_test.go` | `TestEmitter_GoldenRun*` | breaks at Step 7 | Regen goldens with UPDATE_GOLDEN=1 |
 | `internal/output/events/schema_test.go` | (new) `TestSchema_v01ArtifactsRetained` | new | Write per Step 7 |
 | `internal/output/events/schema_test.go` | `TestSchema_MarkdownExamplesValidate` | breaks at Step 7 (path change) | Update path resolver to v1.0.md |
@@ -657,14 +657,14 @@ func TestRunCmd_Events_FailingAssertion_EmitsErrorOnRequestEnd(t *testing.T) {
 - **Risk:** Schema promotion lands but a downstream test pins `schema_version=="0.1"` literal. → **Mitigation:** `grep -r '"0.1"' --include="*.go"` before Step 7 and update each hit.
 - **Risk:** Goldens regenerated from a non-deterministic state (e.g. timestamp drift). → **Mitigation:** All golden tests use `Clock: fixedClock(t, "2026-04-21T10:00:00Z")` and a fixed `RunID` — verified in `schema_test.go`. Regen is reproducible.
 - **Risk:** `unreachable-host` test flaky on hosts where `127.0.0.1:1` is NOT refused (rare but possible inside containers with port-1 bound). → **Mitigation:** Use the existing pattern from `TestRunCmd_network_error` (line 263) which uses `http://127.0.0.1:1/fail` — already proven across CI. Allow either `NETWORK_CONNECTION_REFUSED` or `NETWORK_DNS` in the contract.
-- **Risk:** `failing-assertion` httptest.Server URL is dynamic; the harness must spawn the server and template the URL into the fixture. → **Mitigation:** Rather than templating, generate the collection on-the-fly inside `runApitestForScenario` using a `t.TempDir()` scratch file derived from the checked-in `collection.template.yaml` with `{{SERVER_URL}}` substituted at run time. Document this in `testdata/agent-harness/README.md`.
+- **Risk:** `failing-assertion` httptest.Server URL is dynamic; the harness must spawn the server and template the URL into the fixture. → **Mitigation:** Rather than templating, generate the collection on-the-fly inside `runCurlewForScenario` using a `t.TempDir()` scratch file derived from the checked-in `collection.template.yaml` with `{{SERVER_URL}}` substituted at run time. Document this in `testdata/agent-harness/README.md`.
 - **Risk:** The new `request.end.error` block on assertion failure surprises existing consumers that only check `outcome`. → **Mitigation:** This is a documented v0.1 → v1.0 diff; documented in `docs/EVENTS_SCHEMA_v1.0.md` per Step 7. Per stability policy (additive optional fields are allowed in v0.x without bump), this is also a backward-compatible change.
-- **Risk:** Coverage drop because of new helper functions in `cmd/apitest-agent-harness/`. → **Mitigation:** All new code paths in the harness package are exercised by the harness tests themselves. Run `go test -coverprofile=coverage.out ./cmd/apitest-agent-harness/...` to verify >= 80% per `definition_of_done`.
-- **Risk:** `golangci-lint run` complains about exported types in `cmd/apitest-agent-harness/contract.go` lacking doc comments. → **Mitigation:** Add doc comments on all exported types and functions during Step 1.
+- **Risk:** Coverage drop because of new helper functions in `cmd/curlew-agent-harness/`. → **Mitigation:** All new code paths in the harness package are exercised by the harness tests themselves. Run `go test -coverprofile=coverage.out ./cmd/curlew-agent-harness/...` to verify >= 80% per `definition_of_done`.
+- **Risk:** `golangci-lint run` complains about exported types in `cmd/curlew-agent-harness/contract.go` lacking doc comments. → **Mitigation:** Add doc comments on all exported types and functions during Step 1.
 - **Risk:** Step 4 (RegisterTypeClassifier) introduces an ordering bug — sentinel matches and type classifiers race. → **Mitigation:** `LookupHint` checks sentinels first (`errors.Is`), then type classifiers (`errors.As`). Order is deterministic (sentinels are a map, but the chain via errors.Is is determined by the chain itself; type classifiers iterate a slice in registration order). Test `TestRegisterTypeClassifier_DoesNotShadowSentinels` covers this.
 - **Edge case:** `auth-missing` fixture might initially produce category=`internal` because `RUNNER_AUTH_PROFILE_NOT_FOUND` is registered in `runner/hints_init.go` with `Category: CategoryAuth` — verified, no fix needed.
-- **Edge case:** `feature-gate-denied` interaction with Step 4: `currentTier()` reads `APITEST_TIER` from env. The harness must set `APITEST_TIER=free` only for that scenario via the per-scenario `env.txt` — done via `cmd.Env` on `exec.Command`, not via `t.Setenv`, so other scenarios are unaffected.
-- **Edge case:** The harness can be flaky if the test binary was built with stale code. → **Mitigation:** `buildApitestBinary(t)` always rebuilds into `t.TempDir()` — fresh per test run.
+- **Edge case:** `feature-gate-denied` interaction with Step 4: `currentTier()` reads `CURLEW_TIER` from env. The harness must set `CURLEW_TIER=free` only for that scenario via the per-scenario `env.txt` — done via `cmd.Env` on `exec.Command`, not via `t.Setenv`, so other scenarios are unaffected.
+- **Edge case:** The harness can be flaky if the test binary was built with stale code. → **Mitigation:** `buildCurlewBinary(t)` always rebuilds into `t.TempDir()` — fresh per test run.
 
 ---
 
@@ -677,8 +677,8 @@ go test ./internal/runner/...
 go test ./internal/errors/...
 go test ./internal/auth/...
 go test ./internal/output/events/...
-go test ./cmd/apitest/...
-go test ./cmd/apitest-agent-harness/...
+go test ./cmd/curlew/...
+go test ./cmd/curlew-agent-harness/...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
 
@@ -693,7 +693,7 @@ go test ./...                                          # full tree
 Observable verification (matches the task YAML observable field):
 
 ```bash
-go test ./cmd/apitest-agent-harness/...
+go test ./cmd/curlew-agent-harness/...
 # Expected: PASS for every scenario:
 #   missing-variable, bad-yaml, failing-assertion, unreachable-host,
 #   auth-missing, feature-gate-denied, circular-include.

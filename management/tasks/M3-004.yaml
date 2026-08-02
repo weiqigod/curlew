@@ -12,7 +12,7 @@ observable: |
   `email:string`). Create a collection with a request asserting
   `assertions: { schema: schemas/user.json }`. Point it at a test server that
   returns a valid user JSON and verify
-  `./apitest run collection.yaml` at Professional tier passes. Change the
+  `./curlew run collection.yaml` at Professional tier passes. Change the
   server to return `{"id":"not-an-int"}` and verify the run fails with a
   structured error listing the failing JSONPath, the expected type, and the
   actual value. Run at Free tier and verify exit code 6 with

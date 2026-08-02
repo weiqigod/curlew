@@ -14,7 +14,7 @@
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All checks including TAP sections |
 | Coverage `internal/output` | 87.6% | Above 80% threshold |
-| Coverage `cmd/apitest` | 85.1% | Above 80% threshold |
+| Coverage `cmd/curlew` | 85.1% | Above 80% threshold |
 | Coverage overall | 91.6% | Above 80% threshold |
 
 ## Observable Output
@@ -56,7 +56,7 @@ Result: MATCH
 |-------|--------|-------|
 | Error handling | PASS | All I/O errors in `WriteTAP`/`writeTAPDiagnostics`/`writeTAPBailout` returned |
 | Naming conventions | PASS | No stuttering; all exported symbols have doc comments |
-| Code organization | PASS | TAP formatter isolated in `internal/output/tap.go`; wiring in `cmd/apitest/main.go` |
+| Code organization | PASS | TAP formatter isolated in `internal/output/tap.go`; wiring in `cmd/curlew/main.go` |
 | Test quality | PASS | Table-driven unit tests; integration tests cover pass/fail/parse-error/empty |
 | Input validation | PASS | `sanitizeTAPName` strips `#` and collapses whitespace via `strings.Fields` |
 
@@ -89,8 +89,8 @@ TDD pattern visible: `test(output)` → `feat(output)` → `test(cli)` → `feat
 |------|--------|
 | `internal/output/tap.go` | created |
 | `internal/output/tap_test.go` | created |
-| `cmd/apitest/main.go` | modified — TAP format wiring |
-| `cmd/apitest/main_test.go` | modified — TAP integration tests |
+| `cmd/curlew/main.go` | modified — TAP format wiring |
+| `cmd/curlew/main_test.go` | modified — TAP integration tests |
 | `smoke/run.sh` | modified — TAP smoke section |
 | `management/backlog.yaml` | modified — task status |
 | `management/plans/M1-021-plan.md` | created |

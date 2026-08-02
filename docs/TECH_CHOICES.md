@@ -20,7 +20,7 @@ Follow the standard Go project layout:
 
 ```
 cmd/
-    apitest/          # main package — entry point only
+    curlew/          # main package — entry point only
 internal/
     parser/           # collection file parsing
     http/             # HTTP client, request execution
@@ -39,7 +39,7 @@ go.sum
 
 ### Tooling
 
-**Build:** `go build ./cmd/apitest` — one command, one binary. Cross-compilation via `GOOS` and `GOARCH` environment variables. No Makefiles unless task complexity justifies one.
+**Build:** `go build ./cmd/curlew` — one command, one binary. Cross-compilation via `GOOS` and `GOARCH` environment variables. No Makefiles unless task complexity justifies one.
 
 **Testing:** The standard `testing` package. No third-party test frameworks. Use `testify/assert` only if the team finds raw `if` checks too noisy — but prefer the standard library first. Table-driven tests are the default pattern for any function with more than two interesting inputs.
 
@@ -71,17 +71,17 @@ C# on the latest stable .NET release (currently .NET 9). The backend handles aut
 Follow the standard .NET solution layout:
 
 ```
-ApiTestBackend.sln
+CurlewBackend.sln
 src/
-    ApiTestBackend.Api/           # ASP.NET Core web host, controllers/endpoints
-    ApiTestBackend.Core/          # domain logic, interfaces, no infrastructure deps
-    ApiTestBackend.Infrastructure/ # database, external services, auth providers
-    ApiTestBackend.Contracts/     # shared DTOs, API contracts (consumed by CLI too)
+    CurlewBackend.Api/           # ASP.NET Core web host, controllers/endpoints
+    CurlewBackend.Core/          # domain logic, interfaces, no infrastructure deps
+    CurlewBackend.Infrastructure/ # database, external services, auth providers
+    CurlewBackend.Contracts/     # shared DTOs, API contracts (consumed by CLI too)
 tests/
-    ApiTestBackend.Api.Tests/
-    ApiTestBackend.Core.Tests/
-    ApiTestBackend.Infrastructure.Tests/
-    ApiTestBackend.Integration.Tests/  # end-to-end against running server
+    CurlewBackend.Api.Tests/
+    CurlewBackend.Core.Tests/
+    CurlewBackend.Infrastructure.Tests/
+    CurlewBackend.Integration.Tests/  # end-to-end against running server
 ```
 
 Clean Architecture layering: Core has zero dependencies on Infrastructure or Api. Dependencies point inward. Infrastructure implements interfaces defined in Core.

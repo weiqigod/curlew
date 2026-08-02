@@ -7,24 +7,24 @@ phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   TMP=$(mktemp -d); cd "$TMP"
-  apitest init demo && cd demo
+  curlew init demo && cd demo
 
   # Root summary block.
-  apitest run collections/sample.yaml --format json > out.json
+  curlew run collections/sample.yaml --format json > out.json
   jq '.summary | .total, .passed, .failed, .skipped' out.json | wc -l | tr -d ' '
   # Expected: 4 (four integers, no nulls).
 
   # Per-iteration data-driven entries.
   REPO=$(git -C "$OLDPWD" rev-parse --show-toplevel 2>/dev/null || pwd)
-  apitest run "$REPO/cmd/apitest/testdata/datadriven_simple.yaml" --format json > dd.json
+  curlew run "$REPO/cmd/curlew/testdata/datadriven_simple.yaml" --format json > dd.json
   test "$(jq '.data_driven[0].iterations | length' dd.json)" = "$(jq '.data_driven[0].total_iterations' dd.json)"
   # Expected: exit 0 (lengths match).
   jq -r '.data_driven[0].iterations[0] | .name, .status, .duration_ms' dd.json
   # Expected: three values; name has [i/N] suffix; status is passed or failed; duration_ms is a number.
 
-  go test -run 'TestJSONOutput_Summary|TestJSONOutput_DataDrivenIterations' -v ./cmd/apitest/...
+  go test -run 'TestJSONOutput_Summary|TestJSONOutput_DataDrivenIterations' -v ./cmd/curlew/...
   # Expected: PASS.
 
   go test ./...
@@ -56,8 +56,8 @@ scope: |
 
   Files:
   - internal/output/json.go (struct additions)
-  - cmd/apitest/main.go (buildJSONOutput populates Summary + Iterations)
-  - internal/output/json_test.go and cmd/apitest/main_test.go (new + updated tests)
+  - cmd/curlew/main.go (buildJSONOutput populates Summary + Iterations)
+  - internal/output/json_test.go and cmd/curlew/main_test.go (new + updated tests)
   - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
 
   Not in scope:
@@ -73,7 +73,7 @@ definition_of_done:
   - "DataDrivenJSON.Iterations populated for data-driven runs"
   - "Existing JSON snapshot tests updated to expect the new shapes"
   - "go test ./... passes"
-  - "go test -cover ./internal/output/... ./cmd/apitest/... >= 80%"
+  - "go test -cover ./internal/output/... ./cmd/curlew/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"

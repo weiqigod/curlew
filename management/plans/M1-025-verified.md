@@ -1,6 +1,6 @@
 # Verification Report: M1-025
 
-**Task:** Validate command (apitest validate)
+**Task:** Validate command (curlew validate)
 **Verified by:** AI
 **Date:** 2026-03-17
 **Branch:** feature/M1-025-validate-command
@@ -16,19 +16,19 @@
 | Coverage — `internal/validator` | 100.0% | Meets ≥80% threshold |
 | Coverage — `internal/output` | 91.6% | Meets ≥80% threshold |
 | Coverage — `internal/variable` | 96.1% | Meets ≥80% threshold |
-| Coverage — `cmd/apitest` | 88.6% | Meets ≥80% threshold |
+| Coverage — `cmd/curlew` | 88.6% | Meets ≥80% threshold |
 | Coverage — total | 92.4% | Meets ≥80% threshold |
 
 ## Observable Output
 
 ```
-$ ./apitest validate cmd/apitest/testdata/minimal.yaml
-OK cmd/apitest/testdata/minimal.yaml is valid
+$ ./curlew validate cmd/curlew/testdata/minimal.yaml
+OK cmd/curlew/testdata/minimal.yaml is valid
 $ echo $?
 0
 
-$ ./apitest validate cmd/apitest/testdata/invalid.yaml
-FAIL cmd/apitest/testdata/invalid.yaml is invalid
+$ ./curlew validate cmd/curlew/testdata/invalid.yaml
+FAIL cmd/curlew/testdata/invalid.yaml is invalid
   [ERROR]   line 1: invalid YAML syntax: yaml: line 1: did not find expected ',' or ']'
 $ echo $?
 3
@@ -57,7 +57,7 @@ Result: MATCH
 | 2 | Observable output works as specified | Valid → exit 0 + OK; Invalid → exit 3 + FAIL + error | PASS |
 | 3 | Test coverage ≥ 80% | 92.4% total; `internal/validator` 100% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean; `golangci-lint` 0 issues | PASS |
-| 5 | Help text updated | `validate <file>` shown in `apitest --help` | PASS |
+| 5 | Help text updated | `validate <file>` shown in `curlew --help` | PASS |
 | 6 | Smoke test updated | `=== Validate command ===` section in `smoke/run.sh` passes | PASS |
 
 ## Code Review
@@ -112,8 +112,8 @@ Branch A: Review PASS (Round 5) trusted; spot-check clean:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — added `validateCmd`, `parseValidateArgs`, `expandGlobs`, `buildValidationJSONOutput`, `printValidationResult` |
-| `cmd/apitest/main_test.go` | modified — added `TestValidateCmd`, `TestValidateCmd_format_flag_missing_value`, `TestPrintValidationResult_color`, `TestValidateHelp` |
+| `cmd/curlew/main.go` | modified — added `validateCmd`, `parseValidateArgs`, `expandGlobs`, `buildValidationJSONOutput`, `printValidationResult` |
+| `cmd/curlew/main_test.go` | modified — added `TestValidateCmd`, `TestValidateCmd_format_flag_missing_value`, `TestPrintValidationResult_color`, `TestValidateHelp` |
 | `internal/output/json.go` | modified — added `ValidationJSONOutput` types and `WriteValidationJSON` |
 | `internal/output/json_test.go` | modified — added `TestWriteValidationJSON` |
 | `internal/validator/validator.go` | created — new `validator` package with `Validate`, `Severity`, `Issue`, `Result` |

@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All 23 packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Exit code 0 |
@@ -25,10 +25,10 @@
 
 ```
 go test ./internal/graphql/...
-ok  	github.com/peterlindqvist/apitest/internal/graphql	97.7% of statements
-ok  	github.com/peterlindqvist/apitest/internal/graphql/files	94.8% of statements
+ok  	github.com/weiqigod/curlew/internal/graphql	97.7% of statements
+ok  	github.com/weiqigod/curlew/internal/graphql/files	94.8% of statements
 
-go build -o ./apitest ./cmd/apitest
+go build -o ./curlew ./cmd/curlew
 (clean build, no output)
 ```
 
@@ -116,7 +116,7 @@ TDD pattern visible: `test(...)` commits precede corresponding `feat(...)` commi
 | `internal/parallel/executor.go` | modified — added `Warnings []string` to `RequestOutcome` |
 | `internal/output/json.go` | modified — added `Warnings []string` to `JSONRequest` |
 | `internal/output/json_test.go` | modified — added warnings marshalling tests |
-| `cmd/apitest/main.go` | modified — wired `GlobalGraphQL`, renders warnings, populates JSON warnings |
+| `cmd/curlew/main.go` | modified — wired `GlobalGraphQL`, renders warnings, populates JSON warnings |
 | `smoke/run.sh` | modified — added `error_handling: ignore` parser smoke test |
 
 ## Issues Found

@@ -1,5 +1,5 @@
 id: M3-005
-title: "apitest import openapi: parse spec and emit collection skeleton"
+title: "curlew import openapi: parse spec and emit collection skeleton"
 status: done
 priority: 4
 created: 2026-04-10
@@ -12,28 +12,28 @@ dependencies: []
 observable: |
   Place a minimal OpenAPI 3.0 spec at `testdata/openapi/petstore.yaml` with
   three operations (GET /pets, GET /pets/{id}, POST /pets). Run
-  `go build ./cmd/apitest && ./apitest import openapi testdata/openapi/petstore.yaml --output petstore.collection.yaml`
+  `go build ./cmd/curlew && ./curlew import openapi testdata/openapi/petstore.yaml --output petstore.collection.yaml`
   at Professional tier. Verify the generated file parses back with
-  `apitest validate petstore.collection.yaml` and contains three requests with
+  `curlew validate petstore.collection.yaml` and contains three requests with
   correct method/URL/name, a `variables: { base_url: ... }` derived from the
   spec's `servers[0]`, and path parameters interpolated as `{{petId}}`. Run at
   Free tier and verify exit code 6 with `openapi_import` gate.
   Run `go test ./internal/openapi/...` and verify all pass.
 
 behaviors:
-  - "Given a valid OpenAPI 3.0 YAML spec, when `apitest import openapi spec.yaml` runs, then a collection YAML is written to stdout (or to --output) with `name` derived from `info.title`"
+  - "Given a valid OpenAPI 3.0 YAML spec, when `curlew import openapi spec.yaml` runs, then a collection YAML is written to stdout (or to --output) with `name` derived from `info.title`"
   - "Given an OpenAPI spec with `servers: [{url: https://api.example.com/v1}]`, when imported, then the generated collection has `variables: { base_url: https://api.example.com/v1 }` and each request URL uses `{{base_url}}`"
   - "Given an OpenAPI operation with an `operationId`, when imported, then the generated request `name` equals the operationId"
   - "Given an OpenAPI operation without an operationId, when imported, then a name is synthesised from method + path (e.g. 'GET /pets' -> 'get_pets')"
   - "Given an OpenAPI operation with path parameters `/pets/{petId}`, when imported, then the request URL becomes `{{base_url}}/pets/{{petId}}`"
   - "Given a valid OpenAPI 3.1 spec, when imported, then it is accepted and parsed without error"
   - "Given a spec file that does not exist or is not valid OpenAPI, when the command runs, then exit code 3 and a structured error identifying the problem is returned"
-  - "Given `apitest import openapi` at Free or Solo tier, when invoked, then exit code 6 and a feature gate for `openapi_import` is returned"
+  - "Given `curlew import openapi` at Free or Solo tier, when invoked, then exit code 6 and a feature gate for `openapi_import` is returned"
   - "Given `--output path.yaml`, when the command succeeds, then the file is written with permissions 0644"
 
 scope: |
   Add new subcommand `import openapi <spec-path> [--output path]` dispatched
-  from `cmd/apitest/main.go`. Create package `internal/openapi/` containing
+  from `cmd/curlew/main.go`. Create package `internal/openapi/` containing
   `Import(specPath string) (*parser.Collection, error)` which uses
   `github.com/getkin/kin-openapi/openapi3` to load the spec (supports both
   3.0 and 3.1 via loader), iterates `Paths` and each operation, and emits a

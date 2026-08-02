@@ -18,7 +18,7 @@
 | Coverage (`internal/license/jwks`) | 89.3% | Above 80% threshold |
 | Coverage (`internal/license/export`) | 80.8% | At 80% threshold |
 | Coverage (`internal/backend`) | 84.6% | Above 80% threshold |
-| Coverage (`cmd/apitest`) | 81.5% | Above 80% threshold |
+| Coverage (`cmd/curlew`) | 81.5% | Above 80% threshold |
 | Coverage (total) | 87.3% | Above 80% threshold |
 
 ## Observable Output
@@ -57,7 +57,7 @@ Result: MATCH
 | 1 | `go test ./internal/license/... passes with >=12 tests` | 149 test function runs across 3 packages (license, jwks, export) | PASS |
 | 2 | Live binary verifies JWT against cache after backend stopped | Smoke block: `PASS: license --validate exits 0 with jwks=cached (offline after warm-up)` | PASS |
 | 3 | VerifyRS256 export removed; no compile aliases remain | `grep -r VerifyRS256 internal/ cmd/` returns nothing | PASS |
-| 4 | Help text for `license --validate` mentions cache path | `printLicenseHelpTo` includes JWKS lookup order line with `~/.config/apitesttool/jwks_cache.json` | PASS |
+| 4 | Help text for `license --validate` mentions cache path | `printLicenseHelpTo` includes JWKS lookup order line with `~/.config/curlew/jwks_cache.json` | PASS |
 | 5 | docs/SPECIFICATION.md:7990 + alg-agnostic clause cited in jwt.go header | SPEC reference comment present in `jwt.go` | PASS |
 | 6 | Smoke test confirms `license --validate` exits 0 against fixture JWT after online warm-up | Smoke block passes | PASS |
 
@@ -116,8 +116,8 @@ TDD pattern visible: `test(license)` commits precede `feat(license)` commits.
 | `internal/license/keys/testdata/license.json` | Regenerated — ES256 JWT, far-future exp |
 | `internal/backend/jwks_client.go` | Created — `JWKSClient` with Cache-Control soft-TTL |
 | `internal/backend/jwks_client_test.go` | Created — 8 unit tests |
-| `cmd/apitest/license.go` | Modified — `NewValidatorWithFetcher` wiring; `jwks=<source>` stdout suffix; help text |
-| `cmd/apitest/license_test.go` | Modified — `TestLicenseValidate_BackendUnreachable_UnknownKid` added |
+| `cmd/curlew/license.go` | Modified — `NewValidatorWithFetcher` wiring; `jwks=<source>` stdout suffix; help text |
+| `cmd/curlew/license_test.go` | Modified — `TestLicenseValidate_BackendUnreachable_UnknownKid` added |
 | `smoke/run.sh` | Modified — M14-007 JWKS cache smoke block |
 | `testdata/m14/sample-license.json` | Created — secondary-kid ES256 fixture |
 | `testdata/m14/stub_server.go` | Modified — ES256 minting + JWKS endpoint |

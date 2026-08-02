@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // TestRun_RequestIDPrefix verifies the additive VarSources.RequestIDPrefix:
 // when non-empty, request ids are "<prefix>req-N" so multi-collection batch
-// runs (apitest ui) never collide; when empty, the existing "req-N" format is
+// runs (curlew ui) never collide; when empty, the existing "req-N" format is
 // unchanged.
 func TestRun_RequestIDPrefix(t *testing.T) {
 	col := &parser.Collection{

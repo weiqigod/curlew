@@ -8,10 +8,10 @@ track: go-cli
 dependencies:
   - M5-013
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/license/export/...
   # Expected: ok  internal/license/export  (>=6 tests passing)
-  ./apitest license export --output bundle.tar.gz
+  ./curlew license export --output bundle.tar.gz
   # Expected stdout:
   #   "Exporting license bundle..."
   #   "Included: license token (valid until 2027-04-18), JWKS (2 keys)"
@@ -20,24 +20,24 @@ observable: |
   tar -tzf bundle.tar.gz
   # Expected: license.json, jwks.json, README.txt
 behaviors:
-  - "Given a valid license on disk, when apitest license export --output bundle.tar.gz is invoked, then a gzipped tarball is written containing license.json, jwks.json, and README.txt"
-  - "Given the bundle is extracted and APITEST_LICENSE_BUNDLE=./extracted is set, when apitest license --validate runs on a fresh machine, then validation succeeds offline using only the bundle contents"
+  - "Given a valid license on disk, when curlew license export --output bundle.tar.gz is invoked, then a gzipped tarball is written containing license.json, jwks.json, and README.txt"
+  - "Given the bundle is extracted and CURLEW_LICENSE_BUNDLE=./extracted is set, when curlew license --validate runs on a fresh machine, then validation succeeds offline using only the bundle contents"
   - "Given the bundle is older than 30 days, when imported, then the CLI warns 'Bundle grace period expires in N days' and still validates if within window"
-  - "Given no license is loaded (user never logged in), when license export is invoked, then the CLI exits 2 with 'error: no license to export; run apitest login first'"
+  - "Given no license is loaded (user never logged in), when license export is invoked, then the CLI exits 2 with 'error: no license to export; run curlew login first'"
   - "Given --output is a path whose parent does not exist, when invoked, then the CLI exits 2 with 'error: output directory does not exist'"
   - "Given a bundle's signature is tampered with after export, when imported and validated, then the CLI exits 6 with 'signature_invalid'"
-  - "Given --help is passed, when the binary runs, then the help text documents apitest license export --output <file> and references the air-gapped deployment doc"
+  - "Given --help is passed, when the binary runs, then the help text documents curlew license export --output <file> and references the air-gapped deployment doc"
 scope: |
-  New internal/license/export package. Adds apitest license export subcommand
-  in cmd/apitest/license.go. Bundle is a gzipped tarball created via
-  archive/tar + compress/gzip. Import path uses APITEST_LICENSE_BUNDLE env
+  New internal/license/export package. Adds curlew license export subcommand
+  in cmd/curlew/license.go. Bundle is a gzipped tarball created via
+  archive/tar + compress/gzip. Import path uses CURLEW_LICENSE_BUNDLE env
   var (validated in internal/license). README.txt explains offline usage.
 definition_of_done:
   - "All behavior tests pass"
   - "Observable output works as specified"
   - "Test coverage >= 80%"
   - "No build warnings or lint errors"
-  - "Help text documents license export and APITEST_LICENSE_BUNDLE env var"
+  - "Help text documents license export and CURLEW_LICENSE_BUNDLE env var"
   - "Smoke test covers export -> import -> validate cycle"
 complexity: medium
 estimated_effort: "3-5 hours"

@@ -12,7 +12,7 @@ dependencies:
 
 observable: |
   Create a collection using vault-sourced variables alongside CLI, env, and collection vars.
-  Run `apitest run tests.yaml --var api_key=override` and confirm CLI takes precedence.
+  Run `curlew run tests.yaml --var api_key=override` and confirm CLI takes precedence.
   Run `go test ./internal/runner/...` to verify vault variables at precedence 6.
 
 behaviors:

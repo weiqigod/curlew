@@ -26,7 +26,7 @@ observable: |
   # Start a test echo server that returns the received body; run the test
   # with -vv (shows bodies). Assert "hunter2" does NOT appear anywhere in
   # the terminal output or in the JSON/jsonl output.
-  go test -run TestRedact_BodyAcrossFormats ./cmd/apitest/
+  go test -run TestRedact_BodyAcrossFormats ./cmd/curlew/
   # Expected: PASS (the test drives the above with an httptest.Server and
   # greps every format's output for the literal secret value).
 behaviors:
@@ -37,7 +37,7 @@ behaviors:
   - "Given a response body that is non-JSON text, when redaction runs, then matching substrings (exact match of sensitive values) are rewritten; partial-token matches are not rewritten."
   - "Given existing header-redaction behaviour, when this slice lands, then existing tests that assert header redaction continue to pass unchanged."
 scope: |
-  Extend the redaction pass in cmd/apitest/main.go to cover bodies. Today the
+  Extend the redaction pass in cmd/curlew/main.go to cover bodies. Today the
   pass at ~main.go:858-861 calls variable.RedactHeaders; after this slice it
   also calls a new variable.RedactBody on every RequestBody and on the
   response body field inside RequestResult.Result (httpexec.Result).
@@ -52,7 +52,7 @@ scope: |
       partial-match non-replacement, binary-ish byte slice (skipped with a
       note), allow-sensitive pass-through.
 
-  cmd/apitest/main.go:
+  cmd/curlew/main.go:
     - Extend the existing redaction block around line 858-861 to also call
       variable.RedactBody for RequestBody and for the response body on
       RequestResult.Result (already exists on httpexec.Result).
@@ -65,7 +65,7 @@ definition_of_done:
   - "go test ./... passes (existing test goldens may need re-recording only where bodies now show redaction; changes are limited to that)"
   - "golangci-lint run passes with 0 issues"
   - "Test coverage for internal/variable remains >= 80%"
-  - "End-to-end test under cmd/apitest greps every existing format's output for a known secret and asserts it is absent"
+  - "End-to-end test under cmd/curlew greps every existing format's output for a known secret and asserts it is absent"
   - "Smoke test passes"
 complexity: medium
 estimated_effort: "1 day"

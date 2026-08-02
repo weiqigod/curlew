@@ -49,7 +49,7 @@ No findings. All three issues from the prior review have been properly resolved:
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `go test -race ./...` | PASS |
 | `golangci-lint run` | 0 issues |

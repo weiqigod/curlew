@@ -131,7 +131,7 @@ func TestFileCacheStore(t *testing.T) {
 	t.Run("load corrupted file returns ErrCacheCorrupted", func(t *testing.T) {
 		dir := t.TempDir()
 		s := NewFileCacheStore(dir)
-		cacheDir := filepath.Join(dir, ".apitest", "cache")
+		cacheDir := filepath.Join(dir, ".curlew", "cache")
 		if err := os.MkdirAll(cacheDir, 0o750); err != nil {
 			t.Fatal(err)
 		}
@@ -175,19 +175,19 @@ func TestFileCacheStore(t *testing.T) {
 		if err := s.Save(entry); err != nil {
 			t.Fatalf("Save in new dir: %v", err)
 		}
-		if _, statErr := os.Stat(filepath.Join(nested, ".apitest", "cache")); statErr != nil {
+		if _, statErr := os.Stat(filepath.Join(nested, ".curlew", "cache")); statErr != nil {
 			t.Errorf("cache directory not created: %v", statErr)
 		}
 	})
 
 	t.Run("save fails when cache dir is a file", func(t *testing.T) {
 		dir := t.TempDir()
-		// Create .apitest/ directory and a regular FILE named "cache" to block MkdirAll.
-		apitestDir := filepath.Join(dir, ".apitest")
-		if err := os.MkdirAll(apitestDir, 0o750); err != nil {
+		// Create .curlew/ directory and a regular FILE named "cache" to block MkdirAll.
+		curlewDir := filepath.Join(dir, ".curlew")
+		if err := os.MkdirAll(curlewDir, 0o750); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(apitestDir, "cache"), []byte("not a dir"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(curlewDir, "cache"), []byte("not a dir"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		s := NewFileCacheStore(dir)

@@ -1,7 +1,7 @@
 # Implementation Plan: M2-031
 
 ## Overview
-Extend the GraphQL protocol support with comprehensive error handling per specification: three modes (`fail`, `warn`, `ignore`), a global `defaults.graphql.error_handling.partial_success` setting in `apitest.yaml`, per-request override semantics, correct partial-success vs full-failure distinction, and surfacing GraphQL warnings to terminal and JSON output.
+Extend the GraphQL protocol support with comprehensive error handling per specification: three modes (`fail`, `warn`, `ignore`), a global `defaults.graphql.error_handling.partial_success` setting in `curlew.yaml`, per-request override semantics, correct partial-success vs full-failure distinction, and surfacing GraphQL warnings to terminal and JSON output.
 
 ## Task Details
 - **ID:** M2-031
@@ -392,7 +392,7 @@ Introduce a local slice `var warningsForReq []string` above the GraphQL block so
 #### Struct additions
 ```go
 // VarSources (add field)
-GlobalGraphQL *config.GraphQLDefaults // from apitest.yaml defaults.graphql
+GlobalGraphQL *config.GraphQLDefaults // from curlew.yaml defaults.graphql
 
 // RequestResult (add field)
 Warnings []string // non-fatal warnings surfaced to output (e.g. graphql partial success)
@@ -479,14 +479,14 @@ func TestRun_graphql_mode_matrix(t *testing.T) {
 
 ---
 
-### Step 5: Wire `GlobalGraphQL` from `cmd/apitest/main.go` and render warnings in output
+### Step 5: Wire `GlobalGraphQL` from `cmd/curlew/main.go` and render warnings in output
 **Rationale:** Final step: expose the global config to users running the binary, render warnings in terminal output, and add warnings to JSON output. Keeps user-facing changes (output shape, YAML accepted) in a single commit-worthy unit at the top of the stack.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Pass `projectCfg.Defaults.GraphQL` into `VarSources.GlobalGraphQL`; render `r.Warnings` via `out.Warning` after each request in terminal flow; populate `jr.Warnings` in `buildJSONOutput` |
+| `cmd/curlew/main.go` | modify | Pass `projectCfg.Defaults.GraphQL` into `VarSources.GlobalGraphQL`; render `r.Warnings` via `out.Warning` after each request in terminal flow; populate `jr.Warnings` in `buildJSONOutput` |
 | `internal/output/json.go` | modify | Add `Warnings []string \`json:"warnings,omitempty"\`` to `JSONRequest` |
 | `internal/output/json_test.go` | modify | Verify warnings appear in JSON output |
 | `internal/output/terminal_test.go` | no change | (existing `Warning()` tests cover the printer primitive) |
@@ -605,7 +605,7 @@ For the terminal path, an integration-style test via the existing `runCmdInner` 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -614,14 +614,14 @@ go test ./...
 Observable verification (from task YAML):
 ```bash
 # 1. Partial success, global warn, exit 0
-cat > /tmp/apitest-m2031/apitest.yaml <<'YAML'
+cat > /tmp/curlew-m2031/curlew.yaml <<'YAML'
 project_name: M2031
 defaults:
   graphql:
     error_handling:
       partial_success: warn
 YAML
-cat > /tmp/apitest-m2031/tests.yaml <<'YAML'
+cat > /tmp/curlew-m2031/tests.yaml <<'YAML'
 name: GraphQL Partial Warn
 requests:
   - name: Partial

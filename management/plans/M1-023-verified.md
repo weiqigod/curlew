@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All checks pass (smoke test bugs fixed) |
@@ -51,7 +51,7 @@ Result: MATCH
 | 2 | Observable output works as specified | `[REDACTED]` shown with -vv, plain text with --allow-sensitive | PASS |
 | 3 | Test coverage >= 80% | 92.1% total; all packages exceed threshold | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint` 0 issues | PASS |
-| 5 | Help text updated | `--allow-sensitive` visible in `apitest --help` | PASS |
+| 5 | Help text updated | `--allow-sensitive` visible in `curlew --help` | PASS |
 | 6 | Smoke test updated | Sensitive redaction smoke tests added and passing | PASS |
 
 ## Code Review
@@ -109,8 +109,8 @@ These were bugs in the test code, not in the implementation.
 | `internal/parser/collection_test.go` | modified |
 | `internal/config/dotenv.go` | modified — !sensitive prefix support |
 | `internal/config/dotenv_test.go` | modified |
-| `cmd/apitest/main.go` | modified — --allow-sensitive flag, SensitiveSet wiring across all variable sources |
-| `cmd/apitest/main_test.go` | modified — TestRunCmd_SensitiveRedaction |
+| `cmd/curlew/main.go` | modified — --allow-sensitive flag, SensitiveSet wiring across all variable sources |
+| `cmd/curlew/main_test.go` | modified — TestRunCmd_SensitiveRedaction |
 | `smoke/run.sh` | modified — sensitive redaction smoke tests |
 
 ## Issues Found

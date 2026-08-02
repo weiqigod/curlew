@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerCompany' -v ./internal/variable/...
   # Expected: PASS — all 5 company functions registered.
@@ -22,9 +22,9 @@ observable: |
   go test -run 'TestRegistry_FakerCompany_Unseeded' -v ./internal/variable/...
   # Expected: PASS — without --seed, two consecutive runs differ.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Body: {"employer":"{{$faker.company}}","title":"{{$faker.jobTitle}}","dept":"{{$faker.department}}"}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: employer/title/dept are realistic non-empty strings.
 
   go test ./...

@@ -10,7 +10,7 @@ dependencies:
   - M1-028
 
 observable: |
-  Run `apitest run tests.yaml --format html --report report.html` and open report.html in a browser.
+  Run `curlew run tests.yaml --format html --report report.html` and open report.html in a browser.
   Confirm the report is self-contained (embedded CSS/JS) and shows test summary, pass/fail, timing.
   Run `go test ./internal/output/...` for HTML report tests.
 

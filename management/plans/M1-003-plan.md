@@ -268,8 +268,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // ExecuteFunc is the function signature for executing a single request.
@@ -404,7 +404,7 @@ func TestRun(t *testing.T) {
 
 ---
 
-### Step 4: Wire runner into `cmd/apitest/main.go`
+### Step 4: Wire runner into `cmd/curlew/main.go`
 
 **Rationale:** This is where behavior changes become visible. Depends on Steps 1-3.
 
@@ -412,17 +412,17 @@ func TestRun(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Replace inline loop with `runner.Run()`, add empty-requests warning |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for multi-request, empty, stop_on_failure |
-| `cmd/apitest/testdata/empty_requests.yaml` | create | Test fixture for empty requests integration test |
+| `cmd/curlew/main.go` | modify | Replace inline loop with `runner.Run()`, add empty-requests warning |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for multi-request, empty, stop_on_failure |
+| `cmd/curlew/testdata/empty_requests.yaml` | create | Test fixture for empty requests integration test |
 
 #### Current Code
 
 ```go
-// cmd/apitest/main.go:41-74
+// cmd/curlew/main.go:41-74
 func runCmd(args []string) int {
 	if len(args) == 0 {
-		_, _ = fmt.Fprintln(os.Stderr, "Usage: apitest run <collection-file>")
+		_, _ = fmt.Fprintln(os.Stderr, "Usage: curlew run <collection-file>")
 		return 1
 	}
 
@@ -461,7 +461,7 @@ func runCmd(args []string) int {
 ```go
 func runCmd(args []string) int {
 	if len(args) == 0 {
-		_, _ = fmt.Fprintln(os.Stderr, "Usage: apitest run <collection-file>")
+		_, _ = fmt.Fprintln(os.Stderr, "Usage: curlew run <collection-file>")
 		return 1
 	}
 
@@ -505,7 +505,7 @@ func runCmd(args []string) int {
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// Add to cmd/apitest/main_test.go:
+// Add to cmd/curlew/main_test.go:
 
 func TestCLIIntegration_multiple_requests_all_succeed(t *testing.T) {
 	// 3-endpoint test server, collection with 3 requests
@@ -552,11 +552,11 @@ Add after the existing `"Running sample collection"` block:
 
 ```bash
 echo "--- Running with empty requests collection (expect warning) ---"
-cat > /tmp/apitest_empty.yaml << 'YAML'
+cat > /tmp/curlew_empty.yaml << 'YAML'
 name: Empty Collection
 requests: []
 YAML
-./apitest run /tmp/apitest_empty.yaml 2>&1 || true
+./curlew run /tmp/curlew_empty.yaml 2>&1 || true
 echo
 ```
 
@@ -571,9 +571,9 @@ echo
 |-----------|--------------|--------|----------------|
 | `internal/parser/parser_test.go` | `TestParseFile` (existing cases) | none | Options zero value matches |
 | `internal/output/terminal_test.go` | All existing | none | New functions only |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration_successful_run` | none | `"1 passed"` substring still present |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration_network_error` | none | Exit code 4 unchanged |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration` table | none | All substring checks still pass |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration_successful_run` | none | `"1 passed"` substring still present |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration_network_error` | none | Exit code 4 unchanged |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration` table | none | All substring checks still pass |
 
 ## Risks and Edge Cases
 
@@ -588,7 +588,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -614,6 +614,6 @@ requests:
       url: "https://httpbin.org/ip"
 YAML
 
-./apitest run /tmp/multi.yaml
+./curlew run /tmp/multi.yaml
 # Expected: per-request output + "3 request(s): 3 passed, 0 failed (Xms)"
 ```

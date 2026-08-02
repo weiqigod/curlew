@@ -11,7 +11,7 @@ import (
 func TestEmitter_DisabledNoNetwork(t *testing.T) {
 	cs, srv := newCaptureServer(http.StatusOK)
 	defer srv.Close()
-	t.Setenv("APITEST_TELEMETRY_ENDPOINT", srv.URL)
+	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", srv.URL)
 
 	store, _ := newTestStore(t)
 	// Enable then disable — install_id retained, enabled=false

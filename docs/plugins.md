@@ -1,6 +1,6 @@
-# ApiTool Plugins
+# Curlew Plugins
 
-ApiTool loads plugins as **external processes** and communicates with them over
+Curlew loads plugins as **external processes** and communicates with them over
 JSON-RPC 2.0 on stdin/stdout. Plugins can be written in any language.
 
 ## Overview
@@ -12,8 +12,8 @@ The external-process model means:
 - OS-level sandboxing is possible (future work; see Security below).
 - Language-agnostic: any runtime that can read stdin and write stdout works.
 
-When `apitest plugins list` runs, it discovers plugin executables, spawns each
-one, sends a JSON-RPC 2.0 `apitest/hello` handshake request, reads the
+When `curlew plugins list` runs, it discovers plugin executables, spawns each
+one, sends a JSON-RPC 2.0 `curlew/hello` handshake request, reads the
 response, and prints the plugin's name/version/hooks as a table.
 
 ## Quickstart: your first plugin in 5 minutes
@@ -26,7 +26,7 @@ ships in the repository:
 cd testdata/plugins/hello-plugin && go build -o /tmp/hello-plugin .
 
 # Load it
-APITEST_PLUGINS=/tmp/hello-plugin ./apitest plugins list
+CURLEW_PLUGINS=/tmp/hello-plugin ./curlew plugins list
 ```
 
 Expected output:
@@ -41,23 +41,23 @@ For a production-shaped example that submits metrics to Datadog, see
 That example runs entirely against a local fake server — no Datadog account
 needed.
 
-## Discovery: `APITEST_PLUGINS`
+## Discovery: `CURLEW_PLUGINS`
 
-Set `APITEST_PLUGINS` to a list of plugin executables or directories separated
+Set `CURLEW_PLUGINS` to a list of plugin executables or directories separated
 by `:` (or `;` on Windows — `filepath.ListSeparator`):
 
 ```
 # Single executable
-APITEST_PLUGINS=/usr/local/lib/apitest-plugins/my-plugin
+CURLEW_PLUGINS=/usr/local/lib/curlew-plugins/my-plugin
 
 # Multiple executables
-APITEST_PLUGINS=/path/to/plugin-a:/path/to/plugin-b
+CURLEW_PLUGINS=/path/to/plugin-a:/path/to/plugin-b
 
 # Directory (every executable file inside, alphabetical order)
-APITEST_PLUGINS=/usr/local/lib/apitest-plugins
+CURLEW_PLUGINS=/usr/local/lib/curlew-plugins
 
 # Mixed
-APITEST_PLUGINS=/path/to/specific-plugin:/path/to/plugin-dir
+CURLEW_PLUGINS=/path/to/specific-plugin:/path/to/plugin-dir
 ```
 
 ### Directory expansion
@@ -81,16 +81,16 @@ candidate and prints all results, returning the worst exit code (2 > 0).
 
 ## Handshake Wire Format
 
-### Request (apitest → plugin)
+### Request (curlew → plugin)
 
-On load, apitest writes exactly one newline-terminated JSON-RPC 2.0 line to the
+On load, curlew writes exactly one newline-terminated JSON-RPC 2.0 line to the
 plugin's stdin:
 
 ```json
-{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}
+{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}
 ```
 
-### Response (plugin → apitest)
+### Response (plugin → curlew)
 
 The plugin must write exactly one newline-terminated JSON-RPC 2.0 line to
 stdout **within 5 seconds**:
@@ -131,7 +131,7 @@ Unknown hook names in the hello response are ignored with a warning.
 
 ## Hook Invocation Protocol (M5-018)
 
-When `apitest run` executes a collection with `APITEST_PLUGINS` set, the plugin
+When `curlew run` executes a collection with `CURLEW_PLUGINS` set, the plugin
 processes remain alive for the duration of the run. Hooks are invoked over the
 same stdin/stdout JSON-RPC 2.0 channel used for the handshake.
 
@@ -140,13 +140,13 @@ same stdin/stdout JSON-RPC 2.0 channel used for the handshake.
 Called **before** each HTTP request is sent. The plugin receives the current
 request and may return a modified version.
 
-**Request from apitest:**
+**Request from curlew:**
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 2,
-  "method": "apitest/on_request",
+  "method": "curlew/on_request",
   "params": {
     "method": "GET",
     "url": "https://api.example.com/users",
@@ -186,7 +186,7 @@ request and may return a modified version.
 #### Chaining
 
 When multiple plugins declare `on_request`, they are invoked in the order
-listed in `APITEST_PLUGINS`. Each plugin receives the output of the previous
+listed in `CURLEW_PLUGINS`. Each plugin receives the output of the previous
 plugin.
 
 ### on_response
@@ -194,13 +194,13 @@ plugin.
 Called **after** each HTTP response is received. The plugin may append
 annotations; status code, headers, and body are read-only.
 
-**Request from apitest:**
+**Request from curlew:**
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 3,
-  "method": "apitest/on_response",
+  "method": "curlew/on_response",
   "params": {
     "status_code": 200,
     "headers": {"Content-Type": "application/json"},
@@ -233,13 +233,13 @@ annotations; status code, headers, and body are read-only.
 
 Called **once** at run completion, after all phases (setup/main/teardown).
 
-**Request from apitest:**
+**Request from curlew:**
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 4,
-  "method": "apitest/on_result",
+  "method": "curlew/on_result",
   "params": {
     "pass_count": 5,
     "fail_count": 1,
@@ -253,7 +253,7 @@ Called **once** at run completion, after all phases (setup/main/teardown).
 }
 ```
 
-**Response from plugin:** any JSON object (ignored by apitest).
+**Response from plugin:** any JSON object (ignored by curlew).
 
 #### Rules
 
@@ -284,7 +284,7 @@ Called **once** at run completion, after all phases (setup/main/teardown).
 The handshake response must fit within **1 MiB** (1,048,576 bytes). Responses
 longer than that will be truncated and treated as a protocol error.
 
-## Exit codes for `apitest plugins list`
+## Exit codes for `curlew plugins list`
 
 | Code | Meaning |
 |------|---------|
@@ -294,20 +294,20 @@ longer than that will be truncated and treated as a protocol error.
 ## Full example: datadog-metrics
 
 `examples/plugins/datadog-metrics/` is a production-shaped plugin that submits
-`apitest.request.duration` gauge metrics to Datadog on every `on_response` hook.
+`curlew.request.duration` gauge metrics to Datadog on every `on_response` hook.
 
 ```bash
 # Build
-cd examples/plugins/datadog-metrics && go build -o /tmp/apitest-dd-plugin .
+cd examples/plugins/datadog-metrics && go build -o /tmp/curlew-dd-plugin .
 
 # Test (no Datadog account needed — runs against httptest.Server)
 cd examples/plugins/datadog-metrics && go test ./...
 
 # Run
 DD_API_URL=http://127.0.0.1:8888 \
-APITEST_PLUGINS=/tmp/apitest-dd-plugin \
+CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
 DATADOG_API_KEY=test-key \
-  ./apitest run testdata/plugins/one-request.yaml
+  ./curlew run testdata/plugins/one-request.yaml
 ```
 
 See [examples/plugins/datadog-metrics/README.md](../examples/plugins/datadog-metrics/README.md)
@@ -324,12 +324,12 @@ for the full build/run/test recipe and Datadog metric shape.
   ```
 - **Separate Go module.** Keep the plugin in its own `go.mod` (like the
   `datadog-metrics` example). This keeps your dependencies isolated from
-  ApiTool's own dependency graph and signals to readers that the plugin ships
+  Curlew's own dependency graph and signals to readers that the plugin ships
   independently.
-- **Naming.** Use `apitest-<name>` as the binary name (e.g.
-  `apitest-datadog-metrics`) so it is easy to spot in process lists.
+- **Naming.** Use `curlew-<name>` as the binary name (e.g.
+  `curlew-datadog-metrics`) so it is easy to spot in process lists.
 - **Directory layout.** Store plugins in a directory and set
-  `APITEST_PLUGINS=/path/to/plugin-dir`. ApiTool will discover every executable
+  `CURLEW_PLUGINS=/path/to/plugin-dir`. Curlew will discover every executable
   file inside alphabetically.
 
 ## Debugging plugins
@@ -343,10 +343,10 @@ without errors:
 ./my-plugin --help   # should print metadata and exit 0 (if implemented)
 ```
 
-### Simulate ApiTool's handshake
+### Simulate Curlew's handshake
 
 ```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}' | ./my-plugin
+echo '{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}' | ./my-plugin
 ```
 
 The plugin should respond with a JSON-RPC 2.0 result containing `name`,
@@ -355,20 +355,20 @@ The plugin should respond with a JSON-RPC 2.0 result containing `name`,
 ### Simulate a hook call
 
 ```bash
-printf '{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"apitest/on_response","params":{"status_code":200,"duration_ms":42}}\n' \
+printf '{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}\n{"jsonrpc":"2.0","id":2,"method":"curlew/on_response","params":{"status_code":200,"duration_ms":42}}\n' \
   | ./my-plugin
 ```
 
-### Plugin stderr is shown in apitest output
+### Plugin stderr is shown in curlew output
 
-Anything the plugin writes to stderr appears in `apitest`'s stderr (prefixed
+Anything the plugin writes to stderr appears in `curlew`'s stderr (prefixed
 by the plugin name). Use `fmt.Fprintf(os.Stderr, ...)` for diagnostic logging.
 
 ### Common failure modes
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Plugin not loaded | Binary not listed in `APITEST_PLUGINS` or missing execute bit | `chmod +x ./my-plugin`; verify the path in `APITEST_PLUGINS` |
+| Plugin not loaded | Binary not listed in `CURLEW_PLUGINS` or missing execute bit | `chmod +x ./my-plugin`; verify the path in `CURLEW_PLUGINS` |
 | Handshake timeout (5 s) | Plugin does expensive work before writing the hello response | Defer initialisation; write the hello response immediately |
 | Hook timeout (10 s) | Hook handler blocks on I/O | Add a timeout to any network call |
 | Duplicate plugin name | Two binaries return the same `name` in the hello response | Ensure each plugin returns a unique name |
@@ -376,7 +376,7 @@ by the plugin name). Use `fmt.Fprintf(os.Stderr, ...)` for diagnostic logging.
 
 ## Minimum Go example
 
-This is a complete plugin that handles the `apitest/hello` handshake. It is
+This is a complete plugin that handles the `curlew/hello` handshake. It is
 identical to `testdata/plugins/hello-plugin/main.go` in the repository.
 
 ```go
@@ -437,7 +437,7 @@ Build and register:
 
 ```bash
 go build -o my-plugin .
-APITEST_PLUGINS=./my-plugin apitest plugins list
+CURLEW_PLUGINS=./my-plugin curlew plugins list
 ```
 
 ## Troubleshooting checklist
@@ -446,13 +446,13 @@ Use this table when a plugin is not behaving as expected.
 
 | Symptom | Likely cause | Resolution |
 |---------|--------------|------------|
-| `error: plugin <path> not found` | Path in `APITEST_PLUGINS` is wrong or the binary was not built | Build the binary; verify the path |
+| `error: plugin <path> not found` | Path in `CURLEW_PLUGINS` is wrong or the binary was not built | Build the binary; verify the path |
 | `error: plugin <path> is not executable` | Execute bit not set | `chmod +x <path>` |
 | `warning: plugin <path> handshake timeout` | Plugin is slow to start or does not flush stdout | Write the hello response before any slow initialisation; flush stdout explicitly |
 | `error: duplicate plugin name <name>` | Two plugins return the same `name` field | Rename one; each loaded plugin must have a unique name |
 | `warning: plugin <name>: unknown hook <hook> ignored` | Typo in the hook name returned by hello | Check spelling: `on_request`, `on_response`, `on_result` |
 | `warning: plugin <name> timed out on <hook>` | Hook handler takes > 10 s | Add a context-aware timeout to any network or blocking call |
-| Plugin loaded but hooks never fire | Plugin declared hooks in hello but apitest was not invoked with `apitest run` | `plugins list` only tests the handshake; hooks fire during `apitest run` |
+| Plugin loaded but hooks never fire | Plugin declared hooks in hello but curlew was not invoked with `curlew run` | `plugins list` only tests the handshake; hooks fire during `curlew run` |
 | `fatal: ...` in plugin stderr | Plugin crashed after the handshake | Run the plugin standalone (see Debugging section) to reproduce |
 
 ## Security
@@ -461,9 +461,9 @@ Use this table when a plugin is not behaving as expected.
 
 The external-process model does not add any sandboxing. A plugin executable
 has access to all files, environment variables, and network resources available
-to the `apitest` process.
+to the `curlew` process.
 
-**Only point `APITEST_PLUGINS` at plugin executables you trust.** Treat plugin
+**Only point `CURLEW_PLUGINS` at plugin executables you trust.** Treat plugin
 binaries with the same care you would apply to other executables you run on
 your machine.
 

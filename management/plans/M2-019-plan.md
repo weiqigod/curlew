@@ -154,7 +154,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/peterlindqvist/apitest/internal/variable"
+    "github.com/weiqigod/curlew/internal/variable"
 )
 
 // IterationResult holds the outcome of a single data-driven iteration.
@@ -272,7 +272,7 @@ type RequestItem struct {
 
 #### New Code
 ```go
-import "github.com/peterlindqvist/apitest/internal/datadriven"
+import "github.com/weiqigod/curlew/internal/datadriven"
 
 // RequestItem is a single test entry in a collection.
 type RequestItem struct {
@@ -541,7 +541,7 @@ func TestRun_DataDriven_RowDataOverridesCollectionVars(t *testing.T) {
 
 ---
 
-### Step 6: Wire data-driven into `cmd/apitest/main.go` (if needed) and add integration test
+### Step 6: Wire data-driven into `cmd/curlew/main.go` (if needed) and add integration test
 
 **Rationale:** The `main.go` already calls `runner.Run` which calls `executePhase`. Since data-driven is parsed from the collection YAML and checked inside the runner, no changes to `main.go` are needed for basic functionality. However, the `baseDir` (for resolving relative data file paths) needs to be available. The `VarSources.ProjectRoot` or the collection file's directory should be used. We need to verify this works end-to-end with a smoke test.
 
@@ -617,7 +617,7 @@ func TestRun_DataDriven_EndToEnd(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -646,7 +646,7 @@ requests:
 EOF
 
 # Run (requires Professional tier — will get feature gate on Free tier)
-apitest run /tmp/data-driven-test.yaml
+curlew run /tmp/data-driven-test.yaml
 
 # Run tests
 go test ./internal/datadriven/...

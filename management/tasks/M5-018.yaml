@@ -8,26 +8,26 @@ track: go-cli
 dependencies:
   - M5-017
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/plugin/hooks/...
   # Expected: ok  internal/plugin/hooks  (>=10 tests passing)
   # Use a sample plugin that logs each hook:
-  APITEST_PLUGINS=/tmp/apitest-hooklog-plugin \
-    ./apitest run testdata/plugins/one-request.yaml
+  CURLEW_PLUGINS=/tmp/curlew-hooklog-plugin \
+    ./curlew run testdata/plugins/one-request.yaml
   # Expected stdout (tail):
   #   "[plugin:hooklog] on_request GET https://httpbin.org/get"
   #   "[plugin:hooklog] on_response 200 142ms"
   #   "[plugin:hooklog] on_result pass_count=1 fail_count=0"
   # exit 0
 behaviors:
-  - "Given a plugin declares on_request, when apitest run executes a request, then the hook is called with the request object (method, url, headers, body) before sending and the return value can mutate the request"
+  - "Given a plugin declares on_request, when curlew run executes a request, then the hook is called with the request object (method, url, headers, body) before sending and the return value can mutate the request"
   - "Given a plugin returns a modified request from on_request, when the request is then executed, then the modified headers/body/url are used"
   - "Given a plugin declares on_response, when a response arrives, then the hook is called with status, headers, body, duration_ms and the return value can annotate (not replace) the response"
   - "Given a plugin declares on_result, when the run finishes, then the hook is called with pass_count, fail_count, duration_ms, and per-test rows"
   - "Given a plugin returns a hook error, when on_request fires, then the request is aborted and the run marks that request as error (not fail) with the plugin's error message"
   - "Given a plugin's hook exceeds a 10-second timeout, when the hook fires, then the plugin is terminated, a warning 'plugin <name> timed out on <hook>' is printed, and the run continues as if no hook were registered"
-  - "Given two plugins register on_request, when a request fires, then they are invoked in the order declared in APITEST_PLUGINS and each receives the output of the previous"
-  - "Given --help is passed to apitest run, when the binary runs, then the help text includes a 'Plugin hooks' section listing the three lifecycle hooks"
+  - "Given two plugins register on_request, when a request fires, then they are invoked in the order declared in CURLEW_PLUGINS and each receives the output of the previous"
+  - "Given --help is passed to curlew run, when the binary runs, then the help text includes a 'Plugin hooks' section listing the three lifecycle hooks"
 scope: |
   Extend internal/plugin with a hooks subpackage that wires the PluginHost
   into internal/httpexec (request/response points) and internal/runner
@@ -38,7 +38,7 @@ definition_of_done:
   - "Observable output works as specified"
   - "Test coverage >= 80%"
   - "No build warnings or lint errors"
-  - "Help text for apitest run documents plugin hooks"
+  - "Help text for curlew run documents plugin hooks"
   - "Smoke test exercises a run with a hook-logging plugin"
 complexity: high
 estimated_effort: "8-12 hours"

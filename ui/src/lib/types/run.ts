@@ -119,7 +119,7 @@ export interface RunMeta {
   schema_version: number;
   run_id: string;
   created_at: string;
-  apitest_version: string;
+  curlew_version: string;
   events_schema_version: string;
   collection_file: string | null;
   collection_name: string | null;

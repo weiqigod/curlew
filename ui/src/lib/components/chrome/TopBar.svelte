@@ -52,7 +52,7 @@
 
 <header class="bar">
   <div class="proj">
-    <span class="name">{$meta?.project.name ?? 'apitest'}</span>
+    <span class="name">{$meta?.project.name ?? 'curlew'}</span>
   </div>
 
   <WatchIndicator />

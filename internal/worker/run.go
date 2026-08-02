@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // ExecuteFunc is the request-execution function (overridable for tests).

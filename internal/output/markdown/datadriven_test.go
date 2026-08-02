@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
+	"github.com/weiqigod/curlew/internal/assertion"
 )
 
 // makeDataDrivenReport constructs a Report with a single data-driven entry
@@ -105,14 +105,14 @@ func TestMarkdown_RenderIteration(t *testing.T) {
 	for _, marker := range []string{
 		"# Seed users [1/5]",
 		"## Notes",
-		"<!-- BEGIN apitest:response",
+		"<!-- BEGIN curlew:response",
 		"## Response (deterministic)",
 		"### Request",
 		"### Response 201",
 		"### Response metadata",
 		"### Timing",
 		"### Assertions",
-		"<!-- END apitest:response",
+		"<!-- END curlew:response",
 		"## Analysis",
 	} {
 		if !strings.Contains(s, marker) {
@@ -309,7 +309,7 @@ func TestMarkdown_DataDriven_FailedIteration(t *testing.T) {
 		"### Response metadata",
 		"### Timing",
 		"### Assertions",
-		"<!-- END apitest:response",
+		"<!-- END curlew:response",
 		"## Analysis",
 	} {
 		if !strings.Contains(s, marker) {

@@ -11,7 +11,7 @@ dependencies:
 
 observable: |
   Create a collection with `retry: { enabled: true, max_attempts: 3 }` targeting a flaky endpoint.
-  Run `apitest run tests.yaml` and confirm failed requests are retried up to max_attempts.
+  Run `curlew run tests.yaml` and confirm failed requests are retried up to max_attempts.
   Run `go test ./internal/retry/...` to verify retry behavior.
 
 behaviors:

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // mockProvider is a test double that implements Provider and records BulkFetch call count.

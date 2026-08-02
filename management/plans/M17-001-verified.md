@@ -52,7 +52,7 @@ $ go test -run 'TestRunner_SignerStep_NoSigning_FastPath' -v ./internal/runner/.
 --- PASS: TestRunner_SignerStep_NoSigning_FastPath (0.00s)
 PASS
 
-$ grep -nF 'apitest-sigv4' docs/MANUAL.md | grep -v '8\.[0-9]' || echo "doc-fix landed"
+$ grep -nF 'curlew-sigv4' docs/MANUAL.md | grep -v '8\.[0-9]' || echo "doc-fix landed"
 doc-fix landed
 
 $ grep -nE 'plugin loading.*Enterprise|Enterprise.*plugin' docs/MANUAL.md | head -5
@@ -79,7 +79,7 @@ Result: MATCH
 | 8 | sensitives.AddValue inside Sign registered on run's SensitiveSet | `TestRunner_SignerStep_SensitiveValueRegistered` | PASS |
 | 9 | auth/profile.go unchanged | `git diff internal/auth/profile.go` produces 0 lines | PASS |
 | 10 | Signer interface does NOT carry clock; package doc states no-clock contract | `internal/signer/signer.go` package doc | PASS |
-| 11 | docs/MANUAL.md apitest-sigv4 removed; Enterprise clarification present | grep observables | PASS |
+| 11 | docs/MANUAL.md curlew-sigv4 removed; Enterprise clarification present | grep observables | PASS |
 
 ## Definition of Done
 
@@ -95,7 +95,7 @@ Result: MATCH
 | 8 | `./scripts/ci-local.sh` passes | Exit code 0 | PASS |
 | 9 | `internal/auth/profile.go` unchanged | `git diff` produces 0 lines | PASS |
 | 10 | `signer.go` package doc states no-clock contract | Present in package doc | PASS |
-| 11 | `docs/MANUAL.md` no longer cites apitest-sigv4 | grep confirms "doc-fix landed" | PASS |
+| 11 | `docs/MANUAL.md` no longer cites curlew-sigv4 | grep confirms "doc-fix landed" | PASS |
 | 12 | `docs/MANUAL.md` Enterprise plugin tier-gate clarification present | grep confirms sibling paragraph | PASS |
 | 13 | Smoke/integration fixture exercising end-to-end wiring | `TestRunner_Signing_EndToEnd_Noop` | PASS |
 
@@ -121,7 +121,7 @@ Result: MATCH
 | e7fd411 | docs(review): add review with findings for M17-001 |
 | 953e5f0 | chore(task): mark M17-001 as review |
 | 56bac47 | test(runner): add end-to-end signing integration test with noop signer |
-| f19ba8f | docs(manual): replace apitest-sigv4 plugin example with built-in signing |
+| f19ba8f | docs(manual): replace curlew-sigv4 plugin example with built-in signing |
 | 41934fd | feat(parallel): add PreExec per-item context hook to Config |
 | 0648efa | test(parallel): add failing tests for PreExec per-item context hook |
 | 87fcb3c | feat(runner): add signer exec-wrap step between templating and HTTP dispatch |
@@ -153,7 +153,7 @@ Result: MATCH
 | `internal/runner/signing_integration_test.go` | created | End-to-end noop signer integration test |
 | `internal/parallel/executor.go` | modified | Added PreExec hook to Config |
 | `internal/parallel/executor_test.go` | modified | TestExecuteWaves_PreExec_* tests |
-| `docs/MANUAL.md` | modified | Replaced apitest-sigv4 example; added Enterprise clarification |
+| `docs/MANUAL.md` | modified | Replaced curlew-sigv4 example; added Enterprise clarification |
 | `management/backlog.yaml` | modified | Status updated |
 | `management/plans/M17-001-plan.md` | created | Implementation plan |
 | `management/reviews/M17-001-review.md` | created | Review report (PASS on iteration 2) |

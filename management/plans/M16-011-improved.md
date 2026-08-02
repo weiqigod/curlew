@@ -1,6 +1,6 @@
 # Improvement Report: M16-011
 
-**Task:** apitest worker --schedule-pull mode with file: collection ref and pending-uploads queue
+**Task:** curlew worker --schedule-pull mode with file: collection ref and pending-uploads queue
 **Date:** 2026-05-11
 **Review:** management/reviews/M16-011-review.md
 
@@ -16,7 +16,7 @@
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
 | 1 | Low | Stale doc comment on `postWithRetry` described `backend.ErrNetworkFailure` as the return value on exhaustion, but the code already returns `ErrPostExhausted` after the first improve pass | Updated doc comment to read "Returns `ErrPostExhausted` if retries are exhausted and the backend remains unreachable." | ✓ tests pass |
-| 2 | Low | Queue directory built with string concatenation `cfgDir + "/pending-uploads"` in `cmd/apitest/worker.go` — non-idiomatic; inconsistent with rest of codebase | Replaced with `filepath.Join(cfgDir, "pending-uploads")`; added `path/filepath` import | ✓ tests pass |
+| 2 | Low | Queue directory built with string concatenation `cfgDir + "/pending-uploads"` in `cmd/curlew/worker.go` — non-idiomatic; inconsistent with rest of codebase | Replaced with `filepath.Join(cfgDir, "pending-uploads")`; added `path/filepath` import | ✓ tests pass |
 | 3 | Low | `time.Until(deadline)` used in `postWithRetry` sleep cap instead of `deadline.Sub(r.Now())`; inconsistency with injectable clock makes frozen-clock tests unable to control the cap | Replaced with `deadline.Sub(r.Now())` with an explanatory comment | ✓ tests pass |
 | 4 | Low | Missing runner-level test for "unauthorized from poll is fatal" — plan's RED phase required this sub-case but it was absent | Added `TestRunner_Unauthorized_DuringPoll_IsFatal` asserting that a `*backend.ProblemDetails{Status: 401}` from `PollNextRun` propagates as a non-nil `RunOnce` error; uses `errors.As` to verify the concrete type | ✓ tests pass |
 
@@ -38,12 +38,12 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage `internal/worker/schedule` | 84.3% (up from 83.9% at review) |
 | Coverage `internal/backend` | 83.9% |
-| Coverage `cmd/apitest` | 81.5% |
+| Coverage `cmd/curlew` | 81.5% |
 
 ## Fix Commits
 

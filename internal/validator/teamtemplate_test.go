@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/validator"
+	"github.com/weiqigod/curlew/internal/validator"
 )
 
 const validTeamTemplateYAML = `team_secrets:

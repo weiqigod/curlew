@@ -16,13 +16,13 @@
 | `./smoke/run.sh` | PASS | All perf smoke assertions pass |
 | Coverage (`internal/loadgen/report`) | 94.9% | Meets >= 80% threshold |
 | Coverage (`internal/loadgen`) | 96.2% | Meets >= 80% threshold |
-| Coverage (`cmd/apitest`) | 81.3% | Meets >= 80% threshold |
+| Coverage (`cmd/curlew`) | 81.3% | Meets >= 80% threshold |
 | Coverage (total) | 86.8% | Meets >= 80% threshold |
 
 ## Observable Output
 
 ```
-# Smoke test exercises APITEST_TIER=enterprise to bypass feature gate:
+# Smoke test exercises CURLEW_TIER=enterprise to bypass feature gate:
 PASS: perf --help documents all expected flags
 PASS: --vus 0 exits 2
 PASS: perf prints header
@@ -35,7 +35,7 @@ PASS: stderr mentions unsupported format
 ```
 
 Note: The perf command requires Enterprise tier in production. The smoke test uses
-`APITEST_TIER=enterprise` to exercise all observable scenarios.
+`CURLEW_TIER=enterprise` to exercise all observable scenarios.
 
 Expected: Results line with requests/p50/p95/p99/throughput/error_rate + file written
 Result: MATCH (verified via smoke test + unit tests)
@@ -58,11 +58,11 @@ Result: MATCH (verified via smoke test + unit tests)
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | 8/8 behavior tests pass (see table above) | PASS |
-| 2 | Observable output works as specified | Smoke test exercises all observable scenarios with APITEST_TIER=enterprise | PASS |
-| 3 | Test coverage >= 80% | report: 94.9%, loadgen: 96.2%, cmd/apitest: 81.3%, total: 86.8% | PASS |
+| 2 | Observable output works as specified | Smoke test exercises all observable scenarios with CURLEW_TIER=enterprise | PASS |
+| 3 | Test coverage >= 80% | report: 94.9%, loadgen: 96.2%, cmd/curlew: 81.3%, total: 86.8% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, golangci-lint 0 issues | PASS |
 | 5 | Help text documents --output, --format and example invocations | `TestPrintPerfHelp_MentionsAllFlags` asserts Examples block with `--output report.json` | PASS |
-| 6 | Smoke test exercises apitest perf --output report.json and asserts file contents | smoke/run.sh M5-011 section covers json/html/stdout/unsupported | PASS |
+| 6 | Smoke test exercises curlew perf --output report.json and asserts file contents | smoke/run.sh M5-011 section covers json/html/stdout/unsupported | PASS |
 
 ## Code Review
 
@@ -134,8 +134,8 @@ Branch A: Review PASS trusted (Iteration 5 verdict). Spot-check clean:
 | `internal/loadgen/run.go` | modified — OnSample hook wired |
 | `internal/loadgen/run_test.go` | modified — OnSample tests |
 | `internal/loadgen/sample.go` | added |
-| `cmd/apitest/perf.go` | modified — --output flag, report wiring |
-| `cmd/apitest/perf_test.go` | modified — output/summary tests |
+| `cmd/curlew/perf.go` | modified — --output flag, report wiring |
+| `cmd/curlew/perf_test.go` | modified — output/summary tests |
 | `smoke/run.sh` | modified — M5-012 perf smoke assertions |
 | `CHANGELOG.md` | modified |
 

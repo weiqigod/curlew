@@ -25,7 +25,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 8 | Medium | `Options.ApitestVersion` not validated in `NewEmitter`; empty string silently produces schema-invalid `run.start` events | Added guard `if opts.ApitestVersion == "" { return nil, errors.New("events: Options.ApitestVersion is required") }` in `NewEmitter`. Updated `TestEmitter_RunID_Default` and `TestEmitter_BodyLimit` to pass a valid version. Added `TestEmitter_EmptyApitestVersion` confirming the error. | ✓ tests pass |
+| 8 | Medium | `Options.CurlewVersion` not validated in `NewEmitter`; empty string silently produces schema-invalid `run.start` events | Added guard `if opts.CurlewVersion == "" { return nil, errors.New("events: Options.CurlewVersion is required") }` in `NewEmitter`. Updated `TestEmitter_RunID_Default` and `TestEmitter_BodyLimit` to pass a valid version. Added `TestEmitter_EmptyCurlewVersion` confirming the error. | ✓ tests pass |
 | 9 | Low | `EmitRunEnd` called `e.atMs()` twice — for `AtMs` and `DurationMs` — risking different values if the clock advanced between calls | Captured `atMs := e.atMs()` once before constructing the struct; used for both fields. | ✓ tests pass |
 | 10 | Low | Binary-body-over-limit truncation path in `truncateBody` not exercised; `truncateBody` at 83.3% coverage | Added `TestEmitter_BodyTruncation_BinaryOverLimit` with a 4096-byte NUL-containing body asserting `response_body_encoding=base64`, `response_body_truncated=true`, `response_body_size=4096`. `truncateBody` is now 100.0%. | ✓ tests pass |
 
@@ -37,7 +37,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/output/events`) | 95.7% |
@@ -52,7 +52,7 @@ No findings deferred. All findings resolved.
 | `8b6f078` | test(events): cover request body truncation and BodyLimit accessor | #5, #6 |
 | `7d10884` | chore(events): fix gofumpt struct field alignment | lint gate |
 | `1e4e8ef` | fix(events): normalize nil cliArgs to empty slice in EmitRunStart | #7 |
-| `cb70d1c` | fix(events): validate ApitestVersion in NewEmitter | #8 |
+| `cb70d1c` | fix(events): validate CurlewVersion in NewEmitter | #8 |
 | `659c1e2` | fix(events): capture atMs once in EmitRunEnd | #9 |
 | `d5b3782` | test(events): add binary-body-over-limit truncation test | #10 |
 

@@ -16,7 +16,7 @@ No findings.
 All three Iteration 3 findings were resolved in the improve pass:
 
 - Finding #1 (Medium): `emptySummary.Total` pre-filter — fixed at `runner.go:460-477`: `emptySummary.Total` is updated to `len(Setup) + len(Teardown)` on the no-match path and `len(Setup) + len(filtered) + len(Teardown)` on the success path.
-- Finding #2 (Low): Test for `run.end.total` on events no-match path — `TestRun_OnlyNoMatch_EventsTotal` added in `cmd/apitest/main_test.go:8284` with full events-file verification.
+- Finding #2 (Low): Test for `run.end.total` on events no-match path — `TestRun_OnlyNoMatch_EventsTotal` added in `cmd/curlew/main_test.go:8284` with full events-file verification.
 - Finding #3 (Low): Multi-name no-match error message — fixed at `runner.go:526-531`: when `len(selection) > 1`, all unmatched names are listed; `TestFilterMainItems/multi-name_no-match_lists_all_unmatched` verifies this.
 
 ## Standards Compliance
@@ -35,7 +35,7 @@ All three Iteration 3 findings were resolved in the improve pass:
 - `internal/parser`: 89.8% — PASS (≥80%)
 - `internal/runner`: 83.7% — PASS (≥80%)
 - `internal/output/events`: 95.8% — PASS (≥80%)
-- `cmd/apitest`: 81.3% — PASS (≥80%)
+- `cmd/curlew`: 81.3% — PASS (≥80%)
 
 ## Pre-audit Gate
 

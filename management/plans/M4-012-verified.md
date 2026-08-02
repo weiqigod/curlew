@@ -10,24 +10,24 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 29 packages, 0 failures |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All checks pass incl. M4-012 report-upload validation |
-| Coverage `cmd/apitest` | 83.5% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 83.5% | Meets >= 80% threshold |
 | Coverage `internal/prcheck` | 85.4% | Meets >= 80% threshold |
 | Coverage (total) | 87.2% | Meets >= 80% threshold |
 
 ## Observable Output
 
 ```
-$ ./apitest run testdata/team/e2e-collection.yaml --report-upload
-Usage: apitest run <collection-file> [...]
+$ ./curlew run testdata/team/e2e-collection.yaml --report-upload
+Usage: curlew run <collection-file> [...]
 [ERROR] --org is required when --report-upload is set
 Exit: 1
 
-$ ./apitest --help | grep report-upload
-  --report-upload     Upload run results to the ApiTool backend after execution
+$ ./curlew --help | grep report-upload
+  --report-upload     Upload run results to the Curlew backend after execution
 
 $ ls testdata/team/e2e-collection.yaml testdata/team/e2e-collection-failing.yaml
 testdata/team/e2e-collection.yaml
@@ -55,7 +55,7 @@ SvelteKit dashboard page, the E2E spec, and the seed script.
 | 2 | Playwright navigates to /org/[slug]/results, uploaded run visible within 5s | `web/tests/e2e/full-pipeline.spec.ts` (assertions 1-3) | PASS (spec file present, asserts present) |
 | 3 | Upload included --pr and --repo, pr-check row visible with state=success | `TestRunWithReportUpload/upload_then_pr_check_on_pass`, Playwright spec assertion 4 | PASS |
 | 4 | Failing collection: CLI exits 1, backend status=failure, dashboard shows failure | `TestRunWithReportUpload/failing_run_still_uploads_state_failure` | PASS |
-| 5 | test-stack.sh up run twice: detects existing stack, re-seeds without duplicate rows | `scripts/seed-test-data.sh` idempotency check; smoke SKIP path (APITEST_MANAGE_STACK=1) | PASS |
+| 5 | test-stack.sh up run twice: detects existing stack, re-seeds without duplicate rows | `scripts/seed-test-data.sh` idempotency check; smoke SKIP path (CURLEW_MANAGE_STACK=1) | PASS |
 | 6 | test-stack.sh down: all containers stop, test DB volume removed | `scripts/test-stack.sh down` implemented | PASS |
 | 7 | svelte-check and golangci-lint on touched files report no issues | golangci-lint 0 issues; svelte-check gated by live npm | PASS |
 
@@ -64,7 +64,7 @@ SvelteKit dashboard page, the E2E spec, and the seed script.
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | Full-pipeline Playwright spec passes with >=4 assertions | `web/tests/e2e/full-pipeline.spec.ts` contains >=4 expect() calls | PASS |
-| 2 | apitest run --report-upload documented in help text | `--report-upload` section in help output confirmed | PASS |
+| 2 | curlew run --report-upload documented in help text | `--report-upload` section in help output confirmed | PASS |
 | 3 | scripts/test-stack.sh up/down covered by smoke test in smoke/run.sh | `=== Stack idempotency (M4-012) ===` section at line ~1720, SKIP path passes | PASS |
 | 4 | E2E fixture checked in and referenced from both CLI and web tests | `testdata/team/e2e-collection.yaml` + `web/tests/e2e/full-pipeline.spec.ts` | PASS |
 | 5 | CI job e2e-m4 added that runs the full pipeline on a Linux runner | `.github/workflows/e2e-m4.yml` present | PASS |
@@ -97,7 +97,7 @@ Branch A: Review PASS trusted (iteration 2, all 7 findings resolved), spot-check
 | 84de011 | fix(smoke): fix set -e interaction with --report-upload exit-1 test |
 | 227ac00 | feat(web): add /org/[slug]/pr-checks page with API client and unit tests |
 | f8bff3a | feat(backend): add pr-checks endpoint (POST + GET) with EF migration |
-| 990f9d2 | feat(cli): implement --report-upload flag on apitest run |
+| 990f9d2 | feat(cli): implement --report-upload flag on curlew run |
 | db0eb59 | test(cli): add failing tests for --report-upload flag and runFlags struct |
 | 9c80acd | feat(prcheck): implement BuildPayload and DetectGitSha |
 | feec77c | test(prcheck): add failing tests for BuildPayload and DetectGitSha |
@@ -108,9 +108,9 @@ TDD pattern visible: test commits precede corresponding feat commits.
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — added --report-upload flags and handleReportUpload |
-| `cmd/apitest/main_test.go` | modified — extended with report-upload flag tests |
-| `cmd/apitest/report_upload_test.go` | created — TestRunWithReportUpload, TestParseRunArgs_ReportUploadFlags |
+| `cmd/curlew/main.go` | modified — added --report-upload flags and handleReportUpload |
+| `cmd/curlew/main_test.go` | modified — extended with report-upload flag tests |
+| `cmd/curlew/report_upload_test.go` | created — TestRunWithReportUpload, TestParseRunArgs_ReportUploadFlags |
 | `internal/prcheck/payload.go` | created — BuildPayload, TriggerInfo |
 | `internal/prcheck/payload_test.go` | created — TestBuildPayload, TestBuildPayload_ItemStatuses |
 | `internal/prcheck/run.go` | modified — UploadConfig, UploadRun |

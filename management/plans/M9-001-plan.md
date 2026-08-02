@@ -625,7 +625,7 @@ func TestEmitter_RequestStartCarriesSlug(t *testing.T) {
 	em, err := events.NewEmitter(&buf, events.Options{
 		Clock:          fixedClock(t, "2026-04-25T10:00:00Z"),
 		RunID:          "rs-slug-001",
-		ApitestVersion: "0.1.0-test",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -650,7 +650,7 @@ func TestEmitter_RequestStartCarriesSlug(t *testing.T) {
 func TestEmitter_RequestStartOmitsEmptySlug(t *testing.T) {
 	// requestSlug="" must NOT appear in the output (omitempty).
 	var buf bytes.Buffer
-	em, _ := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-test"})
+	em, _ := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-test"})
 	_ = em.EmitRequestStart("req-1", "", "n", "GET", "u", "", "", 0)
 	if strings.Contains(buf.String(), "request_slug") {
 		t.Error("expected request_slug omitted when empty, got:", buf.String())
@@ -660,7 +660,7 @@ func TestEmitter_RequestStartOmitsEmptySlug(t *testing.T) {
 func TestEmitter_RequestEndCarriesSlug(t *testing.T) {
 	var buf bytes.Buffer
 	em, _ := events.NewEmitter(&buf, events.Options{
-		ApitestVersion: "0.1.0-test",
+		CurlewVersion: "0.1.0-test",
 	})
 	_ = em.EmitRequestEnd(events.RequestEndInput{
 		RequestID:   "req-1",
@@ -717,8 +717,8 @@ must be byte-unchanged.
 #### v1.2.json delta (vs v1.1.json)
 
 ```diff
-   "$id": "https://apitest.dev/events-schema/v1.2.json",
-   "title": "ApiTool Agent Event Stream v1.2",
+   "$id": "https://curlew.dev/events-schema/v1.2.json",
+   "title": "Curlew Agent Event Stream v1.2",
 -  "description": "...v1.1 adds an optional 'selection' field to run.start carrying --only values.",
 +  "description": "...v1.2 adds an optional 'request_slug' field to request.start and request.end derived from the request name.",
 @@ definitions/Header
@@ -742,7 +742,7 @@ must be byte-unchanged.
 #### v1.2.md key sections
 
 ```markdown
-# ApiTool Agent Event Stream — v1.2
+# Curlew Agent Event Stream — v1.2
 
 ## v1.1 → v1.2 changelog
 
@@ -767,7 +767,7 @@ ignoring the new optional field.
 5. Trim leading and trailing `-`.
 
 If the result is empty (the name had no alphanumeric runes after
-normalization), `apitest run` rejects the collection at load time with
+normalization), `curlew run` rejects the collection at load time with
 `PARSE_SLUG_EMPTY`. Names that produce non-empty slugs are otherwise unrestricted.
 
 `schema_version` changes from `"1.1"` to `"1.2"` in every emitted event.
@@ -852,7 +852,7 @@ func TestSchema_v12_validates(t *testing.T) {
 	em, err := events.NewEmitter(&buf, events.Options{
 		Clock:          fixedClock(t, "2026-04-25T10:00:00Z"),
 		RunID:          "v12-validate-001",
-		ApitestVersion: "0.1.0-test",
+		CurlewVersion: "0.1.0-test",
 	})
 	// emit one of each kind, with request_slug set on request.* events
 	// validate every line against sch
@@ -873,7 +873,7 @@ Simpler approach: hand-craft the JSON lines for each kind.
 func TestSchema_v11_validates(t *testing.T) {
 	sch := compileEventSchemaVersion(t, "v1.1")
 	lines := []string{
-		`{"schema_version":"1.1","run_id":"r","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-25T10:00:00Z","apitest_version":"0.1.0-test","cli_args":["run","t.yaml","--only","Get user"],"selection":["Get user"]}`,
+		`{"schema_version":"1.1","run_id":"r","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-25T10:00:00Z","curlew_version":"0.1.0-test","cli_args":["run","t.yaml","--only","Get user"],"selection":["Get user"]}`,
 		`{"schema_version":"1.1","run_id":"r","id":2,"at_ms":1,"kind":"request.start","request_id":"req-1","name":"Get user","method":"GET","url":"https://example.com"}`,
 		`{"schema_version":"1.1","run_id":"r","id":3,"at_ms":2,"kind":"assertion.result","request_id":"req-1","type":"status","passed":true,"expected":"200","actual":"200"}`,
 		`{"schema_version":"1.1","run_id":"r","id":4,"at_ms":3,"kind":"request.end","request_id":"req-1","outcome":"passed","duration_ms":42}`,
@@ -932,7 +932,7 @@ in lock-step.
 | `internal/parallel/executor.go` | modify | Widen `EventSink.RequestStart`/`RequestEnd` signatures with `requestSlug string`. Widen `Config.NextRequestID` semantics OR add a parallel `NextRequestSlug func() string`. Simpler: pass `slug` into `cfg.EventSink.RequestStart` from the runner-side `executePhase` adapter call site, by including `Slug` in the `parser.RequestItem` passed in `Items`. Since RequestItem already carries Slug after Step 2, the parallel executor can read `item.Slug` directly at line 365. |
 | `internal/parallel/executor_test.go` | modify | `parallelRecordingSink.RequestStart`/`RequestEnd` gain the slug parameter; existing tests pass `""` or assert against the cached `item.Slug`. |
 | `internal/runner/runner_test.go` | modify | `recordingSink` already captures `RequestEvent` / `RequestEndEvent` by value — once those structs gain `RequestSlug` the captures pick it up automatically. Add `TestRunner_RequestSlugAllEmitSites` covering all four paths. Existing tests that build `RequestEvent` for non-event reasons may need updates (none expected). |
-| `cmd/apitest/main.go` | modify | `eventsAdapter.RequestStart`/`RequestEnd` forward `e.RequestSlug` into the emitter. |
+| `cmd/curlew/main.go` | modify | `eventsAdapter.RequestStart`/`RequestEnd` forward `e.RequestSlug` into the emitter. |
 
 #### Current Code (runner.go:140-161)
 
@@ -1087,7 +1087,7 @@ func (a *parallelSinkAdapter) RequestStart(requestID, requestSlug, name, method,
 }
 ```
 
-#### Current Code (cmd/apitest/main.go:417-454)
+#### Current Code (cmd/curlew/main.go:417-454)
 
 ```go
 func (a *eventsAdapter) RequestStart(e runner.RequestEvent) {
@@ -1098,7 +1098,7 @@ func (a *eventsAdapter) RequestStart(e runner.RequestEvent) {
 // RequestEnd similar
 ```
 
-#### New Code (cmd/apitest/main.go)
+#### New Code (cmd/curlew/main.go)
 
 ```go
 func (a *eventsAdapter) RequestStart(e runner.RequestEvent) {
@@ -1165,7 +1165,7 @@ for each request name. This satisfies behavior #8.
 - `parallel/executor_test.go` test sinks need their method signatures widened.
   Test bodies that don't compare slugs add `_ = requestSlug` (or just omit
   the parameter name).
-- `cmd/apitest/main.go` end-to-end smoke pathways: the smoke-test fixture
+- `cmd/curlew/main.go` end-to-end smoke pathways: the smoke-test fixture
   collection's request names slugify cleanly (`run.ndjson` → request_slug
   appears). `./smoke/run.sh` exercises this implicitly.
 
@@ -1194,7 +1194,7 @@ for each request name. This satisfies behavior #8.
 | `internal/runner/runner_test.go` | `TestRunner_RequestSlugAllEmitSites` | new | new |
 | `internal/runner/runner_test.go` | every `RequestEvent` struct | additive field | zero-fills automatically |
 | `internal/parallel/executor_test.go` | `parallelRecordingSink` | breaks | widen method signatures |
-| `cmd/apitest/main.go` | smoke flow | additive | no test code change |
+| `cmd/curlew/main.go` | smoke flow | additive | no test code change |
 
 ## Risks and Edge Cases
 
@@ -1223,7 +1223,7 @@ for each request name. This satisfies behavior #8.
 - **Risk: backwards compatibility of EmitRequestStart signature change.**
   External callers don't exist (it's `internal/...`), but the cmd layer in
   this repo is one caller. **Mitigation:** the signature change is intentional
-  and updated in lock-step in cmd/apitest/main.go.
+  and updated in lock-step in cmd/curlew/main.go.
 
 - **Edge case: `omitempty` on `RequestSlug` field.** When a caller passes "" 
   the field is omitted from emitted JSON, which is what we want for forward-
@@ -1250,7 +1250,7 @@ for each request name. This satisfies behavior #8.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1272,7 +1272,7 @@ go test -run 'TestRunner_RequestSlugAllEmitSites' ./internal/runner/...
 ls docs/events-schema/v1.2.json docs/events-schema/v1.1.json docs/events-schema/v1.0.json
 
 # End-to-end NDJSON inspection (smoke)
-./apitest run smoke/collections/sample.yaml --events run.ndjson
+./curlew run smoke/collections/sample.yaml --events run.ndjson
 jq -c 'select(.kind=="request.start") | {name, request_id, request_slug}' run.ndjson
 
 # Aggregate

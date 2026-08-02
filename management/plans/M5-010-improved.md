@@ -8,9 +8,9 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | High | `ErrCoordinatorURLMissing` and `ErrTokenMissing` exported but never returned by `Run()` — misleading API | Removed both sentinels; validation remains in `cmd/apitest/main.go` where it belongs | ✓ tests pass |
+| 1 | High | `ErrCoordinatorURLMissing` and `ErrTokenMissing` exported but never returned by `Run()` — misleading API | Removed both sentinels; validation remains in `cmd/curlew/main.go` where it belongs | ✓ tests pass |
 | 2 | High | `TestRun_ShardReassignment` missing `summary.Total/Passed/Failed` assertions for behaviour 4 | Added assertions: `Total=6`, `Passed=6`, `Failed=0` covering reassigned-shard outcome inclusion | ✓ tests pass |
-| 3 | Medium | Missing `--org` exits with code `1` instead of `2` (inconsistent with other pre-condition failures) | Changed exit code to `2` in `cmd/apitest/main.go` | ✓ tests pass |
+| 3 | Medium | Missing `--org` exits with code `1` instead of `2` (inconsistent with other pre-condition failures) | Changed exit code to `2` in `cmd/curlew/main.go` | ✓ tests pass |
 | 4 | Medium | No test for `--workers N` with missing `--org` | Added `TestRunCmd_WorkersMissingOrg` verifying exit 2 and `--org` in error message | ✓ tests pass |
 | 5 | Medium | `TestRun_AggregatedFailurePropagates` missing `summary.Passed == 3` assertion | Added `if summary.Passed != 3 { t.Errorf(...) }` | ✓ tests pass |
 | 6 | Medium | `Summary.Duration` always zero — `SummaryWithDuration` prints `(0ms)` | Added `start := nowFn()` before job creation; `aggregate` now accepts `elapsed time.Duration` and sets `summary.Duration = elapsed` | ✓ tests pass |
@@ -25,11 +25,11 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/runner/distributed`) | 85.8% |
-| Coverage (`cmd/apitest`) | 81.2% |
+| Coverage (`cmd/curlew`) | 81.2% |
 
 ## Fix Commits
 

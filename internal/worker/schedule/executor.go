@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/vault"
-	teamtemplate "github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/vault"
+	teamtemplate "github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 // NewRunnerExecutor returns a CollectionExecutor that parses the YAML at the

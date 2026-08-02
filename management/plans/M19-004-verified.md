@@ -56,7 +56,7 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | 7/7 behaviors covered, all tests PASS | PASS |
 | 2 | Test coverage >= 80% for new code paths | `internal/assertion/` 91.9%, `internal/cel/` 93.4%, `internal/parser/` 90.0% | PASS |
-| 3 | No build warnings or lint errors | `go build ./cmd/apitest` clean; `golangci-lint run` no findings | PASS |
+| 3 | No build warnings or lint errors | `go build ./cmd/curlew` clean; `golangci-lint run` no findings | PASS |
 | 4 | `./scripts/ci-local.sh --go` passes | ci-local.sh exits 0, all gates green | PASS |
 | 5 | Failure-message renderer enumerates top-level refs; covered by golden tests in `internal/output/` | `TestPrinterAssertionDetail/CEL_failure_message_multiline_preserved`, `TestWriteJUnitXML_CelFailureMessagePreserved`, `TestMarkdown_Render_CelFailureAssertion` | PASS |
 | 6 | Mutual-exclusion parser error in parse-error catalogue | `ErrCelAndOperatorMutuallyExclusive` registered in `hints_init.go` | PASS |

@@ -38,7 +38,7 @@ Result: ALL VERIFIED via test suite.
 |---|----------|---------|--------|
 | 1 | Migration: `provider TEXT NOT NULL DEFAULT 'github'`, nullable FK + bigint columns | `PrCheckEntitySchemaTests`, `PrCheckProviderMigrationTests` | PASS |
 | 2 | Existing rows default to `provider='github'` on migration | `ExistingRow_WithoutProvider_DefaultsToGithub` (entity + migration) | PASS |
-| 3 | `success → success`, name=ApiTool, description≤255, target_url HTTPS | `PostsSuccess_BodyContains_State_Name_Description_Context`, `StateMapping_TableDriven` | PASS |
+| 3 | `success → success`, name=Curlew, description≤255, target_url HTTPS | `PostsSuccess_BodyContains_State_Name_Description_Context`, `StateMapping_TableDriven` | PASS |
 | 4 | `timed_out → failed` with `[timed out]` prefix | `StateMapping_TableDriven(timed_out)`, `BuildDescription_TimedOut_PrependsMarker` | PASS |
 | 5 | `neutral/skipped → success` with marker prefix | `StateMapping_TableDriven(neutral/skipped)` | PASS |
 | 6 | 401 → `access_token_revoked_at` set, audit `gitlab.pat.revoked`, `status=gitlab_token_revoked` | `Returns401_MarksAccessTokenRevoked_AndSetsStatus_GitLabTokenRevoked` (SpyAuditWriter) | PASS |

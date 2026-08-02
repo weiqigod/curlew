@@ -1,6 +1,6 @@
 # Code Review: M1-024
 
-**Task:** Init command (apitest init)
+**Task:** Init command (curlew init)
 **Reviewer:** AI
 **Date:** 2026-03-17
 **Branch:** feature/M1-024-init-command
@@ -33,11 +33,11 @@ Both findings from the prior review have been correctly fixed:
 
 ## Test Coverage
 - `internal/scaffold`: 80.9% (>= 80% ✓)
-- `cmd/apitest`: 86.5% (>= 80% ✓)
+- `cmd/curlew`: 86.5% (>= 80% ✓)
 - Acceptable gap: `filepath.Abs` error path in `scaffold.Init` (L43–46) — OS-level failure, not reachable in unit tests
 
 ## Quality Gates
-- `go build ./cmd/apitest`: PASS
+- `go build ./cmd/curlew`: PASS
 - `go test ./...`: PASS
 - `golangci-lint run`: PASS (0 issues)
 

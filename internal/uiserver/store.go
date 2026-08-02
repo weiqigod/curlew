@@ -10,12 +10,12 @@ import (
 	"sync"
 )
 
-// Store is the persisted run-history store under <root>/.apitest/ui/ (spec
+// Store is the persisted run-history store under <root>/.curlew/ui/ (spec
 // §8). Constructed only when config has
-// not disabled it; below Solo nothing is ever written to .apitest/ui/.
+// not disabled it; below Solo nothing is ever written to .curlew/ui/.
 type Store struct {
 	mu      sync.Mutex
-	dir     string // <root>/.apitest/ui
+	dir     string // <root>/.curlew/ui
 	maxRuns int
 }
 
@@ -29,9 +29,9 @@ type storedDetail struct {
 
 // newStore creates the store directory and its self-ignoring .gitignore.
 // The .gitignore is required, not belt-and-braces: the project scaffolder
-// only ignores .apitest/ when --skill was used (spec §8.1).
+// only ignores .curlew/ when --skill was used (spec §8.1).
 func newStore(root string, maxRuns int) (*Store, error) {
-	dir := filepath.Join(root, ".apitest", "ui")
+	dir := filepath.Join(root, ".curlew", "ui")
 	if err := os.MkdirAll(filepath.Join(dir, "runs"), 0o755); err != nil {
 		return nil, err
 	}

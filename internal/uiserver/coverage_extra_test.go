@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/uiserver"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/uiserver"
 )
 
 // TestGitInfo_BranchAndDetached exercises the .git/HEAD reader through the
@@ -314,7 +314,7 @@ requests:
 // download, and compare after the ring is gone (new Server instance).
 func TestHistory_PersistedRunServesAfterRestart(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "apitest.yaml"), []byte("project_name: t\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "curlew.yaml"), []byte("project_name: t\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	mkServer := func() *httptest.Server {

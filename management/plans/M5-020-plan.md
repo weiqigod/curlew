@@ -34,7 +34,7 @@ data, a `results.upload` audit event, and a CI job `e2e-m5` that runs the new sp
    `scripts/test-token.sh qa@acme.example`. The existing `RoleResolver` path already
    resolves `results.upload` from the custom role.
 
-2. **Cookie-name bridge for SSO landing.** The backend writes an `apitool_session` cookie;
+2. **Cookie-name bridge for SSO landing.** The backend writes an `curlew_session` cookie;
    the web reads `access_token` (see `web/src/hooks.server.ts`). Rather than changing
    production behaviour, we override `Saml__SessionCookieName=access_token` on the backend
    container in `docker-compose.test.yml` (and `Saml__WebPortalUrl=http://localhost:3000/org/acme`).
@@ -86,7 +86,7 @@ fake-IdP keypair, the SAMLResponse XML template, and the qa-lead collection.
 openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout testdata/enterprise/fake-idp-key.pem \
   -out testdata/enterprise/fake-idp-cert.pem \
-  -days 36500 -subj "/CN=apitool-fake-idp" -sha256
+  -days 36500 -subj "/CN=curlew-fake-idp" -sha256
 ```
 
 #### Impact on existing tests
@@ -319,7 +319,7 @@ Backend service gains:
 #### Impact on existing tests
 
 - `full-pipeline.spec.ts` — still passes; the env vars change cookie name from
-  `apitool_session` to `access_token`, which is what the web already reads. No spec
+  `curlew_session` to `access_token`, which is what the web already reads. No spec
   change required.
 - `org-sso.spec.ts` etc — all use `seedAuthCookie` which already sets `access_token`,
   unaffected.
@@ -341,7 +341,7 @@ Backend service gains:
 
 ```ts
 import { test, expect } from '@playwright/test';
-import { runApitest } from './helpers/cli';
+import { runCurlew } from './helpers/cli';
 import { triggerSamlLogin } from './helpers/saml';
 import { seedAuthCookie } from './helpers/auth';
 
@@ -372,10 +372,10 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 
   test('CLI upload as qa-lead custom role succeeds', async ({ page, context }) => {
     const qaToken = execSync(`bash scripts/test-token.sh qa@acme.example`).toString().trim();
-    const result = runApitest({
+    const result = runCurlew({
       collection: 'testdata/enterprise/e2e-collection.yaml',
       flags: ['--report-upload', '--org', ORG],
-      env: { APITEST_BACKEND_URL: 'http://localhost:5000', APITEST_BACKEND_TOKEN: qaToken }
+      env: { CURLEW_BACKEND_URL: 'http://localhost:5000', CURLEW_BACKEND_TOKEN: qaToken }
     });
     expect(result.stdout).toMatch(/Uploaded result res_/);
   });
@@ -535,7 +535,7 @@ Body (key diffs vs. e2e-m4.yml):
 - **Risk:** `Saml__SessionCookieName=access_token` override could leak into prod config
   if copied wholesale.
   **Mitigation:** Override only in `docker-compose.test.yml`. Production appsettings use
-  the default `apitool_session`. Add a comment in the compose file.
+  the default `curlew_session`. Add a comment in the compose file.
 
 - **Edge case:** The org GUID parser (`OrgId.TryParse`) in `SamlEndpoints.LoginRedirect`
   uses `Guid.TryParse(orgId, ...)`, while `OrganizationDto.Id` is wire-formatted as
@@ -552,7 +552,7 @@ Body (key diffs vs. e2e-m4.yml):
 
 ```bash
 # Build gates
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 dotnet build src/ApiTool.Backend/ApiTool.Backend.csproj
 dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj --filter "FullyQualifiedName~ResultsAudit"
@@ -562,9 +562,9 @@ cd web && npm run check && npm run lint
 # Stack up + observable
 ./scripts/test-stack.sh up
 ./scripts/seed-enterprise.sh acme qa-lead "results.upload,results.view,dashboard.view"
-APITEST_BACKEND_URL=http://localhost:5000 \
-APITEST_BACKEND_TOKEN=$(./scripts/test-token.sh qa@acme.example) \
-  ./apitest run testdata/enterprise/e2e-collection.yaml --report-upload --org acme
+CURLEW_BACKEND_URL=http://localhost:5000 \
+CURLEW_BACKEND_TOKEN=$(./scripts/test-token.sh qa@acme.example) \
+  ./curlew run testdata/enterprise/e2e-collection.yaml --report-upload --org acme
 # expect: exit 0, "Uploaded result res_..."
 
 cd web && npm run test:e2e -- tests/e2e/enterprise-full.spec.ts

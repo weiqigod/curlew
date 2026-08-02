@@ -17,8 +17,8 @@
 # The M18 happy-path scenario (per M18-012 task observable):
 #   1.  Register via seed-refresh
 #   2.  Email verification (resend → audit pull → confirm)
-#   3.  apitest telemetry enable → install_id created with mode 0600
-#   4.  apitest run emits run.completed telemetry event
+#   3.  curlew telemetry enable → install_id created with mode 0600
+#   4.  curlew run emits run.completed telemetry event
 #   5.  Request data export → run-export-builder hook → fetch signed URL → parse bundle
 #   6.  Initiate deletion → cancel mid-window → re-initiate
 #   7.  Backdate pending_deletion_at + run-deletion-finalizer
@@ -26,7 +26,7 @@
 #   9.  Confirm user.anonymised audit-log row exists
 #   10. Enterprise admin streams audit-log as JSONL; assert chunked + ndjson + row count
 #   11. Encryption envelope round-trip (team_vaults + schedules.env_vars)
-#   12. apitest telemetry delete-request → install_id removed + backend marker row
+#   12. curlew telemetry delete-request → install_id removed + backend marker row
 
 set -euo pipefail
 START_TS=$(date +%s)
@@ -141,18 +141,18 @@ curl -fsS -X POST "$BACKEND_URL/api/v1/invitations/accept" \
     -d "{\"token\":\"$INVITE_TOKEN\"}" >/dev/null
 echo "  Enterprise invitation accepted"
 
-# ── Step 3: apitest telemetry enable ─────────────────────────────────────────
-step 3 "apitest telemetry enable"
+# ── Step 3: curlew telemetry enable ─────────────────────────────────────────
+step 3 "curlew telemetry enable"
 CONFIG_DIR=$(mktemp -d)
 # Cleanup on EXIT, but only if the variable has been set.
 cleanup() { rm -rf "$CONFIG_DIR"; }
 trap cleanup EXIT
 
-APITEST_CONFIG_DIR="$CONFIG_DIR" \
-APITEST_TELEMETRY_ENDPOINT="$BACKEND_URL/api/v1/telemetry/events" \
-    "$REPO_ROOT/apitest" telemetry enable
+CURLEW_CONFIG_DIR="$CONFIG_DIR" \
+CURLEW_TELEMETRY_ENDPOINT="$BACKEND_URL/api/v1/telemetry/events" \
+    "$REPO_ROOT/curlew" telemetry enable
 INSTALL_ID_FILE="$CONFIG_DIR/install_id"
-[ -f "$INSTALL_ID_FILE" ] || fail "install_id file not created by 'apitest telemetry enable'" 3
+[ -f "$INSTALL_ID_FILE" ] || fail "install_id file not created by 'curlew telemetry enable'" 3
 INSTALL_ID=$(cat "$INSTALL_ID_FILE")
 [ -n "$INSTALL_ID" ] || fail "install_id file is empty" 3
 # Check file mode — macOS uses -f '%Lp', Linux uses -c '%a'
@@ -162,11 +162,11 @@ if [ -n "$FILE_MODE" ]; then
 fi
 echo "  install_id=$INSTALL_ID mode=${FILE_MODE:-unknown}"
 
-# ── Step 4: apitest run → run.completed telemetry event ──────────────────────
-step 4 "apitest run emits run.completed"
-APITEST_CONFIG_DIR="$CONFIG_DIR" \
-APITEST_TELEMETRY_ENDPOINT="$BACKEND_URL/api/v1/telemetry/events" \
-    "$REPO_ROOT/apitest" run "$REPO_ROOT/testdata/m18/e2e-collection.yaml" \
+# ── Step 4: curlew run → run.completed telemetry event ──────────────────────
+step 4 "curlew run emits run.completed"
+CURLEW_CONFIG_DIR="$CONFIG_DIR" \
+CURLEW_TELEMETRY_ENDPOINT="$BACKEND_URL/api/v1/telemetry/events" \
+    "$REPO_ROOT/curlew" run "$REPO_ROOT/testdata/m18/e2e-collection.yaml" \
     --var "BACKEND_URL=$BACKEND_URL" || true
 # Poll list-telemetry-events until a run.completed row appears.
 TELEM_DEADLINE=$(( $(date +%s) + 15 ))
@@ -340,12 +340,12 @@ echo "  vault-config cleartext round-trip verified"
 # The task observable's "hex via psql" column check is satisfied by M18-009's unit tests which
 # assert the ciphertext column is non-null and differs from the cleartext input.
 
-# ── Step 12: apitest telemetry delete-request ─────────────────────────────────
-step 12 "apitest telemetry delete-request"
-APITEST_CONFIG_DIR="$CONFIG_DIR" \
-APITEST_TELEMETRY_ENDPOINT="$BACKEND_URL/api/v1/telemetry/events" \
-    "$REPO_ROOT/apitest" telemetry delete-request
-[ ! -f "$INSTALL_ID_FILE" ] || fail "install_id file still exists after 'apitest telemetry delete-request'" 12
+# ── Step 12: curlew telemetry delete-request ─────────────────────────────────
+step 12 "curlew telemetry delete-request"
+CURLEW_CONFIG_DIR="$CONFIG_DIR" \
+CURLEW_TELEMETRY_ENDPOINT="$BACKEND_URL/api/v1/telemetry/events" \
+    "$REPO_ROOT/curlew" telemetry delete-request
+[ ! -f "$INSTALL_ID_FILE" ] || fail "install_id file still exists after 'curlew telemetry delete-request'" 12
 echo "  install_id file removed"
 # Assert a telemetry.delete_request marker row was posted to the backend.
 DELETE_DEADLINE=$(( $(date +%s) + 15 ))
@@ -366,8 +366,8 @@ echo "  telemetry.delete_request marker confirmed"
 # ── Playwright web assertions ─────────────────────────────────────────────────
 step 13 "Playwright web assertions"
 if [ -d "$REPO_ROOT/web" ] && command -v npx >/dev/null 2>&1; then
-    APITEST_BACKEND_URL="$BACKEND_URL" \
-    APITEST_BACKEND_TOKEN="$ACCESS_TOKEN" \
+    CURLEW_BACKEND_URL="$BACKEND_URL" \
+    CURLEW_BACKEND_TOKEN="$ACCESS_TOKEN" \
     M18_ENTERPRISE_TOKEN="$OWNER_TOKEN" \
     M18_INSTALL_ID="$INSTALL_ID" \
     M18_EXPORT_ID="$EXPORT_ID" \

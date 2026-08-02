@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	apicel "github.com/peterlindqvist/apitest/internal/cel"
+	apicel "github.com/weiqigod/curlew/internal/cel"
 )
 
 // testCELContext creates a minimal CELContext for tests.

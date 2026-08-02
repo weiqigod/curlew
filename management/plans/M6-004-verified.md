@@ -21,10 +21,10 @@
 
 ```
 go test ./internal/output/events/...
-ok      github.com/peterlindqvist/apitest/internal/output/events        0.300s
+ok      github.com/weiqigod/curlew/internal/output/events        0.300s
 
 go test -cover ./internal/output/events/...
-ok      github.com/peterlindqvist/apitest/internal/output/events        (cached)  coverage: 95.7% of statements
+ok      github.com/weiqigod/curlew/internal/output/events        (cached)  coverage: 95.7% of statements
 ```
 
 Expected: PASS, including TestEmitter_ConcurrentEmitMonotonicIDs and TestEmitter_GoldenSchemaValidates. Coverage >= 80%.
@@ -34,7 +34,7 @@ Result: MATCH
 
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
-| 1 | RunStart emits kind=run.start, schema_version=0.1, non-empty run_id, id=1, at_ms=0, started_at, apitest_version, cli_args | `TestEmitter_RunStart_MinimalFields` | PASS |
+| 1 | RunStart emits kind=run.start, schema_version=0.1, non-empty run_id, id=1, at_ms=0, started_at, curlew_version, cli_args | `TestEmitter_RunStart_MinimalFields` | PASS |
 | 2 | RequestStart+RequestEnd: monotonic ids, same run_id, same request_id, at_ms non-decreasing | `TestEmitter_RequestStartEnd_PairedIDs` | PASS |
 | 3 | Failed request with registered sentinel: error carries category, code, hint | `TestEmitter_RequestEnd_RegisteredSentinelHint` | PASS |
 | 4 | *NetworkError: category=network, code in NETWORK_* set | `TestEmitter_RequestEnd_NetworkErrorKinds` (5 subtests) | PASS |
@@ -77,7 +77,7 @@ Branch A: Review PASS trusted (verdict PASS, no findings). Spot-check clean:
 | d0757b8 | docs(review): add improvement report for M6-004 (iteration 3) |
 | d5b3782 | test(events): add binary-body-over-limit truncation test |
 | 659c1e2 | fix(events): capture atMs once in EmitRunEnd |
-| cb70d1c | fix(events): validate ApitestVersion in NewEmitter |
+| cb70d1c | fix(events): validate CurlewVersion in NewEmitter |
 | 8d364e2 | docs(review): add review with findings for M6-004 |
 | e8091b5 | docs(review): update improvement report for M6-004 (iteration 2) |
 | 1e4e8ef | fix(events): normalize nil cliArgs to empty slice in EmitRunStart |

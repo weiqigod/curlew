@@ -27,7 +27,7 @@ Note: `./scripts/ci-local.sh` exits 125 because `docker compose` (v2 plugin) is 
 Expected (from task YAML):
 - admin sees "Connect GitHub" button on /integrations
 - clicking it navigates to /api/v1/integrations/github/install-url and follows the redirect
-- after callback simulation, the page renders "GitHub connected — apitool-checks-test, 3 repos covered"
+- after callback simulation, the page renders "GitHub connected — curlew-checks-test, 3 repos covered"
 - non-admin users see the integration as read-only with no Connect button
 
 Result: All verified by Playwright spec tests (behaviours 1, 2, 3). Observable scenario exercises the full flow.

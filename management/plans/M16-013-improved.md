@@ -24,7 +24,7 @@ No findings deferred. All findings resolved.
 |-------|--------|
 | `dotnet build src/ApiTool.Backend` | PASS |
 | `dotnet test src/ApiTool.Backend.Tests` | PASS |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | C# test count | 1350 passed, 0 failed, 8 Stripe live-mode skipped |

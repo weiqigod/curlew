@@ -12,7 +12,7 @@ observable: |
   # entries, unique codes, full source coverage).
   go test ./internal/errors/...
   # Expected tail:
-  #   ok  github.com/peterlindqvist/apitest/internal/errors (~0.4s)
+  #   ok  github.com/weiqigod/curlew/internal/errors (~0.4s)
   # With coverage:
   go test -cover ./internal/errors/...
   # Expected coverage >= 80%
@@ -21,9 +21,9 @@ observable: |
   package main
   import (
       "fmt"
-      apierrors "github.com/peterlindqvist/apitest/internal/errors"
-      "github.com/peterlindqvist/apitest/internal/parser"
-      _ "github.com/peterlindqvist/apitest/internal/parser"
+      apierrors "github.com/weiqigod/curlew/internal/errors"
+      "github.com/weiqigod/curlew/internal/parser"
+      _ "github.com/weiqigod/curlew/internal/parser"
   )
   func main() {
       s := apierrors.ClassifyError(fmt.Errorf("outer: %w", parser.ErrInvalidYAML))
@@ -41,7 +41,7 @@ behaviors:
   - "Given all registered sentinels, when their Codes are enumerated, then every Code is unique across the registry."
 scope: |
   Adds the classification plumbing that the agent event stream (M6-004) will
-  consume. No behavioural change in cmd/apitest yet — this is foundation.
+  consume. No behavioural change in cmd/curlew yet — this is foundation.
 
   Changes to internal/errors:
     - Extend Category enum with assertion, auth, input, internal (additive).

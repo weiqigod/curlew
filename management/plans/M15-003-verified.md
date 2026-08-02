@@ -109,7 +109,7 @@ Branch A: Review PASS trusted (management/reviews/M15-003-review.md verdict=PASS
 | `internal/auth/registry_test.go` | modified — added TestDefaultRegistry_FromCommand and TierMatrix |
 | `internal/runner/runner.go` | modified — stale Solo-tier comment updated |
 | `internal/runner/runner_test.go` | modified — inverted free-tier subtest to assert resolution |
-| `cmd/apitest/main_test.go` | modified — rewrote two gate tests to assert no-longer-gated |
+| `cmd/curlew/main_test.go` | modified — rewrote two gate tests to assert no-longer-gated |
 | `docs/MANUAL.md` | modified — 6 surgical edits (TOC, precedence table, mental-model, heading, body, tier-matrix row removed) |
 | `smoke/run.sh` | modified — added Free-tier from_command happy-path block |
 

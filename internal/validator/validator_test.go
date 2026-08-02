@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/validator"
+	"github.com/weiqigod/curlew/internal/validator"
 )
 
 func TestSeverityString(t *testing.T) {

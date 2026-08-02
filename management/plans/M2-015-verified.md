@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ apitest run --show-dependencies tests.yaml
+$ curlew run --show-dependencies tests.yaml
 digraph dependencies {
   rankdir=LR;
   "Get Token";
@@ -27,7 +27,7 @@ digraph dependencies {
   "Get Token" -> "Use Token" [label="token"];
 }
 
-$ apitest run --show-dependencies --dry-run tests.yaml
+$ curlew run --show-dependencies --dry-run tests.yaml
 Wave 1 (1 requests):
   - Get Token
 Wave 2 (1 requests):
@@ -105,8 +105,8 @@ Review PASS trusted (management/reviews/M2-015-review.md, iteration 2), spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +73/-0 |
-| `cmd/apitest/main_test.go` | modified | +244/-0 |
+| `cmd/curlew/main.go` | modified | +73/-0 |
+| `cmd/curlew/main_test.go` | modified | +244/-0 |
 | `internal/auth/registry.go` | modified | +6/-0 |
 | `internal/auth/registry_test.go` | modified | +12/-0 |
 | `internal/parallel/analyze.go` | created | +118 |

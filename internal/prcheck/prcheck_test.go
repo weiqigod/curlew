@@ -25,7 +25,7 @@ func TestConfigValidate(t *testing.T) {
 		{
 			"missing_backend_token",
 			Config{BackendURL: "http://x", Org: "acme", PR: 42, Repo: "acme/api", ResultsFile: "f.json"},
-			"APITEST_BACKEND_TOKEN",
+			"CURLEW_BACKEND_TOKEN",
 		},
 		{
 			"missing_org",
@@ -80,8 +80,8 @@ func TestConfigFromEnv(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("APITEST_BACKEND_URL", tc.envURL)
-			t.Setenv("APITEST_BACKEND_TOKEN", tc.envToken)
+			t.Setenv("CURLEW_BACKEND_URL", tc.envURL)
+			t.Setenv("CURLEW_BACKEND_TOKEN", tc.envToken)
 			cfg := ConfigFromEnv()
 			if cfg.BackendURL != tc.wantURL {
 				t.Errorf("BackendURL = %q; want %q", cfg.BackendURL, tc.wantURL)

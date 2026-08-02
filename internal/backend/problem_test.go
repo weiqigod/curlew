@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 )
 
 func makeResp(statusCode int, contentType, body string, extraHeaders map[string]string) *http.Response {

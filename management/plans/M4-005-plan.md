@@ -676,7 +676,7 @@ None.
 #### Key page behaviours (required by the task's behaviours list)
 
 1. If `data.error` → render `<ErrorState retry-url={url} />` and **nothing else** (no widgets).
-2. If `data.summary.total_runs === 0` → render `<EmptyState message="Run apitest and upload results to get started" />`.
+2. If `data.summary.total_runs === 0` → render `<EmptyState message="Run curlew and upload results to get started" />`.
 3. Otherwise render `<SummaryCards>`, `<TrendChart>`, `<RecentRunsTable>`, with `<TimeRangePicker>` always visible.
 
 Each element carries a `data-testid` attribute used by the Playwright spec — `data-testid="summary-total-runs"`, `"summary-pass-rate"`, `"trend-chart"`, `"recent-runs-table"`, `"empty-state"`, `"error-state"`, `"range-picker-7d"`, etc.
@@ -761,7 +761,7 @@ esac
 | `web/tests/e2e/org-results.spec.ts` | create | >=5 tests |
 | `web/tests/e2e/helpers/auth.ts` | create | `seedAuthCookie(page, email)` calls `scripts/test-token.sh` via `execSync` and sets `access_token` via `context.addCookies` |
 | `web/tests/e2e/helpers/fixtures.ts` | create | Exposes the seeded org slug (`acme`) and e2e user id |
-| `web/tests/e2e/global-setup.ts` | create | `beforeAll` runs `./scripts/test-stack.sh up` when `APITOOL_MANAGE_STACK=1` (opt-in) |
+| `web/tests/e2e/global-setup.ts` | create | `beforeAll` runs `./scripts/test-stack.sh up` when `CURLEW_MANAGE_STACK=1` (opt-in) |
 
 #### Tests to write (all RED first, but Playwright RED ≡ spec fails against a not-yet-complete build, which is implicit once Steps 1–9 run)
 
@@ -796,7 +796,7 @@ test.describe('Team test results dashboard', () => {
     await context.route('**/api/v1/organizations/*/results**',
       (route) => route.fulfill({ status: 200, body: JSON.stringify({ results: [] }) }));
     await page.goto('/org/acme/results');
-    await expect(page.getByTestId('empty-state')).toContainText('Run apitest and upload results');
+    await expect(page.getByTestId('empty-state')).toContainText('Run curlew and upload results');
     await expect(page.getByTestId('summary-total-runs')).toHaveCount(0);
   });
 
@@ -887,7 +887,7 @@ Total new tests: **~45**.
 - **Risk — backend doesn't yet expose a `tier` field.** → **Mitigation:** treat absent `tier` as `"team"` in `requireTeamTier`. The non-team-tier test uses Playwright route interception to return `tier: 'professional'`, so the behaviour is still covered end-to-end. Document this in `web/README.md` and in a `TODO(M4-010)` comment in `guards.ts` so the field becomes mandatory once M4-010 (subscriptions) lands.
 - **Risk — magic-link auth doesn't exist in the backend.** → **Mitigation:** the E2E spec seeds the `access_token` cookie directly by minting a dev JWT via `scripts/test-token.sh`. This is an explicit deviation from the task wording ("seeded magic link") justified by scope — building magic-link is a separate slice. Documented in `web/README.md` and the plan.
 - **Risk — `ListAsync` clamps `limit` to 100** (backend line 102). The loader requests `limit=100`, and we compute `total_runs` from that truncated list. For seeded fixtures with ≤100 runs this is exact; for larger orgs the "total" becomes "total in the last 100". → **Mitigation:** acceptable for M4-005; mark with a `TODO` to switch to a `GET /results/stats` endpoint in a follow-up backend task. The Playwright spec seeds exactly 5 results so assertions are deterministic.
-- **Risk — docker-compose startup time on CI blowing up E2E time.** → **Mitigation:** `scripts/test-stack.sh up` polls swagger JSON with a 60s budget; `docker compose up --build` caches layers between runs; local dev can skip the stack via `APITOOL_MANAGE_STACK=0` and point Playwright at an already-running stack.
+- **Risk — docker-compose startup time on CI blowing up E2E time.** → **Mitigation:** `scripts/test-stack.sh up` polls swagger JSON with a 60s budget; `docker compose up --build` caches layers between runs; local dev can skip the stack via `CURLEW_MANAGE_STACK=0` and point Playwright at an already-running stack.
 - **Risk — snake_case vs camelCase drift.** Backend emits snake_case. The TypeScript `Result` type mirrors snake_case exactly — no transform layer. → **Mitigation:** explicit field names in the type definitions match the backend DTO exactly; no automatic conversion is applied.
 - **Edge case — empty results list.** Covered by `summarize([])` returning zeros and by the empty-state Playwright test.
 - **Edge case — zero total tests (pass + fail).** `summarize` guards division by zero and returns `pass_rate: 0`.
@@ -901,7 +901,7 @@ Total new tests: **~45**.
 
 ```bash
 # Go — untouched, must remain green
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -922,7 +922,7 @@ npm run build
 
 ```bash
 cd web && npm install && npm run build
-APITOOL_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-results.spec.ts
+CURLEW_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-results.spec.ts
 # Expected: Playwright reports >=5 tests passing (target: 6), including:
 #   - renders overview stats
 #   - recent runs table rows

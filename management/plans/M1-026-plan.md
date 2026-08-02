@@ -103,8 +103,8 @@ func TestAppendJSONL(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `ExecOptions` struct, `parseExecArgs`, `parseStdinRequest` |
-| `cmd/apitest/main_test.go` | modify | Add table-driven tests for both parse functions |
+| `cmd/curlew/main.go` | modify | Add `ExecOptions` struct, `parseExecArgs`, `parseStdinRequest` |
+| `cmd/curlew/main_test.go` | modify | Add table-driven tests for both parse functions |
 
 #### New Code
 ```go
@@ -199,8 +199,8 @@ func TestParseStdinRequest(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `execCmd` function |
-| `cmd/apitest/main_test.go` | modify | Add tests for `execCmd` using in-process capture and httptest servers |
+| `cmd/curlew/main.go` | modify | Add `execCmd` function |
+| `cmd/curlew/main_test.go` | modify | Add tests for `execCmd` using in-process capture and httptest servers |
 
 #### New Code
 ```go
@@ -263,8 +263,8 @@ func TestExecCmd(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `case "exec"` to switch, update `printHelp()` |
-| `cmd/apitest/main_test.go` | modify | Add test for `run([]string{"exec", ...})` dispatch |
+| `cmd/curlew/main.go` | modify | Add `case "exec"` to switch, update `printHelp()` |
+| `cmd/curlew/main_test.go` | modify | Add test for `run([]string{"exec", ...})` dispatch |
 
 #### Current Code
 ```go
@@ -337,7 +337,7 @@ func TestHelpText_ContainsExec(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add integration tests using `buildBinary` + stdin pipe |
+| `cmd/curlew/main_test.go` | modify | Add integration tests using `buildBinary` + stdin pipe |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -382,25 +382,25 @@ func runBinaryWithStdin(t *testing.T, binary, stdin string, args ...string) (std
 #### New Smoke Tests
 ```bash
 # Exec with stdin JSON
-echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin
+echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./curlew exec --stdin
 
 # Exec with inline URL
-./apitest exec https://httpbin.org/get
+./curlew exec https://httpbin.org/get
 
 # Exec with --dry-run
-./apitest exec https://httpbin.org/get --dry-run
+./curlew exec https://httpbin.org/get --dry-run
 
 # Exec with --format json
-echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin --format json
+echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./curlew exec --stdin --format json
 
 # Exec with invalid JSON (expect error)
-echo 'not json' | ./apitest exec --stdin
+echo 'not json' | ./curlew exec --stdin
 
 # Exec with --log
-echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin --log /tmp/test.jsonl
+echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./curlew exec --stdin --log /tmp/test.jsonl
 
 # Help text shows exec
-./apitest --help | grep -q "exec"
+./curlew --help | grep -q "exec"
 ```
 
 #### Impact on Existing Tests
@@ -411,10 +411,10 @@ echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/output/jsonl_test.go` | all | new | create |
-| `cmd/apitest/main_test.go` | `TestParseExecArgs` | new | add |
-| `cmd/apitest/main_test.go` | `TestParseStdinRequest` | new | add |
-| `cmd/apitest/main_test.go` | `TestExecCmd` | new | add |
-| `cmd/apitest/main_test.go` | `TestExecIntegration` | new | add |
+| `cmd/curlew/main_test.go` | `TestParseExecArgs` | new | add |
+| `cmd/curlew/main_test.go` | `TestParseStdinRequest` | new | add |
+| `cmd/curlew/main_test.go` | `TestExecCmd` | new | add |
+| `cmd/curlew/main_test.go` | `TestExecIntegration` | new | add |
 | existing tests | — | none | — |
 
 ## Risks and Edge Cases
@@ -434,7 +434,7 @@ echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -442,5 +442,5 @@ go test ./...
 
 Observable verification:
 ```bash
-echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin --format json
+echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./curlew exec --stdin --format json
 ```

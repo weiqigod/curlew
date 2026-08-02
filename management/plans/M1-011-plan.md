@@ -102,8 +102,8 @@ func TestParseVarFlag(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `parseRunArgs` function and update `runCmd` |
-| `cmd/apitest/main_test.go` | modify | Add unit tests for arg parsing |
+| `cmd/curlew/main.go` | modify | Add `parseRunArgs` function and update `runCmd` |
+| `cmd/curlew/main_test.go` | modify | Add unit tests for arg parsing |
 
 #### Current Code
 ```go
@@ -250,7 +250,7 @@ func TestRun_cli_var_adds_new_variable(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update `printHelp()` to show `--var` flag |
+| `cmd/curlew/main.go` | modify | Update `printHelp()` to show `--var` flag |
 
 #### Current Code
 ```go
@@ -260,7 +260,7 @@ func TestRun_cli_var_adds_new_variable(t *testing.T) {
 #### New Code
 ```
 Usage:
-  apitest <command> [arguments]
+  curlew <command> [arguments]
 
 Commands:
   run <file>   Execute requests in a collection file
@@ -285,7 +285,7 @@ Options:
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add integration tests with test HTTP server |
+| `cmd/curlew/main_test.go` | modify | Add integration tests with test HTTP server |
 | `smoke/run.sh` | modify | Add `--var` override scenario |
 
 #### Tests to Write
@@ -320,7 +320,7 @@ func TestCLIIntegration_var_flag_value_with_equals(t *testing.T) {
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/runner/runner_test.go` | All `Run()` calls | signature change | Append `nil` as 4th arg (~25+ sites) |
-| `cmd/apitest/main_test.go` | Help text tests | possible string change | Update expected help output |
+| `cmd/curlew/main_test.go` | Help text tests | possible string change | Update expected help output |
 | All other test files | — | none | — |
 
 ## Risks and Edge Cases
@@ -334,7 +334,7 @@ func TestCLIIntegration_var_flag_value_with_equals(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -342,5 +342,5 @@ go test ./...
 
 Observable verification:
 ```bash
-./apitest run collection.yaml --var base_url=http://localhost:8080
+./curlew run collection.yaml --var base_url=http://localhost:8080
 ```

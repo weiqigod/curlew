@@ -21,7 +21,7 @@
 
 <script lang="ts">
   // Recursive JSON-tree node (§10.6.3.1). Copy-path emits body.$ + JSONPath —
-  // matching apitest's assertion syntax. Redacted leaves render the chip.
+  // matching curlew's assertion syntax. Redacted leaves render the chip.
   import CopyBtn from '../atoms/CopyBtn.svelte';
   import Icon from '../atoms/Icon.svelte';
   import Redacted from '../atoms/Redacted.svelte';

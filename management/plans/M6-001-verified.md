@@ -15,17 +15,17 @@
 | `go test -cover ./internal/errors/...` | PASS | 93.2% coverage, above the 80% gate |
 | `golangci-lint run ./...` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Smoke test clean |
-| `go build ./cmd/apitest` | PASS | Binary builds |
+| `go build ./cmd/curlew` | PASS | Binary builds |
 
 ## Observable Output
 
 ```
 $ go test ./internal/errors/...
-ok  	github.com/peterlindqvist/apitest/internal/errors	0.409s	coverage: 93.2% of statements
+ok  	github.com/weiqigod/curlew/internal/errors	0.409s	coverage: 93.2% of statements
 
 $ go test ./... 2>&1 | tail
-ok  	github.com/peterlindqvist/apitest/internal/websocket/templates	(cached)
-ok  	github.com/peterlindqvist/apitest/internal/worker	(cached)
+ok  	github.com/weiqigod/curlew/internal/websocket/templates	(cached)
+ok  	github.com/weiqigod/curlew/internal/worker	(cached)
 
 $ golangci-lint run ./...
 0 issues.
@@ -71,7 +71,7 @@ s := apierrors.ClassifyError(fmt.Errorf("outer: %w", parser.ErrInvalidYAML))
 
 ## Notes
 
-- No behavioural change in `cmd/apitest` as designed. This is plumbing consumed by M6-004 (events package) and, for free via the existing `apierrors.Format()` call in `terminal.go:12`, by the terminal formatter when errors eventually carry the new Code/Hint enrichment.
+- No behavioural change in `cmd/curlew` as designed. This is plumbing consumed by M6-004 (events package) and, for free via the existing `apierrors.Format()` call in `terminal.go:12`, by the terminal formatter when errors eventually carry the new Code/Hint enrichment.
 - The coverage test uses `go/parser` to walk the source tree rather than reflection, because Go does not expose package-level `var` declarations via reflection. Blank imports in `coverage_test.go` force each owning package's `init()` to populate the registry before the source walk cross-references.
 - `internal/errors` itself has no `Err*` sentinels and is skipped by the source walk.
 - Distributed registration (per-package `hints_init.go`) is the only workable pattern given that `internal/errors` is already imported by sentinel-owning packages (e.g. `parser`). The reverse import would cycle.

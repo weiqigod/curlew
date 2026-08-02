@@ -349,7 +349,7 @@ func TestRunFromCommand(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Pass `Tier` to `VarSources`, handle `*GateError` for exit 6, build sensitive set for from_command vars |
+| `cmd/curlew/main.go` | modify | Pass `Tier` to `VarSources`, handle `*GateError` for exit 6, build sensitive set for from_command vars |
 
 #### Changes
 
@@ -374,7 +374,7 @@ for name, cmd := range col.Variables.Commands {
 
 #### Tests to Write FIRST (RED phase)
 
-Integration tests in `cmd/apitest/`:
+Integration tests in `cmd/curlew/`:
 ```go
 {"from_command_gate_returns_exit_6", ...},
 {"from_command_sensitive_redacted_in_terminal", ...},
@@ -395,7 +395,7 @@ Integration tests in `cmd/apitest/`:
 | `internal/variable/command_test.go` | all | new file | create from scratch |
 | `internal/runner/runner_test.go` | existing tests | minor | may need Tier field on VarSources |
 | `internal/runner/runner_test.go` | new tests | add | from_command integration |
-| `cmd/apitest/` | existing tests | none | no change expected |
+| `cmd/curlew/` | existing tests | none | no change expected |
 
 ## Risks and Edge Cases
 
@@ -418,7 +418,7 @@ Integration tests in `cmd/apitest/`:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -442,10 +442,10 @@ requests:
 EOF
 
 # Run at Solo tier — variable resolves to "secret123"
-apitest run /tmp/m2001-test.yaml
+curlew run /tmp/m2001-test.yaml
 
 # Run at Free tier — exit code 6 with feature gate message
-apitest run /tmp/m2001-test.yaml
+curlew run /tmp/m2001-test.yaml
 echo $?  # should be 6
 
 # Run variable tests

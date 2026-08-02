@@ -53,7 +53,7 @@ Result: MATCH
 | 2 | Observable output works as specified | hooklog plugin outputs on_request/on_response/on_result lines as expected | PASS |
 | 3 | Test coverage >= 80% | 86.5% total; internal/plugin/hooks 82.0%, internal/plugin 81.3% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint run` returns 0 issues | PASS |
-| 5 | Help text for apitest run documents plugin hooks | `./apitest --help` shows "Plugin hooks (Enterprise tier)" section with on_request/on_response/on_result | PASS |
+| 5 | Help text for curlew run documents plugin hooks | `./curlew --help` shows "Plugin hooks (Enterprise tier)" section with on_request/on_response/on_result | PASS |
 | 6 | Smoke test exercises a run with a hook-logging plugin | `smoke/run.sh` "Plugin hooks (M5-018)" section passes PASS/PASS/PASS | PASS |
 
 ## Code Review
@@ -110,9 +110,9 @@ Branch A: Review PASS trusted (management/reviews/M5-018-review-iter3.md verdict
 | `internal/plugin/plugin.go` | modified — HookName type, knownHooks set |
 | `internal/runner/runner.go` | modified — HooksDispatcher interface, hook wiring |
 | `internal/runner/runner_test.go` | modified — dispatcher integration tests |
-| `cmd/apitest/main.go` | modified — help text Plugin hooks section |
-| `cmd/apitest/plugins.go` | added — buildHookDispatcher helper |
-| `cmd/apitest/plugins_test.go` | added — CLI integration tests |
+| `cmd/curlew/main.go` | modified — help text Plugin hooks section |
+| `cmd/curlew/plugins.go` | added — buildHookDispatcher helper |
+| `cmd/curlew/plugins_test.go` | added — CLI integration tests |
 | `smoke/run.sh` | modified — Plugin hooks (M5-018) section |
 | `testdata/plugins/hooklog-plugin/main.go` | added — hooklog fixture |
 | `testdata/plugins/one-request.yaml` | added — smoke test collection |

@@ -18,7 +18,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/m1005_observable.yaml
+$ ./curlew run /tmp/m1005_observable.yaml
 Collection: Body Assertion Observable
   ✓ Check user  200  58ms
 
@@ -105,7 +105,7 @@ Review PASS trusted (management/reviews/M1-005-review.md), spot-check clean.
 | `internal/httpexec/executor_test.go` | modified | +40 |
 | `internal/runner/runner.go` | modified | +18/-1 |
 | `internal/runner/runner_test.go` | modified | +134 |
-| `cmd/apitest/run_test.go` | modified | +124 |
+| `cmd/curlew/run_test.go` | modified | +124 |
 | `smoke/run.sh` | modified | +39 |
 
 ## Issues Found

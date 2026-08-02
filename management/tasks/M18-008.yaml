@@ -1,5 +1,5 @@
 id: M18-008
-title: "CLI telemetry emitter: internal/telemetry package, persistent install_id, `apitest telemetry` subcommand"
+title: "CLI telemetry emitter: internal/telemetry package, persistent install_id, `curlew telemetry` subcommand"
 status: done
 priority: 3
 created: 2026-05-17
@@ -9,51 +9,51 @@ dependencies:
   - M18-007
 
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/telemetry/... -count=1
   # Expected: ok, >= 18 tests
-  rm -rf ~/.config/apitesttool/install_id ~/.config/apitesttool/telemetry.json
-  ./apitest telemetry status
+  rm -rf ~/.config/curlew/install_id ~/.config/curlew/telemetry.json
+  ./curlew telemetry status
   # Expected: "telemetry: disabled (no install_id; opt-in required)"; exit 1
-  ./apitest telemetry enable
-  # Expected: "telemetry: enabled; install_id=<uuid>; events will post to https://api.apitest.org/telemetry/events"; exit 0
-  test -f ~/.config/apitesttool/install_id && test "$(stat -f '%Lp' ~/.config/apitesttool/install_id)" = "600"
+  ./curlew telemetry enable
+  # Expected: "telemetry: enabled; install_id=<uuid>; events will post to https://api.curlew.org/telemetry/events"; exit 0
+  test -f ~/.config/curlew/install_id && test "$(stat -f '%Lp' ~/.config/curlew/install_id)" = "600"
   # Confirm file exists with mode 0600
-  ./apitest telemetry status
+  ./curlew telemetry status
   # Expected: "telemetry: enabled; install_id=<same uuid>"; exit 0
   # With the M18-007 backend running locally:
-  APITEST_TELEMETRY_ENDPOINT=http://localhost:5000/api/v1/telemetry/events ./apitest run testdata/sample-collection.yaml
+  CURLEW_TELEMETRY_ENDPOINT=http://localhost:5000/api/v1/telemetry/events ./curlew run testdata/sample-collection.yaml
   # Expected: collection runs, run.completed event fires, backend telemetry_events row appears
-  ./apitest telemetry reset-id
+  ./curlew telemetry reset-id
   # Expected: "telemetry: install_id regenerated; old id discarded"; exit 0; the file content differs
-  ./apitest telemetry disable
+  ./curlew telemetry disable
   # Expected: "telemetry: disabled; install_id retained (use `reset-id` to regenerate or `delete-request` to remove)"; subsequent runs do not POST
-  ./apitest telemetry export
+  ./curlew telemetry export
   # Expected: prints the local install_id + the most recent N event-emission attempts (the CLI side of GDPR export — backend export covered in M18-004)
-  ./apitest telemetry delete-request
-  # Expected: removes ~/.config/apitesttool/install_id and ~/.config/apitesttool/telemetry.json AND POSTs a delete-marker event to the backend so backend rows can be purged
+  ./curlew telemetry delete-request
+  # Expected: removes ~/.config/curlew/install_id and ~/.config/curlew/telemetry.json AND POSTs a delete-marker event to the backend so backend rows can be purged
 
 behaviors:
-  - "Given no ~/.config/apitesttool/install_id exists, when `apitest telemetry status` runs, then it reports disabled and exits 1"
-  - "Given the user runs `apitest telemetry enable`, when the command completes, then ~/.config/apitesttool/install_id is created mode 0600 with a UUIDv4 and ~/.config/apitesttool/telemetry.json declares enabled=true"
-  - "Given telemetry is enabled, when `apitest run` emits a runner event, then a POST is issued to APITEST_TELEMETRY_ENDPOINT (default https://api.apitest.org/telemetry/events) with the install_id, event_type, payload, and a fresh Idempotency-Key UUID per event"
-  - "Given telemetry is disabled (telemetry.json missing or enabled=false), when `apitest run` emits an event, then NO POST is issued (opt-in consent per v4-9)"
+  - "Given no ~/.config/curlew/install_id exists, when `curlew telemetry status` runs, then it reports disabled and exits 1"
+  - "Given the user runs `curlew telemetry enable`, when the command completes, then ~/.config/curlew/install_id is created mode 0600 with a UUIDv4 and ~/.config/curlew/telemetry.json declares enabled=true"
+  - "Given telemetry is enabled, when `curlew run` emits a runner event, then a POST is issued to CURLEW_TELEMETRY_ENDPOINT (default https://api.curlew.org/telemetry/events) with the install_id, event_type, payload, and a fresh Idempotency-Key UUID per event"
+  - "Given telemetry is disabled (telemetry.json missing or enabled=false), when `curlew run` emits an event, then NO POST is issued (opt-in consent per v4-9)"
   - "Given the POST fails (network down, 5xx, timeout), when the runner continues, then no error is surfaced to the user (telemetry failures are silent; the runner does not block)"
-  - "Given `apitest telemetry reset-id` runs, when it completes, then install_id is regenerated (new UUID) and the old id is not recoverable from disk"
-  - "Given `apitest telemetry delete-request` runs, when it completes, then both files are removed and a final POST is issued carrying event_type=telemetry.delete_request so the backend can prune rows for that install_id (per spec :6657)"
+  - "Given `curlew telemetry reset-id` runs, when it completes, then install_id is regenerated (new UUID) and the old id is not recoverable from disk"
+  - "Given `curlew telemetry delete-request` runs, when it completes, then both files are removed and a final POST is issued carrying event_type=telemetry.delete_request so the backend can prune rows for that install_id (per spec :6657)"
   - "Given the new internal/telemetry package, when callers inspect it, then it does NOT import internal/backend (separate HTTP client; no Bearer auth, no refresh-token flow, per v4-11)"
   - "Given the persistent install_id model, when the CLI runs multiple times in a day, then all events carry the same install_id (supersedes the prior per-session-UUID spec at :6374 per v4-8); a nested per-execution session_uuid is included in each event payload"
 
 scope: |
-  New Go package internal/telemetry/ with: a dedicated http.Client (no Bearer auth; idempotency-key generation per event; configurable endpoint via APITEST_TELEMETRY_ENDPOINT for tests; does NOT reuse internal/backend per v4-11). install_id storage at ~/.config/apitesttool/install_id (mode 0600), UUIDv4 generated on first enable. Consent file at ~/.config/apitesttool/telemetry.json with enabled bool + endpoint override. New subcommand `apitest telemetry {enable, disable, status, reset-id, export, delete-request}` registered in cmd/apitest/main.go subcommand registry. Runner event hookup at the existing event-emission points in internal/output/events/emitter.go — emit only when telemetry.json declares enabled=true. Spec correction: docs/SPECIFICATION.md Telemetry Phase 3 section is updated in this slice to reflect the persistent install-ID model (per v4-8), reconciling the supersession of the per-execution session-UUID model at :6374. The session UUID survives as a nested per-execution sub-identifier inside each event's payload.
+  New Go package internal/telemetry/ with: a dedicated http.Client (no Bearer auth; idempotency-key generation per event; configurable endpoint via CURLEW_TELEMETRY_ENDPOINT for tests; does NOT reuse internal/backend per v4-11). install_id storage at ~/.config/curlew/install_id (mode 0600), UUIDv4 generated on first enable. Consent file at ~/.config/curlew/telemetry.json with enabled bool + endpoint override. New subcommand `curlew telemetry {enable, disable, status, reset-id, export, delete-request}` registered in cmd/curlew/main.go subcommand registry. Runner event hookup at the existing event-emission points in internal/output/events/emitter.go — emit only when telemetry.json declares enabled=true. Spec correction: docs/SPECIFICATION.md Telemetry Phase 3 section is updated in this slice to reflect the persistent install-ID model (per v4-8), reconciling the supersession of the per-execution session-UUID model at :6374. The session UUID survives as a nested per-execution sub-identifier inside each event's payload.
 
 definition_of_done:
   - "go test ./internal/telemetry/... passes with >= 18 tests"
-  - "Real binary `apitest telemetry {enable,disable,status,reset-id,export,delete-request}` produces the documented stdout/exit codes"
+  - "Real binary `curlew telemetry {enable,disable,status,reset-id,export,delete-request}` produces the documented stdout/exit codes"
   - "Test coverage >= 80% on internal/telemetry"
   - "go vet + staticcheck clean"
   - "internal/telemetry does NOT import internal/backend (CI grep guard)"
-  - "Help text for `apitest telemetry` updated; main help lists the subcommand"
+  - "Help text for `curlew telemetry` updated; main help lists the subcommand"
   - "docs/SPECIFICATION.md Telemetry Phase 3 section updated to reflect the persistent install-ID model (v4-8 supersession of :6374); v4.4.1 supplement candidate flagged in CHANGELOG if section-prose drift surfaced"
   - "Smoke test ./scripts/smoke.sh adds a telemetry enable → status → disable round-trip"
   - "CHANGELOG.md entry references v4-8, v4-11"

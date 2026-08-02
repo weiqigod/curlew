@@ -1,7 +1,7 @@
 # GDPR Data Inventory
 
 This document is the canonical decision matrix for GDPR data subject rights across the 14
-user-attributable tables in the ApiTool backend. Each row records whether the table's rows
+user-attributable tables in the Curlew backend. Each row records whether the table's rows
 appear in the per-user export (`GET /api/v1/users/me/export`, M18-004) and whether they are
 hard-deleted, anonymised, or excluded on user deletion (M18-005, M18-006). Refs:
 `docs/SPECIFICATION.md` v4-4 + v4-5 decision; `docs/M18_INVESTIGATION.md` Gap 18.

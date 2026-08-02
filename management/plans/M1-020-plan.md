@@ -364,8 +364,8 @@ func TestRunPopulatesMethodAndURL_skipped_in_setup_fail(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add format return value to parseRunArgs, add --format case |
-| `cmd/apitest/main_test.go` | modify | Add --format test cases to existing TestParseRunArgs table |
+| `cmd/curlew/main.go` | modify | Add format return value to parseRunArgs, add --format case |
+| `cmd/curlew/main_test.go` | modify | Add --format test cases to existing TestParseRunArgs table |
 
 #### Current Code (`main.go:49`)
 
@@ -422,7 +422,7 @@ file, envName, format, cliVars, envVarVars, seed, noColor, parseErr := parseRunA
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add buildJSONOutput helper, branch on format in runCmd |
+| `cmd/curlew/main.go` | modify | Add buildJSONOutput helper, branch on format in runCmd |
 
 #### New Code (added to `main.go`)
 
@@ -526,7 +526,7 @@ func runCmd(args []string) int {
 			_ = output.WriteJSON(os.Stdout, out)
 			return 1
 		}
-		_, _ = fmt.Fprintln(os.Stderr, "Usage: apitest run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--no-color]")
+		_, _ = fmt.Fprintln(os.Stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--no-color]")
 		errOut := output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, noColor))
 		errOut.StructuredError(parseErr)
 		return 1
@@ -625,7 +625,7 @@ func TestExtractJSONOperator(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Gate each early-return error on format=="json" and emit JSON error instead |
+| `cmd/curlew/main.go` | modify | Gate each early-return error on format=="json" and emit JSON error instead |
 
 Error paths that need JSON branches (with their exit codes):
 1. `parser.ParseFile` fails → exit 3
@@ -676,7 +676,7 @@ func TestRunCmd_JSONMode_VarError(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add --format to printHelp() and usage string in runCmd |
+| `cmd/curlew/main.go` | modify | Add --format to printHelp() and usage string in runCmd |
 
 #### Current Code (`main.go:240-245`)
 
@@ -723,7 +723,7 @@ func TestHelp_contains_format(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add --format json integration test cases |
+| `cmd/curlew/main_test.go` | modify | Add --format json integration test cases |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -846,7 +846,7 @@ requests:
 
 ```bash
 echo "--- Running with --format json (expect valid JSON) ---"
-JSON_FILE=$(mktemp /tmp/apitest_json_XXXXXX.yaml)
+JSON_FILE=$(mktemp /tmp/curlew_json_XXXXXX.yaml)
 cat > "$JSON_FILE" << 'YAML'
 name: JSON Format Smoke
 requests:
@@ -857,14 +857,14 @@ requests:
     assertions:
       status: 200
 YAML
-JSON_OUTPUT=$(./apitest run "$JSON_FILE" --format json)
+JSON_OUTPUT=$(./curlew run "$JSON_FILE" --format json)
 echo "$JSON_OUTPUT" | python3 -m json.tool > /dev/null && echo "PASS: --format json produces valid JSON" || { echo "FAIL: Invalid JSON output: $JSON_OUTPUT"; exit 1; }
 echo "$JSON_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'name' in d and 'status' in d and 'requests' in d" && echo "PASS: top-level fields present" || { echo "FAIL: Missing fields"; exit 1; }
 rm -f "$JSON_FILE"
 echo
 
 echo "--- --format json with failing assertion (expect JSON with failed status) ---"
-JSON_FAIL_FILE=$(mktemp /tmp/apitest_json_fail_XXXXXX.yaml)
+JSON_FAIL_FILE=$(mktemp /tmp/curlew_json_fail_XXXXXX.yaml)
 cat > "$JSON_FAIL_FILE" << 'YAML'
 name: JSON Fail Smoke
 requests:
@@ -875,13 +875,13 @@ requests:
     assertions:
       status: 404
 YAML
-JSON_FAIL_OUTPUT=$(./apitest run "$JSON_FAIL_FILE" --format json || true)
+JSON_FAIL_OUTPUT=$(./curlew run "$JSON_FAIL_FILE" --format json || true)
 echo "$JSON_FAIL_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='failed'" && echo "PASS: --format json failed status" || { echo "FAIL: Wrong status in: $JSON_FAIL_OUTPUT"; exit 1; }
 rm -f "$JSON_FAIL_FILE"
 echo
 
 echo "--- --format json with no assertions (assertions array not null) ---"
-JSON_NO_ASSERT_FILE=$(mktemp /tmp/apitest_json_no_assert_XXXXXX.yaml)
+JSON_NO_ASSERT_FILE=$(mktemp /tmp/curlew_json_no_assert_XXXXXX.yaml)
 cat > "$JSON_NO_ASSERT_FILE" << 'YAML'
 name: No Assert Smoke
 requests:
@@ -890,13 +890,13 @@ requests:
       method: GET
       url: "https://httpbin.org/get"
 YAML
-JSON_NO_ASSERT_OUTPUT=$(./apitest run "$JSON_NO_ASSERT_FILE" --format json)
+JSON_NO_ASSERT_OUTPUT=$(./curlew run "$JSON_NO_ASSERT_FILE" --format json)
 echo "$JSON_NO_ASSERT_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); r=d['requests'][0]; assert isinstance(r['assertions'], list)" && echo "PASS: assertions is array not null" || { echo "FAIL: assertions not array"; exit 1; }
 rm -f "$JSON_NO_ASSERT_FILE"
 echo
 
 echo "--- Help text shows --format ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-format" && echo "PASS: --format in help" || { echo "FAIL: Missing --format in help output"; exit 1; }
 echo
 ```
@@ -907,7 +907,7 @@ echo
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | All `TestParseRunArgs` cases | breaks | Add `""` format field to each expected result |
+| `cmd/curlew/main_test.go` | All `TestParseRunArgs` cases | breaks | Add `""` format field to each expected result |
 | `internal/runner/runner_test.go` | All `TestRun*` cases | none — fields are additive | No action needed |
 | `internal/output/*_test.go` | All existing | none — new file | No action needed |
 
@@ -937,7 +937,7 @@ echo
 
 ```bash
 # Build
-go build ./cmd/apitest
+go build ./cmd/curlew
 
 # All tests
 go test ./...
@@ -945,7 +945,7 @@ go test ./...
 # Targeted package tests
 go test -v ./internal/output/...
 go test -v ./internal/runner/...
-go test -v ./cmd/apitest/...
+go test -v ./cmd/curlew/...
 
 # Coverage
 go test -coverprofile=coverage.out ./...
@@ -960,6 +960,6 @@ go tool cover -func=coverage.out
 
 Observable verification:
 ```bash
-./apitest run collection.yaml --format json | jq .
+./curlew run collection.yaml --format json | jq .
 # Verify valid JSON with all fields: name, status, duration_ms, requests[].{name,method,url,status_code,duration_ms,assertions}
 ```

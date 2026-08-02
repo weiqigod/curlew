@@ -1,11 +1,11 @@
-// Shared helpers for the apitest ui e2e suite. The global setup writes the
+// Shared helpers for the curlew ui e2e suite. The global setup writes the
 // server origin/token to STATE_FILE; tests read it synchronously.
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 
-export const STATE_FILE = path.join(os.tmpdir(), 'apitest-ui-e2e-state.json');
+export const STATE_FILE = path.join(os.tmpdir(), 'curlew-ui-e2e-state.json');
 
 export interface UiServer {
   /** http://127.0.0.1:<port> */

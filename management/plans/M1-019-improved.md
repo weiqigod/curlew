@@ -20,10 +20,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
-| Coverage `cmd/apitest` | 86.6% |
+| Coverage `cmd/curlew` | 86.6% |
 | Coverage `internal/output` | 100.0% (up from 91.8%) |
 | Coverage `IsTerminal` function | 100.0% (up from 42.9%) |
 | Overall total | 93.2% |

@@ -1,9 +1,9 @@
 {
-  "name": "apitool-site",
+  "name": "curlew-site",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "ApiTool examples cookbook — a static showcase of sophisticated end-to-end API tests.",
+  "description": "Curlew examples cookbook — a static showcase of sophisticated end-to-end API tests.",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

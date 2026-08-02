@@ -1,4 +1,4 @@
-// Package events defines the NDJSON agent event stream emitted by `apitest run`
+// Package events defines the NDJSON agent event stream emitted by `curlew run`
 // when the --events flag is provided. The current schema is documented in
 // docs/events-schema/v1.3.json. v1.2, v1.1 and v1.0 are retained at their
 // respective paths as historical anchors.
@@ -70,7 +70,7 @@ type EventError struct {
 type RunStart struct {
 	Header
 	StartedAt      string   `json:"started_at"` // RFC3339Nano UTC
-	ApitestVersion string   `json:"apitest_version"`
+	CurlewVersion  string   `json:"curlew_version"`
 	CLIArgs        []string `json:"cli_args"`
 	CollectionFile string   `json:"collection_file,omitempty"`
 	EnvName        string   `json:"env_name,omitempty"`

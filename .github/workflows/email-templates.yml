@@ -52,7 +52,7 @@ jobs:
 
       - name: Assert six per-slug template IDs were written
         run: |
-          count=$(grep -c '^APITOOL__SENDGRID__TEMPLATES__' "${RUNNER_TEMP}/sendgrid-templates.env" || true)
+          count=$(grep -c '^CURLEW__SENDGRID__TEMPLATES__' "${RUNNER_TEMP}/sendgrid-templates.env" || true)
           if [ "$count" -ne 6 ]; then
             echo "FAIL: expected 6 template IDs, got ${count}"
             cat "${RUNNER_TEMP}/sendgrid-templates.env"

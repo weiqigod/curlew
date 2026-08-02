@@ -30,7 +30,7 @@ No findings.
 - `internal/output`: 92.3% — above 80% threshold
 - `internal/output/markdown`: 92.6% — above 80% threshold
 - `internal/variable`: 97.3% — above 80% threshold
-- `cmd/apitest`: 81.5% — above 80% threshold
+- `cmd/curlew`: 81.5% — above 80% threshold
 
 All packages meet the 80% threshold.
 
@@ -42,4 +42,4 @@ All packages meet the 80% threshold.
 
 ## Summary
 
-The implementation is complete, correct, and well-tested. All eight task behaviors have test coverage, all six formatters render `skipped` with reason, the validate command surfaces `ERR_CEL_PARSE` and `ERR_CEL_TYPE` with field path and truncated source, the smoke fixture exercises the observable, and help text for `apitest run` documents `if:` and `depends_on:`. The gate passes: build clean, all tests green (including race detector), golangci-lint reports 0 issues, smoke passes, all coverages above 80%.
+The implementation is complete, correct, and well-tested. All eight task behaviors have test coverage, all six formatters render `skipped` with reason, the validate command surfaces `ERR_CEL_PARSE` and `ERR_CEL_TYPE` with field path and truncated source, the smoke fixture exercises the observable, and help text for `curlew run` documents `if:` and `depends_on:`. The gate passes: build clean, all tests green (including race detector), golangci-lint reports 0 issues, smoke passes, all coverages above 80%.

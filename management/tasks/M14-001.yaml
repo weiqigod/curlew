@@ -13,8 +13,8 @@ observable: |
   dotnet test src/ApiTool.Backend.Tests --filter "Category=KeyProvider|FullyQualifiedName~SigningKeys"
   # Expected: Passed: >=10, Failed: 0
   ASPNETCORE_ENVIRONMENT=Testing \
-    APITOOL__KEYPROVIDER__MODE=file \
-    APITOOL__KEYPROVIDER__FILE__DIR=./Keys/signing \
+    CURLEW__KEYPROVIDER__MODE=file \
+    CURLEW__KEYPROVIDER__FILE__DIR=./Keys/signing \
     dotnet run --project src/ApiTool.Backend &
   sleep 3
   curl -sS http://localhost:5000/internal/keys/active | jq .kid
@@ -27,7 +27,7 @@ behaviors:
   - "Given a kid header value containing path-traversal characters, when IKeyProvider.GetKeyAsync(kid) is called, then the regex allowlist (^[a-z0-9-]{1,64}$) rejects with InvalidKidFormat and no DB lookup occurs"
   - "Given two rows attempt status='current' simultaneously, when committed, then the partial unique index idx_signing_keys_current rejects the second with a 23505 constraint violation"
   - "Given GetVerificationJwksAsync is called with one current and one verifying key, when invoked, then both keys are returned in the JWKS response with use=sig and the correct kid/alg fields"
-  - "Given an emergency rotation is requested via apitest-backend keys rotate --emergency, when executed, then the next key is promoted to current, the old current is marked revoked with revoke_reason set, and JWKS reflects the change within one cache cycle"
+  - "Given an emergency rotation is requested via curlew-backend keys rotate --emergency, when executed, then the next key is promoted to current, the old current is marked revoked with revoke_reason set, and JWKS reflects the change within one cache cycle"
 scope: |
   New backend infrastructure under src/ApiTool.Backend/Licensing/Keys/. Adds the
   signing_keys table per docs/SPECIFICATION.md:9268+ Database Schema appendix
@@ -42,7 +42,7 @@ scope: |
   preserve since refresh issuance has not yet shipped to users). Algorithm pinned
   to ES256 per Decision #1; rotation cadence 90/60 per Decision #3. RFC 6979
   deterministic signing required (vetted wrapper or KMS path). Adds
-  apitest-backend keys rotate --emergency CLI runbook entry.
+  curlew-backend keys rotate --emergency CLI runbook entry.
 definition_of_done:
   - "All behavior tests pass (>=10) under dotnet test"
   - "Live HTTP probe of /internal/keys/active returns a kid matching the documented format"

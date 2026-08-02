@@ -2,7 +2,7 @@
 
 ## Overview
 
-Introduce a new `apitest perf` subcommand backed by a new `internal/loadgen`
+Introduce a new `curlew perf` subcommand backed by a new `internal/loadgen`
 package. The loadgen package provides a simple, dependency-free load generator:
 a fixed virtual-user (VU) worker pool with optional linear ramp-up and a
 constant-RPS throughput mode driven by `time.Ticker`. Every VU executes the
@@ -71,7 +71,7 @@ These decisions resolve the ambiguities flagged in the task's `scope` field.
    before running, surfacing exit code 6 when the user is below Enterprise.
    Adding a new feature key to `auth.DefaultRegistry()` is a small additive
    change; existing tests remain green. Tests in `perf_test.go` override the
-   tier via `APITEST_TIER=enterprise`.
+   tier via `CURLEW_TIER=enterprise`.
 
 7. **Output format.** Stdout shows the four summary lines listed in
    `observable`. No file output (`--output`) in this slice — that's M5-012.
@@ -101,9 +101,9 @@ These decisions resolve the ambiguities flagged in the task's `scope` field.
 | `internal/loadgen/run_test.go` | create | Runner behaviour tests against httptest |
 | `internal/loadgen/request.go` | create | YAML loader for request files |
 | `internal/loadgen/request_test.go` | create | YAML-loading tests |
-| `cmd/apitest/perf.go` | create | `perfCmd`, flag parser, help printer |
-| `cmd/apitest/perf_test.go` | create | CLI-level flag parsing + exit code tests |
-| `cmd/apitest/main.go` | modify | Dispatch `perf`, update `printHelp()` |
+| `cmd/curlew/perf.go` | create | `perfCmd`, flag parser, help printer |
+| `cmd/curlew/perf_test.go` | create | CLI-level flag parsing + exit code tests |
+| `cmd/curlew/main.go` | modify | Dispatch `perf`, update `printHelp()` |
 | `internal/auth/registry.go` | modify | Register `perf_loadgen` feature (Enterprise) |
 | `internal/auth/registry_test.go` | modify | Assert new feature key exists |
 | `testdata/perf/sample-request.yaml` | create | Sample request file for observable |
@@ -134,7 +134,7 @@ a stable target. No concurrency yet — this step is pure types + validation.
 
 ```go
 // Package loadgen implements a file-driven HTTP load generator used by the
-// apitest perf subcommand. A fixed pool of virtual users (VUs) executes a
+// curlew perf subcommand. A fixed pool of virtual users (VUs) executes a
 // single parsed request in a loop against a target server. Optional
 // linear ramp-up paces VU activation; optional constant-RPS throughput
 // mode paces requests via a shared time.Ticker.
@@ -250,7 +250,7 @@ import (
     "sync/atomic"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/httpexec"
+    "github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // ExecuteFunc is the injectable request-execution seam (tests swap this for
@@ -486,7 +486,7 @@ import (
     "fmt"
     "os"
 
-    "github.com/peterlindqvist/apitest/internal/httpexec"
+    "github.com/weiqigod/curlew/internal/httpexec"
     "gopkg.in/yaml.v3"
 )
 
@@ -586,9 +586,9 @@ features["perf_loadgen"] = Feature{
     Key:           "perf_loadgen",
     RequiredTier:  TierEnterprise,
     Message:       "Performance load generation requires the Enterprise tier.",
-    UpgradeURL:    "https://apitest.dev/pricing",
+    UpgradeURL:    "https://curlew.dev/pricing",
     TrialAvailable: true,
-    RegisterURL:   "https://apitest.dev/register",
+    RegisterURL:   "https://curlew.dev/register",
     Workaround:    "Use a dedicated load-testing tool (e.g., k6, Vegeta) for local performance runs below Enterprise.",
 }
 ```
@@ -616,7 +616,7 @@ func TestDefaultRegistry_PerfLoadgen(t *testing.T) {
 `registry_test.go` may iterate known features — if it asserts total feature
 count, bump that count. Verified when the RED test first fails.
 
-### Step 5: `cmd/apitest/perf.go` — CLI subcommand
+### Step 5: `cmd/curlew/perf.go` — CLI subcommand
 
 **Rationale:** Wires parser → loadgen.Run → summary. Last functional step
 because it depends on everything above.
@@ -625,9 +625,9 @@ because it depends on everything above.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/perf.go` | create | perfCmd, parsePerfArgs, printPerfHelp |
-| `cmd/apitest/perf_test.go` | create | Flag-parsing and exit-code tests |
-| `cmd/apitest/main.go` | modify | Dispatch `perf` in `run()`; update `printHelp()` |
+| `cmd/curlew/perf.go` | create | perfCmd, parsePerfArgs, printPerfHelp |
+| `cmd/curlew/perf_test.go` | create | Flag-parsing and exit-code tests |
+| `cmd/curlew/main.go` | modify | Dispatch `perf` in `run()`; update `printHelp()` |
 
 #### Current Code (in main.go:84)
 
@@ -692,10 +692,10 @@ import (
     "strconv"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/auth"
-    "github.com/peterlindqvist/apitest/internal/httpexec"
-    "github.com/peterlindqvist/apitest/internal/loadgen"
-    "github.com/peterlindqvist/apitest/internal/output"
+    "github.com/weiqigod/curlew/internal/auth"
+    "github.com/weiqigod/curlew/internal/httpexec"
+    "github.com/weiqigod/curlew/internal/loadgen"
+    "github.com/weiqigod/curlew/internal/output"
 )
 
 type perfFlags struct {
@@ -873,7 +873,7 @@ func parsePerfArgs(args []string) (perfFlags, bool, error) {
 }
 
 func printPerfHelp() {
-    fmt.Println("Usage: apitest perf <request-file> [options]")
+    fmt.Println("Usage: curlew perf <request-file> [options]")
     fmt.Println()
     fmt.Println("Run a load test against a single HTTP request (Enterprise tier).")
     fmt.Println()
@@ -894,7 +894,7 @@ func printPerfHelp() {
 
 #### Tests to Write FIRST (RED phase)
 
-`cmd/apitest/perf_test.go` — mirror the style of `cmd/apitest/worker_test.go`:
+`cmd/curlew/perf_test.go` — mirror the style of `cmd/curlew/worker_test.go`:
 
 ```go
 func TestParsePerfArgs(t *testing.T) {
@@ -921,14 +921,14 @@ func TestParsePerfArgs(t *testing.T) {
 }
 
 func TestPerfCmd_TierGate(t *testing.T) {
-    // Set APITEST_TIER=free, run with valid args against an httptest server,
+    // Set CURLEW_TIER=free, run with valid args against an httptest server,
     // assert exit code 6 and stderr contains upgrade URL.
 }
 
 func TestPerfCmd_InvalidVUsExitCode2(t *testing.T) { /* behavior 3 */ }
 func TestPerfCmd_InvalidDurationExitCode2(t *testing.T) { /* behavior 4 */ }
 func TestPerfCmd_Run_HTTPTestServer_Success(t *testing.T) {
-    // httptest server returns 200, APITEST_TIER=enterprise, --vus 2 --duration 200ms
+    // httptest server returns 200, CURLEW_TIER=enterprise, --vus 2 --duration 200ms
     // assert: exit 0, stdout contains "Requests sent:" and "successes:"
 }
 func TestPerfCmd_Run_HTTPTestServer_AllFailures(t *testing.T) {
@@ -944,11 +944,11 @@ func TestPrintPerfHelp_MentionsAllFlags(t *testing.T) {
 }
 ```
 
-Use the pattern from `cmd/apitest/worker_test.go` for `captureStdout`.
+Use the pattern from `cmd/curlew/worker_test.go` for `captureStdout`.
 
 #### Impact on Existing Tests
 
-- `cmd/apitest/main_test.go` — add/update any test that snapshots the help
+- `cmd/curlew/main_test.go` — add/update any test that snapshots the help
   text so the new `perf` command line is expected. Check during execute
   by running the existing tests and updating snapshots as needed.
 - If `run()`'s default case is covered by a "unknown command" test, no change
@@ -984,8 +984,8 @@ Other smoke blocks in `smoke/run.sh` already use this pattern — follow that.)
 
 ```bash
 echo "=== Perf --help (M5-011) ==="
-PERF_HELP=$(./apitest perf --help 2>&1)
-echo "$PERF_HELP" | grep -q "Usage: apitest perf" \
+PERF_HELP=$(./curlew perf --help 2>&1)
+echo "$PERF_HELP" | grep -q "Usage: curlew perf" \
   || { echo "FAIL: perf --help missing usage line"; echo "$PERF_HELP"; exit 1; }
 echo "$PERF_HELP" | grep -q -- "--vus" \
   || { echo "FAIL: perf --help missing --vus"; exit 1; }
@@ -1001,19 +1001,19 @@ echo "PASS: perf --help documents all expected flags"
 
 # Invalid --vus → exit 2
 SMOKE_RC=0
-APITEST_TIER=enterprise ./apitest perf testdata/perf/sample-request.yaml \
-  --vus 0 --duration 1s > /dev/null 2>/tmp/apitest_perf_err_$$.txt || SMOKE_RC=$?
+CURLEW_TIER=enterprise ./curlew perf testdata/perf/sample-request.yaml \
+  --vus 0 --duration 1s > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
 [ "$SMOKE_RC" -eq 2 ] && echo "PASS: --vus 0 exits 2" \
-  || { echo "FAIL: --vus 0 exited $SMOKE_RC (want 2)"; cat /tmp/apitest_perf_err_$$.txt; exit 1; }
-rm -f /tmp/apitest_perf_err_$$.txt
+  || { echo "FAIL: --vus 0 exited $SMOKE_RC (want 2)"; cat /tmp/curlew_perf_err_$$.txt; exit 1; }
+rm -f /tmp/curlew_perf_err_$$.txt
 
 # End-to-end: start a Python http.server, run perf 2s against it.
-python3 -m http.server 0 --bind 127.0.0.1 > /tmp/apitest_perf_http_$$.log 2>&1 &
+python3 -m http.server 0 --bind 127.0.0.1 > /tmp/curlew_perf_http_$$.log 2>&1 &
 PERF_PID=$!
 sleep 1
-PERF_PORT=$(awk '/Serving/ {print $NF}' /tmp/apitest_perf_http_$$.log | tr -d '()' | awk -F: '{print $2}')
+PERF_PORT=$(awk '/Serving/ {print $NF}' /tmp/curlew_perf_http_$$.log | tr -d '()' | awk -F: '{print $2}')
 # Edit sample to use the chosen port inline
-PERF_COL="/tmp/apitest_perf_smoke_$$.yaml"
+PERF_COL="/tmp/curlew_perf_smoke_$$.yaml"
 cat > "$PERF_COL" << YAML
 name: perf-smoke
 request:
@@ -1021,7 +1021,7 @@ request:
   url: "http://127.0.0.1:${PERF_PORT}/"
 YAML
 
-APITEST_TIER=enterprise PERF_OUT=$(./apitest perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
+CURLEW_TIER=enterprise PERF_OUT=$(./curlew perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
 echo "$PERF_OUT" | grep -q "Load test: 2 virtual users" \
   && echo "PASS: perf prints header" \
   || { echo "FAIL: perf header"; echo "$PERF_OUT"; kill $PERF_PID; exit 1; }
@@ -1030,7 +1030,7 @@ echo "$PERF_OUT" | grep -q "Requests sent:" \
   || { echo "FAIL: perf summary missing"; kill $PERF_PID; exit 1; }
 
 kill $PERF_PID 2>/dev/null || true
-rm -f "$PERF_COL" /tmp/apitest_perf_http_$$.log
+rm -f "$PERF_COL" /tmp/curlew_perf_http_$$.log
 ```
 
 (If `python3` is not guaranteed on CI, fall back to a small Go helper or
@@ -1051,7 +1051,7 @@ None — pure addition.
 Add under Unreleased → Added:
 
 ```markdown
-- `apitest perf <file>` load-generation subcommand (Enterprise tier) — fixed
+- `curlew perf <file>` load-generation subcommand (Enterprise tier) — fixed
   virtual-user pool with linear ramp-up and optional constant-RPS throughput
   mode (M5-011).
 ```
@@ -1064,8 +1064,8 @@ Add under Unreleased → Added:
 | `internal/loadgen/run_test.go` | 9 new functions | new | add |
 | `internal/loadgen/request_test.go` | `TestLoadRequestFile` | new | add (6 cases) |
 | `internal/auth/registry_test.go` | existing feature-count assertion | may break | bump expected count; add perf_loadgen case |
-| `cmd/apitest/perf_test.go` | 10 new functions | new | add |
-| `cmd/apitest/main_test.go` | any `printHelp` snapshot test | may break | update to include `perf` line |
+| `cmd/curlew/perf_test.go` | 10 new functions | new | add |
+| `cmd/curlew/main_test.go` | any `printHelp` snapshot test | may break | update to include `perf` line |
 | `smoke/run.sh` | new `=== Perf --help (M5-011) ===` block | new | add |
 
 ## Risks and Edge Cases
@@ -1105,8 +1105,8 @@ Add under Unreleased → Added:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
-go test ./internal/loadgen/... ./cmd/apitest/... ./internal/auth/...
+go build ./cmd/curlew
+go test ./internal/loadgen/... ./cmd/curlew/... ./internal/auth/...
 go test ./...                                     # full regression
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1115,11 +1115,11 @@ go test ./...                                     # full regression
 Observable verification (from the task YAML):
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/loadgen/...
 # Expected: ok  internal/loadgen  (>=8 tests passing)
 
-APITEST_TIER=enterprise ./apitest perf testdata/perf/sample-request.yaml \
+CURLEW_TIER=enterprise ./curlew perf testdata/perf/sample-request.yaml \
   --vus 10 --duration 5s --ramp-up 2s
 # Expected stdout:
 #   "Load test: 10 virtual users, 5s duration, 2s ramp-up"

@@ -434,7 +434,7 @@ t.Run("resolve_hashicorp_approle_auth", func(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/vault/...
 go test ./...
 ~/go/bin/golangci-lint run
@@ -443,14 +443,14 @@ go test ./...
 
 Observable verification:
 ```bash
-# Configure Azure Key Vault profile in apitest.yaml:
+# Configure Azure Key Vault profile in curlew.yaml:
 #   secrets:
 #     provider: azure-key-vault
 #     vault_name: my-vault
 #     keys:
 #       api_key: my-api-key
 
-# Configure HashiCorp Vault profile in apitest.yaml:
+# Configure HashiCorp Vault profile in curlew.yaml:
 #   secrets:
 #     provider: hashicorp-vault
 #     address: https://vault.example.com:8200

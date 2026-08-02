@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>{$page.status} — ApiTool cookbook</title>
+	<title>{$page.status} — Curlew cookbook</title>
 </svelte:head>
 
 <div class="mx-auto flex max-w-xl flex-col items-center px-5 py-32 text-center">

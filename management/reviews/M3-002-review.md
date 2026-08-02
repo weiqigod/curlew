@@ -1,6 +1,6 @@
 # Code Review: M3-002
 
-**Task:** Glob pattern discovery for apitest run
+**Task:** Glob pattern discovery for curlew run
 **Reviewer:** AI
 **Date:** 2026-04-11
 **Branch:** feature/M3-002-glob-discovery
@@ -27,12 +27,12 @@ All 4 findings from the second review are confirmed fixed:
 
 | Category | Status | Notes |
 |----------|--------|-------|
-| Error Handling | PASS | All errors in `discovery.go` wrapped with `fmt.Errorf("context: %w", err)`. Sentinel errors (`ErrNoMatches`, `ErrTraversalOutsideRoot`, `ErrAbsolutePattern`) used for caller matching. No swallowed errors. `cmd/apitest` error paths all handled correctly. |
+| Error Handling | PASS | All errors in `discovery.go` wrapped with `fmt.Errorf("context: %w", err)`. Sentinel errors (`ErrNoMatches`, `ErrTraversalOutsideRoot`, `ErrAbsolutePattern`) used for caller matching. No swallowed errors. `cmd/curlew` error paths all handled correctly. |
 | Input Validation | PASS | Absolute patterns, all traversal forms (`../`, `/../`, `/..` suffix, bare `..`), zero-match, and unknown exit codes all produce clear errors with defined behavior. Gate check precedes file I/O as required. |
 | Naming | PASS | No stuttering. All exported symbols have doc comments. Package names are lowercase single-word. `discovery` package has a full doc comment with supported syntax. |
-| Code Organization | PASS | `internal/discovery` is self-contained with no circular dependencies. `cmd/apitest` owns orchestration. The former duplicate `containsGlobMeta` is eliminated. Package boundaries respected throughout. |
+| Code Organization | PASS | `internal/discovery` is self-contained with no circular dependencies. `cmd/curlew` owns orchestration. The former duplicate `containsGlobMeta` is eliminated. Package boundaries respected throughout. |
 | Correctness | PASS | Race detector clean. No goroutine leaks (sequential loop, no goroutines in discovery path). Context propagation follows existing `runCmdInner` pattern (inherits `context.Background()` consistent with the rest of the codebase). All 8 behaviors implemented and tested. |
-| Test Quality | PASS | All functions at or above 80% coverage. `buildArgsForCollection` now at 100%. `internal/discovery` at 88.9%. `cmd/apitest` overall at 84.3%. All 8 task behaviors have integration test coverage. |
+| Test Quality | PASS | All functions at or above 80% coverage. `buildArgsForCollection` now at 100%. `internal/discovery` at 88.9%. `cmd/curlew` overall at 84.3%. All 8 task behaviors have integration test coverage. |
 
 ## Test Coverage
 
@@ -45,7 +45,7 @@ All 4 findings from the second review are confirmed fixed:
   - `splitFirst`: 100%
   - `matchGlob`: 78.8%
   - `matchClass`: 100%
-- `cmd/apitest` overall: **84.3%** — above 80% threshold
+- `cmd/curlew` overall: **84.3%** — above 80% threshold
   - `worseExitCode`: 100%
   - `aggregateExitCodes`: 100%
   - `aggregateSummaries`: 93.8%
@@ -66,7 +66,7 @@ All 8 behaviors from the task YAML are covered by tests:
 | 1 | `**/*_test.yaml` expands to all matching YAML files in deterministic (sorted) order | `TestExpand/sort_is_deterministic_across_two_calls`, `TestMatchPattern` |
 | 2 | Zero matches → exit code 2 + 'no collections matched' error | `TestRunCmd_GlobDiscovery_ZeroMatches` |
 | 3 | Literal file path (no metachars) bypasses discovery entirely | `TestRunCmd_GlobDiscovery_LiteralPathUnchanged` |
-| 4 | `.apitestignore` with `**/drafts/*.yaml` excludes matched files | `TestRunCmd_GlobDiscovery_Ignored` |
+| 4 | `.curlewignore` with `**/drafts/*.yaml` excludes matched files | `TestRunCmd_GlobDiscovery_Ignored` |
 | 5 | Three collections where B fails: A and C still run, exit code reflects failure | `TestRunCmd_GlobDiscovery_MiddleFailureDoesNotAbort` |
 | 6 | `--format json` with glob → single `MultiJSONOutput` document with one entry per collection | `TestRunCmd_GlobDiscovery_JSONFormat` |
 | 7 | Free tier → exit code 6 + `test_discovery` gate message before any file I/O | `TestRunCmd_GlobDiscovery_FreeTierGate` |

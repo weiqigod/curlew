@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages green |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke checks green, incl. WebSocket feature gate + invalid action |
@@ -22,7 +22,7 @@
 Observable from task YAML:
 
 > Create a collection with `protocol: websocket` and steps (send, expect, close).
-> Run `apitest run ws_tests.yaml` and confirm the WebSocket connection lifecycle works.
+> Run `curlew run ws_tests.yaml` and confirm the WebSocket connection lifecycle works.
 > Run `go test ./internal/websocket/...` for WebSocket adapter tests.
 
 Free-tier gate output:
@@ -32,7 +32,7 @@ Collection: ws-tests
 [ERROR] WebSocket protocol support requires Professional tier ($19/month)
 ```
 
-`go test ./internal/websocket/...` -> `ok github.com/peterlindqvist/apitest/internal/websocket`
+`go test ./internal/websocket/...` -> `ok github.com/weiqigod/curlew/internal/websocket`
 
 Result: MATCH (feature gate behaviour + unit/integration suite both pass).
 

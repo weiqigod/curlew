@@ -43,7 +43,7 @@ No findings.
 | `user.anonymised` audit-log row present | `m18-e2e.sh` step 9 | COVERED |
 | Enterprise JSONL streaming export is `chunked + application/x-ndjson` | `m18-e2e.sh` step 10 + Playwright assertion 5 | COVERED |
 | `team_vaults` / `schedules.env_vars` round-trip proof | `m18-e2e.sh` step 11 | COVERED |
-| `apitest telemetry delete-request` removes install_id + posts marker | `m18-e2e.sh` step 12 | COVERED |
+| `curlew telemetry delete-request` removes install_id + posts marker | `m18-e2e.sh` step 12 | COVERED |
 | Happy-path only; individual failure modes not asserted | Test structure / skip guards | COVERED |
 
 ## Summary

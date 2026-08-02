@@ -1,5 +1,5 @@
 // Client prefs + chrome state (UI_SPECIFICATION.md §10.3.1).
-// Prefs persist to localStorage['apitest.prefs'] as JSON.
+// Prefs persist to localStorage['curlew.prefs'] as JSON.
 
 import { writable } from 'svelte/store';
 import type { Route } from '../router';
@@ -12,7 +12,7 @@ export interface Prefs {
   parallel: boolean;
 }
 
-const PREFS_KEY = 'apitest.prefs';
+const PREFS_KEY = 'curlew.prefs';
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'dark',

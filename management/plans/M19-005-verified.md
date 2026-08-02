@@ -1,6 +1,6 @@
 # Verification Report: M19-005
 
-**Task:** apitest validate CEL parse/type-check + MANUAL.md section
+**Task:** curlew validate CEL parse/type-check + MANUAL.md section
 **Verified by:** AI
 **Date:** 2026-05-16
 **Branch:** feature/M19-005-validate-cel
@@ -65,7 +65,7 @@ Result: MATCH
 | 5 | ERR_CEL_PARSE/ERR_CEL_TYPE documented with field-path semantics and 200-char truncation | §3.10 of MANUAL.md contains both codes with message format examples | PASS |
 | 6 | MANUAL.md contains Expression Language (CEL) section | §3.10 added: activation, sites, decision table, disabled functions, error codes; grep → 2 | PASS |
 | 7 | Smoke fixtures exercised by `./smoke/run.sh` | M19-005 smoke block PASS (good exits 0, bad exits 3, error codes verified) | PASS |
-| 8 | `templates/skills/claude/apitest/` untouched | Not in `git diff --name-only main...HEAD` | PASS |
+| 8 | `templates/skills/claude/curlew/` untouched | Not in `git diff --name-only main...HEAD` | PASS |
 
 ## Code Review
 

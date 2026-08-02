@@ -3,7 +3,7 @@ title: Deterministic fake data
 intent: Generate realistic request payloads with faker and UUIDs — reproducibly with a seed, and with sensitive fields redacted automatically.
 group: core
 features: [faker, redaction]
-command: apitest run collections/signup.yaml --seed 42
+command: curlew run collections/signup.yaml --seed 42
 order: 40
 runnable: true
 ---
@@ -12,7 +12,7 @@ runnable: true
 	import Callout from '$lib/components/Callout.svelte';
 </script>
 
-Hard-coded test data goes stale and collides. ApiTool ships a catalogue of dynamic
+Hard-coded test data goes stale and collides. Curlew ships a catalogue of dynamic
 functions — UUIDs, timestamps, and a full **faker** suite — that you drop straight
 into request bodies with `{{$...}}`. Pass `--seed` and the same "random" values come
 back every run, so failures are reproducible. Fields that look like secrets are
@@ -21,7 +21,7 @@ redacted everywhere automatically.
 ## The collection
 
 This one posts to `httpbin.org/anything`, which echoes your payload back — so you can
-run it yourself and see exactly what ApiTool sent.
+run it yourself and see exactly what Curlew sent.
 
 ```yaml
 # collections/signup.yaml
@@ -52,7 +52,7 @@ requests:
 ## Run it
 
 ```bash
-apitest run collections/signup.yaml --seed 42
+curlew run collections/signup.yaml --seed 42
 ```
 
 ```

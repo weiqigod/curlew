@@ -39,10 +39,10 @@
 </script>
 
 <svelte:head>
-	<title>Examples — ApiTool cookbook</title>
+	<title>Examples — Curlew cookbook</title>
 	<meta
 		name="description"
-		content="A filterable gallery of sophisticated, end-to-end ApiTool test scenarios."
+		content="A filterable gallery of sophisticated, end-to-end Curlew test scenarios."
 	/>
 </svelte:head>
 

@@ -8,7 +8,7 @@
 	>
 		<div class="flex items-center gap-2.5">
 			<img src="/favicon.svg" alt="" width="22" height="22" class="rounded" />
-			<span>ApiTool — file-based API testing for people who live in the terminal.</span>
+			<span>Curlew — file-based API testing for people who live in the terminal.</span>
 		</div>
 		<div class="flex items-center gap-5">
 			<a href="/examples" class="transition hover:text-[var(--text)]">Examples</a>

@@ -1,7 +1,7 @@
 # Implementation Plan: M3-005
 
 ## Overview
-Add a new `apitest import openapi <spec-path> [--output path]` subcommand that parses an
+Add a new `curlew import openapi <spec-path> [--output path]` subcommand that parses an
 OpenAPI 3.0/3.1 spec via `github.com/getkin/kin-openapi/openapi3` and emits a minimal
 `parser.Collection` skeleton (method, URL, name, path-parameter interpolation, and a
 `base_url` variable derived from `servers[0]`). The command is gated behind the
@@ -9,7 +9,7 @@ OpenAPI 3.0/3.1 spec via `github.com/getkin/kin-openapi/openapi3` and emits a mi
 
 ## Task Details
 - **ID:** M3-005
-- **Title:** apitest import openapi: parse spec and emit collection skeleton
+- **Title:** curlew import openapi: parse spec and emit collection skeleton
 - **Phase:** M3: Professional Tier
 - **Priority:** 4
 - **Complexity:** high
@@ -87,7 +87,7 @@ near zero so the subsequent TDD steps land on a green baseline.
 #### New Code
 ```go
 // Package openapi parses OpenAPI 3.0/3.1 specifications and emits minimal
-// apitest collection skeletons. Skeletons include method, URL (with path
+// curlew collection skeletons. Skeletons include method, URL (with path
 // parameters interpolated as {{name}}), request name, and a base_url variable
 // derived from the spec's servers[0]. Request bodies, headers, and assertions
 // are handled in M3-006.
@@ -153,9 +153,9 @@ import (
     "strings"
 
     "github.com/getkin/kin-openapi/openapi3"
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
-    "github.com/peterlindqvist/apitest/internal/parser"
-    "github.com/peterlindqvist/apitest/internal/variable"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
+    "github.com/weiqigod/curlew/internal/parser"
+    "github.com/weiqigod/curlew/internal/variable"
 )
 
 // methodOrder is the fixed iteration order for HTTP methods within a path.
@@ -481,7 +481,7 @@ import (
     "fmt"
     "io"
 
-    "github.com/peterlindqvist/apitest/internal/parser"
+    "github.com/weiqigod/curlew/internal/parser"
     "gopkg.in/yaml.v3"
 )
 
@@ -506,7 +506,7 @@ type writerRequest struct {
     URL    string `yaml:"url"`
 }
 
-// Emit writes col to w as a YAML collection suitable for apitest run/validate.
+// Emit writes col to w as a YAML collection suitable for curlew run/validate.
 func Emit(w io.Writer, col *parser.Collection) error {
     out := writerCollection{
         Name:      col.Name,
@@ -544,8 +544,8 @@ import (
     "strings"
     "testing"
 
-    "github.com/peterlindqvist/apitest/internal/parser"
-    "github.com/peterlindqvist/apitest/internal/validator"
+    "github.com/weiqigod/curlew/internal/parser"
+    "github.com/weiqigod/curlew/internal/validator"
 )
 
 func TestEmit_ContainsExpectedKeys(t *testing.T) {
@@ -687,7 +687,7 @@ assertion — if so, bump the expected count by one.
 
 ---
 
-### Step 5: Wire `import openapi` subcommand in `cmd/apitest/main.go`
+### Step 5: Wire `import openapi` subcommand in `cmd/curlew/main.go`
 **Rationale:** This is the biggest blast radius (top-level command dispatch, help
 text, gate handling). Doing it last means every underlying piece is already proven.
 
@@ -695,9 +695,9 @@ text, gate handling). Doing it last means every underlying piece is already prov
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | add `import` case, `importCmd`, `importOpenAPICmd`, help text |
-| `cmd/apitest/main_test.go` | modify | integration test for the new command |
-| `cmd/apitest/testdata/openapi/petstore.yaml` | create | minimal 3.0 fixture |
+| `cmd/curlew/main.go` | modify | add `import` case, `importCmd`, `importOpenAPICmd`, help text |
+| `cmd/curlew/main_test.go` | modify | integration test for the new command |
+| `cmd/curlew/testdata/openapi/petstore.yaml` | create | minimal 3.0 fixture |
 | `testdata/openapi/petstore.yaml` | create | repo-level fixture used by the observable command |
 
 #### Current Code (dispatch)
@@ -730,7 +730,7 @@ Plus a new function block at the end of the file:
 // importCmd dispatches import subcommands.
 func importCmd(args []string) int {
     if len(args) == 0 {
-        _, _ = fmt.Fprintln(os.Stderr, "Usage: apitest import <format> <spec-path> [--output <file>]")
+        _, _ = fmt.Fprintln(os.Stderr, "Usage: curlew import <format> <spec-path> [--output <file>]")
         _, _ = fmt.Fprintln(os.Stderr, "Formats:")
         _, _ = fmt.Fprintln(os.Stderr, "  openapi    Import an OpenAPI 3.0/3.1 spec (Professional tier)")
         return 1
@@ -748,7 +748,7 @@ func importCmd(args []string) int {
 func importOpenAPICmd(args []string) int {
     specPath, outputPath, err := parseImportOpenAPIArgs(args)
     if err != nil {
-        _, _ = fmt.Fprintln(os.Stderr, "Usage: apitest import openapi <spec-path> [--output <file>]")
+        _, _ = fmt.Fprintln(os.Stderr, "Usage: curlew import openapi <spec-path> [--output <file>]")
         _, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", err)
         return 1
     }
@@ -823,16 +823,16 @@ And update `printHelp()`:
 	fmt.Println("  import openapi  Import OpenAPI 3.x spec into a collection skeleton (Professional tier)")
 ```
 
-Plus an `"github.com/peterlindqvist/apitest/internal/openapi"` import at the top of
+Plus an `"github.com/weiqigod/curlew/internal/openapi"` import at the top of
 `main.go`.
 
 #### Tests to Write FIRST (RED phase)
 
-Integration tests in `cmd/apitest/main_test.go`:
+Integration tests in `cmd/curlew/main_test.go`:
 
 ```go
 func TestImportOpenAPI_WritesCollection(t *testing.T) {
-    t.Setenv("APITEST_TIER", "professional")
+    t.Setenv("CURLEW_TIER", "professional")
     dir := t.TempDir()
     out := filepath.Join(dir, "petstore.collection.yaml")
 
@@ -856,7 +856,7 @@ func TestImportOpenAPI_WritesCollection(t *testing.T) {
 }
 
 func TestImportOpenAPI_FreeTierGated(t *testing.T) {
-    t.Setenv("APITEST_TIER", "free")
+    t.Setenv("CURLEW_TIER", "free")
     code := run([]string{"import", "openapi", "testdata/openapi/petstore.yaml"})
     if code != 6 {
         t.Errorf("exit code = %d, want 6", code)
@@ -864,7 +864,7 @@ func TestImportOpenAPI_FreeTierGated(t *testing.T) {
 }
 
 func TestImportOpenAPI_MissingSpec(t *testing.T) {
-    t.Setenv("APITEST_TIER", "professional")
+    t.Setenv("CURLEW_TIER", "professional")
     code := run([]string{"import", "openapi", "testdata/openapi/does_not_exist.yaml"})
     if code != 3 {
         t.Errorf("exit code = %d, want 3", code)
@@ -872,7 +872,7 @@ func TestImportOpenAPI_MissingSpec(t *testing.T) {
 }
 
 func TestImportCmd_UnknownFormat(t *testing.T) {
-    t.Setenv("APITEST_TIER", "professional")
+    t.Setenv("CURLEW_TIER", "professional")
     code := run([]string{"import", "graphql", "foo.graphql"})
     if code != 1 {
         t.Errorf("exit code = %d, want 1", code)
@@ -880,18 +880,18 @@ func TestImportCmd_UnknownFormat(t *testing.T) {
 }
 ```
 
-`cmd/apitest/testdata/openapi/petstore.yaml` is a copy of the fixture from Step 2
+`cmd/curlew/testdata/openapi/petstore.yaml` is a copy of the fixture from Step 2
 so the integration test does not reach into another package's testdata.
 
 Also create `testdata/openapi/petstore.yaml` at the repository root for the manual
 observable command in the task YAML.
 
 #### Impact on Existing Tests
-- `cmd/apitest/main_test.go`: any "all commands listed in help" test needs to
-  include the new `import` entry. Grep for `printHelp` / `apitest --help` / `schema` /
+- `cmd/curlew/main_test.go`: any "all commands listed in help" test needs to
+  include the new `import` entry. Grep for `printHelp` / `curlew --help` / `schema` /
   `vault` in `main_test.go` first; update assertions if an exact-match help-text
   test exists.
-- `cmd/apitest/run_test.go`: no known impact; this is a new top-level command,
+- `cmd/curlew/run_test.go`: no known impact; this is a new top-level command,
   not a modification of `run`.
 
 ---
@@ -912,7 +912,7 @@ implementation commits focused on behaviour.
 `CHANGELOG.md` (prepend to Unreleased > Added):
 
 ```markdown
-- `apitest import openapi <spec-path> [--output path]` imports an OpenAPI 3.0/3.1
+- `curlew import openapi <spec-path> [--output path]` imports an OpenAPI 3.0/3.1
   spec into a minimal collection skeleton: one request per operation with method,
   URL, name (from `operationId` or synthesised `method_path_by_param`), and a
   `variables: { base_url: ... }` entry derived from `servers[0]`; path parameters
@@ -928,10 +928,10 @@ implementation commits focused on behaviour.
 `smoke/run.sh` additions at the end:
 
 ```bash
-# --- M3-005: apitest import openapi ---
+# --- M3-005: curlew import openapi ---
 echo "--- Import OpenAPI at Professional tier ---"
-mkdir -p /tmp/apitest-smoke-openapi
-cat > /tmp/apitest-smoke-openapi/petstore.yaml <<'OAI'
+mkdir -p /tmp/curlew-smoke-openapi
+cat > /tmp/curlew-smoke-openapi/petstore.yaml <<'OAI'
 openapi: 3.0.3
 info:
   title: Petstore
@@ -958,17 +958,17 @@ paths:
           description: OK
 OAI
 
-APITEST_TIER=professional ./apitest import openapi /tmp/apitest-smoke-openapi/petstore.yaml \
-    --output /tmp/apitest-smoke-openapi/generated.yaml \
+CURLEW_TIER=professional ./curlew import openapi /tmp/curlew-smoke-openapi/petstore.yaml \
+    --output /tmp/curlew-smoke-openapi/generated.yaml \
   && echo "PASS: import openapi writes file" \
   || { echo "FAIL: import openapi failed"; exit 1; }
 
-./apitest validate /tmp/apitest-smoke-openapi/generated.yaml \
+./curlew validate /tmp/curlew-smoke-openapi/generated.yaml \
   && echo "PASS: generated collection validates" \
   || { echo "FAIL: generated collection failed to validate"; exit 1; }
 
 echo "--- Import OpenAPI at Free tier returns exit 6 ---"
-APITEST_TIER=free ./apitest import openapi /tmp/apitest-smoke-openapi/petstore.yaml
+CURLEW_TIER=free ./curlew import openapi /tmp/curlew-smoke-openapi/petstore.yaml
 CODE=$?
 if [ "$CODE" = "6" ]; then
     echo "PASS: Free tier gated with exit 6"
@@ -988,8 +988,8 @@ None.
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/auth/registry_test.go` | existing count/list asserts (if any) | may break | bump expected feature count by 1 |
-| `cmd/apitest/main_test.go` | help-text assertion (if any) | may break | include `import` in the expected commands list |
-| `cmd/apitest/main_test.go` | new `TestImportOpenAPI_*` | new | create per Step 5 |
+| `cmd/curlew/main_test.go` | help-text assertion (if any) | may break | include `import` in the expected commands list |
+| `cmd/curlew/main_test.go` | new `TestImportOpenAPI_*` | new | create per Step 5 |
 | `internal/openapi/*_test.go` | all | new | created in Steps 2 and 3 |
 
 ## Risks and Edge Cases
@@ -997,7 +997,7 @@ None.
 - **Risk:** `kin-openapi` pulls in a large transitive dependency tree.
   **Mitigation:** run `go mod graph | head -50` after the get; if more than 10
   new modules appear, document them in the plan update and keep an eye on binary
-  size (`go build -ldflags="-s -w" ./cmd/apitest` before/after).
+  size (`go build -ldflags="-s -w" ./cmd/curlew` before/after).
 
 - **Risk:** OpenAPI 3.1 schema validation diverges from 3.0 in ways kin-openapi
   rejects. **Mitigation:** the 3.1 fixture test (`TestImport_OpenAPI31`) covers
@@ -1033,7 +1033,7 @@ None.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1047,15 +1047,15 @@ mkdir -p testdata/openapi
 # (petstore.yaml created as part of Step 5 fixtures)
 
 # At Professional tier:
-APITEST_TIER=professional go build ./cmd/apitest \
-  && APITEST_TIER=professional ./apitest import openapi testdata/openapi/petstore.yaml \
+CURLEW_TIER=professional go build ./cmd/curlew \
+  && CURLEW_TIER=professional ./curlew import openapi testdata/openapi/petstore.yaml \
      --output petstore.collection.yaml
-APITEST_TIER=professional ./apitest validate petstore.collection.yaml
+CURLEW_TIER=professional ./curlew validate petstore.collection.yaml
 grep -q "base_url: https://api.example.com/v1" petstore.collection.yaml
 grep -q "{{petId}}" petstore.collection.yaml
 
 # At Free tier:
-APITEST_TIER=free ./apitest import openapi testdata/openapi/petstore.yaml
+CURLEW_TIER=free ./curlew import openapi testdata/openapi/petstore.yaml
 echo "exit: $?"   # expect 6
 
 # Unit tests:

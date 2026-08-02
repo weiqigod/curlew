@@ -14,10 +14,10 @@ import (
 // Sentinel errors for well-known failure modes.
 var (
 	// ErrCoordinatorURLMissing is returned when neither --coordinator-url
-	// nor APITEST_COORDINATOR_URL is set.
-	ErrCoordinatorURLMissing = errors.New("coordinator URL not configured (set APITEST_COORDINATOR_URL or --coordinator-url)")
-	// ErrTokenMissing is returned when APITEST_BACKEND_TOKEN/--token is empty.
-	ErrTokenMissing = errors.New("backend token not configured (set APITEST_BACKEND_TOKEN or --token)")
+	// nor CURLEW_COORDINATOR_URL is set.
+	ErrCoordinatorURLMissing = errors.New("coordinator URL not configured (set CURLEW_COORDINATOR_URL or --coordinator-url)")
+	// ErrTokenMissing is returned when CURLEW_BACKEND_TOKEN/--token is empty.
+	ErrTokenMissing = errors.New("backend token not configured (set CURLEW_BACKEND_TOKEN or --token)")
 	// ErrUnauthorized is returned when the coordinator responds with 401.
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrNetworkExhausted is returned when retries on a coordinator call are exhausted.
@@ -26,8 +26,8 @@ var (
 
 // Config holds the worker configuration derived from flags and env vars.
 type Config struct {
-	CoordinatorURL    string        // APITEST_COORDINATOR_URL / --coordinator-url
-	Token             string        // APITEST_BACKEND_TOKEN / --token
+	CoordinatorURL    string        // CURLEW_COORDINATOR_URL / --coordinator-url
+	Token             string        // CURLEW_BACKEND_TOKEN / --token
 	JobID             string        // --job (job_<hex>)
 	Org               string        // --org (slug or org_<hex>)
 	WorkerID          string        // --worker-id (defaults to "wkr_" + hostname + pid + nanos)

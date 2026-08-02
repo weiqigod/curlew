@@ -13,7 +13,7 @@
 | `dotnet build -warnaserror` | PASS | 0 warnings, 0 errors |
 | `dotnet test ./...` | PASS | 292 tests, 0 failed, duration 5s |
 | `dotnet test --filter Sso&Saml` | PASS | 25 tests pass (requirement >= 10) |
-| `go build ./cmd/apitest` | PASS | Clean build |
+| `go build ./cmd/curlew` | PASS | Clean build |
 | `go test ./...` | PASS | All Go packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Smoke test clean |
@@ -43,7 +43,7 @@ WebApplicationFactory tests, which is equivalent and more reliable than manual c
 | 1 | PUT /organizations/{id}/sso/saml with valid config returns 200, sso_enabled=true | `SamlEndpointsTests.Put_saml_config_returns_200_and_persists_sso_enabled_true` | PASS |
 | 2 | PUT /organizations/{id}/sso/saml with missing idp_metadata_url returns 400 invalid_sso_config | `SamlEndpointsTests.Put_saml_config_missing_idp_metadata_url_returns_400_invalid_sso_config_with_field_pointer` | PASS |
 | 3 | GET /sso/saml/{org_id}/login returns 302 with Location header containing SAMLRequest | `SamlEndpointsTests.Get_login_returns_302_with_SAMLRequest_query_param` | PASS |
-| 4 | POST /sso/saml/{org_id}/acs with valid signed assertion returns 302 with session cookie | `SamlEndpointsTests.Post_acs_with_valid_response_returns_302_with_apitool_session_cookie` | PASS |
+| 4 | POST /sso/saml/{org_id}/acs with valid signed assertion returns 302 with session cookie | `SamlEndpointsTests.Post_acs_with_valid_response_returns_302_with_curlew_session_cookie` | PASS |
 | 5 | POST /sso/saml/{org_id}/acs with invalid signature returns 401 saml_signature_invalid | `SamlEndpointsTests.Post_acs_with_invalid_signature_returns_401_saml_signature_invalid_and_no_cookie` | PASS |
 | 6 | POST /sso/saml/{org_id}/acs with email not in org returns 403 sso_user_not_member | `SamlEndpointsTests.Post_acs_with_unknown_email_returns_403_sso_user_not_member` | PASS |
 | 7 | PUT /organizations/{id}/sso/saml by non-owner returns 403 permission_denied | `SamlEndpointsTests.Put_saml_config_as_non_owner_returns_403_permission_denied` | PASS |

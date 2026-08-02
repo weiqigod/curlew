@@ -1,11 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Playwright e2e against the REAL `apitest ui` binary (UI_SPECIFICATION.md §13.3).
+// Playwright e2e against the REAL `curlew ui` binary (UI_SPECIFICATION.md §13.3).
 //
 // There is deliberately NO `webServer` block: the server port and the session
 // token are dynamic (`--port 0` prints them to stdout), so the global setup
 // owns the whole lifecycle — SPA build freshness, Go binary build, the local
-// echo API, the fixture project, and one `apitest ui` process.
+// echo API, the fixture project, and one `curlew ui` process.
 // See tests/e2e/global-setup.ts.
 //
 // Workers are pinned to 1: the server enforces single-flight runs

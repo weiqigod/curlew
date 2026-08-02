@@ -350,7 +350,7 @@ func TestWriteJSON_DataDriven(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add data-driven grouping/rendering logic in terminal output section; add `buildDataDrivenJSON` helper; update `buildJSONOutput` |
+| `cmd/curlew/main.go` | modify | Add data-driven grouping/rendering logic in terminal output section; add `buildDataDrivenJSON` helper; update `buildJSONOutput` |
 
 #### Current Code (terminal output loop in runCmdInner, around line 576)
 ```go
@@ -421,7 +421,7 @@ func TestGroupDataDrivenResults(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update `buildJSONOutput` to compute and attach `DataDrivenJSON` entries |
+| `cmd/curlew/main.go` | modify | Update `buildJSONOutput` to compute and attach `DataDrivenJSON` entries |
 
 #### New Code
 After building all `JSONRequest` entries, scan for data-driven groups and compute aggregates:
@@ -465,7 +465,7 @@ func TestBuildJSONOutput_DataDriven(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update `buildTAPOutput` to insert data-driven group annotations |
+| `cmd/curlew/main.go` | modify | Update `buildTAPOutput` to insert data-driven group annotations |
 | `internal/output/tap.go` | modify | Add support for data-driven comment annotations in `WriteTAP` |
 
 #### New Code
@@ -523,8 +523,8 @@ func TestWriteTAP_DataDrivenAnnotations(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Final integration adjustments if needed |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for data-driven output across formats |
+| `cmd/curlew/main.go` | modify | Final integration adjustments if needed |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for data-driven output across formats |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -561,7 +561,7 @@ func TestRunCmdInner_DataDriven_FailedIterationDetails(t *testing.T) {
 | `internal/output/terminal_test.go` | all existing | unaffected | new methods only |
 | `internal/output/json_test.go` | all existing | unaffected | new field is omitempty |
 | `internal/output/tap_test.go` | all existing | unaffected | new field defaults to nil |
-| `cmd/apitest/main_test.go` | all existing | unaffected | no behavioral change for non-data-driven |
+| `cmd/curlew/main_test.go` | all existing | unaffected | no behavioral change for non-data-driven |
 
 ## Risks and Edge Cases
 
@@ -582,7 +582,7 @@ func TestRunCmdInner_DataDriven_FailedIterationDetails(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -598,7 +598,7 @@ go test ./internal/output/... -run DataDriven -v
 go test ./internal/output/... -run DataDriven -v
 
 # Run data-driven with --format json and confirm data-driven JSON schema
-go test ./cmd/apitest/... -run DataDriven.*JSON -v
+go test ./cmd/curlew/... -run DataDriven.*JSON -v
 
 # Full test suite
 go test ./...

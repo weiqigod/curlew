@@ -21,7 +21,7 @@ No findings. All prior findings from iterations 1–3 have been resolved and ver
 | Naming | PASS | No stuttering. All exported symbols have doc comments: `Option`, `WithLocale`, `WithLocaleWarning`, `ValidateLocale`, `NormalizeLocale`, `ErrLocaleUnknown`, `ConfigBlock`, `CollectionConfigBlock`. `CollectionConfigBlock` mirrors `config.ConfigBlock` without importing it (avoids parser→config cycle; explained in comment). Package names correct. |
 | Code Organization | PASS | `internal/` boundaries respected throughout. `localeData` and `localePools` are unexported package-level immutable state in `locale.go`. `resolveLocale` lives in runner (correct layer). `hints_init.go` uses `strings.Join(supportedLocales, ", ")` — no duplication with `locale.go`. No circular deps introduced. |
 | Correctness | PASS | `run` subcommand now correctly gates the locale fallback warning on `LocaleVerbose` (only emits with `-v`). `exec` subcommand gates on `opts.Verbosity >= VerbosityVerbose`. `NewRegistry` variadic option preserves all 50+ existing call sites. `r.locale` is guaranteed non-nil after construction (defaults to en-US). Precedence chain (Default < Project < Environment < Collection < CLI) implemented correctly in `resolveLocale`. en-US `localeData` aliases existing `firstNames`/`lastNames`/`cities` vars for byte-identical backward compat. |
-| Test Quality | PASS | All 8 behaviors from the task YAML are covered by at least one test. Table-driven tests used throughout. Integration tests exercise the real binary via `runCmdInner` and `captureExecCmd`. `TestRun_Locale_FallbackChainEnGB` covers verbosity gating with two subtests (warning absent without `-v`, present with `-v`). `TestHelpText_ContainsLocaleFlag` guards help text. `TestRun_LocalePrecedence_FlagBeatsProjectConfig` creates a real `apitest.yaml` to verify project-config precedence. |
+| Test Quality | PASS | All 8 behaviors from the task YAML are covered by at least one test. Table-driven tests used throughout. Integration tests exercise the real binary via `runCmdInner` and `captureExecCmd`. `TestRun_Locale_FallbackChainEnGB` covers verbosity gating with two subtests (warning absent without `-v`, present with `-v`). `TestHelpText_ContainsLocaleFlag` guards help text. `TestRun_LocalePrecedence_FlagBeatsProjectConfig` creates a real `curlew.yaml` to verify project-config precedence. |
 
 ## Behavior Coverage
 
@@ -46,7 +46,7 @@ No findings. All prior findings from iterations 1–3 have been resolved and ver
 | `golangci-lint run` passes with 0 issues | PASS |
 | `./smoke/run.sh` passes | PASS |
 | `docs/REVIEW.md:75` and `:156` corrected | PASS — "unparsed (silently ignored)", not warn-and-ignore |
-| `apitest run --help` and `apitest exec --help` document `--locale` | PASS — lines 3780, 3791 |
+| `curlew run --help` and `curlew exec --help` document `--locale` | PASS — lines 3780, 3791 |
 | Byte-identical backward compat (no `--locale` => en-US) | PASS — `TestRegistry_Locale_EnUS_ByteIdenticalToBaseline` |
 
 ## Test Coverage
@@ -54,7 +54,7 @@ No findings. All prior findings from iterations 1–3 have been resolved and ver
 - `internal/variable`: 97.2%
 - `internal/config`: 90.5%
 - `internal/runner`: 84.8%
-- `cmd/apitest`: 79.6%
+- `cmd/curlew`: 79.6%
 
 All key packages at or above 80%.
 
@@ -68,7 +68,7 @@ This is the fourth and final review iteration. All three findings from iteration
 |-----------|---|----------|---------|------------|
 | 1 | 1 | High | No exec integration tests for locale | Added `TestExecCmd_Locale_DeDE_DrawsGermanName` and `TestExecCmd_Locale_UnknownCode_ErrLocaleUnknown` |
 | 1 | 2 | Medium | `hints_init.go` hardcoded locale list | Replaced with `strings.Join(supportedLocales, ", ")` |
-| 1 | 3 | Medium | `TestRun_LocalePrecedence_FlagBeatsProject` tested collection config, not project config | Renamed to `FlagBeatsCollection`; added `FlagBeatsProjectConfig` with real `apitest.yaml` |
+| 1 | 3 | Medium | `TestRun_LocalePrecedence_FlagBeatsProject` tested collection config, not project config | Renamed to `FlagBeatsCollection`; added `FlagBeatsProjectConfig` with real `curlew.yaml` |
 | 1 | 4 | Low | Verbose diagnostic displayed un-normalized locale value | Added `NormalizeLocale` export; `localeSource` normalizes before display |
 | 1 | 5 | Low | Misleading test case in `TestParseRunArgs_Locale` | Removed misleading case; pointed to `TestParseRunArgs_LocaleMissingValue` |
 | 2 | 1 | Medium | No integration test for Behaviour 7 (collection locale without flag) | Added `TestRun_CollectionLocale_HonoredWhenFlagAbsent` |

@@ -1,6 +1,6 @@
-# ApiTool Self-Hosted Bundle
+# Curlew Self-Hosted Bundle
 
-Run the full ApiTool stack on your own infrastructure using Docker Compose.
+Run the full Curlew stack on your own infrastructure using Docker Compose.
 
 ## Quick Start
 
@@ -41,8 +41,8 @@ Postgres and Redis are not exposed to the host by default. Override ports in `.e
 | `BACKEND_PORT` | `5000` | Host port for the backend API |
 | `WEB_PORT` | `3000` | Host port for the web UI |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | ASP.NET Core environment name |
-| `POSTGRES_DB` | `apitool` | Postgres database name |
-| `POSTGRES_USER` | `apitool` | Postgres superuser name |
+| `POSTGRES_DB` | `curlew` | Postgres database name |
+| `POSTGRES_USER` | `curlew` | Postgres superuser name |
 | `POSTGRES_PASSWORD` | — | **Required.** Change before first boot |
 | `REDIS_PASSWORD` | `""` | Redis password (empty = no auth). Set for production |
 | `JWT_SIGNING_KEY` | — | **Required.** Must be at least 32 bytes |
@@ -60,7 +60,7 @@ Postgres and Redis are not exposed to the host by default. Override ports in `.e
 |--------|----------|
 | `pg_data` | Postgres data directory |
 | `redis_data` | Redis append-only log |
-| `backend_data` | Backend SQLite database (`apitool.db`) |
+| `backend_data` | Backend SQLite database (`curlew.db`) |
 
 Data survives `docker compose down` (no `-v`). Use `docker compose down -v` to remove all volumes and start fresh.
 
@@ -78,7 +78,7 @@ Backup the Postgres data volume before upgrading:
 
 ```bash
 docker run --rm \
-  -v apitool-self-hosted_pg_data:/source \
+  -v curlew-self-hosted_pg_data:/source \
   -v "$(pwd)/backup":/dest \
   alpine tar czf /dest/pg_data_$(date +%Y%m%d%H%M%S).tar.gz -C /source .
 ```
@@ -87,9 +87,9 @@ Backup the SQLite database:
 
 ```bash
 docker run --rm \
-  -v apitool-self-hosted_backend_data:/source \
+  -v curlew-self-hosted_backend_data:/source \
   -v "$(pwd)/backup":/dest \
-  alpine cp /source/apitool.db /dest/apitool_$(date +%Y%m%d%H%M%S).db
+  alpine cp /source/curlew.db /dest/curlew_$(date +%Y%m%d%H%M%S).db
 ```
 
 ## Smoke Test
@@ -97,7 +97,7 @@ docker run --rm \
 An automated smoke test is provided in `scripts/test-self-hosted.sh`. It starts the stack, verifies all services are healthy, and tears it down. It is opt-in to avoid adding 60+ seconds to every CI run:
 
 ```bash
-APITEST_RUN_SELF_HOSTED=1 ./scripts/ci-local.sh
+CURLEW_RUN_SELF_HOSTED=1 ./scripts/ci-local.sh
 # or directly:
 ./scripts/test-self-hosted.sh
 ```
@@ -130,7 +130,7 @@ docker compose -f docker-compose.yml --env-file .env up -d --build
 docker compose -f deploy/self-hosted/docker-compose.yml --env-file deploy/self-hosted/.env up -d
 ```
 
-**Do not override the project name** with `-p`. The smoke test and volume verification rely on the default project name prefix `apitool-self-hosted`.
+**Do not override the project name** with `-p`. The smoke test and volume verification rely on the default project name prefix `curlew-self-hosted`.
 
 ## First-Boot Admin Bootstrap
 
@@ -158,65 +158,65 @@ curl -sS -X POST \
 
 ## Stripe Configuration
 
-ApiTool supports two billing gateway modes, selected via `APITOOL__STRIPE__MODE`.
+Curlew supports two billing gateway modes, selected via `CURLEW__STRIPE__MODE`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `APITOOL__STRIPE__MODE` | `fake` | `fake` uses the deterministic in-memory gateway (no real billing). `live` uses the Stripe.Net SDK. |
-| `APITOOL__STRIPE__APIKEY` | — | Required when `APITOOL__STRIPE__MODE=live`. Your Stripe secret key (`sk_live_...` or `sk_test_...`). |
-| `APITOOL__STRIPE__APIBASE` | — | Optional. Override the Stripe API base URL. Leave unset in production; set to `http://stripe-mock:12111` in CI only. |
+| `CURLEW__STRIPE__MODE` | `fake` | `fake` uses the deterministic in-memory gateway (no real billing). `live` uses the Stripe.Net SDK. |
+| `CURLEW__STRIPE__APIKEY` | — | Required when `CURLEW__STRIPE__MODE=live`. Your Stripe secret key (`sk_live_...` or `sk_test_...`). |
+| `CURLEW__STRIPE__APIBASE` | — | Optional. Override the Stripe API base URL. Leave unset in production; set to `http://stripe-mock:12111` in CI only. |
 
 ### App Configuration (required for billing portal)
 
 | Variable | Default | Description |
 |---|---|---|
-| `APITOOL__APP__WEBAPPURL` | — | **Required.** Absolute public URL of the web app (e.g. `https://app.apitool.dev`). Used as the default `return_url` for Stripe billing portal sessions. |
+| `CURLEW__APP__WEBAPPURL` | — | **Required.** Absolute public URL of the web app (e.g. `https://app.apitool.dev`). Used as the default `return_url` for Stripe billing portal sessions. |
 
-The backend **fails at startup** (`OptionsValidationException`) when `APITOOL__APP__WEBAPPURL` is not set. You must provide this value even in non-Stripe (`fake`) mode, because the option is validated unconditionally.
+The backend **fails at startup** (`OptionsValidationException`) when `CURLEW__APP__WEBAPPURL` is not set. You must provide this value even in non-Stripe (`fake`) mode, because the option is validated unconditionally.
 
 Add to your `.env`:
 ```dotenv
-APITOOL__APP__WEBAPPURL=https://app.example.com
+CURLEW__APP__WEBAPPURL=https://app.example.com
 ```
 
-The `POST /api/v1/subscriptions/billing-portal` endpoint redirects users to `${APITOOL__APP__WEBAPPURL}/billing` after their Stripe billing portal session ends. Callers may override this by passing a `return_url` in the request body.
+The `POST /api/v1/subscriptions/billing-portal` endpoint redirects users to `${CURLEW__APP__WEBAPPURL}/billing` after their Stripe billing portal session ends. Callers may override this by passing a `return_url` in the request body.
 
 The default `fake` mode creates deterministic checkout URLs — **no real billing occurs**. Switch to `live` only after configuring Stripe webhooks (required for subscription lifecycle events, landing in M14-009/010).
 
-Starting with `APITOOL__STRIPE__MODE=live` without `APITOOL__STRIPE__APIKEY` set causes the backend to fail at startup with a clear error message.
+Starting with `CURLEW__STRIPE__MODE=live` without `CURLEW__STRIPE__APIKEY` set causes the backend to fail at startup with a clear error message.
 
 ### Proration Computation
 
 In `live` mode, proration math is computed **server-side by Stripe** via the upcoming-invoice preview (`GET /v1/invoices/upcoming`). The returned `amount_due_now` reflects Stripe's day-prorated calculation based on the current billing period.
 
-In `fake` mode, a deterministic full-month-delta approximation is used instead. Dollar amounts in `fake` mode will **not** match real Stripe proration; this is intentional and documented. The `fake` mode is suitable for development and integration testing; use Stripe test mode (`sk_test_...` with `APITOOL__STRIPE__MODE=live`) for accurate proration figures.
+In `fake` mode, a deterministic full-month-delta approximation is used instead. Dollar amounts in `fake` mode will **not** match real Stripe proration; this is intentional and documented. The `fake` mode is suitable for development and integration testing; use Stripe test mode (`sk_test_...` with `CURLEW__STRIPE__MODE=live`) for accurate proration figures.
 
 ## SendGrid Configuration
 
-ApiTool sends transactional email via SendGrid (verification, billing receipts,
+Curlew sends transactional email via SendGrid (verification, billing receipts,
 account security alerts, etc.). The integration has two modes:
 
 | Variable | Default | Description |
 |---|---|---|
-| `APITOOL__SENDGRID__MODE` | `fake` | `fake` is a no-op logger (dev/CI). `live` posts to SendGrid. |
-| `APITOOL__SENDGRID__APIKEY` | — | Required when `MODE=live`. Your SendGrid API key (`SG.xxx`). |
-| `APITOOL__SENDGRID__FROMEMAIL` | `noreply@apitool.dev` | Sender email address. |
-| `APITOOL__SENDGRID__FROMNAME` | `ApiTool` | Sender display name. |
-| `APITOOL__SENDGRID__TEMPLATES__<SLUG>` | — | One env var per template. Populated by the CI upload job at release time. |
+| `CURLEW__SENDGRID__MODE` | `fake` | `fake` is a no-op logger (dev/CI). `live` posts to SendGrid. |
+| `CURLEW__SENDGRID__APIKEY` | — | Required when `MODE=live`. Your SendGrid API key (`SG.xxx`). |
+| `CURLEW__SENDGRID__FROMEMAIL` | `noreply@apitool.dev` | Sender email address. |
+| `CURLEW__SENDGRID__FROMNAME` | `Curlew` | Sender display name. |
+| `CURLEW__SENDGRID__TEMPLATES__<SLUG>` | — | One env var per template. Populated by the CI upload job at release time. |
 
 Per-template env vars (one per slug in the M14 inventory):
-- `APITOOL__SENDGRID__TEMPLATES__EMAIL_VERIFICATION`
-- `APITOOL__SENDGRID__TEMPLATES__AUTH_DEVICE_CODE`
-- `APITOOL__SENDGRID__TEMPLATES__BILLING_RECEIPT`
-- `APITOOL__SENDGRID__TEMPLATES__BILLING_PAYMENT_FAILED`
-- `APITOOL__SENDGRID__TEMPLATES__BILLING_SUBSCRIPTION_CANCELED`
-- `APITOOL__SENDGRID__TEMPLATES__ACCOUNT_SECURITY_ALERT`
+- `CURLEW__SENDGRID__TEMPLATES__EMAIL_VERIFICATION`
+- `CURLEW__SENDGRID__TEMPLATES__AUTH_DEVICE_CODE`
+- `CURLEW__SENDGRID__TEMPLATES__BILLING_RECEIPT`
+- `CURLEW__SENDGRID__TEMPLATES__BILLING_PAYMENT_FAILED`
+- `CURLEW__SENDGRID__TEMPLATES__BILLING_SUBSCRIPTION_CANCELED`
+- `CURLEW__SENDGRID__TEMPLATES__ACCOUNT_SECURITY_ALERT`
 
 The default `fake` mode logs every send attempt — no real email is delivered.
 Switch to `live` only after the M14 release CI pipeline has uploaded the
 template HTML and populated the `TEMPLATES__*` secrets.
 
-Starting with `APITOOL__SENDGRID__MODE=live` without `APITOOL__SENDGRID__APIKEY` set causes
+Starting with `CURLEW__SENDGRID__MODE=live` without `CURLEW__SENDGRID__APIKEY` set causes
 the backend to fail at startup with a clear error message.
 
 ### Local development preview
@@ -247,7 +247,7 @@ curl http://localhost:5000/api/v1/.well-known/jwks.json
 
 ## Signing-Key Generation (FileKeyProvider)
 
-ApiTool uses ES256 JWT signing. In self-hosted mode (`APITOOL__KEYPROVIDER__MODE=file`), the backend generates and stores key material in `APITOOL__KEYPROVIDER__FILE__DIR` (default: `/app/data/keys/signing`).
+Curlew uses ES256 JWT signing. In self-hosted mode (`CURLEW__KEYPROVIDER__MODE=file`), the backend generates and stores key material in `CURLEW__KEYPROVIDER__FILE__DIR` (default: `/app/data/keys/signing`).
 
 ### Initial Setup
 
@@ -269,9 +269,9 @@ ApiTool uses ES256 JWT signing. In self-hosted mode (`APITOOL__KEYPROVIDER__MODE
 
 Add to your `.env`:
 ```dotenv
-APITOOL__KEYPROVIDER__MODE=file
-APITOOL__KEYPROVIDER__ENV=prod
-APITOOL__KEYPROVIDER__FILE__DIR=/app/data/keys/signing
+CURLEW__KEYPROVIDER__MODE=file
+CURLEW__KEYPROVIDER__ENV=prod
+CURLEW__KEYPROVIDER__FILE__DIR=/app/data/keys/signing
 ```
 
 ### Emergency Key Rotation
@@ -301,7 +301,7 @@ docker run --rm \
 
 ## GitHub App Registration (M14-016)
 
-ApiTool posts CI check results to GitHub via the GitHub Checks API. This requires registering a
+Curlew posts CI check results to GitHub via the GitHub Checks API. This requires registering a
 GitHub App and providing the private key to the backend.
 
 > **GHES Not Supported.** GitHub Enterprise Server is explicitly out of scope (spec :8696).
@@ -310,7 +310,7 @@ GitHub App and providing the private key to the backend.
 ### 1. Register a GitHub App
 
 1. Go to **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App**.
-2. Set the **GitHub App name** (your chosen slug, e.g. `apitool-checks`). Record the **App ID** shown on the App page after creation.
+2. Set the **GitHub App name** (your chosen slug, e.g. `curlew-checks`). Record the **App ID** shown on the App page after creation.
 3. Set **Homepage URL** to your deployment URL.
 4. Under **Webhook**, set the **Webhook URL** to `https://your-host/webhooks/github` (wired in M14-018). Leave **Active** unchecked until M14-018 is deployed.
 5. Under **Repository permissions**, grant:
@@ -323,11 +323,11 @@ GitHub App and providing the private key to the backend.
 
 1. On the App page, scroll to **Private keys** and click **Generate a private key**.
 2. GitHub downloads a `.pem` file (PKCS#1 RSA private key, 2048-bit).
-3. On the backend host, store it at a path of your choice (e.g. `/app/data/keys/github-app/apitool-checks.pem`) and restrict permissions:
+3. On the backend host, store it at a path of your choice (e.g. `/app/data/keys/github-app/curlew-checks.pem`) and restrict permissions:
    ```bash
    mkdir -p /app/data/keys/github-app
-   mv ~/Downloads/apitool-checks.*.private-key.pem /app/data/keys/github-app/apitool-checks.pem
-   chmod 600 /app/data/keys/github-app/apitool-checks.pem
+   mv ~/Downloads/curlew-checks.*.private-key.pem /app/data/keys/github-app/curlew-checks.pem
+   chmod 600 /app/data/keys/github-app/curlew-checks.pem
    ```
 
 ### 3. Configure the backend
@@ -336,9 +336,9 @@ Add to your `.env`:
 
 ```dotenv
 GITHUB_APP__APPID=<numeric App ID from step 1>
-GITHUB_APP__SLUG=apitool-checks
+GITHUB_APP__SLUG=curlew-checks
 GITHUB_APP__KEYPROVIDER__MODE=file
-GITHUB_APP__KEYPROVIDER__FILE__PATH=/app/data/keys/github-app/apitool-checks.pem
+GITHUB_APP__KEYPROVIDER__FILE__PATH=/app/data/keys/github-app/curlew-checks.pem
 ```
 
 ### 4. Verify the configuration
@@ -370,13 +370,13 @@ Installation tokens (used for the actual API calls) are handled in M14-018.
 ### 6. App-Installation Runbook (M14-017)
 
 Once the GitHub App is registered and the backend is configured (steps 1-5), end users
-install the App on their org and link it to their ApiTool org via either the
+install the App on their org and link it to their Curlew org via either the
 dashboard-initiated flow or the webhook-first claim flow.
 
 **Required env var (in addition to M14-016):**
 
 ```dotenv
-APITOOL__GITHUBAPP__STATESIGNINGKEY=<32+ char random secret>
+CURLEW__GITHUBAPP__STATESIGNINGKEY=<32+ char random secret>
 ```
 
 **Dashboard-initiated install flow:**
@@ -410,7 +410,7 @@ For SaaS deployments, use Google Cloud KMS with an `RSA_SIGN_PKCS1_2048_SHA256` 
 
 ```dotenv
 GITHUB_APP__APPID=<numeric App ID>
-GITHUB_APP__SLUG=apitool-checks
+GITHUB_APP__SLUG=curlew-checks
 GITHUB_APP__KEYPROVIDER__MODE=kms
 GITHUB_APP__KEYPROVIDER__KMS__KMSKEYID=projects/<project>/locations/<location>/keyRings/<ring>/cryptoKeys/<key>/cryptoKeyVersions/<version>
 ```

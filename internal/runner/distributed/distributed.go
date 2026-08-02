@@ -1,4 +1,4 @@
-// Package distributed orchestrates the distributed execution path for apitest run.
+// Package distributed orchestrates the distributed execution path for curlew run.
 // When --workers N is specified (N ≥ 2), Run creates a coordinator job, waits for
 // N workers to join, polls until all shards complete, and returns aggregated results
 // compatible with the existing terminal/json/tap/junit printers.
@@ -17,10 +17,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/runner/shard"
-	"github.com/peterlindqvist/apitest/internal/worker"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/runner/shard"
+	"github.com/weiqigod/curlew/internal/worker"
 )
 
 // Sentinel errors.

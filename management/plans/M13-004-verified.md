@@ -43,7 +43,7 @@ go test -run 'TestRegistry_FakerCompany' -v ./internal/variable/...
     dynamic_test.go:2785: --locale flag is deferred from M13 entirely
 --- SKIP: TestRegistry_FakerCompany_LocaleDeferred (0.00s)
 PASS
-ok  github.com/peterlindqvist/apitest/internal/variable
+ok  github.com/weiqigod/curlew/internal/variable
 ```
 
 Expected: All 5 company functions registered, seeded test passes, unseeded test passes.

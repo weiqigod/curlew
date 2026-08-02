@@ -8,7 +8,7 @@
 	const highlights = [
 		{
 			title: 'Chain real request graphs',
-			body: 'Extract a token here, feed it into the next call there. Declare dependencies and ApiTool runs independent requests in parallel waves.'
+			body: 'Extract a token here, feed it into the next call there. Declare dependencies and Curlew runs independent requests in parallel waves.'
 		},
 		{
 			title: 'Data-driven by default',
@@ -34,10 +34,10 @@
 </script>
 
 <svelte:head>
-	<title>ApiTool — the cookbook</title>
+	<title>Curlew — the cookbook</title>
 	<meta
 		name="description"
-		content="Sophisticated, end-to-end examples that show the full power of ApiTool — the file-based API testing CLI."
+		content="Sophisticated, end-to-end examples that show the full power of Curlew — the file-based API testing CLI."
 	/>
 </svelte:head>
 
@@ -49,13 +49,13 @@
 	<div class="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-2 lg:py-24">
 		<div>
 			<p class="text-sm font-semibold uppercase tracking-wider text-brand-500">
-				The ApiTool cookbook
+				The Curlew cookbook
 			</p>
 			<h1 class="mt-3 text-4xl font-bold leading-tight tracking-tight text-[var(--text)] sm:text-5xl">
 				The full power of your API test suite — in YAML you can read and diff.
 			</h1>
 			<p class="mt-5 max-w-xl text-lg leading-relaxed text-[var(--text-soft)]">
-				ApiTool is a file-based API testing tool — a Postman replacement for developers who live in
+				Curlew is a file-based API testing tool — a Postman replacement for developers who live in
 				files, version control, and the CLI. This is the cookbook: real, end-to-end scenarios that
 				go far past the basics.
 			</p>

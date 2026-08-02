@@ -1,6 +1,6 @@
 package config
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("config",
@@ -10,7 +10,7 @@ func init() {
 			Hint: apierrors.ClassifiedHint{
 				Category: apierrors.CategoryConfig,
 				Code:     "CONFIG_INVALID_PROJECT",
-				Hint:     "Validate apitest.yaml against the documented project config schema.",
+				Hint:     "Validate curlew.yaml against the documented project config schema.",
 			},
 		},
 		apierrors.RegisteredError{

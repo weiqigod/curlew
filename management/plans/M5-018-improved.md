@@ -19,13 +19,13 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage — `internal/plugin` | 81.4% |
 | Coverage — `internal/plugin/hooks` | 82.1% |
 | Coverage — `internal/runner` | 85.6% |
-| Coverage — `cmd/apitest` | 81.6% |
+| Coverage — `cmd/curlew` | 81.6% |
 
 ## Fix Commits
 

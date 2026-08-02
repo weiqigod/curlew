@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/peterlindqvist/apitest/internal/output"
+	"github.com/weiqigod/curlew/internal/output"
 )
 
 // TestRequestItem_UnmarshalYAML_capturesLine verifies that RequestItem's

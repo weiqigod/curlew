@@ -10,12 +10,12 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke scenarios pass (initial transient failure was network; second run clean) |
-| Coverage — `cmd/apitest` | 85.9% | Meets >= 80% threshold |
+| Coverage — `cmd/curlew` | 85.9% | Meets >= 80% threshold |
 | Coverage — `internal/output` | 91.4% | Meets >= 80% threshold |
 | Coverage — `internal/runner` | 91.2% | Meets >= 80% threshold |
 | Coverage — total | 91.9% | Meets >= 80% threshold |
@@ -60,7 +60,7 @@ Collection: Hello API
   < (body): { "args": {}, "headers": {...}, ... }
 
   > POST https://httpbin.org/post
-  > (body): map[message:Hello from ApiTool timestamp:2026-01-01T00:00:00Z]
+  > (body): map[message:Hello from Curlew timestamp:2026-01-01T00:00:00Z]
   ✓ Post with JSON body  200  106ms
   ...
 ```
@@ -141,8 +141,8 @@ TDD pattern visible: `test(...)` commits precede `feat(...)` commits for each st
 | `internal/output/json.go` | modified — optional header/body fields in JSONRequest |
 | `internal/runner/runner.go` | modified — RequestHeaders/RequestBody in RequestResult |
 | `internal/runner/runner_test.go` | modified — tests for new fields |
-| `cmd/apitest/main.go` | modified — flag parsing, rendering loop, help text |
-| `cmd/apitest/main_test.go` | modified — updated call sites, new verbosity tests |
+| `cmd/curlew/main.go` | modified — flag parsing, rendering loop, help text |
+| `cmd/curlew/main_test.go` | modified — updated call sites, new verbosity tests |
 | `smoke/run.sh` | modified — quiet/verbose/help verbosity smoke scenarios |
 
 ## Issues Found

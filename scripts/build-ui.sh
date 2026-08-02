@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the apitest ui SPA into internal/uiserver/assets/dist so the next
+# Builds the curlew ui SPA into internal/uiserver/assets/dist so the next
 # `go build` embeds it. Release/CI pipelines run this before building the
 # binary; without it the committed placeholder index.html is served.
 set -euo pipefail
@@ -11,4 +11,4 @@ if [ ! -d node_modules ]; then
 fi
 npm run build
 
-echo "apitest ui assets built into internal/uiserver/assets/dist"
+echo "curlew ui assets built into internal/uiserver/assets/dist"

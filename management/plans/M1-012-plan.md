@@ -247,9 +247,9 @@ func TestRun_environment_variable_precedence(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `--env` to `parseRunArgs()`, wire `config.LoadEnvironment()` in `runCmd()`, update help |
-| `cmd/apitest/main_test.go` | modify | Add `--env` parsing tests, integration tests |
-| `cmd/apitest/run_test.go` | modify | Update `runCmd()` call sites if any |
+| `cmd/curlew/main.go` | modify | Add `--env` to `parseRunArgs()`, wire `config.LoadEnvironment()` in `runCmd()`, update help |
+| `cmd/curlew/main_test.go` | modify | Add `--env` parsing tests, integration tests |
+| `cmd/curlew/run_test.go` | modify | Update `runCmd()` call sites if any |
 
 #### Current Code
 ```go
@@ -353,8 +353,8 @@ YAML
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/runner/runner_test.go` | All `Run()` calls (~30) | signature change | insert `nil` for `envVars` before `cliVars` |
-| `cmd/apitest/main_test.go` | `TestParseRunArgs*` | signature change | add `envName` to return destructuring |
-| `cmd/apitest/run_test.go` | Any `runCmd()` tests | may need env setup | update if present |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs*` | signature change | add `envName` to return destructuring |
+| `cmd/curlew/run_test.go` | Any `runCmd()` tests | may need env setup | update if present |
 
 ## Risks and Edge Cases
 
@@ -379,7 +379,7 @@ YAML
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -399,5 +399,5 @@ requests:
     method: GET
     url: "{{base_url}}/health"
 YAML
-./apitest run env-test.yaml --env dev
+./curlew run env-test.yaml --env dev
 ```

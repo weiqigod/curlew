@@ -1,6 +1,6 @@
 package backend
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("backend",
@@ -22,12 +22,12 @@ func init() {
 		apierrors.RegisteredError{
 			Name: "ErrEncryptedFileTampered",
 			Err:  ErrEncryptedFileTampered,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_ENCRYPTED_FILE_TAMPERED", Hint: "The stored refresh token file is corrupted or the encryption key changed. Re-authenticate via apitest login."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_ENCRYPTED_FILE_TAMPERED", Hint: "The stored refresh token file is corrupted or the encryption key changed. Re-authenticate via curlew login."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrTokenNotFound",
 			Err:  ErrTokenNotFound,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_TOKEN_NOT_FOUND", Hint: "No refresh token is stored. Authenticate via apitest login."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_TOKEN_NOT_FOUND", Hint: "No refresh token is stored. Authenticate via curlew login."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrAuthorizationPending",
@@ -42,27 +42,27 @@ func init() {
 		apierrors.RegisteredError{
 			Name: "ErrExpiredToken",
 			Err:  ErrExpiredToken,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_DEVICE_EXPIRED_TOKEN", Hint: "The device code has expired. Run apitest login again to restart the flow."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_DEVICE_EXPIRED_TOKEN", Hint: "The device code has expired. Run curlew login again to restart the flow."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrAccessDenied",
 			Err:  ErrAccessDenied,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_DEVICE_ACCESS_DENIED", Hint: "The authorization was denied. Run apitest login to try again."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_DEVICE_ACCESS_DENIED", Hint: "The authorization was denied. Run curlew login to try again."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrRefreshExpired",
 			Err:  ErrRefreshExpired,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_REFRESH_EXPIRED", Hint: "The refresh token has expired. Run apitest login to re-authenticate."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_REFRESH_EXPIRED", Hint: "The refresh token has expired. Run curlew login to re-authenticate."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrRefreshReused",
 			Err:  ErrRefreshReused,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_REFRESH_REUSED", Hint: "Refresh token reuse detected — the token family has been revoked. Run apitest login to re-authenticate."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_REFRESH_REUSED", Hint: "Refresh token reuse detected — the token family has been revoked. Run curlew login to re-authenticate."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrDeviceMismatch",
 			Err:  ErrDeviceMismatch,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_DEVICE_MISMATCH", Hint: "Device mismatch. Run apitest login to re-register this device."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "BACKEND_DEVICE_MISMATCH", Hint: "Device mismatch. Run curlew login to re-register this device."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrTrialAlreadyConsumed",

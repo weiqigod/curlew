@@ -9,11 +9,11 @@ import (
 )
 
 // TestInit_OutputAllFormats verifies that each supported output format
-// produces a scaffold whose apitest.yaml contains the correct output: block.
+// produces a scaffold whose curlew.yaml contains the correct output: block.
 func TestInit_OutputAllFormats(t *testing.T) {
 	cases := []struct {
 		format   string
-		wantBody string // exact substring expected in apitest.yaml
+		wantBody string // exact substring expected in curlew.yaml
 	}{
 		{"terminal", "format: terminal"},
 		{"json", "format: json\n  report: results.json"},
@@ -29,12 +29,12 @@ func TestInit_OutputAllFormats(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Init(format=%s): %v", tc.format, err)
 			}
-			body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+			body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
 			if !strings.Contains(string(body), tc.wantBody) {
-				t.Fatalf("apitest.yaml missing %q\ngot:\n%s", tc.wantBody, body)
+				t.Fatalf("curlew.yaml missing %q\ngot:\n%s", tc.wantBody, body)
 			}
 		})
 	}
@@ -47,13 +47,13 @@ func TestInit_OutputMarkdownFlag(t *testing.T) {
 	if err := Init(Options{Dir: dir, OutputFormat: "markdown"}); err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+	body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "output:\n  format: markdown\n  report: responses/"
 	if !strings.Contains(string(body), want) {
-		t.Fatalf("want %q in apitest.yaml; got:\n%s", want, body)
+		t.Fatalf("want %q in curlew.yaml; got:\n%s", want, body)
 	}
 }
 
@@ -64,7 +64,7 @@ func TestInit_DefaultUnchanged(t *testing.T) {
 	if err := Init(Options{Dir: dir, ProjectName: "demo"}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+	got, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestInit_DefaultUnchanged(t *testing.T) {
 		"  format: terminal\n" +
 		"  verbosity: normal\n"
 	if string(got) != want {
-		t.Fatalf("bare-init apitest.yaml diverged from M8-003 baseline\nwant:\n%s\ngot:\n%s", want, got)
+		t.Fatalf("bare-init curlew.yaml diverged from M8-003 baseline\nwant:\n%s\ngot:\n%s", want, got)
 	}
 }
 
@@ -103,7 +103,7 @@ func TestInit(t *testing.T) {
 		{
 			name: "creates all files in empty directory",
 			wantFiles: []string{
-				"apitest.yaml",
+				"curlew.yaml",
 				".gitignore",
 				".env.example",
 				"environments/dev.yaml",
@@ -111,23 +111,23 @@ func TestInit(t *testing.T) {
 			},
 		},
 		{
-			name: "apitest.yaml contains project name from directory basename",
+			name: "curlew.yaml contains project name from directory basename",
 			checkContent: map[string]string{
-				"apitest.yaml": "project_name:",
+				"curlew.yaml": "project_name:",
 			},
 		},
 		{
-			name: "apitest.yaml uses custom project name when provided",
+			name: "curlew.yaml uses custom project name when provided",
 			opts: func(dir string) Options { return Options{Dir: dir, ProjectName: "MyAPI"} },
 			checkContent: map[string]string{
 				// project_name is quoted to prevent YAML from interpreting numeric names as numbers
-				"apitest.yaml": `project_name: "MyAPI"`,
+				"curlew.yaml": `project_name: "MyAPI"`,
 			},
 		},
 		{
-			name: "apitest.yaml contains active output block",
+			name: "curlew.yaml contains active output block",
 			checkContent: map[string]string{
-				"apitest.yaml": "output:\n  format: terminal\n  verbosity: normal",
+				"curlew.yaml": "output:\n  format: terminal\n  verbosity: normal",
 			},
 		},
 		{
@@ -149,20 +149,20 @@ func TestInit(t *testing.T) {
 			},
 		},
 		{
-			name: "error when apitest.yaml already exists",
+			name: "error when curlew.yaml already exists",
 			setup: func(t *testing.T, dir string) {
 				t.Helper()
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yaml"), []byte("project_name: Existing\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yaml"), []byte("project_name: Existing\n"), 0o600); err != nil {
 					t.Fatalf("setup: %v", err)
 				}
 			},
 			wantErr: ErrProjectExists,
 		},
 		{
-			name: "error when apitest.yml already exists",
+			name: "error when curlew.yml already exists",
 			setup: func(t *testing.T, dir string) {
 				t.Helper()
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yml"), []byte("project_name: Existing\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yml"), []byte("project_name: Existing\n"), 0o600); err != nil {
 					t.Fatalf("setup: %v", err)
 				}
 			},
@@ -262,7 +262,7 @@ func TestInit_error_when_directory_not_writable(t *testing.T) {
 	}
 }
 
-func TestInit_error_writing_apitest_yaml(t *testing.T) {
+func TestInit_error_writing_curlew_yaml(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("running as root, permission checks don't apply")
 	}
@@ -322,34 +322,34 @@ func TestInit_gitignore_no_duplicate_env_entry(t *testing.T) {
 // outputBlock with the events flag disabled.
 func TestOutputBlock_EnableEvents(t *testing.T) {
 	got := outputBlock("markdown", true)
-	if !strings.Contains(got, "events: .apitest/run.ndjson") {
+	if !strings.Contains(got, "events: .curlew/run.ndjson") {
 		t.Fatalf("outputBlock with enableEvents=true should contain events line; got:\n%s", got)
 	}
 }
 
 func TestInit_SkillClaude_CopiesFile(t *testing.T) {
 	dir := t.TempDir()
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "9.9.9"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "9.9.9"}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "apitest", "SKILL.md"))
+	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read SKILL.md: %v", err)
 	}
-	if !strings.Contains(string(body), "apitest-skill: claude v1.0 (apitest 9.9.9)") {
+	if !strings.Contains(string(body), "curlew-skill: claude v1.0 (curlew 9.9.9)") {
 		t.Errorf("missing version comment with substituted version:\n%s", body)
 	}
-	if strings.Contains(string(body), "{{apitest_version}}") {
+	if strings.Contains(string(body), "{{curlew_version}}") {
 		t.Errorf("untouched template token in scaffolded SKILL.md")
 	}
 }
 
 func TestInit_SkillClaude_DefaultsMarkdown(t *testing.T) {
 	dir := t.TempDir()
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "0.0.1"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "0.0.1"}); err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+	body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,8 +359,8 @@ func TestInit_SkillClaude_DefaultsMarkdown(t *testing.T) {
 	if !strings.Contains(string(body), "report: responses/") {
 		t.Errorf("missing report: responses/:\n%s", body)
 	}
-	if !strings.Contains(string(body), "events: .apitest/run.ndjson") {
-		t.Errorf("missing events: .apitest/run.ndjson:\n%s", body)
+	if !strings.Contains(string(body), "events: .curlew/run.ndjson") {
+		t.Errorf("missing events: .curlew/run.ndjson:\n%s", body)
 	}
 }
 
@@ -369,14 +369,14 @@ func TestInit_SkillClaude_ExtendsOutputBlock(t *testing.T) {
 	for _, f := range formats {
 		t.Run(f, func(t *testing.T) {
 			dir := t.TempDir()
-			if err := Init(Options{Dir: dir, SkillName: "claude", OutputFormat: f, ApitestVersion: "0"}); err != nil {
+			if err := Init(Options{Dir: dir, SkillName: "claude", OutputFormat: f, CurlewVersion: "0"}); err != nil {
 				t.Fatal(err)
 			}
-			body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+			body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(body), "events: .apitest/run.ndjson") {
+			if !strings.Contains(string(body), "events: .curlew/run.ndjson") {
 				t.Errorf("format=%s missing events line:\n%s", f, body)
 			}
 			if !strings.Contains(string(body), "format: "+f) {
@@ -388,14 +388,14 @@ func TestInit_SkillClaude_ExtendsOutputBlock(t *testing.T) {
 
 func TestInit_SkillClaude_ExtendsGitignore(t *testing.T) {
 	dir := t.TempDir()
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "0"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := ".env\n.apitest/\n"
+	want := ".env\n.curlew/\n"
 	if string(body) != want {
 		t.Errorf(".gitignore = %q, want %q", body, want)
 	}
@@ -425,7 +425,7 @@ func TestInit_SkillClaude_PreservesExistingResponsesDir(t *testing.T) {
 	if err := os.WriteFile(keep, []byte("preexisting"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "0"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	body, err := os.ReadFile(keep)
@@ -439,14 +439,14 @@ func TestInit_SkillClaude_PreservesExistingResponsesDir(t *testing.T) {
 
 func TestInit_SkillClaude_OutputOverride(t *testing.T) {
 	dir := t.TempDir()
-	if err := Init(Options{Dir: dir, SkillName: "claude", OutputFormat: "json", ApitestVersion: "0"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", OutputFormat: "json", CurlewVersion: "0"}); err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "apitest.yaml"))
+	body, err := os.ReadFile(filepath.Join(dir, "curlew.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"format: json", "report: results.json", "events: .apitest/run.ndjson"} {
+	for _, want := range []string{"format: json", "report: results.json", "events: .curlew/run.ndjson"} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("missing %q:\n%s", want, body)
 		}
@@ -455,7 +455,7 @@ func TestInit_SkillClaude_OutputOverride(t *testing.T) {
 
 func TestInit_SkillClaude_PreservesExistingSkillFile(t *testing.T) {
 	dir := t.TempDir()
-	skillDir := filepath.Join(dir, ".claude", "skills", "apitest")
+	skillDir := filepath.Join(dir, ".claude", "skills", "curlew")
 	if err := os.MkdirAll(skillDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestInit_SkillClaude_PreservesExistingSkillFile(t *testing.T) {
 	if err := os.WriteFile(skillPath, []byte("user-edited\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "0"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	body, err := os.ReadFile(skillPath)
@@ -477,10 +477,10 @@ func TestInit_SkillClaude_PreservesExistingSkillFile(t *testing.T) {
 
 func TestInit_SkillClaude_WritesAllTopicFiles(t *testing.T) {
 	dir := t.TempDir()
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "9.9.9"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "9.9.9"}); err != nil {
 		t.Fatal(err)
 	}
-	root := filepath.Join(dir, ".claude", "skills", "apitest")
+	root := filepath.Join(dir, ".claude", "skills", "curlew")
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		t.Fatal(err)
@@ -503,7 +503,7 @@ func TestInit_SkillClaude_WritesAllTopicFiles(t *testing.T) {
 
 func TestInit_SkillClaude_PreservesExistingTopicFile(t *testing.T) {
 	dir := t.TempDir()
-	root := filepath.Join(dir, ".claude", "skills", "apitest")
+	root := filepath.Join(dir, ".claude", "skills", "curlew")
 	if err := os.MkdirAll(root, 0o750); err != nil {
 		t.Fatal(err)
 	}
@@ -511,7 +511,7 @@ func TestInit_SkillClaude_PreservesExistingTopicFile(t *testing.T) {
 	if err := os.WriteFile(keep, []byte("user-edited\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Init(Options{Dir: dir, SkillName: "claude", ApitestVersion: "0"}); err != nil {
+	if err := Init(Options{Dir: dir, SkillName: "claude", CurlewVersion: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	body, err := os.ReadFile(keep)
@@ -530,14 +530,14 @@ func TestInit_SkillClaude_PreservesExistingTopicFile(t *testing.T) {
 func TestEnsureGitignore_MultipleEntries_NewFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".gitignore")
-	if err := ensureGitignore(path, []string{".env", ".apitest/"}); err != nil {
+	if err := ensureGitignore(path, []string{".env", ".curlew/"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := ".env\n.apitest/\n"
+	want := ".env\n.curlew/\n"
 	if string(got) != want {
 		t.Errorf("ensureGitignore wrote %q, want %q", got, want)
 	}
@@ -549,14 +549,14 @@ func TestEnsureGitignore_MultipleEntries_AppendsMissing(t *testing.T) {
 	if err := os.WriteFile(path, []byte(".env\nnode_modules/\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ensureGitignore(path, []string{".env", ".apitest/"}); err != nil {
+	if err := ensureGitignore(path, []string{".env", ".curlew/"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := ".env\nnode_modules/\n.apitest/\n"
+	want := ".env\nnode_modules/\n.curlew/\n"
 	if string(got) != want {
 		t.Errorf("ensureGitignore wrote %q, want %q", got, want)
 	}
@@ -565,11 +565,11 @@ func TestEnsureGitignore_MultipleEntries_AppendsMissing(t *testing.T) {
 func TestEnsureGitignore_NoOpWhenAllEntriesPresent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".gitignore")
-	original := ".env\n.apitest/\n"
+	original := ".env\n.curlew/\n"
 	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ensureGitignore(path, []string{".env", ".apitest/"}); err != nil {
+	if err := ensureGitignore(path, []string{".env", ".curlew/"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(path)

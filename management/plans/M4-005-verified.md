@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -race ./...` | PASS (inferred) | No races detected (all packages clean) |
 | `golangci-lint run` | PASS | 0 issues |
@@ -24,7 +24,7 @@
 ## Observable Output
 
 ```
-> apitool-web@0.0.1 build
+> curlew-web@0.0.1 build
 > vite build
 
 ✓ 119 modules transformed.
@@ -42,7 +42,7 @@ Result: Build MATCH (npm run build clean). E2E spec not run live (requires docke
 |---|----------|------|--------|
 | 1 | Renders total runs, pass/fail count, pass rate %, avg duration | `src/routes-tests/page-server.test.ts` (loader unit), `org-results.spec.ts` happy-path | PASS |
 | 2 | Recent runs table newest-first with date, file, user, pass count, duration | `org-results.spec.ts` recent-runs test | PASS |
-| 3 | Empty state with 'Run apitest and upload results to get started' message | `org-results.spec.ts` empty-state test | PASS |
+| 3 | Empty state with 'Run curlew and upload results to get started' message | `org-results.spec.ts` empty-state test | PASS |
 | 4 | Non-team-tier member redirected to /org/[slug] with 'Team tier required' toast | `src/lib/server/guards.test.ts`, `org-results.spec.ts` tier-redirect test (toast + subnav assertions) | PASS |
 | 5 | Time-range picker applies ?range=7d to API call and chart updates | `org-results.spec.ts` time-range test | PASS |
 | 6 | Backend 500 shows error state with retry button, no widgets render | `src/routes-tests/page-server.test.ts` (error field), `org-results.spec.ts` error-state test | PASS |

@@ -91,9 +91,9 @@ Use this template for the initial customer notification email:
 
 ---
 
-Subject: [ApiTool] Service Incident — [Date]
+Subject: [Curlew] Service Incident — [Date]
 
-Dear ApiTool user,
+Dear Curlew user,
 
 We are writing to inform you of a service incident affecting [scope — e.g. "all
 organisations" / "organisations using scheduled runs"].
@@ -112,7 +112,7 @@ organisations" / "organisations using scheduled runs"].
 We apologise for the disruption. If you have questions, please contact us at
 <support@apitool.dev>.
 
-— The ApiTool team
+— The Curlew team
 
 ---
 

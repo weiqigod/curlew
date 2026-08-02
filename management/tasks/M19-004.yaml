@@ -9,8 +9,8 @@ dependencies:
   - M19-002
 
 observable: |
-  go build ./cmd/apitest && \
-    ./apitest run smoke/fixtures/cel_assertions.yaml --output terminal && \
+  go build ./cmd/curlew && \
+    ./curlew run smoke/fixtures/cel_assertions.yaml --output terminal && \
     go test ./internal/assertion/... -run TestCelAssertion -count=1
   Expected: terminal output shows the run with one passing CEL assertion
   ("body.total == sum of items") and one failing CEL assertion whose failure
@@ -28,7 +28,7 @@ behaviors:
   - "Given the same CEL assertion and a response where the equality does not hold, when the runner evaluates assertions, then the assertion is recorded as `fail`, the failure message contains the literal expression source, and it also contains the resolved value for each top-level named reference in the expression (`response.body.total`, `response.body.items.map(...)`)."
   - "Given an assertion entry that contains both `cel:` and an operator key (e.g. `eq:`) on the same entry, when the parser loads the file, then parsing fails with a clear error stating that `cel:` and operator assertions are mutually exclusive per entry."
   - "Given an assertion with `cel:` whose expression references `vars.api_key` and `api_key` is in the sensitive variable set, when the assertion fails and the failure message is built, then the resolved value of `api_key` is replaced with the standard redaction marker (`***`) and does not appear in the rendered output of any formatter."
-  - "Given an assertion with `cel:` that compiles to a non-bool type (e.g. `cel: \"1 + 1\"`), when `apitest run` reaches the assertion, then evaluation fails with an `ERR_CEL_TYPE` runtime error attributed to `assertions[N].cel` and the run reports the assertion as `fail` (not crash)."
+  - "Given an assertion with `cel:` that compiles to a non-bool type (e.g. `cel: \"1 + 1\"`), when `curlew run` reaches the assertion, then evaluation fails with an `ERR_CEL_TYPE` runtime error attributed to `assertions[N].cel` and the run reports the assertion as `fail` (not crash)."
   - "Given a request that is skipped by `if:` (M19-001), when its `assertions:` would otherwise run, then no `cel:` assertion is evaluated and none is counted in the run's assertion totals."
   - "Given a CEL assertion in the activation `{response, previous, vars, env}`, when the expression references `request` (the in-flight request body), then compilation fails with `ERR_CEL_PARSE` naming `request` as an undeclared identifier."
 

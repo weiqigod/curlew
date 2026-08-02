@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All 24 packages pass |
 | `go test -race ./...` | PASS (per review) | No races detected |
 | `golangci-lint run` | PASS | 0 issues |
@@ -25,8 +25,8 @@
 
 ```
 go test ./internal/websocket/...
-ok      github.com/peterlindqvist/apitest/internal/websocket            (cached)
-ok      github.com/peterlindqvist/apitest/internal/websocket/templates  (cached)
+ok      github.com/weiqigod/curlew/internal/websocket            (cached)
+ok      github.com/weiqigod/curlew/internal/websocket/templates  (cached)
 ```
 
 All tests in `internal/websocket/...` pass including advanced pattern tests for `any_of:`, `count:`, buffer FIFO, variable extraction, message_template, and message_raw.

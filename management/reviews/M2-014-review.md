@@ -30,7 +30,7 @@ No findings. Previous finding (#1: `%s` instead of `%w` in defaults error wrappi
   - `internal/runner`: 92.1%
   - `internal/parser`: 90.6%
   - `internal/validator`: 100.0%
-  - `cmd/apitest`: 84.3%
+  - `cmd/curlew`: 84.3%
 - All changed packages above 80% threshold.
 
 ## Behavior Coverage

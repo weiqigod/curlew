@@ -11,8 +11,8 @@ dependencies:
   - M1-028
 
 observable: |
-  Add `auth_profiles:` to apitest.yaml with a dynamic profile referencing a login collection.
-  Run `apitest run tests.yaml` and confirm the auth profile executes before main requests.
+  Add `auth_profiles:` to curlew.yaml with a dynamic profile referencing a login collection.
+  Run `curlew run tests.yaml` and confirm the auth profile executes before main requests.
   Run `go test ./internal/auth/...` to verify auth profile lifecycle.
 
 behaviors:
@@ -24,7 +24,7 @@ behaviors:
   - "Given auth profile execution, the requests do NOT count toward the 1,000-request guard rail"
 
 scope: |
-  Extend `internal/config/project.go` to parse `auth_profiles:` from apitest.yaml.
+  Extend `internal/config/project.go` to parse `auth_profiles:` from curlew.yaml.
   Create `internal/auth/profile.go` with auth profile execution logic that runs a referenced
   collection file to obtain credentials. Integrate into `internal/runner/runner.go` to execute
   auth profiles before setup phase. Auth profile variables feed into pre_execution_vars scope.

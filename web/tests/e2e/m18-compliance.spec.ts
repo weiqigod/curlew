@@ -10,9 +10,9 @@
  *   audit-log JSONL streaming export is chunked + ndjson.
  *
  * Prerequisites (handled by scripts/m18-e2e.sh which runs after ci-local.sh --full):
- *   - APITEST_BACKEND_URL: backend base URL (default http://localhost:5000)
- *   - APITEST_BACKEND_TOKEN: bearer token minted by test-token.sh
- *   - M18_INSTALL_ID: install_id emitted by `apitest telemetry enable` in step 3
+ *   - CURLEW_BACKEND_URL: backend base URL (default http://localhost:5000)
+ *   - CURLEW_BACKEND_TOKEN: bearer token minted by test-token.sh
+ *   - M18_INSTALL_ID: install_id emitted by `curlew telemetry enable` in step 3
  *   - M18_EXPORT_ID: export request ID created in step 5
  *   - M18_ENTERPRISE_ORG_ID: org ID of the Enterprise-tier org seeded for step 10
  *
@@ -31,7 +31,7 @@ import {
 	streamAuditJsonl,
 } from './helpers/m18-seed';
 
-const BACKEND_TOKEN = process.env.APITEST_BACKEND_TOKEN ?? '';
+const BACKEND_TOKEN = process.env.CURLEW_BACKEND_TOKEN ?? '';
 const M18_ENTERPRISE_TOKEN = process.env.M18_ENTERPRISE_TOKEN ?? BACKEND_TOKEN;
 const M18_INSTALL_ID = process.env.M18_INSTALL_ID ?? '';
 const M18_EXPORT_ID = process.env.M18_EXPORT_ID ?? '';
@@ -48,7 +48,7 @@ test.describe('M18 compliance happy path', () => {
 	 * the account/data web page.
 	 */
 	test('1. /account/data renders export + delete panels', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		await page.goto('/account/data');
 		await expect(page.getByTestId('request-export-button')).toBeVisible({
@@ -69,7 +69,7 @@ test.describe('M18 compliance happy path', () => {
 	test('2. Export bundle signed URL is reachable', async ({ request }) => {
 		test.skip(
 			!BACKEND_TOKEN || !M18_EXPORT_ID,
-			'APITEST_BACKEND_TOKEN or M18_EXPORT_ID not set — orchestrator must run first'
+			'CURLEW_BACKEND_TOKEN or M18_EXPORT_ID not set — orchestrator must run first'
 		);
 
 		const ready = await pollExportReady(M18_EXPORT_ID, BACKEND_TOKEN);
@@ -118,7 +118,7 @@ test.describe('M18 compliance happy path', () => {
 	 * Proves M18-006's deletion panel and cancel route are wired correctly.
 	 */
 	test('4. Cancel-deletion page renders within cooldown window', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		await page.goto('/account/data/cancel-deletion');
 		// Intentionally weak assertion (M16-021 happy-path-only posture): we assert only that

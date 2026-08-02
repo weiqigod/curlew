@@ -1,6 +1,6 @@
 # Verification Report: M3-005
 
-**Task:** apitest import openapi: parse spec and emit collection skeleton
+**Task:** curlew import openapi: parse spec and emit collection skeleton
 **Verified by:** AI
 **Date:** 2026-04-14
 **Branch:** feature/M3-005-openapi-import
@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ APITEST_TIER=professional ./apitest import openapi testdata/openapi/petstore.yaml --output petstore.collection.yaml
+$ CURLEW_TIER=professional ./curlew import openapi testdata/openapi/petstore.yaml --output petstore.collection.yaml
 # Exit code: 0
 
 $ cat petstore.collection.yaml
@@ -40,12 +40,12 @@ requests:
       method: GET
       url: '{{base_url}}/pets/{{petId}}'
 
-$ ./apitest validate petstore.collection.yaml
+$ ./curlew validate petstore.collection.yaml
 WARN petstore.collection.yaml is valid (with warnings)
   [WARNING] variable "petId" may not be defined at runtime
 # Exit code: 0 (valid with expected warning about unset runtime var)
 
-$ ./apitest import openapi testdata/openapi/petstore.yaml --output petstore.collection.yaml
+$ ./curlew import openapi testdata/openapi/petstore.yaml --output petstore.collection.yaml
 ✗ Feature requires upgrade
   OpenAPI import requires Professional tier ($19/month)
   Your current tier: free
@@ -135,9 +135,9 @@ Branch A: Review PASS (Iteration 4) trusted, spot-check clean. Error wrapping wi
 | `internal/openapi/testdata/*.yaml` | added (6 fixtures) |
 | `internal/auth/registry.go` | modified (openapi_import feature) |
 | `internal/auth/registry_test.go` | modified |
-| `cmd/apitest/main.go` | modified (import openapi command) |
-| `cmd/apitest/main_test.go` | modified (import tests) |
-| `cmd/apitest/testdata/openapi/*.yaml` | added |
+| `cmd/curlew/main.go` | modified (import openapi command) |
+| `cmd/curlew/main_test.go` | modified (import tests) |
+| `cmd/curlew/testdata/openapi/*.yaml` | added |
 | `testdata/openapi/petstore.yaml` | added |
 | `smoke/run.sh` | modified |
 | `CHANGELOG.md` | modified |

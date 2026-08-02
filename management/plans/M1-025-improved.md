@@ -1,6 +1,6 @@
 # Improvement Report: M1-025
 
-**Task:** Validate command (apitest validate)
+**Task:** Validate command (curlew validate)
 **Date:** 2026-03-17
 **Review:** management/reviews/M1-025-review.md
 
@@ -45,13 +45,13 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage (`internal/validator`) | 100.0% |
 | Coverage (`internal/output`) | 91.6% |
 | Coverage (`internal/variable`) | 96.1% |
-| Coverage (`cmd/apitest`) | 88.6% |
+| Coverage (`cmd/curlew`) | 88.6% |
 | `parseValidateArgs` function | 100.0% |
 
 ## Fix Commits

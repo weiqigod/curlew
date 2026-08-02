@@ -56,7 +56,7 @@ and plugin-ordered chaining.
 5. **JSON-RPC `call` method names.** The wire protocol uses JSON-RPC 2.0
    requests (not notifications — the task's wording "notifications" is at the
    conceptual level; we need a return value to support mutation). Method
-   names: `apitest/on_request`, `apitest/on_response`, `apitest/on_result`.
+   names: `curlew/on_request`, `curlew/on_response`, `curlew/on_result`.
    Each uses a monotonically increasing ID per plugin. This mirrors the
    M5-017 handshake pattern.
 
@@ -76,7 +76,7 @@ and plugin-ordered chaining.
 
 8. **Execution-ordered chaining.** Plugins are invoked in the order that
    `Host.LoadForRun` returns, which is the order they appear in
-   `APITEST_PLUGINS` after directory expansion — matching the existing
+   `CURLEW_PLUGINS` after directory expansion — matching the existing
    loader's behaviour. The chained value (post-hook request for
    `on_request`, annotations for `on_response`) is passed into the next
    plugin's hook.
@@ -107,9 +107,9 @@ and plugin-ordered chaining.
     it as an exported constant for testability and keep the default.
 
 13. **No new help flags.** The task's help-text behaviour is a new "Plugin
-    hooks" section in `apitest run --help` that enumerates the three hooks
-    and the APITEST_PLUGINS env var. We extend the existing `printHelp()`
-    block in `cmd/apitest/main.go` (currently "Plugins (Enterprise tier):").
+    hooks" section in `curlew run --help` that enumerates the three hooks
+    and the CURLEW_PLUGINS env var. We extend the existing `printHelp()`
+    block in `cmd/curlew/main.go` (currently "Plugins (Enterprise tier):").
 
 14. **New smoke-test plugin fixture.** We add
     `testdata/plugins/hooklog-plugin/main.go` — a long-running plugin that
@@ -604,7 +604,7 @@ func TestRun_WithHooksDispatcher_OnResultFiresOnceWithSummary(t *testing.T) {
 
 ---
 
-### Step 5: Build the dispatcher in `cmd/apitest` and wire into `run` command
+### Step 5: Build the dispatcher in `cmd/curlew` and wire into `run` command
 
 **Rationale:** Wire the real plugin host into the CLI. This is the smallest
 change at the highest-impact integration point: where `run` calls
@@ -614,10 +614,10 @@ change at the highest-impact integration point: where `run` calls
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/plugins.go` | modify | Add `buildHookDispatcher(ctx context.Context) (*hooks.Dispatcher, func(), error)` helper |
-| `cmd/apitest/main.go` | modify | Build dispatcher in `runCmd`, pass to `runner.Run`, defer Close(), update help text |
-| `cmd/apitest/main.go` (help) | modify | Add "Plugin hooks" section to `printHelp` listing the three lifecycle hooks |
-| `cmd/apitest/plugins_test.go` | modify | Integration test: plugin declaring on_request sees request through the fake spawner |
+| `cmd/curlew/plugins.go` | modify | Add `buildHookDispatcher(ctx context.Context) (*hooks.Dispatcher, func(), error)` helper |
+| `cmd/curlew/main.go` | modify | Build dispatcher in `runCmd`, pass to `runner.Run`, defer Close(), update help text |
+| `cmd/curlew/main.go` (help) | modify | Add "Plugin hooks" section to `printHelp` listing the three lifecycle hooks |
+| `cmd/curlew/plugins_test.go` | modify | Integration test: plugin declaring on_request sees request through the fake spawner |
 
 #### New helper sketch
 
@@ -625,7 +625,7 @@ change at the highest-impact integration point: where `run` calls
 // buildHookDispatcher loads plugins via pluginsHostFactory, builds a
 // hooks.Dispatcher over the live channels, and returns it with a cleanup
 // func that terminates all plugin processes. Returns nil dispatcher
-// (not an error) when APITEST_PLUGINS is empty.
+// (not an error) when CURLEW_PLUGINS is empty.
 func buildHookDispatcher(ctx context.Context, stderr io.Writer) (*hooks.Dispatcher, func(), error)
 ```
 
@@ -642,13 +642,13 @@ fmt.Println("    on_result    — called once at run completion with pass/fail c
 fmt.Println("                    and per-test rows.")
 fmt.Println("  Per-hook timeout: 10 seconds. A timed-out plugin is terminated and")
 fmt.Println("  the run continues as if the hook were not registered.")
-fmt.Println("  Set APITEST_PLUGINS=/path/to/plugin[:...] to enable.")
+fmt.Println("  Set CURLEW_PLUGINS=/path/to/plugin[:...] to enable.")
 ```
 
 #### Wiring point in `runCmd`
 
 ```go
-// cmd/apitest/main.go around line 746
+// cmd/curlew/main.go around line 746
 hookDispatcher, closeHooks, hookErr := buildHookDispatcher(ctx, os.Stderr)
 if hookErr != nil {
     _, _ = fmt.Fprintf(os.Stderr, "error: %v\n", hookErr)
@@ -665,7 +665,7 @@ results, summary, varErr := runner.Run(ctx, col, httpexec.Execute, runner.VarSou
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/plugins_test.go
+// cmd/curlew/plugins_test.go
 
 func TestRun_HookPlugin_OnRequestReceivesRequest(t *testing.T) {
     // Fake spawner with hook-aware handler; fake HTTP exec to skip network.
@@ -696,7 +696,7 @@ func TestRun_Help_IncludesPluginHooksSection(t *testing.T) {
 
 #### Impact on Existing Tests
 
-- No existing `run` test sets `APITEST_PLUGINS`, so `buildHookDispatcher`
+- No existing `run` test sets `CURLEW_PLUGINS`, so `buildHookDispatcher`
   returns `(nil, noop, nil)` and `runner.VarSources.Hooks` is nil — existing
   tests behave unchanged.
 - The help-text test on existing commands will need the new section to not
@@ -748,14 +748,14 @@ func main() {
         }
         var result any
         switch req.Method {
-        case "apitest/hello":
+        case "curlew/hello":
             result = map[string]any{
                 "name":             "hooklog",
                 "version":          "0.1.0",
                 "hooks":            []string{"on_request", "on_response", "on_result"},
                 "protocol_version": 1,
             }
-        case "apitest/on_request":
+        case "curlew/on_request":
             var p struct {
                 Method string `json:"method"`
                 URL    string `json:"url"`
@@ -763,7 +763,7 @@ func main() {
             _ = json.Unmarshal(req.Params, &p)
             fmt.Fprintf(os.Stderr, "[plugin:hooklog] on_request %s %s\n", p.Method, p.URL)
             result = map[string]any{} // no mutation
-        case "apitest/on_response":
+        case "curlew/on_response":
             var p struct {
                 StatusCode int   `json:"status_code"`
                 DurationMs int64 `json:"duration_ms"`
@@ -771,7 +771,7 @@ func main() {
             _ = json.Unmarshal(req.Params, &p)
             fmt.Fprintf(os.Stderr, "[plugin:hooklog] on_response %d %dms\n", p.StatusCode, p.DurationMs)
             result = map[string]any{}
-        case "apitest/on_result":
+        case "curlew/on_result":
             var p struct {
                 PassCount int `json:"pass_count"`
                 FailCount int `json:"fail_count"`
@@ -819,9 +819,9 @@ must document the runtime hook protocol.
 
 ```bash
 echo "=== Plugin hooks (M5-018) ==="
-HOOK_DIR=$(mktemp -d /tmp/apitest_hooklog_XXXXXX)
+HOOK_DIR=$(mktemp -d /tmp/curlew_hooklog_XXXXXX)
 go build -o "$HOOK_DIR/hooklog" ./testdata/plugins/hooklog-plugin
-SMOKE_COLL=$(mktemp /tmp/apitest_hooklog_coll_XXXXXX.yaml)
+SMOKE_COLL=$(mktemp /tmp/curlew_hooklog_coll_XXXXXX.yaml)
 cat > "$SMOKE_COLL" <<'YAML'
 name: Hooklog smoke
 requests:
@@ -832,7 +832,7 @@ requests:
     assertions:
       status: 200
 YAML
-OUT=$(APITEST_PLUGINS="$HOOK_DIR/hooklog" ./apitest run "$SMOKE_COLL" 2>&1)
+OUT=$(CURLEW_PLUGINS="$HOOK_DIR/hooklog" ./curlew run "$SMOKE_COLL" 2>&1)
 echo "$OUT" | grep -q "on_request" || { echo "FAIL: no on_request line — $OUT"; exit 1; }
 echo "$OUT" | grep -q "on_response" || { echo "FAIL: no on_response line — $OUT"; exit 1; }
 echo "$OUT" | grep -q "on_result" || { echo "FAIL: no on_result line — $OUT"; exit 1; }
@@ -853,8 +853,8 @@ rm -rf "$HOOK_DIR" "$SMOKE_COLL"
 | `internal/plugin/hooks/integration_test.go` | (new file, `!short`) | new | write in Step 6 |
 | `internal/runner/runner_test.go` | `TestRun_WithHooksDispatcher_*` | new | write in Step 4 |
 | `internal/runner/runner_test.go` | existing tests | none | VarSources.Hooks defaults to nil |
-| `cmd/apitest/plugins_test.go` | `TestRun_HookPlugin_*` | new | write in Step 5 |
-| `cmd/apitest/main_test.go` | existing help-text tests | update | assert the new "Plugin hooks" section is present |
+| `cmd/curlew/plugins_test.go` | `TestRun_HookPlugin_*` | new | write in Step 5 |
+| `cmd/curlew/main_test.go` | existing help-text tests | update | assert the new "Plugin hooks" section is present |
 
 ## Risks and Edge Cases
 
@@ -915,11 +915,11 @@ rm -rf "$HOOK_DIR" "$SMOKE_COLL"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/plugin/...
 go test ./internal/plugin/hooks/...
 go test ./internal/runner/...
-go test ./cmd/apitest/...
+go test ./cmd/curlew/...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
 ```
@@ -927,10 +927,10 @@ go test ./cmd/apitest/...
 Observable verification (from task YAML):
 
 ```bash
-go build -o apitest ./cmd/apitest
-go build -o /tmp/apitest-hooklog-plugin ./testdata/plugins/hooklog-plugin
-APITEST_PLUGINS=/tmp/apitest-hooklog-plugin \
-  ./apitest run testdata/plugins/one-request.yaml
+go build -o curlew ./cmd/curlew
+go build -o /tmp/curlew-hooklog-plugin ./testdata/plugins/hooklog-plugin
+CURLEW_PLUGINS=/tmp/curlew-hooklog-plugin \
+  ./curlew run testdata/plugins/one-request.yaml
 # Expected stderr (tail) includes:
 #   [plugin:hooklog] on_request GET https://httpbin.org/get
 #   [plugin:hooklog] on_response 200 142ms

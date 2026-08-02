@@ -22,7 +22,7 @@
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `dotnet build ApiTool.Backend` | PASS |
 | `dotnet test ApiTool.Backend.Tests` (617 tests) | PASS |

@@ -6,7 +6,7 @@ import { writable } from 'svelte/store';
 import { getEnvironments } from '../api/environments';
 import type { Environment } from '../types/tree';
 
-const ENV_KEY = 'apitest.env';
+const ENV_KEY = 'curlew.env';
 
 export const environments = writable<Environment[]>([]);
 

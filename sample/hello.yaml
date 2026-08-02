@@ -21,9 +21,9 @@ requests:
       headers:
         Accept: application/json
       query:
-        source: apitest
+        source: curlew
       body:
-        message: "Hello from ApiTool"
+        message: "Hello from Curlew"
         timestamp: "2026-01-01T00:00:00Z"
     assertions:
       status: 200

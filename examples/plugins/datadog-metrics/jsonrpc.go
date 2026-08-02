@@ -2,7 +2,7 @@ package main
 
 import "encoding/json"
 
-// request is a JSON-RPC 2.0 request received from apitest.
+// request is a JSON-RPC 2.0 request received from curlew.
 type request struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      int             `json:"id"`
@@ -10,7 +10,7 @@ type request struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
-// response is a JSON-RPC 2.0 response written to apitest.
+// response is a JSON-RPC 2.0 response written to curlew.
 type response struct {
 	JSONRPC string    `json:"jsonrpc"`
 	ID      int       `json:"id"`

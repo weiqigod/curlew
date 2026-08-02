@@ -62,7 +62,7 @@ No findings. All 13 findings from the iteration-1 review (`management/plans/M2-0
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./internal/websocket/... ./internal/parser/... ./internal/runner/... ./internal/requtil/...` | PASS |
 | `golangci-lint run ./...` | PASS (0 issues) |
 | Coverage `internal/websocket` | 80.1% (>= 80% threshold) |

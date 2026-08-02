@@ -26,7 +26,7 @@
 			retryUrl={$page.url.pathname + $page.url.search}
 		/>
 	{:else if data.checks.length === 0}
-		<EmptyState message="No PR checks yet. Run apitest with --report-upload --pr to post a check." />
+		<EmptyState message="No PR checks yet. Run curlew with --report-upload --pr to post a check." />
 	{:else}
 		<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
 			<table class="min-w-full divide-y divide-gray-200" data-testid="pr-checks-table">

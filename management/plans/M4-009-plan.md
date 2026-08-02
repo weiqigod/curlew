@@ -549,7 +549,7 @@ dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
 cd web && npm run check && npm run lint && npm run test:unit
 
 # E2E (observable)
-cd web && APITOOL_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-notifications.spec.ts
+cd web && CURLEW_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-notifications.spec.ts
 # Expected: 7 passing (observable requires >=5).
 ```
 

@@ -27,7 +27,7 @@ No findings. All prior review findings (empty varName/envName validation in `Par
 - runner: 99.0%
 - variable: 94.7%
 - parser: 89.9%
-- cmd/apitest: 86.0%
+- cmd/curlew: 86.0%
 - No uncovered areas in new code
 
 ## Summary

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 const validTeamTemplateYAML = `team_secrets:
@@ -57,7 +57,7 @@ func TestLoadTeamTemplate(t *testing.T) {
 		},
 		{
 			name:    "missing file",
-			path:    "/nonexistent/apitest-team.yaml",
+			path:    "/nonexistent/curlew-team.yaml",
 			wantErr: teamtemplate.ErrTemplateNotFound,
 		},
 		{

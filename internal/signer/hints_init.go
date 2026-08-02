@@ -1,7 +1,7 @@
 package signer
 
 import (
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 func init() {

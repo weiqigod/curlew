@@ -3,7 +3,7 @@ package vault
 import (
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // TestCommandExecutorType verifies variable.ExecuteCommand has compatible signature.

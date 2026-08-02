@@ -1,6 +1,6 @@
 # Improvement Report: M14-005 (Iteration 2)
 
-**Task:** CLI: apitest login (RFC 8628 device-code flow)
+**Task:** CLI: curlew login (RFC 8628 device-code flow)
 **Date:** 2026-05-05
 **Review:** management/reviews/M14-005-review.md
 
@@ -20,8 +20,8 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | Medium | Spec compliance gap: task YAML behavior #6 stated "all four are persisted" but `access_token` was intentionally dropped per Arch Decision #7 with no corresponding YAML update | Updated behavior #6 in `management/tasks/M14-005.yaml` to explicitly document that `license_jwt`, `refresh_token`, and `device_id` are persisted, and `access_token` is held in-memory only (short-lived, regenerated on demand by `apitest license --refresh`). No code change required — the implementation was already correct per the architectural decision. | ✓ YAML updated, no test regressions |
-| 2 | Low | `tierFromLicenseJWT` at 70% branch coverage — error paths untested. `emailFromLicenseJWT` (structurally identical) had full 6-case table coverage. | Added `TestTierFromLicenseJWT` in `cmd/apitest/login_test.go` with 6 subtests: valid JWT with tier claim, not a JWT (no dots), invalid base64, valid base64 but not JSON, valid JSON but missing tier claim, and empty string. `tierFromLicenseJWT` now at 100% branch coverage. | ✓ tests pass, coverage 100% |
+| 1 | Medium | Spec compliance gap: task YAML behavior #6 stated "all four are persisted" but `access_token` was intentionally dropped per Arch Decision #7 with no corresponding YAML update | Updated behavior #6 in `management/tasks/M14-005.yaml` to explicitly document that `license_jwt`, `refresh_token`, and `device_id` are persisted, and `access_token` is held in-memory only (short-lived, regenerated on demand by `curlew license --refresh`). No code change required — the implementation was already correct per the architectural decision. | ✓ YAML updated, no test regressions |
+| 2 | Low | `tierFromLicenseJWT` at 70% branch coverage — error paths untested. `emailFromLicenseJWT` (structurally identical) had full 6-case table coverage. | Added `TestTierFromLicenseJWT` in `cmd/curlew/login_test.go` with 6 subtests: valid JWT with tier claim, not a JWT (no dots), invalid base64, valid base64 but not JSON, valid JSON but missing tier claim, and empty string. `tierFromLicenseJWT` now at 100% branch coverage. | ✓ tests pass, coverage 100% |
 
 ## Out of Scope (Deferred)
 
@@ -33,10 +33,10 @@ No findings deferred in iteration 2. All iteration 2 findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (50 packages) |
 | `golangci-lint run` | PASS (0 issues) |
-| `cmd/apitest` coverage | 81.6% |
+| `cmd/curlew` coverage | 81.6% |
 | `internal/backend/device` coverage | 84.2% |
 | `tierFromLicenseJWT` coverage | 100% (was 70%) |
 

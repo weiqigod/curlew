@@ -1,11 +1,11 @@
 # Implementation Plan: M1-017
 
 ## Overview
-Adds `apitest.yaml` project-level configuration: parse the file, detect the project root by walking up the directory tree, load global variables at precedence level 2 (lowest, below environment files), and expose `project_name` for output context.
+Adds `curlew.yaml` project-level configuration: parse the file, detect the project root by walking up the directory tree, load global variables at precedence level 2 (lowest, below environment files), and expose `project_name` for output context.
 
 ## Task Details
 - **ID:** M1-017
-- **Title:** Global project config (apitest.yaml)
+- **Title:** Global project config (curlew.yaml)
 - **Phase:** M1: Core CLI
 - **Priority:** 17
 - **Complexity:** low
@@ -23,7 +23,7 @@ The task description says "collection (level 2) equals project config (level 2)"
 ```
 Precedence (lowest to highest):
 1. Dynamic functions ({{$timestamp}}, {{$uuid}})
-2. Global variables (apitest.yaml)          ← this task
+2. Global variables (curlew.yaml)          ← this task
 3. Environment variables (environments/dev.yaml)
 4. Local secrets (.env)
 7. Collection-level variables
@@ -32,9 +32,9 @@ Precedence (lowest to highest):
 10. CLI --var values (highest)
 ```
 
-apitest.yaml variables are **level 2** — below env files (3), dotenv (4), and collection variables (7). Collection wins because it is at level 7, not because they share a level.
+curlew.yaml variables are **level 2** — below env files (3), dotenv (4), and collection variables (7). Collection wins because it is at level 7, not because they share a level.
 
-Also: per the spec, `.env` should be loaded from the **project root** (the directory containing `apitest.yaml`). Currently it loads from the collection directory. When a project root is found, this task corrects that.
+Also: per the spec, `.env` should be loaded from the **project root** (the directory containing `curlew.yaml`). Currently it loads from the collection directory. When a project root is found, this task corrects that.
 
 ## Implementation Steps
 
@@ -64,10 +64,10 @@ import (
     "gopkg.in/yaml.v3"
 )
 
-// ErrInvalidProjectConfig is returned when apitest.yaml cannot be parsed.
+// ErrInvalidProjectConfig is returned when curlew.yaml cannot be parsed.
 var ErrInvalidProjectConfig = errors.New("invalid project config")
 
-// ProjectConfig holds the parsed contents of an apitest.yaml file.
+// ProjectConfig holds the parsed contents of an curlew.yaml file.
 type ProjectConfig struct {
     ProjectName string
     Variables   map[string]string
@@ -78,7 +78,7 @@ type projectFile struct {
     Variables   map[string]any `yaml:"variables"`
 }
 
-// ParseProjectConfig reads and parses an apitest.yaml file at the given path.
+// ParseProjectConfig reads and parses an curlew.yaml file at the given path.
 // Returns ErrInvalidProjectConfig for parse failures.
 func ParseProjectConfig(path string) (*ProjectConfig, error) {
     data, err := os.ReadFile(path)
@@ -146,7 +146,7 @@ None — new file only.
 
 ### Step 2: Add `FindProjectRoot` in `internal/config/project.go`
 
-**Rationale:** Depends on knowing the filename (`apitest.yaml`). Independent of existing runner/parser code.
+**Rationale:** Depends on knowing the filename (`curlew.yaml`). Independent of existing runner/parser code.
 
 #### Files to Modify
 
@@ -158,13 +158,13 @@ None — new file only.
 #### New Code
 
 ```go
-// FindProjectRoot walks up from startDir looking for apitest.yaml (or apitest.yml).
+// FindProjectRoot walks up from startDir looking for curlew.yaml (or curlew.yml).
 // Returns the directory containing the project config file and true,
 // or ("", false) if no project config is found up to the filesystem root.
 func FindProjectRoot(startDir string) (string, bool) {
     dir := startDir
     for {
-        for _, name := range []string{"apitest.yaml", "apitest.yml"} {
+        for _, name := range []string{"curlew.yaml", "curlew.yml"} {
             if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
                 return dir, true
             }
@@ -189,27 +189,27 @@ func TestFindProjectRoot(t *testing.T) {
     }{
         {
             name:      "found in same directory",
-            setup:     func(t *testing.T) string { /* create apitest.yaml in temp dir, return temp dir */ },
+            setup:     func(t *testing.T) string { /* create curlew.yaml in temp dir, return temp dir */ },
             wantFound: true,
         },
         {
             name:      "found in parent directory",
-            setup:     func(t *testing.T) string { /* apitest.yaml in parent, return child */ },
+            setup:     func(t *testing.T) string { /* curlew.yaml in parent, return child */ },
             wantFound: true,
         },
         {
             name:      "found in grandparent directory",
-            setup:     func(t *testing.T) string { /* apitest.yaml two levels up */ },
+            setup:     func(t *testing.T) string { /* curlew.yaml two levels up */ },
             wantFound: true,
         },
         {
             name:      "not found returns false",
-            setup:     func(t *testing.T) string { /* temp dir with no apitest.yaml */ },
+            setup:     func(t *testing.T) string { /* temp dir with no curlew.yaml */ },
             wantFound: false,
         },
         {
-            name:      "apitest.yml extension supported",
-            setup:     func(t *testing.T) string { /* create apitest.yml, not apitest.yaml */ },
+            name:      "curlew.yml extension supported",
+            setup:     func(t *testing.T) string { /* create curlew.yml, not curlew.yaml */ },
             wantFound: true,
         },
     }
@@ -237,7 +237,7 @@ None — new function only.
 
 ```go
 // LoadProjectConfig finds the project root by walking up from startDir,
-// then parses apitest.yaml (or apitest.yml). Returns an empty ProjectConfig and
+// then parses curlew.yaml (or curlew.yml). Returns an empty ProjectConfig and
 // empty root string if no project config is found (not an error). Returns error
 // if the file exists but cannot be parsed.
 func LoadProjectConfig(startDir string) (*ProjectConfig, string, error) {
@@ -245,9 +245,9 @@ func LoadProjectConfig(startDir string) (*ProjectConfig, string, error) {
     if !found {
         return &ProjectConfig{Variables: map[string]string{}}, "", nil
     }
-    name := "apitest.yaml"
+    name := "curlew.yaml"
     if _, err := os.Stat(filepath.Join(root, name)); errors.Is(err, os.ErrNotExist) {
-        name = "apitest.yml"
+        name = "curlew.yml"
     }
     cfg, err := ParseProjectConfig(filepath.Join(root, name))
     if err != nil {
@@ -322,7 +322,7 @@ for k, v := range sources.DotEnv {
 ```go
 // VarSources holds variable maps at each precedence level.
 type VarSources struct {
-    Project map[string]string // precedence 2: apitest.yaml global variables
+    Project map[string]string // precedence 2: curlew.yaml global variables
     EnvFile map[string]string // precedence 3: --env environment file
     DotEnv  map[string]string // precedence 4: .env file
     EnvVar  map[string]string // precedence 9: --env-var flags
@@ -401,7 +401,7 @@ None. All existing `VarSources{}` literals omit `Project`, which defaults to `ni
 
 ---
 
-### Step 5: Wire up in `cmd/apitest/main.go`
+### Step 5: Wire up in `cmd/curlew/main.go`
 
 **Rationale:** Final integration. All underlying pieces are tested. This connects real file discovery to the runner.
 
@@ -409,8 +409,8 @@ None. All existing `VarSources{}` literals omit `Project`, which defaults to `ni
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Call LoadProjectConfig in runCmd; update .env lookup dir; pass project vars to VarSources |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for project config |
+| `cmd/curlew/main.go` | modify | Call LoadProjectConfig in runCmd; update .env lookup dir; pass project vars to VarSources |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for project config |
 
 #### Current Code (in `runCmd`)
 
@@ -469,27 +469,27 @@ func TestRunCmd_ProjectConfig(t *testing.T) {
     }{
         {
             name: "project variables resolved in collection",
-            // apitest.yaml in collectionDir with base_url; collection uses {{base_url}}
+            // curlew.yaml in collectionDir with base_url; collection uses {{base_url}}
         },
         {
-            name: "no apitest.yaml runs without error",
-            // no apitest.yaml anywhere, collection with static URL
+            name: "no curlew.yaml runs without error",
+            // no curlew.yaml anywhere, collection with static URL
         },
         {
             name: "project config in parent directory (walk-up)",
-            // apitest.yaml in parent, collection in subdirectory
+            // curlew.yaml in parent, collection in subdirectory
         },
         {
             name: "project variables overridden by collection variables",
-            // both apitest.yaml and collection define same key; collection wins
+            // both curlew.yaml and collection define same key; collection wins
         },
         {
-            name: "invalid apitest.yaml returns error",
-            // malformed apitest.yaml in collectionDir
+            name: "invalid curlew.yaml returns error",
+            // malformed curlew.yaml in collectionDir
         },
         {
             name: "dot env loaded from project root not collection dir",
-            // apitest.yaml in parent, .env in parent (not in collectionDir), collection uses secret var
+            // curlew.yaml in parent, .env in parent (not in collectionDir), collection uses secret var
         },
     }
     // ...
@@ -497,7 +497,7 @@ func TestRunCmd_ProjectConfig(t *testing.T) {
 ```
 
 #### Impact on Existing Tests
-None. Existing tests run collections in temp directories without `apitest.yaml`. `LoadProjectConfig` returns empty config with nil error when no project config is found.
+None. Existing tests run collections in temp directories without `curlew.yaml`. `LoadProjectConfig` returns empty config with nil error when no project config is found.
 
 ---
 
@@ -509,14 +509,14 @@ None. Existing tests run collections in temp directories without `apitest.yaml`.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add apitest.yaml to Auto-loaded section in printHelp() |
+| `cmd/curlew/main.go` | modify | Add curlew.yaml to Auto-loaded section in printHelp() |
 | `smoke/run.sh` | modify | Add smoke test case for project config walk-up |
 
 #### Help Text Change
 
 ```
 Auto-loaded:
-  apitest.yaml          Project config with global variables (optional, walks up from collection dir)
+  curlew.yaml          Project config with global variables (optional, walks up from collection dir)
   .env                  Local secrets (KEY=VALUE format, optional)
 ```
 
@@ -524,9 +524,9 @@ Auto-loaded:
 
 ```bash
 # Test: project config variables resolved
-# Setup: apitest.yaml in parent, collection in subdirectory
+# Setup: curlew.yaml in parent, collection in subdirectory
 mkdir -p "$TMP/project/sub"
-cat > "$TMP/project/apitest.yaml" <<EOF
+cat > "$TMP/project/curlew.yaml" <<EOF
 project_name: SmokeTest
 variables:
   smoke_base: https://httpbin.org
@@ -546,22 +546,22 @@ run_test "project config walk-up" "$TMP/project/sub/collection.yaml"
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/runner/runner_test.go` | All existing | none | No change needed |
-| `cmd/apitest/main_test.go` | All existing | none | No change needed |
+| `cmd/curlew/main_test.go` | All existing | none | No change needed |
 | `internal/config/*_test.go` | All existing | none | No change needed |
 
 ## Risks and Edge Cases
 
 - **Infinite loop in `FindProjectRoot`**: `filepath.Dir()` returns the same value at filesystem root. Detect by comparing `dir == parent` before updating. ✓ Handled in proposed code.
-- **`.env` location change**: When a project root is found, `.env` loading shifts from the collection dir to the project root. Existing tests are unaffected (no `apitest.yaml` in temp dirs). Document this clearly.
+- **`.env` location change**: When a project root is found, `.env` loading shifts from the collection dir to the project root. Existing tests are unaffected (no `curlew.yaml` in temp dirs). Document this clearly.
 - **nil `Project` map in `VarSources`**: Iterating a nil map in Go is safe (no-op). Zero-value `VarSources{}` is still correct.
-- **`apitest.yaml` vs `apitest.yml`**: Check `.yaml` first (canonical), then `.yml`. Both `FindProjectRoot` and `LoadProjectConfig` handle this.
+- **`curlew.yaml` vs `curlew.yml`**: Check `.yaml` first (canonical), then `.yml`. Both `FindProjectRoot` and `LoadProjectConfig` handle this.
 - **Reusing `flatten()`**: The `flatten()` function is in `environment.go` in the same package — directly reusable without export.
 - **`project_name` usage**: Behavior 4 says "available for output context". For this task, store it in `ProjectConfig.ProjectName`. The output package currently uses `col.Name`. No display change is needed now — the field just needs to be parsed and accessible.
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -570,19 +570,19 @@ go test ./...
 Observable verification:
 ```bash
 # Create project directory structure
-mkdir -p /tmp/apitest-demo/requests
-cat > /tmp/apitest-demo/apitest.yaml <<EOF
+mkdir -p /tmp/curlew-demo/requests
+cat > /tmp/curlew-demo/curlew.yaml <<EOF
 project_name: DemoProject
 variables:
   base_url: https://httpbin.org
 EOF
-cat > /tmp/apitest-demo/requests/collection.yaml <<EOF
+cat > /tmp/curlew-demo/requests/collection.yaml <<EOF
 name: Demo
 requests:
   - name: Get
     method: GET
     url: "{{base_url}}/get"
 EOF
-./apitest run /tmp/apitest-demo/requests/collection.yaml
+./curlew run /tmp/curlew-demo/requests/collection.yaml
 # Expected: request succeeds, no "undefined variable" errors
 ```

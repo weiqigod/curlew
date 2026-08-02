@@ -16,21 +16,21 @@
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage `internal/output/markdown` | 87.7% | Above >= 80% threshold |
 | Coverage `internal/runner` | 85.1% | Above >= 80% threshold |
-| Coverage `cmd/apitest` | 80.9% | At 80% threshold |
+| Coverage `cmd/curlew` | 80.9% | At 80% threshold |
 
 ## Observable Output
 
 ```
 # Missing --report with --format markdown exits 3 at load time
-./apitest run collections/sample.yaml --format markdown 2>err.log; echo $?
+./curlew run collections/sample.yaml --format markdown 2>err.log; echo $?
 [ERROR] format: markdown requires --report <dir>
 3
 
 # Schema accepts format: markdown
-./apitest schema | jq '."$defs".output.properties.format.enum'
+./curlew schema | jq '."$defs".output.properties.format.enum'
 ["terminal","json","tap","junit","html","markdown"]
 
-./apitest schema --project | jq '."$defs".output.properties.format.enum'
+./curlew schema --project | jq '."$defs".output.properties.format.enum'
 ["terminal","json","tap","junit","html","markdown"]
 ```
 
@@ -124,8 +124,8 @@ Branch A: Review PASS trusted (iteration 8, dated 2026-04-25). Spot-check:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — --format markdown dispatch, buildMarkdownReport |
-| `cmd/apitest/run_test.go` | modified — TestRun_MarkdownFormat_* tests |
+| `cmd/curlew/main.go` | modified — --format markdown dispatch, buildMarkdownReport |
+| `cmd/curlew/run_test.go` | modified — TestRun_MarkdownFormat_* tests |
 | `internal/datadriven/parallel.go` | modified — RequestID/RequestSlug in IterationResult |
 | `internal/output/config.go` | modified — add "markdown" to SupportedFormats |
 | `internal/output/config_test.go` | modified — swap invalid_format test from "markdown" to "yaml" |

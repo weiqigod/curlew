@@ -1,7 +1,7 @@
 # Implementation Plan: M2-014
 
 ## Overview
-Add retry configuration merging with full precedence chain: built-in defaults < global (apitest.yaml) < collection < section (setup/requests/teardown) < request. Implement deep merge rules per spec: scalars replaced, arrays replaced entirely, objects deep-merged.
+Add retry configuration merging with full precedence chain: built-in defaults < global (curlew.yaml) < collection < section (setup/requests/teardown) < request. Implement deep merge rules per spec: scalars replaced, arrays replaced entirely, objects deep-merged.
 
 ## Task Details
 - **ID:** M2-014
@@ -21,7 +21,7 @@ Add retry configuration merging with full precedence chain: built-in defaults < 
 Per spec `docs/SPECIFICATION.md` §Configuration Precedence and Inheritance:
 
 1. **Built-in defaults** — hardcoded in `retry.BuiltinDefaults()`
-2. **Global config** — `apitest.yaml` `defaults.retry:` block
+2. **Global config** — `curlew.yaml` `defaults.retry:` block
 3. **Collection-level** — top-level `retry:` in collection YAML
 4. **Section-level** — `setup.retry:` / `requests.retry:` / `teardown.retry:`
 5. **Request-level** — per-request `retry:` override (highest)
@@ -417,7 +417,7 @@ func TestParseProjectConfig_Defaults(t *testing.T) {
 | `internal/runner/runner.go` | modify | Add `GlobalRetry` to `VarSources`, update `effectiveRetryConfig`, update `runPhases`/`executePhase` signatures |
 | `internal/runner/runner_test.go` | modify | Update Collection constructions (Section type), add precedence tests |
 | `internal/validator/validator.go` | modify | Update `col.Setup` → `col.Setup.Items` etc. |
-| `cmd/apitest/main.go` | modify | Pass `GlobalRetry` from project config to `VarSources` |
+| `cmd/curlew/main.go` | modify | Pass `GlobalRetry` from project config to `VarSources` |
 
 #### Current Code (`effectiveRetryConfig`)
 ```go
@@ -442,12 +442,12 @@ func toRetryConfig(cfg parser.RetryConfig) retry.Config {
 // VarSources — add field:
 type VarSources struct {
     ...
-    GlobalRetry *retry.FullConfig // from apitest.yaml defaults.retry
+    GlobalRetry *retry.FullConfig // from curlew.yaml defaults.retry
 }
 
 // resolveRetryConfig merges all precedence levels and produces a concrete Config.
 func resolveRetryConfig(
-    global *retry.FullConfig,    // apitest.yaml defaults.retry
+    global *retry.FullConfig,    // curlew.yaml defaults.retry
     collection *retry.FullConfig, // collection top-level retry:
     section *retry.FullConfig,    // setup/requests/teardown retry:
     request *retry.FullConfig,    // per-request retry:
@@ -494,7 +494,7 @@ func runPhases(...) {
 
 Remove `effectiveRetryConfig` and `toRetryConfig` (replaced by `resolveRetryConfig`).
 
-**cmd/apitest/main.go** — pass global retry:
+**cmd/curlew/main.go** — pass global retry:
 ```go
 vars := runner.VarSources{
     ...
@@ -553,7 +553,7 @@ func TestRun_globalRetryConfig(t *testing.T) {
 | `runner_test.go` | `effectiveRetryConfig` tests (if any) | Function replaced | Remove/update |
 | `runner_test.go` | `executePhase` calls | Signature changed | Update to pass section/global retry |
 | `validator.go` | References to `col.Setup` etc. | Slice → Section | Use `.Items` |
-| `cmd/apitest/main.go` | VarSources construction | New field | Add `GlobalRetry` |
+| `cmd/curlew/main.go` | VarSources construction | New field | Add `GlobalRetry` |
 
 ---
 
@@ -567,7 +567,7 @@ func TestRun_globalRetryConfig(t *testing.T) {
 | `internal/config/project_test.go` | Add defaults tests, no existing breakage | N/A |
 | `internal/runner/runner_test.go` | ~117 field references + new precedence tests + retry field type changes | Mostly mechanical |
 | `internal/validator/validator.go` | ~4 references | Yes |
-| `cmd/apitest/main.go` | ~4 references + new field | Yes |
+| `cmd/curlew/main.go` | ~4 references + new field | Yes |
 
 ## Risks and Edge Cases
 
@@ -595,7 +595,7 @@ func TestRun_globalRetryConfig(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -603,7 +603,7 @@ go test ./...
 
 Observable verification:
 ```bash
-# Create apitest.yaml with global retry defaults
+# Create curlew.yaml with global retry defaults
 # Create collection with collection-level and section-level retry
 # Run and verify section/request overrides apply
 go test ./internal/retry/... -v -run TestMerge

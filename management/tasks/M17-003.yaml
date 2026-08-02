@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M17-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestOAuth1_HMACSHA1_RFC5849Vector' -v ./internal/signer/oauth1/...
   # Expected: PASS — using the RFC 5849 §3.4.1.1 base-string-construction
@@ -46,9 +46,9 @@ observable: |
   # resolved from sensitive variables, are added via sensitives.AddValue(...)
   # so they are redacted in serialised output.
 
-  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; ./curlew init demo && cd demo
   # Add oauth1 signing block to a request (with consumer_key/secret env vars).
-  ./apitest run collections/sample.yaml --dry-run --format json | jq -r '.requests[0].headers.Authorization' | head -c 6
+  ./curlew run collections/sample.yaml --dry-run --format json | jq -r '.requests[0].headers.Authorization' | head -c 6
   # Expected output: OAuth\n
 
   go test ./...
@@ -115,7 +115,7 @@ scope: |
     - internal/signer/oauth1/oauth1.go         (new — OAuth1 implementation)
     - internal/signer/oauth1/oauth1_test.go    (new — RFC 5849 vectors + arity/method/error cases)
     - internal/signer/oauth1/testdata/         (new — base-string and final-header diff fixtures)
-    - cmd/apitest/main.go                      (one-line blank import: _ "github.com/peterlindqvist/apitest/internal/signer/oauth1")
+    - cmd/curlew/main.go                      (one-line blank import: _ "github.com/weiqigod/curlew/internal/signer/oauth1")
     - docs/MANUAL.md                           (one row added to the signing-types table introduced in M17-001; calls out HMAC-SHA1 default and HMAC-SHA256 opt-in)
 
   Files explicitly NOT touched:

@@ -8,7 +8,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | Critical | `smoke/run.sh` jwt-decode block used `$jsonpath('$.alg', $jwtDecodeHeader(...))` — `$jsonpath` is not a registered dynamic function; `parseDynArgs` rejects nested function-call arguments; `apitest run` exited 5, aborting the script under `set -euo pipefail` | Rewrote smoke YAML to place `$jwtDecodeHeader` / `$jwtDecodeClaims` directly in request header values (they return JSON strings); python3 parses those JSON strings to verify `alg=HS256` and `sub=1234567890` — equivalent verification to what `$jsonpath` would do | ✓ smoke passes |
+| 1 | Critical | `smoke/run.sh` jwt-decode block used `$jsonpath('$.alg', $jwtDecodeHeader(...))` — `$jsonpath` is not a registered dynamic function; `parseDynArgs` rejects nested function-call arguments; `curlew run` exited 5, aborting the script under `set -euo pipefail` | Rewrote smoke YAML to place `$jwtDecodeHeader` / `$jwtDecodeClaims` directly in request header values (they return JSON strings); python3 parses those JSON strings to verify `alg=HS256` and `sub=1234567890` — equivalent verification to what `$jsonpath` would do | ✓ smoke passes |
 | 2 | High | `docs/MANUAL.md §3.7` `extract:` example documented the same bogus `{{$jsonpath('$.sub', $jwtDecodeClaims(...))}}` pattern, implying nested function-call arguments and `$jsonpath` as a dynamic function — neither works at runtime | Replaced the broken `extract:` block with two valid examples: (a) using the functions directly in header values with a comment showing the rendered JSON; (b) a two-request extract-then-inspect pattern using standard `extract: access_token: "$.token"` and then the decoded JSON in a header | ✓ manual accurate |
 
 ## Previously Resolved Findings (iteration 1)
@@ -26,7 +26,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | `./smoke/run.sh` | PASS |

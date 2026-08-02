@@ -59,7 +59,7 @@ Expected: MATCH (all non-infrastructure tests pass)
 | 2 | Live HTTP probe returns billing-portal URL string | Covered by `CreatePortalSessionAsync_returns_billing_portal_url` (SkippableFact) + `BillingPortal_with_admin_role_returns_url` | PASS |
 | 3 | Authorization rule (admin\|owner only) covered by a test | `BillingPortal_with_member_role_returns_403_permission_denied` + `CreateBillingPortalAsync_returns_PermissionDenied_for_member_role` | PASS |
 | 4 | Config validation for App:WebAppUrl covered (boot-time fail-fast) | `AppOptionsTests.Defaults_to_empty_web_app_url` + `ValidateOnStart` in `Program.cs` | PASS |
-| 5 | deploy/self-hosted/README.md documents App:WebAppUrl env var | `APITOOL__APP__WEBAPPURL` documented in §App Configuration (line 173) | PASS |
+| 5 | deploy/self-hosted/README.md documents App:WebAppUrl env var | `CURLEW__APP__WEBAPPURL` documented in §App Configuration (line 173) | PASS |
 | 6 | docs/SPECIFICATION.md cited in handler header | `StripeGateway.cs:1` + `SubscriptionsEndpoints.cs` cite spec refs | PASS |
 
 ## Code Review
@@ -115,7 +115,7 @@ Branch A: Review PASS trusted (iteration 2 after /improve), spot-check clean.
 | `src/ApiTool.Backend/AppOptions.cs` | added |
 | `src/ApiTool.Backend/Program.cs` | modified — AppOptions ValidateOnStart |
 | `src/ApiTool.Backend/appsettings.json` | modified — App:WebAppUrl default |
-| `deploy/self-hosted/README.md` | modified — APITOOL__APP__WEBAPPURL documented |
+| `deploy/self-hosted/README.md` | modified — CURLEW__APP__WEBAPPURL documented |
 | `CHANGELOG.md` | modified — M14-009 entry added |
 | (test files) | added/modified — all behavior tests |
 

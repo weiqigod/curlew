@@ -12,7 +12,7 @@
 |-------|--------|---------|
 | `dotnet test --filter "FullyQualifiedName~Telemetry"` | PASS | 34 tests, ~1s |
 | `dotnet test` (all backend) | PASS | 2222 passed, 15 skipped (Stripe mock + Postgres bench), 0 failed |
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All Go packages pass |
 | `golangci-lint run` | PASS | 0 issues |
 | Go Coverage | 87.1% | Meets >= 80% threshold |

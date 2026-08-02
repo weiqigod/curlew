@@ -5,11 +5,11 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/datadriven"
-	"github.com/peterlindqvist/apitest/internal/output"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/datadriven"
+	"github.com/weiqigod/curlew/internal/output"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // Options holds collection-level execution options.
@@ -269,7 +269,7 @@ type RequestItem struct {
 	// If is a CEL boolean expression evaluated by the runner before templating.
 	// A false result skips the request with reason "if: false". Validated at
 	// collection-load time only as a non-empty scalar; CEL parse/type-check
-	// happens in the runner and in `apitest validate`.
+	// happens in the runner and in `curlew validate`.
 	If string `yaml:"if,omitempty"`
 
 	// DependsOn lists request names that must have run (any outcome other than

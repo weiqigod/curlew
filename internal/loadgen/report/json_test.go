@@ -49,8 +49,8 @@ func TestWriteJSON_SchemaAndFields(t *testing.T) {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 
-	if result["schema"] != "apitest.perf.v1" {
-		t.Errorf("schema = %v, want apitest.perf.v1", result["schema"])
+	if result["schema"] != "curlew.perf.v1" {
+		t.Errorf("schema = %v, want curlew.perf.v1", result["schema"])
 	}
 	if result["title"] != "test run" {
 		t.Errorf("title = %v, want 'test run'", result["title"])

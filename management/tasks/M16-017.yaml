@@ -26,7 +26,7 @@ behaviors:
   - "Given a PUT submits a template with a field matching the literal-secret heuristic (^[A-Za-z0-9+/=._-]{16,}$ that is not a recognized provider coordinate pattern), when the validator runs in production mode, then the response is 422 with type .../vault-template-suspicious-value naming the offending key path"
   - "Given the same submission in development mode (per Open Decision 5), when the validator runs, then the save succeeds with a warning logged and a 200 response"
   - "Given DELETE /api/v1/organizations/{orgId}/vault-config is called by a vault_config.manage user, when the row exists, then it is removed and an audit-log entry recorded"
-  - "Given the web vault-config page renders, when the user clicks 'Generate CLI snippet', then the page produces the exact command `apitest license --refresh` to copy"
+  - "Given the web vault-config page renders, when the user clicks 'Generate CLI snippet', then the page produces the exact command `curlew license --refresh` to copy"
   - "Given the YAML editor saves successfully, when the response is 200, then a versioned diff is shown ('updated to version N') and the audit-log entry timestamp is visible"
 
 scope: |

@@ -349,15 +349,15 @@ func TestRun_no_variables_unchanged(t *testing.T) {
 
 ---
 
-### Step 4: Update `cmd/apitest/main.go` to handle variable errors
+### Step 4: Update `cmd/curlew/main.go` to handle variable errors
 **Rationale:** Final wiring — depends on Step 3's signature change. Small change in `runCmd()`.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Handle error return from `runner.Run()`, exit code 5 |
-| `cmd/apitest/main_test.go` | modify | Add CLI integration tests for variables |
+| `cmd/curlew/main.go` | modify | Handle error return from `runner.Run()`, exit code 5 |
+| `cmd/curlew/main_test.go` | modify | Add CLI integration tests for variables |
 
 #### Current Code
 ```go
@@ -453,7 +453,7 @@ This is implemented within Step 1 rather than as a separate step — the error t
 
 ```bash
 echo "--- Running collection with variables (expect pass) ---"
-VARS_FILE=$(mktemp /tmp/apitest_vars_XXXXXX.yaml)
+VARS_FILE=$(mktemp /tmp/curlew_vars_XXXXXX.yaml)
 cat > "$VARS_FILE" << 'YAML'
 name: Variable Test
 variables:
@@ -466,12 +466,12 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$VARS_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$VARS_FILE" && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$VARS_FILE"
 echo
 
 echo "--- Running collection with circular variables (expect exit 5) ---"
-CIRC_FILE=$(mktemp /tmp/apitest_circ_XXXXXX.yaml)
+CIRC_FILE=$(mktemp /tmp/curlew_circ_XXXXXX.yaml)
 cat > "$CIRC_FILE" << 'YAML'
 name: Circular Variable Test
 variables:
@@ -483,7 +483,7 @@ requests:
       method: GET
       url: "https://httpbin.org/get"
 YAML
-./apitest run "$CIRC_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$CIRC_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$CIRC_FILE"
 echo
 ```
@@ -495,7 +495,7 @@ echo
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/runner/runner_test.go` | All `TestRun*` (~20 call sites) | signature change | Add `_, err :=` and `if err != nil { t.Fatal(err) }` |
-| `cmd/apitest/main_test.go` | None | none | — |
+| `cmd/curlew/main_test.go` | None | none | — |
 | `internal/parser/parser_test.go` | None | none | — |
 
 ## Risks and Edge Cases
@@ -511,7 +511,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -531,5 +531,5 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run /tmp/vartest.yaml
+./curlew run /tmp/vartest.yaml
 ```

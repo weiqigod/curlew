@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/collection-v1.json",
-  "title": "ApiTest Collection v1",
-  "description": "Schema for apitest collection YAML files",
+  "$id": "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/collection-v1.json",
+  "title": "Curlew Collection v1",
+  "description": "Schema for curlew collection YAML files",
   "type": "object",
   "required": ["name", "requests"],
   "properties": {
@@ -102,7 +102,7 @@
         },
         "auth": {
           "type": "string",
-          "description": "Name of an auth profile declared in apitest.yaml (auth_profiles block) to apply to this request."
+          "description": "Name of an auth profile declared in curlew.yaml (auth_profiles block) to apply to this request."
         },
         "required": {
           "type": "boolean",

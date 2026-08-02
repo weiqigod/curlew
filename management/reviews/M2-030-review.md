@@ -66,7 +66,7 @@ ordering) are also tested.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` (race) | PASS |
 | `golangci-lint run` (affected packages) | PASS (0 issues) |
 | Coverage >= 80% | PASS (94.8% for `internal/graphql/files`) |

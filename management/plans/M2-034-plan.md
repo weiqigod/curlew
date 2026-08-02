@@ -255,7 +255,7 @@ import (
     "net/http"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/parser"
+    "github.com/weiqigod/curlew/internal/parser"
 )
 
 // reconnectState holds per-request reconnection bookkeeping owned by the
@@ -447,7 +447,7 @@ import (
     "time"
 
     gws "github.com/gorilla/websocket"
-    "github.com/peterlindqvist/apitest/internal/parser"
+    "github.com/weiqigod/curlew/internal/parser"
 )
 
 // startHeartbeat launches a goroutine that sends ping frames every
@@ -757,7 +757,7 @@ is configured entirely via YAML.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/parser/... ./internal/websocket/... ./internal/parallel/... ./internal/runner/...
 go test ./...
 ~/go/bin/golangci-lint run

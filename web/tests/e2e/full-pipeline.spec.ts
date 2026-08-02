@@ -4,17 +4,17 @@
  * Prerequisites (handled by global-setup.ts or scripts/test-stack.sh up):
  * - Backend running at BACKEND_URL (default: http://localhost:5000)
  * - Web running at WEB_BASE_URL (default: http://localhost:3000)
- * - APITEST_BACKEND_URL and APITEST_BACKEND_TOKEN env vars set
+ * - CURLEW_BACKEND_URL and CURLEW_BACKEND_TOKEN env vars set
  * - The 'acme' org exists in the backend (seeded by seed-test-data.sh)
- * - The apitest binary is built at ./apitest (run: go build ./cmd/apitest)
+ * - The curlew binary is built at ./curlew (run: go build ./cmd/curlew)
  */
 import { test, expect } from '@playwright/test';
 import { seedAuthCookie } from './helpers/auth';
 import { SEEDED_ORG_SLUG, OWNER_EMAIL, OWNER_USER_ID } from './helpers/fixtures';
-import { runApitest } from './helpers/cli';
+import { runCurlew } from './helpers/cli';
 
-const BACKEND_URL = process.env.APITEST_BACKEND_URL ?? 'http://localhost:5000';
-const BACKEND_TOKEN = process.env.APITEST_BACKEND_TOKEN ?? '';
+const BACKEND_URL = process.env.CURLEW_BACKEND_URL ?? 'http://localhost:5000';
+const BACKEND_TOKEN = process.env.CURLEW_BACKEND_TOKEN ?? '';
 
 test.describe('E2E: CLI -> backend -> web', () => {
 	test.beforeEach(async ({ context }) => {
@@ -23,9 +23,9 @@ test.describe('E2E: CLI -> backend -> web', () => {
 
 	// Assertion 1 + 2: uploaded run appears in /org/acme/results
 	test('uploaded run appears in /org/acme/results within 5s', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
-		const result = runApitest({
+		const result = runCurlew({
 			collection: 'testdata/team/e2e-collection.yaml',
 			flags: [
 				'--report-upload',
@@ -36,8 +36,8 @@ test.describe('E2E: CLI -> backend -> web', () => {
 			],
 			expectExit: 0,
 			env: {
-				APITEST_BACKEND_URL: BACKEND_URL,
-				APITEST_BACKEND_TOKEN: BACKEND_TOKEN,
+				CURLEW_BACKEND_URL: BACKEND_URL,
+				CURLEW_BACKEND_TOKEN: BACKEND_TOKEN,
 			}
 		});
 
@@ -55,11 +55,11 @@ test.describe('E2E: CLI -> backend -> web', () => {
 
 	// Assertion 3: pr-check row visible in /org/acme/pr-checks
 	test('pr-check row is visible in /org/acme/pr-checks', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
 		// Post a pr-check (may already be there from the previous test, but
 		// we run independently so we post our own)
-		runApitest({
+		runCurlew({
 			collection: 'testdata/team/e2e-collection.yaml',
 			flags: [
 				'--report-upload',
@@ -69,8 +69,8 @@ test.describe('E2E: CLI -> backend -> web', () => {
 			],
 			expectExit: 0,
 			env: {
-				APITEST_BACKEND_URL: BACKEND_URL,
-				APITEST_BACKEND_TOKEN: BACKEND_TOKEN,
+				CURLEW_BACKEND_URL: BACKEND_URL,
+				CURLEW_BACKEND_TOKEN: BACKEND_TOKEN,
 			}
 		});
 
@@ -81,9 +81,9 @@ test.describe('E2E: CLI -> backend -> web', () => {
 
 	// Assertion 4: failing collection uploads state=failure
 	test('failing collection uploads state=failure and dashboard shows failure badge', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'APITEST_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
 
-		runApitest({
+		runCurlew({
 			collection: 'testdata/team/e2e-collection-failing.yaml',
 			flags: [
 				'--report-upload',
@@ -93,8 +93,8 @@ test.describe('E2E: CLI -> backend -> web', () => {
 			],
 			expectExit: 1, // failing assertions = exit 1
 			env: {
-				APITEST_BACKEND_URL: BACKEND_URL,
-				APITEST_BACKEND_TOKEN: BACKEND_TOKEN,
+				CURLEW_BACKEND_URL: BACKEND_URL,
+				CURLEW_BACKEND_TOKEN: BACKEND_TOKEN,
 			}
 		});
 

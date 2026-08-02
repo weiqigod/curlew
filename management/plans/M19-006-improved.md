@@ -1,6 +1,6 @@
 # Improvement Report: M19-006
 
-**Task:** Expand templates/skills/claude/apitest/ to multi-file skill
+**Task:** Expand templates/skills/claude/curlew/ to multi-file skill
 **Date:** 2026-05-17
 **Review:** management/reviews/M19-006-review.md
 
@@ -20,12 +20,12 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`templates`) | 87.5% |
 | Coverage (`internal/scaffold`) | 87.1% |
-| Coverage (`cmd/apitest`) | 81.5% |
+| Coverage (`cmd/curlew`) | 81.5% |
 
 ## Fix Commits
 

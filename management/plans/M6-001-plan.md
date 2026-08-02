@@ -2,7 +2,7 @@
 
 ## Overview
 
-Lay the classification plumbing the agent event stream depends on: extend the existing error taxonomy, add a process-wide sentinel hint registry, and implement `ClassifyError` that walks any error chain and produces a `*Structured` carrying `Category`, `Code`, `Hint`, and `Inner`. No behavioural change in `cmd/apitest`; this task is foundation. A source-parsing coverage test enforces that every exported `Err*` sentinel in the `internal/` tree is registered with a `Category` and `Code`, and that every non-internal classification carries a concrete-action `Hint`.
+Lay the classification plumbing the agent event stream depends on: extend the existing error taxonomy, add a process-wide sentinel hint registry, and implement `ClassifyError` that walks any error chain and produces a `*Structured` carrying `Category`, `Code`, `Hint`, and `Inner`. No behavioural change in `cmd/curlew`; this task is foundation. A source-parsing coverage test enforces that every exported `Err*` sentinel in the `internal/` tree is registered with a `Category` and `Code`, and that every non-internal classification carries a concrete-action `Hint`.
 
 ## Task Details
 
@@ -109,7 +109,7 @@ One new `hints_init.go` in each owning package:
 
 ```bash
 go test ./internal/errors/...
-# ok  github.com/peterlindqvist/apitest/internal/errors (~0.4s)
+# ok  github.com/weiqigod/curlew/internal/errors (~0.4s)
 
 go test -cover ./internal/errors/...
 # Coverage meets >= 80% gate

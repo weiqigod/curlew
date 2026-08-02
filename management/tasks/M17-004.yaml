@@ -10,7 +10,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_WebhookSign_Stripe' -v ./internal/variable/...
   # Expected: PASS — $webhookSign.stripe(body, secret, '1492774577') returns
@@ -47,10 +47,10 @@ observable: |
   # slack with 0 or 4 args, all return the canonical arity error
   # (DYNFN_ARITY) naming the expected arity range.
 
-  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; ./curlew init demo && cd demo
   # Add a header: X-Stripe-Signature: "{{$webhookSign.stripe('{{payload}}', '{{stripe_secret}}', '{{stripe_ts}}')}}"
   # stripe_secret in env file (auto-sensitive: name contains 'secret').
-  ./apitest run collections/sample.yaml --dry-run --format json | grep -F 't=' | grep -F ',v1='
+  ./curlew run collections/sample.yaml --dry-run --format json | grep -F 't=' | grep -F ',v1='
   # Expected: success — the rendered header has the t=...,v1=... shape and
   # the secret is never visible in serialised output.
 

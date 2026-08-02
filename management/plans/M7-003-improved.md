@@ -8,7 +8,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | Low | Dead `"run"` entry in `usageSynopses` map had no production call site and no sync test, misleading readers. | Removed the `"run"` key from `usageSynopses` in `cmd/apitest/main.go`. Every remaining entry is wired to an active error-recovery site covered by `TestStreamHelp`. | ✓ tests pass |
+| 1 | Low | Dead `"run"` entry in `usageSynopses` map had no production call site and no sync test, misleading readers. | Removed the `"run"` key from `usageSynopses` in `cmd/curlew/main.go`. Every remaining entry is wired to an active error-recovery site covered by `TestStreamHelp`. | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -18,7 +18,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage | 86.6% |

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/schema"
+	"github.com/weiqigod/curlew/internal/schema"
 )
 
 func TestProjectSchema(t *testing.T) {
@@ -27,14 +27,14 @@ func TestProjectSchema(t *testing.T) {
 		{"has_title", func(t *testing.T) {
 			var m map[string]any
 			_ = json.Unmarshal(schema.ProjectSchema, &m)
-			if m["title"] != "ApiTest Project v1" {
-				t.Errorf("title = %v, want \"ApiTest Project v1\"", m["title"])
+			if m["title"] != "Curlew Project v1" {
+				t.Errorf("title = %v, want \"Curlew Project v1\"", m["title"])
 			}
 		}},
 		{"has_id", func(t *testing.T) {
 			var m map[string]any
 			_ = json.Unmarshal(schema.ProjectSchema, &m)
-			want := "https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/project-v1.json"
+			want := "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json"
 			if m["$id"] != want {
 				t.Errorf("$id = %v, want %v", m["$id"], want)
 			}

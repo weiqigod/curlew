@@ -25,7 +25,7 @@
 | `internal/parser/` | 91.2% |
 | `internal/output/` | 92.5% |
 | `internal/auth/` | 87.8% |
-| `cmd/apitest/` | 84.3% |
+| `cmd/curlew/` | 84.3% |
 
 ## Observable Output
 
@@ -35,7 +35,7 @@ $ go test -v ./internal/retry/...
 === RUN   TestBackoffDelay (9 subtests) — PASS
 === RUN   TestParseRetryAfter (9 subtests) — PASS
 === RUN   TestExecuteWithRetry (11 subtests) — PASS
-PASS ok github.com/peterlindqvist/apitest/internal/retry
+PASS ok github.com/weiqigod/curlew/internal/retry
 
 $ go test -v -run "TestRun_retry" ./internal/runner/
 === RUN   TestRun_retryOn503 — PASS
@@ -45,7 +45,7 @@ $ go test -v -run "TestRun_retry" ./internal/runner/
 === RUN   TestRun_retryPOST503 — PASS
 === RUN   TestRun_retryFeatureGate — PASS
 === RUN   TestRun_retryPerRequestOverride — PASS
-PASS ok github.com/peterlindqvist/apitest/internal/runner
+PASS ok github.com/weiqigod/curlew/internal/runner
 ```
 
 Expected: Retry logic exercised through unit and integration tests
@@ -126,7 +126,7 @@ Review PASS trusted (management/reviews/M2-013-review.md, round 2 post-improveme
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +5/-2 |
+| `cmd/curlew/main.go` | modified | +5/-2 |
 | `internal/auth/gate_test.go` | modified | +27/-0 |
 | `internal/auth/registry.go` | modified | +6/-0 |
 | `internal/output/json.go` | modified | +1/-0 |

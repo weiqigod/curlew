@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass (34 packages) |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke tests clean |
@@ -24,7 +24,7 @@ The observable requires a live docker-compose stack (fake-idp + backend + web + 
 - `testdata/enterprise/e2e-collection.yaml` exists
 - `web/tests/e2e/enterprise-full.spec.ts` exists with all 7 assertions
 - `.github/workflows/e2e-m5.yml` CI job configured to run the full observable scenario on push/PR to main
-- The Playwright spec uses `test.skip(!process.env.APITEST_BACKEND_TOKEN, ...)` guards so the unit/smoke test suites pass without the live stack
+- The Playwright spec uses `test.skip(!process.env.CURLEW_BACKEND_TOKEN, ...)` guards so the unit/smoke test suites pass without the live stack
 
 Expected: exit 0, stdout "Uploaded result res_...", Playwright >=5 passing
 Result: INFRASTRUCTURE VERIFIED (live stack not available locally; CI job covers full run)
@@ -35,7 +35,7 @@ Result: INFRASTRUCTURE VERIFIED (live stack not available locally; CI job covers
 |---|----------|------|--------|
 | 1 | Given the docker-compose stack is up, when Playwright triggers POST /sso/saml/{org_id}/acs, then a session cookie is set and the user lands on /org/acme | `enterprise-full.spec.ts: SSO login via fake-idp sets session cookie and lands on /org/acme` | PASS |
 | 2 | Given the user lands on /org/acme, when /org/acme/audit-log is loaded, then a row with event_type=sso.login and the user's email is visible within 5 seconds | `enterprise-full.spec.ts: audit log shows sso.login row within 5s` | PASS |
-| 3 | Given the CLI ran apitest run --report-upload with a service token assigned to the qa-lead custom role, when the upload completes, then the backend accepts it | `enterprise-full.spec.ts: CLI upload as qa-lead custom role succeeds` + `ResultsAuditTests: Ingest_success_emits_results_upload_audit_row` | PASS |
+| 3 | Given the CLI ran curlew run --report-upload with a service token assigned to the qa-lead custom role, when the upload completes, then the backend accepts it | `enterprise-full.spec.ts: CLI upload as qa-lead custom role succeeds` + `ResultsAuditTests: Ingest_success_emits_results_upload_audit_row` | PASS |
 | 4 | Given the upload succeeds, when /org/acme/audit-log is refreshed, then a row with event_type=results.upload and the service token's display name is visible | `enterprise-full.spec.ts: audit log shows results.upload row for the CLI run` | PASS |
 | 5 | Given the uploaded run exists, when /org/acme/results is loaded, then the run is listed in the recent runs table within 5 seconds | `enterprise-full.spec.ts: uploaded run appears in /org/acme/results within 5s` | PASS |
 | 6 | Given the qa-lead custom role is in use, when /org/acme/settings/roles is loaded, then the row for qa-lead shows member_count=1 and is_builtin=false | `enterprise-full.spec.ts: qa-lead custom role row shows member_count=1 and is_builtin=false` | PASS |

@@ -19,7 +19,7 @@ observable: |
 behaviors:
   - "Given an authenticated team-tier org owner, when they navigate to /org/[slug]/results, then the page renders total runs, pass count, fail count, pass rate %, and average duration"
   - "Given at least two seeded runs from M4-004 fixtures, when the results page loads, then the recent runs table shows rows in newest-first order with date, file name, user, pass count, and duration"
-  - "Given the backend returns an empty results list, when the page loads, then an empty state component is shown with a 'Run apitest and upload results to get started' message"
+  - "Given the backend returns an empty results list, when the page loads, then an empty state component is shown with a 'Run curlew and upload results to get started' message"
   - "Given a member of a non-team-tier org, when they navigate to /org/[slug]/results, then they are redirected to /org/[slug] and shown a 'Team tier required' toast"
   - "Given the user selects '7 days' in the time-range picker, when applied, then the API call includes ?range=7d and the chart updates accordingly"
   - "Given the backend returns 500, when the page tries to load results, then an error state with a retry button is shown and no dashboard widgets render"

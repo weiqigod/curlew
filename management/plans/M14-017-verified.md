@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | No findings |
@@ -25,7 +25,7 @@ Note: E2E gate (`docker compose`) skipped — Docker Compose plugin not installe
 
 The observable requires a live Postgres database stack (`docker compose`). Not runnable on this machine without Docker Compose. Behaviors are verified via unit/integration tests below.
 
-Expected: `{"install_url":"https://github.com/apps/apitool-checks-test/installations/new?state=...","state_expires_at":"..."}`
+Expected: `{"install_url":"https://github.com/apps/curlew-checks-test/installations/new?state=...","state_expires_at":"..."}`
 Result: Verified via `GET_install_url_owner_returns_signed_state_token_and_apps_slug_url` test (PASS).
 
 ## Behaviors Verified

@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_Base64' -v ./internal/variable/...
   # Expected: PASS — $base64('hello') returns 'aGVsbG8=';
@@ -22,9 +22,9 @@ observable: |
   # Expected: PASS — `{{$base64('{{user}}:{{pass}}')}}` resolves the
   # inner vars first, then base64-encodes the joined string.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a request with: header Authorization: "Basic {{$base64('user:pw')}}"
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: rendered Authorization header value is "Basic dXNlcjpwdw==".
 
   go test ./...

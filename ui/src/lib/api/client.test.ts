@@ -22,7 +22,7 @@ describe('api client', () => {
     setUnauthorizedHandler(null);
   });
 
-  it('attaches the bearer token from sessionStorage["apitest.token"]', async () => {
+  it('attaches the bearer token from sessionStorage["curlew.token"]', async () => {
     setToken('deadbeefdeadbeefdeadbeefdeadbeef');
     expect(getToken()).toBe('deadbeefdeadbeefdeadbeefdeadbeef');
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));

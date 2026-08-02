@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 func TestWithScope_RoundTrip(t *testing.T) {

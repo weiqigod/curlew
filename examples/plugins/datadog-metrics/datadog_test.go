@@ -24,7 +24,7 @@ func TestSubmitMetric_PostsToSeriesEndpoint(t *testing.T) {
 	defer srv.Close()
 
 	err := submitMetric(context.Background(), http.DefaultClient, srv.URL, "secret-key", ddMetric{
-		Metric: "apitest.request.duration",
+		Metric: "curlew.request.duration",
 		Type:   3,
 		Points: []ddPoint{{Timestamp: 1700000000, Value: 142}},
 		Tags:   []string{"status:200"},
@@ -46,7 +46,7 @@ func TestSubmitMetric_PostsToSeriesEndpoint(t *testing.T) {
 	if err := json.Unmarshal(gotBody, &payload); err != nil {
 		t.Fatalf("unmarshal body: %v", err)
 	}
-	if len(payload.Series) != 1 || payload.Series[0].Metric != "apitest.request.duration" {
+	if len(payload.Series) != 1 || payload.Series[0].Metric != "curlew.request.duration" {
 		t.Errorf("body: %s", gotBody)
 	}
 }

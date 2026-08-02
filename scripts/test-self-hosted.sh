@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-self-hosted.sh — Brings up deploy/self-hosted, verifies the bundle is
 # healthy end-to-end, and tears it down. Opt-in from ci-local.sh via
-# APITEST_RUN_SELF_HOSTED=1 (stack boot is ~60 s and we don't want to pay that
+# CURLEW_RUN_SELF_HOSTED=1 (stack boot is ~60 s and we don't want to pay that
 # on every PR).
 set -euo pipefail
 
@@ -38,17 +38,17 @@ echo "$BODY" | grep -q '"redis":"connected"' || { echo "FAIL: redis not connecte
 echo "PASS: /health healthy"
 
 echo "--- web / returns title ---"
-curl -fsS http://localhost:3000/ | grep -q '<title>apitest</title>' \
+curl -fsS http://localhost:3000/ | grep -q '<title>curlew</title>' \
   || { echo "FAIL: web title missing" >&2; exit 1; }
 echo "PASS: web title"
 
 echo "--- Volume survives down (no -v) ---"
 docker compose -f docker-compose.yml --env-file .env down
-docker volume ls --format '{{.Name}}' | grep -q apitool-self-hosted_pg_data \
+docker volume ls --format '{{.Name}}' | grep -q curlew-self-hosted_pg_data \
   || { echo "FAIL: pg_data missing after down" >&2; exit 1; }
-docker volume ls --format '{{.Name}}' | grep -q apitool-self-hosted_redis_data \
+docker volume ls --format '{{.Name}}' | grep -q curlew-self-hosted_redis_data \
   || { echo "FAIL: redis_data missing after down" >&2; exit 1; }
-docker volume ls --format '{{.Name}}' | grep -q apitool-self-hosted_backend_data \
+docker volume ls --format '{{.Name}}' | grep -q curlew-self-hosted_backend_data \
   || { echo "FAIL: backend_data missing after down" >&2; exit 1; }
 echo "PASS: volumes survived"
 
@@ -57,7 +57,7 @@ docker compose -f docker-compose.yml --env-file .env up -d
 # Give services a moment to start so down -v has running containers to remove.
 sleep 5
 docker compose -f docker-compose.yml --env-file .env down -v
-! docker volume ls --format '{{.Name}}' | grep -q apitool-self-hosted_pg_data \
+! docker volume ls --format '{{.Name}}' | grep -q curlew-self-hosted_pg_data \
   || { echo "FAIL: pg_data still present after down -v" >&2; exit 1; }
 echo "PASS: down -v removed volumes"
 

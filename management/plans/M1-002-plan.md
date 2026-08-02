@@ -553,9 +553,9 @@ requests:
       headers:
         Accept: application/json
       query:
-        source: apitest
+        source: curlew
       body:
-        message: "Hello from ApiTool"
+        message: "Hello from Curlew"
         timestamp: "2026-01-01T00:00:00Z"
 ```
 
@@ -570,7 +570,7 @@ requests:
 | `internal/httpexec/executor_test.go` | `TestExecute` | none | add new table entries |
 | `internal/httpexec/executor_test.go` | `TestExecute_network_error_preserves_inner_error` | none | — |
 | `internal/httpexec/executor_test.go` | `TestExecute_cancelled_context` | none | — |
-| `cmd/apitest/main_test.go` | (all) | none | — |
+| `cmd/curlew/main_test.go` | (all) | none | — |
 
 No existing tests break. All changes are additive.
 
@@ -590,7 +590,7 @@ No existing tests break. All changes are additive.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -598,7 +598,7 @@ go test ./...
 
 Observable verification:
 ```bash
-./apitest run sample/hello.yaml
+./curlew run sample/hello.yaml
 # Expected: Both GET and POST requests execute successfully
 # POST request sends JSON body, headers, and query params to httpbin.org/post
 ```

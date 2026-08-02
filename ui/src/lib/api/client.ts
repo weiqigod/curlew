@@ -1,10 +1,10 @@
-// Fetch wrapper for the local apitest ui server (UI_SPECIFICATION.md §4).
-// Bearer auth from sessionStorage['apitest.token'], the {"error":{...}}
+// Fetch wrapper for the local curlew ui server (UI_SPECIFICATION.md §4).
+// Bearer auth from sessionStorage['curlew.token'], the {"error":{...}}
 // envelope mapped to ApiError, and a 401 → disconnected signal hook.
 
 export const API_BASE = '/api/v1';
 
-const TOKEN_KEY = 'apitest.token';
+const TOKEN_KEY = 'curlew.token';
 
 export function getToken(): string | null {
   try {

@@ -5,7 +5,7 @@
 **Effective date:** 2026-05-19  
 **Next review:** at the next schema-appendix change
 
-This matrix maps every table in the ApiTool schema appendix (SPECIFICATION.md) to one
+This matrix maps every table in the Curlew schema appendix (SPECIFICATION.md) to one
 of four classification tiers, records the encryption-at-rest posture for each table,
 and provides a rationale. The matrix is the broader superset of
 [`docs/security/data-inventory.md`](data-inventory.md): every table in the GDPR data
@@ -32,7 +32,7 @@ customer-PII, but not intended for external publication.
 Examples: webhook event metadata, aggregated telemetry, infrastructure monitoring
 data.
 
-Handling: access restricted to ApiTool engineering staff; no customer notification
+Handling: access restricted to Curlew engineering staff; no customer notification
 required on loss unless the data allows inference of customer activity.
 
 ### Confidential

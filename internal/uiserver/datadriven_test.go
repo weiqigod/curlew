@@ -3,7 +3,7 @@ package uiserver_test
 import (
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/uiserver"
+	"github.com/weiqigod/curlew/internal/uiserver"
 )
 
 // TestRun_DataDrivenIterations covers data-driven expansion through the UI

@@ -7,8 +7,8 @@
  * - Fake IdP running at http://localhost:8088
  * - The 'acme' org seeded via seed-test-data.sh + seed-enterprise.sh:
  *     ./scripts/seed-enterprise.sh acme qa-lead "results.upload,results.view,dashboard.view"
- * - The apitest binary built at ./apitest (go build ./cmd/apitest)
- * - APITEST_BACKEND_TOKEN env set to a qa@acme.example JWT
+ * - The curlew binary built at ./curlew (go build ./cmd/curlew)
+ * - CURLEW_BACKEND_TOKEN env set to a qa@acme.example JWT
  *
  * This spec exercises 7 assertions: 6 happy-path + 1 failure-path (bogus SAML).
  */
@@ -16,7 +16,7 @@ import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
 import path from 'path';
 import { seedAuthCookie } from './helpers/auth';
-import { runApitest } from './helpers/cli';
+import { runCurlew } from './helpers/cli';
 import { lookupOrgGuid, triggerSamlLogin } from './helpers/saml';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -31,7 +31,7 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 		page,
 		context
 	}) => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping SSO E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping SSO E2E');
 
 		await triggerSamlLogin(page, ORG);
 
@@ -44,7 +44,7 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 	// ── Assertion 2: audit log shows sso.login row within 5s ─────────────────────────
 
 	test('audit log shows sso.login row within 5s', async ({ page, context }) => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping SSO E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping SSO E2E');
 
 		await triggerSamlLogin(page, ORG);
 		// The SSO user intentionally has a narrow custom role without audit-log access.
@@ -70,20 +70,20 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 	// ── Assertion 3: CLI upload as qa-lead custom role succeeds ───────────────────────
 
 	test('CLI upload as qa-lead custom role succeeds and stdout shows result id', async () => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping CLI E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping CLI E2E');
 
 		const tokenScript = path.join(REPO_ROOT, 'scripts', 'test-token.sh');
 		const qaToken = execSync(`bash ${tokenScript} qa@acme.example ${QA_USER_ID}`, {
 			encoding: 'utf8'
 		}).trim();
 
-		const result = runApitest({
+		const result = runCurlew({
 			collection: 'testdata/enterprise/e2e-collection.yaml',
 			flags: ['--report-upload', '--org', ORG],
 			expectExit: 0,
 			env: {
-				APITEST_BACKEND_URL: BACKEND_URL,
-				APITEST_BACKEND_TOKEN: qaToken
+				CURLEW_BACKEND_URL: BACKEND_URL,
+				CURLEW_BACKEND_TOKEN: qaToken
 			}
 		});
 
@@ -93,7 +93,7 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 	// ── Assertion 4: audit log shows results.upload row for the CLI run ───────────────
 
 	test('audit log shows results.upload row for the CLI run', async ({ page, context }) => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping CLI E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping CLI E2E');
 
 		// Seed auth as owner so we can view the audit log
 		await seedAuthCookie(context, 'owner@example.com');
@@ -104,13 +104,13 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 			encoding: 'utf8'
 		}).trim();
 
-		runApitest({
+		runCurlew({
 			collection: 'testdata/enterprise/e2e-collection.yaml',
 			flags: ['--report-upload', '--org', ORG],
 			expectExit: 0,
 			env: {
-				APITEST_BACKEND_URL: BACKEND_URL,
-				APITEST_BACKEND_TOKEN: qaToken
+				CURLEW_BACKEND_URL: BACKEND_URL,
+				CURLEW_BACKEND_TOKEN: qaToken
 			}
 		});
 
@@ -130,7 +130,7 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 	// ── Assertion 5: uploaded run appears in /org/acme/results within 5s ─────────────
 
 	test('uploaded run appears in /org/acme/results within 5s', async ({ page, context }) => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping CLI E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping CLI E2E');
 
 		await seedAuthCookie(context, 'owner@example.com');
 
@@ -146,7 +146,7 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 		page,
 		context
 	}) => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping E2E');
 
 		await seedAuthCookie(context, 'owner@example.com');
 
@@ -166,7 +166,7 @@ test.describe('E2E M5: SSO → audit → dashboard with custom role', () => {
 		page,
 		context
 	}) => {
-		test.skip(!process.env.APITEST_BACKEND_TOKEN, 'Live stack not available — skipping SSO E2E');
+		test.skip(!process.env.CURLEW_BACKEND_TOKEN, 'Live stack not available — skipping SSO E2E');
 
 		const orgGuid = await lookupOrgGuid(ORG);
 		const acsUrl = `${BACKEND_URL}/api/v1/sso/saml/${orgGuid}/acs`;

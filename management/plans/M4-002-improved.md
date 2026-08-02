@@ -9,7 +9,7 @@
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
 | 1 | Medium | `visitBody` type-switch branches (string, map[string]any, map[string]string, []any) completely uncovered at 12.5% | Added `TestVisitBody` (5 sub-tests) and `TestCollectSecretReferences_BodyTypes` (4 sub-tests) in `internal/runner/runner_test.go`; coverage rose from 12.5% → 100% | ✓ tests pass |
-| 2 | Medium | `TestRunCmd_Help_MentionsTeamTemplate` only checked exit code 0, not content | Replaced stub with os.Pipe stdout capture; asserts on `APITEST_TEAM_CONFIG`, `--env`, and `"shared vault"` strings in help output | ✓ tests pass |
+| 2 | Medium | `TestRunCmd_Help_MentionsTeamTemplate` only checked exit code 0, not content | Replaced stub with os.Pipe stdout capture; asserts on `CURLEW_TEAM_CONFIG`, `--env`, and `"shared vault"` strings in help output | ✓ tests pass |
 | 3 | Low | `resolver.Resolve` error paths untested: BulkFetch error, missing path, ExtractField error | Added `TestSecretsResolver_BulkFetchError`, `TestSecretsResolver_MissingPath`, `TestSecretsResolver_FieldExtractionError` with purpose-built `errProvider`, `omitPathProvider`, and `fieldErrProvider` test helpers | ✓ tests pass |
 | 4 | Low | `NewSecretsResolver` factory error path untested | Added `TestNewSecretsResolver_FactoryError`; NewSecretsResolver coverage now 100% | ✓ tests pass |
 
@@ -17,7 +17,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 5 | Medium | Behavior #5 ("logs 'Resolved N secrets from shared template (<env>)' exactly once") had zero test coverage — the stderr log line was emitted but never captured or asserted | Added `TestRunCmd_TeamSecrets_LogsResolvedCount` in `cmd/apitest/run_test.go`: uses `os.Pipe` to redirect `os.Stderr`, runs with `APITEST_VAULT_STUB=1` and `--env production`, then asserts the message contains `"Resolved 2 secrets from shared template (production)"` and appears exactly once | ✓ tests pass |
+| 5 | Medium | Behavior #5 ("logs 'Resolved N secrets from shared template (<env>)' exactly once") had zero test coverage — the stderr log line was emitted but never captured or asserted | Added `TestRunCmd_TeamSecrets_LogsResolvedCount` in `cmd/curlew/run_test.go`: uses `os.Pipe` to redirect `os.Stderr`, runs with `CURLEW_VAULT_STUB=1` and `--env production`, then asserts the message contains `"Resolved 2 secrets from shared template (production)"` and appears exactly once | ✓ tests pass |
 | 6 | Low | Behavior #2 (`staging_uses_azure_provider`) only verified no-error; did not assert staging-namespaced resolved values | Replaced `successExecutor` with a `trackingExec` that captures `req.URL`; asserts the URL contains `"stub::staging"` (proving the staging provider path was taken), and asserts `summary.SharedSecretsResolved == 2` | ✓ tests pass |
 
 ## Out of Scope (Deferred)
@@ -28,12 +28,12 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/vault/teamtemplate`) | 91.4% |
 | Coverage (`internal/runner`) | 85.9% |
-| Coverage (`cmd/apitest`) | 83.0% |
+| Coverage (`cmd/curlew`) | 83.0% |
 | Overall project coverage | 89.2% |
 
 ## Fix Commits
@@ -41,7 +41,7 @@ No findings deferred. All findings resolved.
 | Commit | Message | Findings Resolved |
 |--------|---------|-------------------|
 | c26c84d | test(runner): add visitBody branch coverage and collectSecretReferences body-type tests | #1 |
-| 67f22df | test(cmd): verify help text content for APITEST_TEAM_CONFIG and shared vault | #2 |
+| 67f22df | test(cmd): verify help text content for CURLEW_TEAM_CONFIG and shared vault | #2 |
 | e63a9cb | test(vault/teamtemplate): cover BulkFetch error, missing-path, field extraction error, and factory error paths | #3, #4 |
 | 3b076db | test(runner,cmd): assert log line and staging-namespaced stub values | #5, #6 |
 

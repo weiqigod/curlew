@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/plugin"
-	"github.com/peterlindqvist/apitest/internal/plugin/hooks"
+	"github.com/weiqigod/curlew/internal/plugin"
+	"github.com/weiqigod/curlew/internal/plugin/hooks"
 )
 
 // fakeHookPlugin is a scripted in-process plugin for hooks tests.
@@ -102,14 +102,14 @@ func buildPlugin(fp fakeHookPlugin) (plugin.Plugin, *plugin.Channel) {
 		stall: fp.stall,
 		handle: func(method string, params json.RawMessage) (json.RawMessage, error) {
 			switch method {
-			case "apitest/hello":
+			case "curlew/hello":
 				return json.Marshal(map[string]any{
 					"name":             fp.name,
 					"version":          "0.1.0",
 					"hooks":            fp.hookList,
 					"protocol_version": 1,
 				})
-			case "apitest/on_request":
+			case "curlew/on_request":
 				if fp.onReq == nil {
 					// Identity pass-through — return the input unchanged.
 					return params, nil
@@ -123,7 +123,7 @@ func buildPlugin(fp fakeHookPlugin) (plugin.Plugin, *plugin.Channel) {
 					return nil, err
 				}
 				return json.Marshal(out)
-			case "apitest/on_response":
+			case "curlew/on_response":
 				if fp.onResp == nil {
 					return params, nil
 				}
@@ -136,7 +136,7 @@ func buildPlugin(fp fakeHookPlugin) (plugin.Plugin, *plugin.Channel) {
 					return nil, err
 				}
 				return json.Marshal(out)
-			case "apitest/on_result":
+			case "curlew/on_result":
 				if fp.onResult == nil {
 					return json.RawMessage(`{}`), nil
 				}
@@ -283,7 +283,7 @@ func TestDispatcher_OnRequest_TimeoutDropsPlugin_WarningEmitted(t *testing.T) {
 	fp := fakeHookPlugin{
 		name:     "staller",
 		hookList: []string{"on_request"},
-		stall:    "apitest/on_request",
+		stall:    "curlew/on_request",
 	}
 	d, sb := buildDispatcher(t, []fakeHookPlugin{fp})
 	// Use a very short timeout so the test does not wait 10 seconds.
@@ -302,7 +302,7 @@ func TestDispatcher_OnRequest_SecondPluginRunsAfterFirstTimesOut(t *testing.T) {
 	fp1 := fakeHookPlugin{
 		name:     "slow",
 		hookList: []string{"on_request"},
-		stall:    "apitest/on_request",
+		stall:    "curlew/on_request",
 	}
 	fp2 := fakeHookPlugin{
 		name:     "fast",
@@ -439,7 +439,7 @@ func TestDispatcher_HookTimeout_DropsPluginGlobally(t *testing.T) {
 	fp := fakeHookPlugin{
 		name:     "slow",
 		hookList: []string{"on_request", "on_response"},
-		stall:    "apitest/on_request",
+		stall:    "curlew/on_request",
 	}
 	d, _ := buildDispatcher(t, []fakeHookPlugin{fp})
 	hooks.SetHookTimeoutForTesting(d, 20*time.Millisecond)

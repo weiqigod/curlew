@@ -14,7 +14,7 @@
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | Smoke test clean |
-| Coverage `cmd/apitest` | 81.4% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 81.4% | Meets >= 80% threshold |
 | Coverage `internal/backend` | 84.4% | Meets >= 80% threshold |
 | Coverage `internal/vault/teamtemplate` | 88.3% | Meets >= 80% threshold |
 | Coverage `internal/license` | 88.7% | Meets >= 80% threshold |
@@ -24,8 +24,8 @@
 
 The full observable requires a live backend, so verification is done via targeted tests that exercise each path. Key points confirmed:
 
-- `go build -o ./apitest ./cmd/apitest` — BUILD OK
-- `./apitest worker --help` shows `--refresh-vault  Force refresh of team vault cache on startup (bypasses TTL).`
+- `go build -o ./curlew ./cmd/curlew` — BUILD OK
+- `./curlew worker --help` shows `--refresh-vault  Force refresh of team vault cache on startup (bypasses TTL).`
 - `TestRunCmd_TeamSecrets_FreeTierBackendOnlyBlocked` — exit code 6, stderr contains "Shared vault configuration templates require Team tier"
 - `TestRunCmd_RefreshVault_BypassesTTL` — fresh cache bypassed when `--refresh-vault` passed; secret resolved from shared template
 - `TestLicenseRefresh_TeamTier_WritesTeamVaultCache` — `team_vault.json` written with correct envelope and mode 0600 after license --refresh
@@ -56,7 +56,7 @@ Result: MATCH
 | 2 | Observable command works as specified | Build clean; targeted integration tests pass for each path | PASS |
 | 3 | Test coverage >= 80% on new code | All changed packages 81.4%–88.7% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint` 0 findings | PASS |
-| 5 | Help text updated for --refresh-vault on apitest run and apitest worker | Worker help confirmed via binary; run flag wired in parseRunArgs | PASS |
+| 5 | Help text updated for --refresh-vault on curlew run and curlew worker | Worker help confirmed via binary; run flag wired in parseRunArgs | PASS |
 | 6 | Smoke test updated | `./smoke/run.sh` PASS (ci-local.sh output) | PASS |
 
 ## Code Review
@@ -66,7 +66,7 @@ Result: MATCH
 | Error handling | PASS — all errors wrapped with `%w`; sentinels `ErrTeamVaultNotFound`, `ErrOrgIDRequired` defined and registered |
 | Input validation | PASS — `orgIDRE` path-traversal guard; empty orgId sentinel; nil Fetcher safe on TTL-hit path |
 | Naming conventions | PASS — no stuttering; exported symbols have doc comments; `Fetcher` interface uses -er suffix |
-| Code organization | PASS — `internal/` boundaries respected; `backendVaultFetcher` adapter in `cmd/apitest` decouples `teamtemplate` from `internal/backend` |
+| Code organization | PASS — `internal/` boundaries respected; `backendVaultFetcher` adapter in `cmd/curlew` decouples `teamtemplate` from `internal/backend` |
 | Concurrency | PASS — flock serializes cache writes; `fetchCtx` 2s timeout applied only to network, not lock acquisition |
 | Test quality | PASS — table-driven tests throughout; concurrent flock test; file-mode test for 0600 |
 
@@ -115,12 +115,12 @@ TDD pattern visible: `test(...)` commits precede corresponding `feat(...)` commi
 | `internal/vault/teamtemplate/loader_test.go` | created — backend/local/merged/gate tests |
 | `internal/vault/teamtemplate/teamtemplate.go` | modified — added Merge method |
 | `internal/runner/runner.go` | modified — upgraded to CheckFeatureWithClaims |
-| `cmd/apitest/main.go` | modified — swapped to new loader; --refresh-vault flag |
-| `cmd/apitest/license.go` | modified — post-refresh team vault cache write |
-| `cmd/apitest/license_test.go` | modified — extended for team vault cache tests |
-| `cmd/apitest/worker.go` | modified — --refresh-vault flag + schedule-pull integration |
-| `cmd/apitest/worker_test.go` | modified — parser test for --refresh-vault |
-| `cmd/apitest/run_test.go` | modified — FreeTierBackendOnlyBlocked, RefreshVaultBypassesTTL tests |
+| `cmd/curlew/main.go` | modified — swapped to new loader; --refresh-vault flag |
+| `cmd/curlew/license.go` | modified — post-refresh team vault cache write |
+| `cmd/curlew/license_test.go` | modified — extended for team vault cache tests |
+| `cmd/curlew/worker.go` | modified — --refresh-vault flag + schedule-pull integration |
+| `cmd/curlew/worker_test.go` | modified — parser test for --refresh-vault |
+| `cmd/curlew/run_test.go` | modified — FreeTierBackendOnlyBlocked, RefreshVaultBypassesTTL tests |
 
 ## Issues Found
 None.

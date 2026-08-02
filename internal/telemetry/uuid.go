@@ -1,6 +1,6 @@
 // Package telemetry provides the CLI-side telemetry emitter: persistent
 // install_id management, fire-and-forget event posting, and the
-// `apitest telemetry` subcommand handlers.
+// `curlew telemetry` subcommand handlers.
 //
 // Per v4-11, this package has its own HTTP client and MUST NOT import
 // internal/backend.
@@ -26,7 +26,7 @@ func newUUIDv4() (string, error) {
 }
 
 // NewSessionUUID returns a freshly-generated UUID v4 for use as a per-execution
-// session identifier. It is exported for use from cmd/apitest.
+// session identifier. It is exported for use from cmd/curlew.
 func NewSessionUUID() (string, error) {
 	return newUUIDv4()
 }

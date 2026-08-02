@@ -3,7 +3,7 @@ title: Governance — telemetry, scheduling & data rights
 intent: Run consent-based telemetry, pull scheduled monitoring jobs, and satisfy audit, encryption, and GDPR obligations — the enterprise plumbing.
 group: automation
 features: [compliance, redaction]
-command: apitest telemetry status
+command: curlew telemetry status
 order: 140
 runnable: false
 ---
@@ -14,7 +14,7 @@ runnable: false
 
 The last mile of a serious tool is governance: knowing what's collected, scheduling
 unattended runs, and being able to answer "show me everything you hold about this
-user." ApiTool treats these as first-class.
+user." Curlew treats these as first-class.
 
 ## Telemetry is opt-in and inspectable
 
@@ -22,12 +22,12 @@ No telemetry is sent until you turn it on, and you can see, reset, export, or de
 your data at any time.
 
 ```bash
-apitest telemetry status          # what's collected, and your anonymous install id
-apitest telemetry enable          # opt in (GDPR Art. 6(1)(a) consent)
-apitest telemetry disable         # opt back out
-apitest telemetry reset-id        # rotate the anonymous install id
-apitest telemetry export          # dump everything held about this install
-apitest telemetry delete-request  # request deletion of your telemetry
+curlew telemetry status          # what's collected, and your anonymous install id
+curlew telemetry enable          # opt in (GDPR Art. 6(1)(a) consent)
+curlew telemetry disable         # opt back out
+curlew telemetry reset-id        # rotate the anonymous install id
+curlew telemetry export          # dump everything held about this install
+curlew telemetry delete-request  # request deletion of your telemetry
 ```
 
 ```
@@ -44,7 +44,7 @@ your own infrastructure — synthetic monitoring without shipping your secrets t
 SaaS runner.
 
 ```bash
-apitest worker --schedule-pull \
+curlew worker --schedule-pull \
   --backend https://api.apitool.dev \
   --poll-interval 30s
 ```

@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/output/events"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/output/events"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // fixedClock returns a clock function that always returns the parsed time.
@@ -50,9 +50,9 @@ func splitLines(buf *bytes.Buffer) []string {
 func TestEmitter_RunStart_MinimalFields(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-001",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-001",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -69,10 +69,10 @@ func TestEmitter_RunStart_MinimalFields(t *testing.T) {
 	m := parseLine(t, lines[0])
 
 	checks := map[string]any{
-		"kind":            "run.start",
-		"schema_version":  "1.3",
-		"run_id":          "test-run-001",
-		"apitest_version": "0.1.0-dev",
+		"kind":           "run.start",
+		"schema_version": "1.3",
+		"run_id":         "test-run-001",
+		"curlew_version": "0.1.0-dev",
 	}
 	for k, want := range checks {
 		if got := m[k]; got != want {
@@ -103,9 +103,9 @@ func TestEmitter_RequestStartEnd_PairedIDs(t *testing.T) {
 		return time.Date(2026, 4, 21, 10, 0, 0, 0, time.UTC).Add(time.Duration(tick-1) * 10 * time.Millisecond)
 	}
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          clock,
-		RunID:          "test-run-002",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         clock,
+		RunID:         "test-run-002",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -166,9 +166,9 @@ func TestEmitter_RequestEnd_RegisteredSentinelHint(t *testing.T) {
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-003",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-003",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -228,9 +228,9 @@ func TestEmitter_RequestEnd_NetworkErrorKinds(t *testing.T) {
 
 			var buf bytes.Buffer
 			em, err := events.NewEmitter(&buf, events.Options{
-				Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-				RunID:          "test-run-net",
-				ApitestVersion: "0.1.0-dev",
+				Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+				RunID:         "test-run-net",
+				CurlewVersion: "0.1.0-dev",
 			})
 			if err != nil {
 				t.Fatalf("NewEmitter: %v", err)
@@ -266,9 +266,9 @@ func TestEmitter_ConcurrentEmitMonotonicIDs(t *testing.T) {
 	const N = 200
 	var buf safeBuffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-concurrent",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-concurrent",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -346,9 +346,9 @@ func TestEmitter_BodyTruncation_OverLimit(t *testing.T) {
 	t.Run("response_body", func(t *testing.T) {
 		var buf bytes.Buffer
 		em, err := events.NewEmitter(&buf, events.Options{
-			Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-			RunID:          "test-run-trunc",
-			ApitestVersion: "0.1.0-dev",
+			Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+			RunID:         "test-run-trunc",
+			CurlewVersion: "0.1.0-dev",
 		})
 		if err != nil {
 			t.Fatalf("NewEmitter: %v", err)
@@ -385,9 +385,9 @@ func TestEmitter_BodyTruncation_OverLimit(t *testing.T) {
 	t.Run("request_body", func(t *testing.T) {
 		var buf bytes.Buffer
 		em, err := events.NewEmitter(&buf, events.Options{
-			Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-			RunID:          "test-run-trunc-req",
-			ApitestVersion: "0.1.0-dev",
+			Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+			RunID:         "test-run-trunc-req",
+			CurlewVersion: "0.1.0-dev",
 		})
 		if err != nil {
 			t.Fatalf("NewEmitter: %v", err)
@@ -432,9 +432,9 @@ func TestEmitter_BodyTruncation_BinaryOverLimit(t *testing.T) {
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-bintrunc",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-bintrunc",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -469,9 +469,9 @@ func TestEmitter_BodyTruncation_UnderLimit(t *testing.T) {
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-trunc2",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-trunc2",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -507,9 +507,9 @@ func TestEmitter_BodyTruncation_BinaryBase64(t *testing.T) {
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-binary",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-binary",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -540,9 +540,9 @@ func TestEmitter_BodyTruncation_BinaryBase64(t *testing.T) {
 func TestEmitter_RunEnd_EventCount(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-count",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-count",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -591,9 +591,9 @@ func TestEmitter_RunEnd_EventCount(t *testing.T) {
 func TestEmitter_EmitAfterClose(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-closed",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-closed",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -616,20 +616,20 @@ func TestEmitter_NilWriter(t *testing.T) {
 	}
 }
 
-func TestEmitter_EmptyApitestVersion(t *testing.T) {
+func TestEmitter_EmptyCurlewVersion(t *testing.T) {
 	var buf bytes.Buffer
 	_, err := events.NewEmitter(&buf, events.Options{
 		RunID: "test-run-noversion",
-		// ApitestVersion intentionally omitted (empty string)
+		// CurlewVersion intentionally omitted (empty string)
 	})
 	if err == nil {
-		t.Fatal("expected error when ApitestVersion is empty, got nil")
+		t.Fatal("expected error when CurlewVersion is empty, got nil")
 	}
 }
 
 func TestEmitter_RunID_Default(t *testing.T) {
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-dev"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-dev"})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
 	}
@@ -649,7 +649,7 @@ func TestEmitter_RunID_Default(t *testing.T) {
 func TestEmitter_BodyLimit(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		var buf bytes.Buffer
-		em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-dev"})
+		em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-dev"})
 		if err != nil {
 			t.Fatalf("NewEmitter: %v", err)
 		}
@@ -660,7 +660,7 @@ func TestEmitter_BodyLimit(t *testing.T) {
 
 	t.Run("override", func(t *testing.T) {
 		var buf bytes.Buffer
-		em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-dev", BodyLimit: 512})
+		em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-dev", BodyLimit: 512})
 		if err != nil {
 			t.Fatalf("NewEmitter: %v", err)
 		}
@@ -673,9 +673,9 @@ func TestEmitter_BodyLimit(t *testing.T) {
 func TestEmitter_RunError_ClassifiesError(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-error",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-error",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -713,9 +713,9 @@ func TestEmitter_RunError_ClassifiesError(t *testing.T) {
 func TestEmitter_RunError_NilErr(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-nilerr",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-nilerr",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -730,9 +730,9 @@ func TestEmitter_RunError_NilErr(t *testing.T) {
 func TestEmitter_RunStart_NilCLIArgs(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-nilargs",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-nilargs",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -762,9 +762,9 @@ func TestEmitter_RunStart_NilCLIArgs(t *testing.T) {
 func TestEmitter_AssertionResult(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-21T10:00:00Z"),
-		RunID:          "test-run-assert",
-		ApitestVersion: "0.1.0-dev",
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "test-run-assert",
+		CurlewVersion: "0.1.0-dev",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -833,9 +833,9 @@ func TestEvents_v11_Selection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			em, err := events.NewEmitter(&buf, events.Options{
-				Clock:          fixedClock(t, "2026-04-24T10:00:00Z"),
-				RunID:          "test-v11-" + tt.name,
-				ApitestVersion: "0.1.0-test",
+				Clock:         fixedClock(t, "2026-04-24T10:00:00Z"),
+				RunID:         "test-v11-" + tt.name,
+				CurlewVersion: "0.1.0-test",
 			})
 			if err != nil {
 				t.Fatalf("NewEmitter: %v", err)
@@ -901,9 +901,9 @@ func TestEvents_v11_Selection(t *testing.T) {
 func TestEvents_v12_SchemaVersionOnAllEvents(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-24T10:00:00Z"),
-		RunID:          "schema-v12-test",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-24T10:00:00Z"),
+		RunID:         "schema-v12-test",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -929,9 +929,9 @@ func TestEvents_v12_SchemaVersionOnAllEvents(t *testing.T) {
 func TestEmitter_RequestStartCarriesSlug(t *testing.T) {
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
-		Clock:          fixedClock(t, "2026-04-25T10:00:00Z"),
-		RunID:          "rs-slug-001",
-		ApitestVersion: "0.1.0-test",
+		Clock:         fixedClock(t, "2026-04-25T10:00:00Z"),
+		RunID:         "rs-slug-001",
+		CurlewVersion: "0.1.0-test",
 	})
 	if err != nil {
 		t.Fatalf("NewEmitter: %v", err)
@@ -957,7 +957,7 @@ func TestEmitter_RequestStartCarriesSlug(t *testing.T) {
 // is not included in the output (omitempty behaviour).
 func TestEmitter_RequestStartOmitsEmptySlug(t *testing.T) {
 	var buf bytes.Buffer
-	em, _ := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-test"})
+	em, _ := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-test"})
 	_ = em.EmitRequestStart("req-1", "", "n", "GET", "u", "", "", 0)
 	if strings.Contains(buf.String(), "request_slug") {
 		t.Error("expected request_slug omitted when empty, got:", buf.String())
@@ -969,7 +969,7 @@ func TestEmitter_RequestStartOmitsEmptySlug(t *testing.T) {
 func TestEmitter_RequestEndCarriesSlug(t *testing.T) {
 	var buf bytes.Buffer
 	em, _ := events.NewEmitter(&buf, events.Options{
-		ApitestVersion: "0.1.0-test",
+		CurlewVersion: "0.1.0-test",
 	})
 	_ = em.EmitRequestEnd(events.RequestEndInput{
 		RequestID:   "req-1",
@@ -997,9 +997,9 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 	t.Run("schema_version is 1.3 on request.start and request.end", func(t *testing.T) {
 		var buf bytes.Buffer
 		em, err := events.NewEmitter(&buf, events.Options{
-			Clock:          fixedClock(t, "2026-04-25T10:00:00Z"),
-			RunID:          "v12-rs-001",
-			ApitestVersion: "0.1.0-test",
+			Clock:         fixedClock(t, "2026-04-25T10:00:00Z"),
+			RunID:         "v12-rs-001",
+			CurlewVersion: "0.1.0-test",
 		})
 		if err != nil {
 			t.Fatalf("NewEmitter: %v", err)
@@ -1039,7 +1039,7 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				var buf bytes.Buffer
-				em, _ := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-test"})
+				em, _ := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-test"})
 				_ = em.EmitRequestStart("req-1", tc.expectedSlug, tc.requestName, "GET", "https://example.com", "main", "", 0)
 				m := parseLine(t, strings.TrimSpace(buf.String()))
 				if m["request_slug"] != tc.expectedSlug {
@@ -1060,7 +1060,7 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.slug, func(t *testing.T) {
 				var buf bytes.Buffer
-				em, _ := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-test"})
+				em, _ := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-test"})
 				_ = em.EmitRequestStart("req-1", tc.slug, "irrelevant name", "GET", "https://example.com", "main", "", 0)
 				_ = em.EmitRequestEnd(events.RequestEndInput{
 					RequestID:   "req-1",
@@ -1090,7 +1090,7 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 
 	t.Run("empty slug is omitted from request.start (omitempty)", func(t *testing.T) {
 		var buf bytes.Buffer
-		em, _ := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-test"})
+		em, _ := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-test"})
 		_ = em.EmitRequestStart("req-1", "", "Name Without Slug", "GET", "https://example.com", "main", "", 0)
 		m := parseLine(t, strings.TrimSpace(buf.String()))
 		if _, ok := m["request_slug"]; ok {
@@ -1100,7 +1100,7 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 
 	t.Run("empty slug is omitted from request.end (omitempty)", func(t *testing.T) {
 		var buf bytes.Buffer
-		em, _ := events.NewEmitter(&buf, events.Options{ApitestVersion: "0.1.0-test"})
+		em, _ := events.NewEmitter(&buf, events.Options{CurlewVersion: "0.1.0-test"})
 		_ = em.EmitRequestEnd(events.RequestEndInput{
 			RequestID:  "req-1",
 			Outcome:    events.OutcomePassed,
@@ -1116,9 +1116,9 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 	t.Run("multiple requests have distinct slugs matching their names", func(t *testing.T) {
 		var buf bytes.Buffer
 		em, err := events.NewEmitter(&buf, events.Options{
-			Clock:          fixedClock(t, "2026-04-25T10:00:00Z"),
-			RunID:          "v12-multi-001",
-			ApitestVersion: "0.1.0-test",
+			Clock:         fixedClock(t, "2026-04-25T10:00:00Z"),
+			RunID:         "v12-multi-001",
+			CurlewVersion: "0.1.0-test",
 		})
 		if err != nil {
 			t.Fatalf("NewEmitter: %v", err)

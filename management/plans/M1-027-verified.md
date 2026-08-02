@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest info --format json | jq .
+$ ./curlew info --format json | jq .
 {
   "project_root": "/tmp/tmp.xxx",
   "project_name": "tmp.xxx",
@@ -32,7 +32,7 @@ $ ./apitest info --format json | jq .
   "version": "0.1.0-dev"
 }
 
-$ ./apitest info
+$ ./curlew info
 Project: tmp.xxx
 Root:    /tmp/tmp.xxx
 
@@ -42,10 +42,10 @@ Collections:
 Environments:
   dev
 
-$ ./apitest schema --format json | jq .
+$ ./curlew schema --format json | jq .
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ApiTest Collection",
+  "title": "Curlew Collection",
   ...valid JSON Schema output...
 }
 ```
@@ -57,11 +57,11 @@ Result: MATCH
 
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
-| 1 | Given apitest info --format json in a project directory, when executed, then JSON output lists collections, environments, and project root | `TestInfoCmd/json_lists_project_root`, `json_lists_collections`, `json_lists_environments` | PASS |
-| 2 | Given apitest info with no --format, when executed, then human-readable summary is shown | `TestInfoCmd/human_readable_default_exit_0`, `human_readable_shows_project_name`, `human_readable_shows_root_path`, `human_readable_shows_collections`, `human_readable_shows_environments` | PASS |
-| 3 | Given apitest schema --format json, when executed, then valid JSON Schema for collection format is output | `TestSchemaCmd/json_output_is_valid_json`, `output_contains_schema_keyword`, `TestCollectionSchema/*` | PASS |
-| 4 | Given apitest info outside a project directory (no apitest.yaml), when executed, then error indicates no project found | `TestInfoCmd/outside_project_dir_exit_5`, `outside_project_dir_error_message` | PASS |
-| 5 | Given apitest schema, when output is used to validate a collection, then valid collections pass validation | `TestCollectionSchema/schema_has_required_properties`, `TestSchemaCmd/default_format_outputs_json` | PASS |
+| 1 | Given curlew info --format json in a project directory, when executed, then JSON output lists collections, environments, and project root | `TestInfoCmd/json_lists_project_root`, `json_lists_collections`, `json_lists_environments` | PASS |
+| 2 | Given curlew info with no --format, when executed, then human-readable summary is shown | `TestInfoCmd/human_readable_default_exit_0`, `human_readable_shows_project_name`, `human_readable_shows_root_path`, `human_readable_shows_collections`, `human_readable_shows_environments` | PASS |
+| 3 | Given curlew schema --format json, when executed, then valid JSON Schema for collection format is output | `TestSchemaCmd/json_output_is_valid_json`, `output_contains_schema_keyword`, `TestCollectionSchema/*` | PASS |
+| 4 | Given curlew info outside a project directory (no curlew.yaml), when executed, then error indicates no project found | `TestInfoCmd/outside_project_dir_exit_5`, `outside_project_dir_error_message` | PASS |
+| 5 | Given curlew schema, when output is used to validate a collection, then valid collections pass validation | `TestCollectionSchema/schema_has_required_properties`, `TestSchemaCmd/default_format_outputs_json` | PASS |
 
 ## Definition of Done
 
@@ -115,8 +115,8 @@ Review PASS trusted (management/reviews/M1-027-review.md), spot-check clean:
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +144 |
-| `cmd/apitest/main_test.go` | modified | +387 |
+| `cmd/curlew/main.go` | modified | +144 |
+| `cmd/curlew/main_test.go` | modified | +387 |
 | `internal/config/discovery.go` | created | +32 |
 | `internal/config/discovery_test.go` | created | +110 |
 | `internal/output/json.go` | modified | +16 |

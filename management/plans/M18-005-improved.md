@@ -22,7 +22,7 @@ No findings deferred. All findings resolved.
 | `dotnet build src/ApiTool.Backend` | PASS |
 | `dotnet build src/ApiTool.Backend.Tests` | PASS |
 | `dotnet test src/ApiTool.Backend.Tests` | PASS — 2128 passed, 0 failed, 16 skipped |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS — 0 issues |
 | Coverage (`UserDeletionEndpoints.cs`) | ≥88% line, ≥65% branch |

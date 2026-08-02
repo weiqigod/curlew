@@ -25,7 +25,7 @@ No findings.
 ## Test Coverage
 - `internal/auth/`: 100%
 - `internal/output/`: 92.0%
-- `cmd/apitest/`: 84.9%
+- `cmd/curlew/`: 84.9%
 - All packages above 80% threshold
 
 ## Behavior Coverage

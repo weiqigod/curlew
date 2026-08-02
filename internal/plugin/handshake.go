@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// helloResponse is the result field from an apitest/hello JSON-RPC response.
+// helloResponse is the result field from an curlew/hello JSON-RPC response.
 type helloResponse struct {
 	Name            string   `json:"name"`
 	Version         string   `json:"version"`

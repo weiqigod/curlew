@@ -8,7 +8,7 @@ import (
 
 	gws "github.com/gorilla/websocket"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // startHeartbeat launches a goroutine that sends ping control frames every

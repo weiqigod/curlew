@@ -1,7 +1,7 @@
 # Implementation Plan: M4-004
 
 ## Overview
-Add a Results ingestion API to the ApiTool backend: `POST /api/v1/organizations/{orgId}/results` to ingest a CLI-shaped JUnit-like JSON payload, `GET .../results` for a newest-first list, and `GET /api/v1/results/{resultId}` for a per-test detail view. Introduces `Result`/`ResultItem` EF entities, migration `0002_results`, org-scoped RBAC via the existing `OrganizationMember` table, 5 MB payload cap, per-org fixed-window rate limiting at 60 req/min, and Swagger annotations.
+Add a Results ingestion API to the Curlew backend: `POST /api/v1/organizations/{orgId}/results` to ingest a CLI-shaped JUnit-like JSON payload, `GET .../results` for a newest-first list, and `GET /api/v1/results/{resultId}` for a per-test detail view. Introduces `Result`/`ResultItem` EF entities, migration `0002_results`, org-scoped RBAC via the existing `OrganizationMember` table, 5 MB payload cap, per-org fixed-window rate limiting at 60 req/min, and Swagger annotations.
 
 ## Task Details
 - **ID:** M4-004

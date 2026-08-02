@@ -9,7 +9,7 @@ dependencies:
   - M5-020
 observable: |
   scripts/test-stack.sh up
-  APITEST_BACKEND_TOKEN=$(scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002) \
+  CURLEW_BACKEND_TOKEN=$(scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002) \
     npx --prefix web playwright test tests/e2e/enterprise-full.spec.ts
   # Expected: 7/7 tests pass (was 1/7 passing on CI run 24632535770).
   scripts/test-stack.sh down

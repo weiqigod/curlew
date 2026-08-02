@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 27 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS (pre-existing failure noted) | One pre-existing failure (`--help missing tap in --format description`) exists on `main` and is not introduced by this branch |
@@ -19,7 +19,7 @@
 | Coverage `internal/parser` | 89.3% | |
 | Coverage `internal/runner` | 86.2% | |
 | Coverage `internal/auth` | 88.9% | |
-| Coverage `cmd/apitest` | 83.8% | |
+| Coverage `cmd/curlew` | 83.8% | |
 
 ## Observable Output
 
@@ -122,8 +122,8 @@ Branch A: Review PASS trusted (iteration 2, post-improve). Spot-check clean:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — `schemaGateFor`, wiring |
-| `cmd/apitest/main_test.go` | modified — binary integration test |
+| `cmd/curlew/main.go` | modified — `schemaGateFor`, wiring |
+| `cmd/curlew/main_test.go` | modified — binary integration test |
 | `go.mod` / `go.sum` | modified — add jsonschema/v6 direct dep |
 | `internal/assertion/schema.go` | added — `CompiledSchema`, `CompileSchemaFile`, `CheckSchema` |
 | `internal/assertion/schema_test.go` | added — table-driven tests |

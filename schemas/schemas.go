@@ -7,13 +7,13 @@ package schemas
 
 import _ "embed"
 
-// CollectionV1 is the JSON Schema (Draft 2020-12) for apitest collection
+// CollectionV1 is the JSON Schema (Draft 2020-12) for curlew collection
 // YAML files, v1. See schemas/collection-v1.json.
 //
 //go:embed collection-v1.json
 var CollectionV1 []byte
 
-// ProjectV1 is the JSON Schema (Draft 2020-12) for apitest.yaml project config
+// ProjectV1 is the JSON Schema (Draft 2020-12) for curlew.yaml project config
 // files, v1. See schemas/project-v1.json.
 //
 //go:embed project-v1.json

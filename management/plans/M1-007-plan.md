@@ -483,7 +483,7 @@ case "in_range":
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -505,5 +505,5 @@ requests:
         $.args.count:
           equals: "42"
 YAML
-go run ./cmd/apitest run /tmp/test-operators.yaml
+go run ./cmd/curlew run /tmp/test-operators.yaml
 ```

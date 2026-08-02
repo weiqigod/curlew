@@ -12,7 +12,7 @@ track: go-cli
 dependencies:
   - M17-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestSigV4_GetVanilla' -v ./internal/signer/awssigv4/...
   # Expected: PASS — using the AWS SigV4 published test-suite vector
@@ -48,7 +48,7 @@ observable: |
   # calls sensitives.AddValue(resolved) on the secret key; the secret never
   # appears in the signed request output (already redacted on serialisation).
 
-  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; ./curlew init demo && cd demo
   # Edit collections/sample.yaml to add:
   #   signing:
   #     type: aws-sigv4
@@ -58,7 +58,7 @@ observable: |
   #       access_key: "{{aws_key}}"
   #       secret_key: "{{aws_secret}}"
   # Add aws_key / aws_secret to .env (auto-sensitive: name contains 'secret').
-  ./apitest run collections/sample.yaml --dry-run --format json | jq -r '.requests[0].headers.Authorization' | head -c 24
+  ./curlew run collections/sample.yaml --dry-run --format json | jq -r '.requests[0].headers.Authorization' | head -c 24
   # Expected output: AWS4-HMAC-SHA256 Crede
 
   go test ./...
@@ -135,7 +135,7 @@ scope: |
     - internal/signer/awssigv4/awssigv4.go        (new — SigV4 implementation)
     - internal/signer/awssigv4/awssigv4_test.go   (new — AWS test-suite vectors)
     - internal/signer/awssigv4/testdata/          (new — fixture canonical-request and string-to-sign files for diff-on-failure)
-    - cmd/apitest/main.go                         (one-line blank import: _ "github.com/peterlindqvist/apitest/internal/signer/awssigv4")
+    - cmd/curlew/main.go                         (one-line blank import: _ "github.com/weiqigod/curlew/internal/signer/awssigv4")
     - docs/MANUAL.md                              (one row added to the signing-types table introduced in M17-001)
 
   Files explicitly NOT touched:

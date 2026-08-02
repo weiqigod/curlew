@@ -10,7 +10,7 @@ dependencies:
 
 observable: |
   Create a collection with `auth: admin_token` on individual requests.
-  Run `apitest run tests.yaml` and confirm the auth profile headers are injected.
+  Run `curlew run tests.yaml` and confirm the auth profile headers are injected.
   Run `go test ./internal/runner/...` to verify per-request auth injection.
 
 behaviors:
@@ -23,7 +23,7 @@ scope: |
   Extend `internal/parser/collection.go` to parse the `auth:` field on RequestItem.
   In `internal/runner/runner.go`, resolve auth profile references to inject credentials
   (headers or other auth mechanisms) into individual requests before execution.
-  This connects auth profiles defined in apitest.yaml to per-request usage in collections.
+  This connects auth profiles defined in curlew.yaml to per-request usage in collections.
 
 definition_of_done:
   - All behavior tests pass

@@ -1,8 +1,8 @@
-# ApiTool
+# Curlew
 
 **File-based API testing.** Write your API tests as YAML files, keep them in version control next to your code, and run them with a single static binary — in your terminal, in CI, or from a local web UI.
 
-ApiTool is for developers who like Postman's job but not its workflow: diffs instead of workspaces, pull requests instead of shared accounts, text editors instead of drag-and-drop, and the same tests running locally and in CI without exporting anything.
+Curlew is for developers who like Postman's job but not its workflow: diffs instead of workspaces, pull requests instead of shared accounts, text editors instead of drag-and-drop, and the same tests running locally and in CI without exporting anything.
 
 ```yaml
 # collections/sample.yaml
@@ -18,7 +18,7 @@ requests:
 ```
 
 ```bash
-apitest run collections/sample.yaml
+curlew run collections/sample.yaml
 ```
 
 ```
@@ -39,8 +39,8 @@ Sample Collection
 - **Protocols** — HTTP/REST, GraphQL (inline or `.graphql` files with fragments), WebSocket step scripts.
 - **Auth** — dynamic auth profiles (login → extract → cache), request signing (AWS SigV4, OAuth 1.0), vault providers for secrets.
 - **Output for humans and machines** — colored terminal, JSON, JUnit, TAP, HTML reports, markdown artifacts, NDJSON event streams (`--events`), deterministic runs with `--seed` and localized fake data.
-- **Local web UI** — `apitest ui` starts a localhost runner/inspector over your project. Files stay the source of truth; the UI never edits them.
-- **Watch mode, glob discovery, OpenAPI import, plugins, load testing** (`apitest perf`), and an `exec` command built for one-shot use by scripts and AI agents.
+- **Local web UI** — `curlew ui` starts a localhost runner/inspector over your project. Files stay the source of truth; the UI never edits them.
+- **Watch mode, glob discovery, OpenAPI import, plugins, load testing** (`curlew perf`), and an `exec` command built for one-shot use by scripts and AI agents.
 
 Everything is available unconditionally — this repository contains no feature gating.
 
@@ -49,28 +49,28 @@ Everything is available unconditionally — this repository contains no feature 
 From source (requires Go 1.24+):
 
 ```bash
-go install github.com/peterlindqvist/apitest/cmd/apitest@latest
+go install github.com/weiqigod/curlew/cmd/curlew@latest
 ```
 
 Or clone and build:
 
 ```bash
-git clone https://github.com/peterlindqvist/apitest
-cd apitest
-go build ./cmd/apitest
+git clone https://github.com/weiqigod/curlew
+cd curlew
+go build ./cmd/curlew
 ```
 
 ## Quickstart
 
 ```bash
 mkdir demo-api && cd demo-api
-apitest init                          # scaffolds apitest.yaml, collections/, environments/
-apitest run collections/sample.yaml   # run one collection
-apitest run "collections/**/*.yaml"   # run everything matching a glob
-apitest ui                            # open the local web UI
+curlew init                          # scaffolds curlew.yaml, collections/, environments/
+curlew run collections/sample.yaml   # run one collection
+curlew run "collections/**/*.yaml"   # run everything matching a glob
+curlew ui                            # open the local web UI
 ```
 
-`apitest --help` lists all commands; every command supports `--format json` and `--non-interactive` for scripting.
+`curlew --help` lists all commands; every command supports `--format json` and `--non-interactive` for scripting.
 
 ## Documentation
 
@@ -83,19 +83,19 @@ apitest ui                            # open the local web UI
 
 | Path | What it is |
 |---|---|
-| `cmd/apitest/` | CLI entry point (the product — a single static Go binary) |
+| `cmd/curlew/` | CLI entry point (the product — a single static Go binary) |
 | `internal/` | CLI implementation packages |
-| `ui/` | Svelte single-page app served by `apitest ui` (embedded at build time) |
+| `ui/` | Svelte single-page app served by `curlew ui` (embedded at build time) |
 | `src/` | Optional C#/.NET backend + web dashboard for team features (shared vault templates, scheduled runs, PR status checks) |
 | `smoke/` | Hermetic end-to-end smoke suite (local fixture server, no public internet) |
 | `docs/` | Manual, specifications, and design history |
 
-The CLI is fully standalone — the backend is only needed for the optional team-oriented features reached via `apitest login`.
+The CLI is fully standalone — the backend is only needed for the optional team-oriented features reached via `curlew login`.
 
 ## Development
 
 ```bash
-go build ./cmd/apitest          # build
+go build ./cmd/curlew          # build
 go test ./...                   # unit + integration tests
 golangci-lint run               # lint
 ./smoke/run.sh                  # hermetic smoke suite

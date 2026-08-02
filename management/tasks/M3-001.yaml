@@ -10,7 +10,7 @@ dependencies:
 
 observable: |
   Create a collection with top-level `rate_limit_rps: 5` and 10 requests against a
-  local test server. Run `go build ./cmd/apitest && ./apitest run collection.yaml`
+  local test server. Run `go build ./cmd/curlew && ./curlew run collection.yaml`
   at Professional tier and verify wall-clock duration is >= ~1.8s (10 requests
   throttled at 5 rps). Run the same collection at Free tier and verify exit code 6
   with a "rate_limit_global requires Professional tier" gate message.

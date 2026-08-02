@@ -1,7 +1,7 @@
 # datadog-metrics plugin
 
-Submits an `apitest.request.duration` gauge metric to Datadog for every HTTP
-response observed by ApiTool via the `on_response` hook.
+Submits an `curlew.request.duration` gauge metric to Datadog for every HTTP
+response observed by Curlew via the `on_response` hook.
 
 ## Configuration
 
@@ -20,7 +20,7 @@ response observed by ApiTool via the `on_response` hook.
 ```bash
 # From the repository root
 cd examples/plugins/datadog-metrics
-go build -o /tmp/apitest-dd-plugin .
+go build -o /tmp/curlew-dd-plugin .
 ```
 
 ## Run
@@ -44,13 +44,13 @@ http.server.HTTPServer(('127.0.0.1', 8888), H).serve_forever()
 "
 ```
 
-In a second terminal, run apitest with the plugin:
+In a second terminal, run curlew with the plugin:
 
 ```bash
 DD_API_URL=http://127.0.0.1:8888 \
-APITEST_PLUGINS=/tmp/apitest-dd-plugin \
+CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
 DATADOG_API_KEY=test-key \
-  ./apitest run testdata/plugins/one-request.yaml
+  ./curlew run testdata/plugins/one-request.yaml
 ```
 
 Expected output (stderr tail):
@@ -62,9 +62,9 @@ Expected output (stderr tail):
 ### Against real Datadog
 
 ```bash
-APITEST_PLUGINS=/tmp/apitest-dd-plugin \
+CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
 DATADOG_API_KEY=<your-key> \
-  ./apitest run your-collection.yaml
+  ./curlew run your-collection.yaml
 ```
 
 ## Test
@@ -83,7 +83,7 @@ Run the binary with `--help` to print plugin metadata without entering the
 JSON-RPC loop:
 
 ```bash
-/tmp/apitest-dd-plugin --help
+/tmp/curlew-dd-plugin --help
 ```
 
 Output:
@@ -103,7 +103,7 @@ Each `on_response` fires a single POST to `/api/v2/series` with:
 ```json
 {
   "series": [{
-    "metric": "apitest.request.duration",
+    "metric": "curlew.request.duration",
     "type": 3,
     "points": [{"timestamp": <unix>, "value": <duration_ms>}],
     "tags": ["status:<status_code>"]

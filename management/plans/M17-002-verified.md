@@ -144,8 +144,8 @@ Branch A: Review PASS trusted (iteration 6, verdict PASS, no findings). Spot-che
 | `internal/runner/signing.go` | modified — header sync-back after signing |
 | `internal/runner/signing_integration_test.go` | modified — scope propagation tests |
 | `internal/parallel/executor.go` | modified — header sync-back |
-| `cmd/apitest/main.go` | modified — blank import for awssigv4 |
-| `cmd/apitest/main_test.go` | modified — TestMain_AwsSigV4_Registered |
+| `cmd/curlew/main.go` | modified — blank import for awssigv4 |
+| `cmd/curlew/main_test.go` | modified — TestMain_AwsSigV4_Registered |
 | `docs/MANUAL.md` | modified — §6.8 signing table + example; §10 forward-reference fix |
 | `smoke/run.sh` | modified — aws-sigv4 signing block |
 | `CHANGELOG.md` | modified — aws-sigv4 entry under [Unreleased] |

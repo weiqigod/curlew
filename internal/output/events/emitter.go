@@ -12,8 +12,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/output/ids"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/output/ids"
 )
 
 // ErrEmitterClosed is returned when Emit* is called after Close.
@@ -27,8 +27,8 @@ type Options struct {
 	RunID string
 	// BodyLimit overrides DefaultBodyLimit. Zero means use DefaultBodyLimit.
 	BodyLimit int
-	// ApitestVersion is recorded in RunStart.
-	ApitestVersion string
+	// CurlewVersion is recorded in RunStart.
+	CurlewVersion string
 }
 
 // Emitter serializes events to an io.Writer as NDJSON. Safe for concurrent use.
@@ -50,14 +50,14 @@ type Emitter struct {
 }
 
 // NewEmitter constructs an Emitter writing to w. w must be non-nil.
-// opts.ApitestVersion must be non-empty; it is recorded in the run.start event
+// opts.CurlewVersion must be non-empty; it is recorded in the run.start event
 // and the JSON Schema requires minLength: 1.
 func NewEmitter(w io.Writer, opts Options) (*Emitter, error) {
 	if w == nil {
 		return nil, errors.New("events: nil writer")
 	}
-	if opts.ApitestVersion == "" {
-		return nil, errors.New("events: Options.ApitestVersion is required")
+	if opts.CurlewVersion == "" {
+		return nil, errors.New("events: Options.CurlewVersion is required")
 	}
 	clock := opts.Clock
 	if clock == nil {
@@ -127,7 +127,7 @@ func (e *Emitter) EmitRunStartWithInput(in RunStartInput) error {
 			Kind:          KindRunStart,
 		},
 		StartedAt:      e.startTime.UTC().Format(time.RFC3339Nano),
-		ApitestVersion: e.opts.ApitestVersion,
+		CurlewVersion:  e.opts.CurlewVersion,
 		CLIArgs:        cliArgs,
 		CollectionFile: in.CollectionFile,
 		EnvName:        in.EnvName,

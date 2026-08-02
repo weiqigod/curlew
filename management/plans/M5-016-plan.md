@@ -64,7 +64,7 @@ The task YAML is ambiguous in three places. Decisions made and rationale:
 4. **`/api/v1/auth/login` endpoint is local-password-only.** SSO login
    remains the primary flow (`/api/v1/sso/{provider}/...`). The new endpoint
    is a narrow escape hatch for the bootstrap admin on a freshly installed
-   self-hosted instance. It issues the same `apitool_session` JWT via the
+   self-hosted instance. It issues the same `curlew_session` JWT via the
    existing `SessionTokenIssuer`. Rate-limited at 10 req/min per email to
    slow brute-force. `/api/v1/auth/admin/login` from the spec is not added
    (scope creep beyond the task's observable).
@@ -387,8 +387,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
     if (!string.IsNullOrEmpty(pgHost))
     {
         var pgPort = builder.Configuration["POSTGRES_PORT"] ?? "5432";
-        var pgDb   = builder.Configuration["POSTGRES_DB"] ?? "apitool";
-        var pgUser = builder.Configuration["POSTGRES_USER"] ?? "apitool";
+        var pgDb   = builder.Configuration["POSTGRES_DB"] ?? "curlew";
+        var pgUser = builder.Configuration["POSTGRES_USER"] ?? "curlew";
         var pgPass = builder.Configuration["POSTGRES_PASSWORD"] ?? "";
         var connectionString = $"Host={pgHost};Port={pgPort};Database={pgDb};Username={pgUser};Password={pgPass}";
         builder.Services.AddDbContext<AppDbContext>(options =>
@@ -398,7 +398,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     {
         builder.Services.AddDbContext<AppDbContext>(options =>
             options.UseSqlite(builder.Configuration.GetConnectionString("Default")
-                ?? "Data Source=data/apitool.db"));
+                ?? "Data Source=data/curlew.db"));
     }
 }
 ```
@@ -410,7 +410,7 @@ cd src/ApiTool.Backend
 rm -rf Migrations
 ASPNETCORE_ENVIRONMENT=Development \
 POSTGRES_HOST=localhost \
-POSTGRES_DB=apitool_scaffold \
+POSTGRES_DB=curlew_scaffold \
 POSTGRES_USER=postgres \
 POSTGRES_PASSWORD=postgres \
   dotnet ef migrations add Initial --context AppDbContext
@@ -1084,7 +1084,7 @@ echo "PASS: bootstrap idempotent"
 ```
 
 #### Impact on Existing Tests
-- `scripts/test-self-hosted.sh` is opt-in via `APITEST_RUN_SELF_HOSTED=1`;
+- `scripts/test-self-hosted.sh` is opt-in via `CURLEW_RUN_SELF_HOSTED=1`;
   the additional ~30s cost is only paid by contributors running the self-
   hosted gate. CI behavior is unchanged unless the env var is set.
 
@@ -1109,7 +1109,7 @@ echo "PASS: bootstrap idempotent"
 ## Risks and Edge Cases
 
 - **Risk:** Regenerating migrations drops the historical chain; if a user
-  has an existing dev SQLite file (`data/apitool-dev.db`) they'll get
+  has an existing dev SQLite file (`data/curlew-dev.db`) they'll get
   `PendingModelChangesWarning` or a crash on the next `MigrateAsync`.
   **Mitigation:** The Dev auto-migrate block now runs `MigrateAsync` which
   applies the new `Initial` migration against an empty DB. Dev databases
@@ -1177,7 +1177,7 @@ untouched by this task.
 
 ```bash
 # Unit/integration tests — the authoritative observable
-cd /Users/peterlindqvist/kod/active/ApiTool
+cd /Users/peterlindqvist/kod/active/Curlew
 dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
   --filter "FullyQualifiedName~Bootstrap|FullyQualifiedName~Migrations|FullyQualifiedName~PasswordHasher|FullyQualifiedName~AuthLogin"
 
@@ -1188,7 +1188,7 @@ dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj
 ./scripts/ci-local.sh
 
 # Smoke — requires Docker
-APITEST_RUN_SELF_HOSTED=1 ./scripts/test-self-hosted.sh
+CURLEW_RUN_SELF_HOSTED=1 ./scripts/test-self-hosted.sh
 ```
 
 Observable verification (mirrors task YAML):

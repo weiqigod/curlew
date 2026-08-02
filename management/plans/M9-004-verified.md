@@ -20,7 +20,7 @@
 
 ## Observable Output
 
-The observable collections (`collections/parallel.yaml`, etc.) are not standalone files; the integration tests in `cmd/apitest/run_test.go` implement the observable scenarios against real HTTP servers and the real binary. All integration tests pass:
+The observable collections (`collections/parallel.yaml`, etc.) are not standalone files; the integration tests in `cmd/curlew/run_test.go` implement the observable scenarios against real HTTP servers and the real binary. All integration tests pass:
 
 ```
 === RUN   TestRun_MarkdownFormat_DataDriven
@@ -29,7 +29,7 @@ The observable collections (`collections/parallel.yaml`, etc.) are not standalon
 --- PASS: TestRun_MarkdownFormat_DataDrivenSplice (0.00s)
 === RUN   TestRun_MarkdownFormat_ParallelWaves
 --- PASS: TestRun_MarkdownFormat_ParallelWaves (0.00s)
-ok  	github.com/peterlindqvist/apitest/cmd/apitest	0.311s
+ok  	github.com/weiqigod/curlew/cmd/curlew	0.311s
 ```
 
 Expected: parallel wave grouping, data-driven per-iteration files, splice safety
@@ -113,8 +113,8 @@ Spot-checked: `fmt.Errorf("write iter-%d.md: %w", it.Index, err)` correctly wrap
 | `internal/output/markdown/formatter.go` | modified | IterationEntry, IsParallel, Iterations fields; dispatch to DD path |
 | `internal/output/markdown/run_md.go` | modified | Wave grouping (renderRunMDByWave), DD aggregate bullet |
 | `internal/output/markdown/run_md_test.go` | modified | Wave grouping and mixed-sequential tests |
-| `cmd/apitest/main.go` | modified | buildMarkdownReport: DD grouping, IsParallel propagation |
-| `cmd/apitest/run_test.go` | modified | Integration tests for parallel waves and data-driven layout |
+| `cmd/curlew/main.go` | modified | buildMarkdownReport: DD grouping, IsParallel propagation |
+| `cmd/curlew/run_test.go` | modified | Integration tests for parallel waves and data-driven layout |
 
 ## Issues Found
 None.

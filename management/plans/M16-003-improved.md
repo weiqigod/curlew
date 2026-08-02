@@ -24,7 +24,7 @@ No findings deferred. All findings resolved.
 | `dotnet build src/ApiTool.Backend` | PASS |
 | `dotnet build src/ApiTool.Backend.Tests` | PASS |
 | `dotnet test src/ApiTool.Backend.Tests` | PASS (1406 passed, 8 skipped — Stripe live-key integration tests) |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage | ≥80% on new code (all new service/filter/cleanup code exercised by unit + integration tests) |

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/auth"
-	"github.com/peterlindqvist/apitest/internal/output"
+	"github.com/weiqigod/curlew/internal/auth"
+	"github.com/weiqigod/curlew/internal/output"
 )
 
 func TestParseProjectConfig(t *testing.T) {
@@ -49,7 +49,7 @@ func TestParseProjectConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -118,7 +118,7 @@ func TestParseProjectConfig_Secrets(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -210,7 +210,7 @@ func TestParseProjectConfig_AuthProfiles(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,7 +286,7 @@ func TestParseProjectConfig_AuthProfiles_CacheFields(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -351,7 +351,7 @@ func TestParseProjectConfig_Defaults(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -402,7 +402,7 @@ func intPtr(v int) *int       { return &v }
 func strPtr(v string) *string { return &v }
 
 func TestParseProjectConfig_FileNotFound(t *testing.T) {
-	_, err := ParseProjectConfig("/nonexistent/path/apitest.yaml")
+	_, err := ParseProjectConfig("/nonexistent/path/curlew.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
 	}
@@ -419,7 +419,7 @@ func TestFindProjectRoot(t *testing.T) {
 			name: "found in same directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -434,7 +434,7 @@ func TestFindProjectRoot(t *testing.T) {
 				if err := os.Mkdir(child, 0o750); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(parent, "apitest.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(parent, "curlew.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return child
@@ -450,7 +450,7 @@ func TestFindProjectRoot(t *testing.T) {
 				if err := os.MkdirAll(leaf, 0o750); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(root, "apitest.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(root, "curlew.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return leaf
@@ -466,10 +466,10 @@ func TestFindProjectRoot(t *testing.T) {
 			wantFound: false,
 		},
 		{
-			name: "apitest.yml extension supported",
+			name: "curlew.yml extension supported",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yml"), []byte("project_name: Test\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yml"), []byte("project_name: Test\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -500,7 +500,7 @@ func TestFindProjectRoot_ReturnsCorrectDir(t *testing.T) {
 	if err := os.Mkdir(child, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(parent, "apitest.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(parent, "curlew.yaml"), []byte("project_name: Test\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -527,7 +527,7 @@ func TestLoadProjectConfig(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				content := "project_name: TestProject\nvariables:\n  url: https://example.com\n"
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yaml"), []byte(content), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yaml"), []byte(content), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -548,7 +548,7 @@ func TestLoadProjectConfig(t *testing.T) {
 			name: "invalid yaml returns error",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yaml"), []byte("variables: [not: a: map]"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yaml"), []byte("variables: [not: a: map]"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -559,7 +559,7 @@ func TestLoadProjectConfig(t *testing.T) {
 			name: "yml extension supported",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				if err := os.WriteFile(filepath.Join(dir, "apitest.yml"), []byte("project_name: YML\n"), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "curlew.yml"), []byte("project_name: YML\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -640,7 +640,7 @@ func TestParseProjectConfig_GraphQLDefaults(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -709,7 +709,7 @@ func TestParseProjectConfig_Output(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			f, err := os.CreateTemp(t.TempDir(), "apitest-*.yaml")
+			f, err := os.CreateTemp(t.TempDir(), "curlew-*.yaml")
 			if err != nil {
 				t.Fatalf("create temp: %v", err)
 			}
@@ -760,7 +760,7 @@ func TestParseProjectConfig_Locale(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tmp := t.TempDir()
-			path := filepath.Join(tmp, "apitest.yaml")
+			path := filepath.Join(tmp, "curlew.yaml")
 			if err := os.WriteFile(path, []byte(tc.yaml), 0o644); err != nil {
 				t.Fatalf("WriteFile: %v", err)
 			}

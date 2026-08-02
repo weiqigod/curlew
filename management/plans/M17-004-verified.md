@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-go build ./cmd/apitest   → BUILD OK
+go build ./cmd/curlew   → BUILD OK
 
 TestRegistry_WebhookSign_Stripe              → PASS
 TestRegistry_WebhookSign_GitHub              → PASS

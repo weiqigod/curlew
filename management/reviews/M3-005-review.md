@@ -1,6 +1,6 @@
 # Code Review: M3-005 (Iteration 4)
 
-**Task:** apitest import openapi: parse spec and emit collection skeleton
+**Task:** curlew import openapi: parse spec and emit collection skeleton
 **Reviewer:** AI
 **Date:** 2026-04-14
 **Branch:** feature/M3-005-openapi-import

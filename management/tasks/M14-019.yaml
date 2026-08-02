@@ -43,7 +43,7 @@ behaviors:
   - "Given installation.created with state=null (webhook-first install), when received, then a github_installations row is inserted with org_id=NULL (the M14-017 claim flow links it later)"
   - "Given installation.deleted, when received, then deleted_at is set, the M14-018 token cache entry is evicted, and open pr_checks are marked PRCHECK_INSTALLATION_DELETED"
   - "Given installation.suspend, when received, then suspended_at is set and the token cache entry is evicted"
-  - "Given check_run.rerequested, when received, then a re-run job for the originating ApiTool collection on the same head_sha is enqueued"
+  - "Given check_run.rerequested, when received, then a re-run job for the originating Curlew collection on the same head_sha is enqueued"
   - "Given a handler exception, when raised, then attempt_count increments, last_error is captured, and the response is 500; after 5 failures status='quarantined' and the handler returns 200"
   - "Given the body is parsed as JSON for routing, when the signature is verified, then the verifier reads the RAW body (not the re-serialized JSON) per :8570"
 scope: |

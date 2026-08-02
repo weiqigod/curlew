@@ -90,8 +90,8 @@ USER_ID="${2:-$(uuidgen | tr '[:upper:]' '[:lower:]')}"
 
 # Must match Jwt:SigningKey in appsettings.Development.json
 SIGNING_KEY="${JWT_SIGNING_KEY:-development-signing-key-change-me-32-bytes-minimum}"
-ISSUER="${JWT_ISSUER:-apitool-dev}"
-AUDIENCE="${JWT_AUDIENCE:-apitool-dev}"
+ISSUER="${JWT_ISSUER:-curlew-dev}"
+AUDIENCE="${JWT_AUDIENCE:-curlew-dev}"
 
 # ----- helpers ---------------------------------------------------------------
 b64url() {

@@ -28,11 +28,11 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage `internal/output` | 91.4% |
-| Coverage `cmd/apitest` | 85.9% |
+| Coverage `cmd/curlew` | 85.9% |
 | Coverage `internal/output/terminal.go:ResponseBodyDump` | 100% |
 | Coverage `internal/output/terminal.go:ResponseDetail` | 100% |
 | Coverage `internal/output/terminal.go:RequestBodyDump` | 100% |

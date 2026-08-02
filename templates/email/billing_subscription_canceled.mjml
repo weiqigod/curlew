@@ -4,7 +4,7 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Your ApiTool subscription has been canceled
+          Your Curlew subscription has been canceled
         </mj-text>
         <mj-text>
           Hi {{first_name}}, your {{tier}} subscription has been canceled and will remain

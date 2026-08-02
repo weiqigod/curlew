@@ -10,7 +10,7 @@ type JSONOutput struct {
 	Name              string                 `json:"name"`
 	Status            string                 `json:"status"`
 	DurationMs        int64                  `json:"duration_ms"`
-	Summary           *SummaryJSON           `json:"summary"` // always populated; see buildSummaryJSON in cmd/apitest/main.go
+	Summary           *SummaryJSON           `json:"summary"` // always populated; see buildSummaryJSON in cmd/curlew/main.go
 	Requests          []JSONRequest          `json:"requests"`
 	Errors            []JSONError            `json:"errors,omitempty"`
 	GuardRail         *GuardRailJSON         `json:"guard_rail,omitempty"`
@@ -144,7 +144,7 @@ func WriteValidationJSON(w io.Writer, out *ValidationJSONOutput) error {
 	return enc.Encode(out)
 }
 
-// InfoJSONOutput is the JSON structure for apitest info --format json.
+// InfoJSONOutput is the JSON structure for curlew info --format json.
 type InfoJSONOutput struct {
 	ProjectRoot  string   `json:"project_root"`
 	ProjectName  string   `json:"project_name"`
@@ -187,7 +187,7 @@ func WriteJSON(w io.Writer, out *JSONOutput) error {
 }
 
 // MultiJSONOutput wraps multiple per-collection JSON outputs into a
-// single document produced by `apitest run <glob>`.
+// single document produced by `curlew run <glob>`.
 type MultiJSONOutput struct {
 	Status      string       `json:"status"`
 	DurationMs  int64        `json:"duration_ms"`

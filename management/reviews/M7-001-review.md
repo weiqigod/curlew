@@ -13,7 +13,7 @@ No findings.
 
 ## Pre-Audit Gate
 
-`./scripts/ci-local.sh --go` exits 1 due to a stale `/tmp/apitest_seed_XXXXXX.yaml` temp file from a prior crashed smoke-test run. `mktemp` fails when that literal path already exists. This is an **environment contamination** issue, **not caused by M7-001**: no files in `smoke/run.sh` were changed by this task, and `go build`, `go test ./...`, `go test -race ./...`, and `golangci-lint run` all pass with 0 issues. Static audit proceeds on that basis.
+`./scripts/ci-local.sh --go` exits 1 due to a stale `/tmp/curlew_seed_XXXXXX.yaml` temp file from a prior crashed smoke-test run. `mktemp` fails when that literal path already exists. This is an **environment contamination** issue, **not caused by M7-001**: no files in `smoke/run.sh` were changed by this task, and `go build`, `go test ./...`, `go test -race ./...`, and `golangci-lint run` all pass with 0 issues. Static audit proceeds on that basis.
 
 ## Standards Compliance
 
@@ -27,7 +27,7 @@ No findings.
 | Test Quality | PASS | Six test cases cover all six behaviors from the task YAML. TTY-dependent cases (`stderrTTY: true`, `stdoutTTY: true`) skip gracefully when `/dev/tty` is unavailable in CI sandboxes, consistent with the documented design rationale. Three portable pipe-based cases always run and cover the primary regression path. |
 
 ## Test Coverage
-- Coverage: 80.3% (`cmd/apitest`) — meets the ≥80% threshold
+- Coverage: 80.3% (`cmd/curlew`) — meets the ≥80% threshold
 - `newStderrPrinter`: 100% coverage
 - `shouldUseColor`: 100% coverage
 

@@ -9,8 +9,8 @@ dependencies:
   - M2-015
 
 observable: |
-  Run `apitest run --parallel tests.yaml` with independent requests and confirm parallel execution.
-  Run `apitest run --parallel tests.yaml` with dependent requests and confirm wave ordering.
+  Run `curlew run --parallel tests.yaml` with independent requests and confirm parallel execution.
+  Run `curlew run --parallel tests.yaml` with dependent requests and confirm wave ordering.
   Measure execution time and confirm speedup vs sequential.
   Run `go test ./internal/parallel/...` for parallel execution tests.
 
@@ -28,7 +28,7 @@ scope: |
   Each wave executes its requests concurrently; waves execute sequentially. Setup and teardown
   use synthetic barrier nodes. Integrate with the runner for variable extraction propagation
   between waves. Add `--parallel` flag to run command. Use context.Context for cancellation.
-  Wire into `cmd/apitest/main.go`.
+  Wire into `cmd/curlew/main.go`.
 
 definition_of_done:
   - All behavior tests pass

@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const BACKEND_URL = process.env.APITEST_BACKEND_URL ?? 'http://localhost:5000';
+const BACKEND_URL = process.env.CURLEW_BACKEND_URL ?? 'http://localhost:5000';
 
 /**
  * Replays a Stripe event via scripts/replay-stripe-event.sh.

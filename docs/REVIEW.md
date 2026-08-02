@@ -2,7 +2,7 @@
 
 A line-by-line audit of `docs/SPECIFICATION.md` against the current codebase, intended as the input for the next round of milestones and tasks. Where `docs/ASSESSMENT.md` characterised the project from the outside, this document looks inward — what is built, what is half-built, what is named in the spec but not yet present.
 
-The principal surprise of this audit, and the correction the prior assessment owes its readers: **the backend exists and works**. The C# ASP.NET Core 8 service in `src/ApiTool.Backend/`, the SvelteKit dashboard in `web/`, the 19 EF Core migrations, the SAML and OIDC handlers, the RBAC system, the audit logging, and the on-prem deployment bundle are all real and functional. The prior framing of ApiTool as primarily-CLI is wrong; what's missing is concentrated, not pervasive.
+The principal surprise of this audit, and the correction the prior assessment owes its readers: **the backend exists and works**. The C# ASP.NET Core 8 service in `src/ApiTool.Backend/`, the SvelteKit dashboard in `web/`, the 19 EF Core migrations, the SAML and OIDC handlers, the RBAC system, the audit logging, and the on-prem deployment bundle are all real and functional. The prior framing of Curlew as primarily-CLI is wrong; what's missing is concentrated, not pervasive.
 
 ---
 
@@ -12,7 +12,7 @@ Three exploration passes covered the spec in parallel:
 
 - **CLI surface** — parser, variables, HTTP execution, assertions, retry, parallel, GraphQL, WebSocket, OpenAPI, output formats, project commands, watch mode, plugins, perf, dynamic functions, faker, error catalog, exit codes.
 - **Backend and web surface** — C#/.NET service, licensing service, dashboards, billing, team management, scheduled runs, PR checks, notifications, SSO, audit logging, telemetry.
-- **AI affordances and cross-cutting concerns** — markdown sentinel-splice, `apitest exec --stdin`, the bundled Claude skill, JSON output for orientation commands, event streams, JSONL logging, sensitive-value redaction, smoke and CI gates.
+- **AI affordances and cross-cutting concerns** — markdown sentinel-splice, `curlew exec --stdin`, the bundled Claude skill, JSON output for orientation commands, event streams, JSONL logging, sensitive-value redaction, smoke and CI gates.
 
 Each pass cross-checked spec sections against `internal/` packages, `src/ApiTool.Backend/`, `web/`, and the completed task records in `management/backlog.yaml`. The highest-stakes findings were verified directly by reading the implicated files.
 
@@ -22,7 +22,7 @@ The audit's scope is roughly 95% of the spec by line count. Sections covering pr
 
 ## Executive summary
 
-ApiTool is further along than its prior assessment indicates. 151 vertical slices have shipped across milestones M1–M13 plus M17 (M14–M16 and M18–M19 not yet generated); the CLI is largely production-ready; the backend has working auth, RBAC, scheduling, SSO, and audit modules; the web dashboard renders real data. Twenty-five gaps were identified in this audit, distributed unevenly across importance tiers (status updates from subsequent milestones noted inline below):
+Curlew is further along than its prior assessment indicates. 151 vertical slices have shipped across milestones M1–M13 plus M17 (M14–M16 and M18–M19 not yet generated); the CLI is largely production-ready; the backend has working auth, RBAC, scheduling, SSO, and audit modules; the web dashboard renders real data. Twenty-five gaps were identified in this audit, distributed unevenly across importance tiers (status updates from subsequent milestones noted inline below):
 
 | Tier | Definition | Count |
 |---|---|---|
@@ -46,7 +46,7 @@ A short factual catalogue, not a victory lap. Items in this list have been verif
 
 ### CLI
 
-Parser (YAML schema, `apitest.yaml`, environments, `include:` composition, request items, setup/teardown, data-driven blocks). Variable system (the full ten-level precedence, `from_command`, vault provider profiles, dynamic auth profiles, sensitive ratchet, redaction). HTTP execution (all body forms including JSON, multipart, form-encoded, raw binary, `body_file`, `body_binary_file`, TLS options, redirects, timeouts). Assertions (status, headers, JSONPath body, JSON Schema body, timing, all operators). Extraction (JSONPath, save_to file output). Retry (exponential, linear, constant backoff with jitter, conditional rules, `respect_retry_after`). Data-driven testing (CSV, JSON, YAML data sources, iteration, skip-on-failure, aggregation). Parallel execution (six-phase dependency analysis, `depends_on`, `--parallel`, wave computation, race detection). GraphQL (queries, mutations, subscriptions, fragments, error array handling). WebSocket (connect, send, expect, heartbeat at Professional tier, reconnect). OpenAPI import. All six output formats — terminal, JSON, TAP, JUnit, HTML, Markdown with sentinel-splice. Project utility commands — `validate`, `extract`, `info`, `schema`, `init` including `--skill claude` and `--output <fmt>`, `test`, `--only`. Watch mode. Plugin host (JSON-RPC, all hooks, handshake, discovery, signal handling). Performance testing (`apitest perf`) and distributed worker mode (`apitest worker`). JSONL logging (`--log`) with correlation IDs (`run_id`, `request_id`). Event stream (`--events`). Tier gating with the full exit-code table (0, 1, 2, 3, 4, 5, 6, 9, 10, 130). Grace-period state machine. Sensitive-value redaction with heuristic name matching, propagation through interpolation, and `!sensitive` YAML tag support. JSON Schema for collections. Smoke tests and the `ci-local.sh` gate.
+Parser (YAML schema, `curlew.yaml`, environments, `include:` composition, request items, setup/teardown, data-driven blocks). Variable system (the full ten-level precedence, `from_command`, vault provider profiles, dynamic auth profiles, sensitive ratchet, redaction). HTTP execution (all body forms including JSON, multipart, form-encoded, raw binary, `body_file`, `body_binary_file`, TLS options, redirects, timeouts). Assertions (status, headers, JSONPath body, JSON Schema body, timing, all operators). Extraction (JSONPath, save_to file output). Retry (exponential, linear, constant backoff with jitter, conditional rules, `respect_retry_after`). Data-driven testing (CSV, JSON, YAML data sources, iteration, skip-on-failure, aggregation). Parallel execution (six-phase dependency analysis, `depends_on`, `--parallel`, wave computation, race detection). GraphQL (queries, mutations, subscriptions, fragments, error array handling). WebSocket (connect, send, expect, heartbeat at Professional tier, reconnect). OpenAPI import. All six output formats — terminal, JSON, TAP, JUnit, HTML, Markdown with sentinel-splice. Project utility commands — `validate`, `extract`, `info`, `schema`, `init` including `--skill claude` and `--output <fmt>`, `test`, `--only`. Watch mode. Plugin host (JSON-RPC, all hooks, handshake, discovery, signal handling). Performance testing (`curlew perf`) and distributed worker mode (`curlew worker`). JSONL logging (`--log`) with correlation IDs (`run_id`, `request_id`). Event stream (`--events`). Tier gating with the full exit-code table (0, 1, 2, 3, 4, 5, 6, 9, 10, 130). Grace-period state machine. Sensitive-value redaction with heuristic name matching, propagation through interpolation, and `!sensitive` YAML tag support. JSON Schema for collections. Smoke tests and the `ci-local.sh` gate.
 
 ### Backend (C#/.NET)
 
@@ -58,7 +58,7 @@ Working pages: results with computed trends, members management with `requireOrg
 
 ### AI affordances
 
-Markdown sentinel-splice with the full ten-section structure and byte-for-byte preservation outside sentinels (`internal/output/markdown/formatter.go`, `splice.go`, six handled cases). `apitest exec --stdin --format json` (one-shot agent execution). `apitest init --skill claude` with embedded skill content at `templates/skills/claude/apitest/SKILL.md`. JSON output for `apitest info` and `apitest schema`. Event stream and JSONL logging with correlation IDs that thread through markdown sentinels.
+Markdown sentinel-splice with the full ten-section structure and byte-for-byte preservation outside sentinels (`internal/output/markdown/formatter.go`, `splice.go`, six handled cases). `curlew exec --stdin --format json` (one-shot agent execution). `curlew init --skill claude` with embedded skill content at `templates/skills/claude/curlew/SKILL.md`. JSON output for `curlew info` and `curlew schema`. Event stream and JSONL logging with correlation IDs that thread through markdown sentinels.
 
 ---
 
@@ -74,11 +74,11 @@ Twenty-five gaps. Each entry: spec reference, status, evidence, and impact.
 - **1b. Phase 3 — hashing and advanced strings.** ~~Missing: `$sha256`, `$md5`, `$hmacSha256`, `$randomPassword`, `$randomBase64`.~~ **CLOSED by M12** (M12-004, M12-005, M12-008). `$hmacSha256` includes sensitive-key propagation. Spec ref: `SPECIFICATION.md:747`.
 - **1c. Phase 4 — faker integration.** ~~Missing: roughly 37 of the 53 faker functions described in `SPECIFICATION.md:751–847` across personal, location, company, internet, content, financial, and file-data categories.~~ **CLOSED by M13** (M13-001 through M13-008). All 53 functions ship across the seven categories, en-US only. Locale support (`SPECIFICATION.md:961–1006`) shipped from M20-001 — the `--locale` flag was **unparsed (silently ignored)** before M20, never warn-and-ignore; M20-001 builds the resolver from zero with de-DE as the first non-en-US pool.
 
-**2. `apitest license --refresh` and `--debug` are stubbed.** Both return `"Not yet implemented: --refresh"` (or `--debug`) at `cmd/apitest/license.go:28`. Help text and spec advertise both. Impact: **MEDIUM**. `--debug` blocks the documented troubleshooting workflow at `MANUAL.md:3097` ("`apitest license --debug` shows the current state"). `--refresh` blocks the explicit re-validation flow.
+**2. `curlew license --refresh` and `--debug` are stubbed.** Both return `"Not yet implemented: --refresh"` (or `--debug`) at `cmd/curlew/license.go:28`. Help text and spec advertise both. Impact: **MEDIUM**. `--debug` blocks the documented troubleshooting workflow at `MANUAL.md:3097` ("`curlew license --debug` shows the current state"). `--refresh` blocks the explicit re-validation flow.
 
-**3. Plugin loading is not tier-gated.** Spec mandates plugin loading as Enterprise-only (`MANUAL.md:3066`). The code does not enforce this. `internal/auth/registry.go` has no `plugin_loading` feature entry; `APITEST_PLUGINS` loads at any tier. Impact: **MEDIUM**. Direct revenue leak for the Enterprise tier; users on lower plans can use plugins for free.
+**3. Plugin loading is not tier-gated.** Spec mandates plugin loading as Enterprise-only (`MANUAL.md:3066`). The code does not enforce this. `internal/auth/registry.go` has no `plugin_loading` feature entry; `CURLEW_PLUGINS` loads at any tier. Impact: **MEDIUM**. Direct revenue leak for the Enterprise tier; users on lower plans can use plugins for free.
 
-**4. First-party plugins not shipped.** ~~`apitest-sigv4` appears as the canonical example at `MANUAL.md:2761` but no binary or source is in this repo.~~ **CLOSED by M17** (M17-001 through M17-005), with rescoped framing: SigV4 and OAuth1 ship as built-in **signers** (request-level `signing:` field) rather than plugin binaries; webhook signatures (Stripe, GitHub, Slack) and JWT decode ship as built-in **dynamic functions** (`$webhookSign.*`, `$jwtDecodeHeader`, `$jwtDecodeClaims`). All universally available across tiers — not Enterprise-gated. The no-scripting story for the four canonical signing scenarios is now closed without shipping any plugin binaries. See `.claude/skills/backlog/milestone-mapping.md:415–495` for the rescope rationale.
+**4. First-party plugins not shipped.** ~~`curlew-sigv4` appears as the canonical example at `MANUAL.md:2761` but no binary or source is in this repo.~~ **CLOSED by M17** (M17-001 through M17-005), with rescoped framing: SigV4 and OAuth1 ship as built-in **signers** (request-level `signing:` field) rather than plugin binaries; webhook signatures (Stripe, GitHub, Slack) and JWT decode ship as built-in **dynamic functions** (`$webhookSign.*`, `$jwtDecodeHeader`, `$jwtDecodeClaims`). All universally available across tiers — not Enterprise-gated. The no-scripting story for the four canonical signing scenarios is now closed without shipping any plugin binaries. See `.claude/skills/backlog/milestone-mapping.md:415–495` for the rescope rationale.
 
 ### Backend gaps
 
@@ -94,7 +94,7 @@ Twenty-five gaps. Each entry: spec reference, status, evidence, and impact.
 
 **10. Trial JWT issuance and on-demand trials missing.** Spec describes seven-day per-feature trials and post-expiry on-demand re-trials at `SPECIFICATION.md:5666`. No service issues these tokens. The `Claims` struct in `internal/license/` has neither `trial_state` nor `trial_expiry` fields. Impact: **HIGH**. The conversion funnel depends on trials; they cannot run without this.
 
-**11. Schedule executor is missing.** Schedule endpoints (`SchedulesEndpoints.cs`) exist and store cron expressions; `SchedulerHost` runs as a background service. But nothing actually invokes `apitest run` against a stored schedule. Impact: **HIGH** for Team tier. Scheduled runs is a Team-tier promise that does not currently keep itself.
+**11. Schedule executor is missing.** Schedule endpoints (`SchedulesEndpoints.cs`) exist and store cron expressions; `SchedulerHost` runs as a background service. But nothing actually invokes `curlew run` against a stored schedule. Impact: **HIGH** for Team tier. Scheduled runs is a Team-tier promise that does not currently keep itself.
 
 **12. PR check posting to GitHub/GitLab missing.** `PrChecksEndpoints.cs` stores PR-check state internally; there is no outbound integration that calls the GitHub/GitLab Checks API. The CLI `pr-check` command exists but does not call the backend or external APIs from a real test run. Impact: **HIGH** for Team tier. PR-check integration is another Team-tier promise that is currently inert.
 
@@ -118,7 +118,7 @@ Twenty-five gaps. Each entry: spec reference, status, evidence, and impact.
 
 ### AI affordances and cross-cutting gaps
 
-**21. Manual-as-skill not delivered.** The bundled Claude skill at `templates/skills/claude/apitest/SKILL.md` is short. There is no infrastructure to deliver `MANUAL.md` (or a derivative) as a skill payload. Spec doesn't strictly require this. Impact: **LOW**. Strategic — the project's distinctive AI bet is well-served by the existing Claude skill, and a manual-as-skill is an enhancement not a requirement.
+**21. Manual-as-skill not delivered.** The bundled Claude skill at `templates/skills/claude/curlew/SKILL.md` is short. There is no infrastructure to deliver `MANUAL.md` (or a derivative) as a skill payload. Spec doesn't strictly require this. Impact: **LOW**. Strategic — the project's distinctive AI bet is well-served by the existing Claude skill, and a manual-as-skill is an enhancement not a requirement.
 
 **22. MCP server interface not present.** No spec requirement; design choice favors JSON-RPC plugins. Impact: **LOW**. Listed for completeness only.
 
@@ -190,7 +190,7 @@ Each milestone is a coherent vertical of work. Sized so any one of them produces
 
 **M16 — Workflow completion.** T3 items 9–16 and 23: password reset, email verification, trial issuance / on-demand trials, schedule executor, PR check posting to GitHub/GitLab, shared vault for Team tier, health metrics dashboard, SSO Enterprise gate, `from_command` retiering. The "Team tier actually works" milestone. Each item is independently deliverable but several need design passes before `/backlog M16` (password-reset flow, schedule-executor architecture, PR-check posting model).
 
-**M17 — First-party plugins.** Item 4 plus the first-party plugin work argued for in `SCRIPTING.md`: `apitest-sigv4`, `apitest-oauth1`, `apitest-jwt-decode` (or fold the JWT decoder into M12 as a dynamic function), `apitest-webhook-sig` (Stripe / GitHub / Slack signing helpers). Closes the no-scripting story by giving free-tier users actual escape hatches. Depends on M12 (`$hmacSha256` is the building block for the webhook helpers).
+**M17 — First-party plugins.** Item 4 plus the first-party plugin work argued for in `SCRIPTING.md`: `curlew-sigv4`, `curlew-oauth1`, `curlew-jwt-decode` (or fold the JWT decoder into M12 as a dynamic function), `curlew-webhook-sig` (Stripe / GitHub / Slack signing helpers). Closes the no-scripting story by giving free-tier users actual escape hatches. Depends on M12 (`$hmacSha256` is the building block for the webhook helpers).
 
 **M18 — Compliance and launch readiness.** T4 items: GDPR export and user deletion, telemetry phases 1–3, audit log bulk export, SOC 2 / ISO 27001 prep work. Pre-public-launch.
 

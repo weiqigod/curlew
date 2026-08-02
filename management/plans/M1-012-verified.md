@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run env-test.yaml --env dev
+$ ./curlew run env-test.yaml --env dev
 Collection: env test
   ✓ test  200  511ms
 
@@ -89,8 +89,8 @@ Review PASS trusted (management/reviews/M1-012-review.md), spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +45/-4 |
-| `cmd/apitest/main_test.go` | modified | +234/-1 |
+| `cmd/curlew/main.go` | modified | +45/-4 |
+| `cmd/curlew/main_test.go` | modified | +234/-1 |
 | `internal/config/.gitkeep` | deleted | 0 |
 | `internal/config/environment.go` | created | +123 |
 | `internal/config/environment_test.go` | created | +248 |

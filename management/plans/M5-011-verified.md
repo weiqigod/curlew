@@ -15,7 +15,7 @@
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage (`internal/loadgen`) | 95.9% | Meets >= 80% threshold |
-| Coverage (`cmd/apitest`) | 81.4% | Meets >= 80% threshold |
+| Coverage (`cmd/curlew`) | 81.4% | Meets >= 80% threshold |
 | Coverage (`internal/auth`) | 89.2% | Meets >= 80% threshold |
 
 ## Observable Output
@@ -50,10 +50,10 @@ Result: MATCH (verified via smoke test in ci-local.sh)
 |---|------|----------|--------|
 | 1 | All behavior tests pass | All 8 behavior tests PASS | PASS |
 | 2 | Observable output works as specified | Smoke test PASS: header and summary printed | PASS |
-| 3 | Test coverage >= 80% | `internal/loadgen`: 95.9%, `cmd/apitest`: 81.4% | PASS |
+| 3 | Test coverage >= 80% | `internal/loadgen`: 95.9%, `cmd/curlew`: 81.4% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint run` 0 issues | PASS |
-| 5 | Help text documents the perf subcommand and flags | `./apitest perf --help` shows all required flags | PASS |
-| 6 | Smoke test exercises apitest perf on a local httptest server | smoke/run.sh perf block PASS | PASS |
+| 5 | Help text documents the perf subcommand and flags | `./curlew perf --help` shows all required flags | PASS |
+| 6 | Smoke test exercises curlew perf on a local httptest server | smoke/run.sh perf block PASS | PASS |
 
 ## Code Review
 
@@ -109,9 +109,9 @@ Branch A: Review PASS trusted, spot-check clean.
 | `internal/loadgen/run_test.go` | added — run behavior tests |
 | `internal/loadgen/request.go` | added — YAML request loader |
 | `internal/loadgen/request_test.go` | added — loader tests |
-| `cmd/apitest/perf.go` | added — perf subcommand |
-| `cmd/apitest/perf_test.go` | added — CLI-level perf tests |
-| `cmd/apitest/main.go` | modified — wire perf command |
+| `cmd/curlew/perf.go` | added — perf subcommand |
+| `cmd/curlew/perf_test.go` | added — CLI-level perf tests |
+| `cmd/curlew/main.go` | modified — wire perf command |
 | `internal/auth/registry.go` | modified — register perf_loadgen at Enterprise tier |
 | `internal/auth/registry_test.go` | modified — test perf_loadgen registration |
 | `smoke/run.sh` | modified — add M5-011 perf smoke block |

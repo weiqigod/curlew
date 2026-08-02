@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/test-operators.yaml
+$ ./curlew run /tmp/test-operators.yaml
 Collection: Operator Test
   ✓ test operators  200  821ms
 

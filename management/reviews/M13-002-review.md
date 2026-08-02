@@ -28,7 +28,7 @@ The three findings from the previous review iteration are confirmed fixed:
 
 1. **Critical (smoke JSON assertion)** — The `--format json` smoke block no longer asserts `[REDACTED]` in the JSON output (which has no `request_body` field). It now only verifies the SSN pattern is absent from the JSON output; positive-redaction proof is in the `-vv` and markdown blocks.
 
-2. **Critical (mktemp macOS issue)** — The smoke test now uses `mktemp -t apitest_faker_ssn` (macOS-portable, no literal suffix after Xs) plus `trap 'rm -f "$FAKER_FILE"; rm -rf "${FAKER_MD_DIR:-}"; kill "$FAKER_SRV_PID" 2>/dev/null || true' EXIT` to ensure cleanup on all exit paths.
+2. **Critical (mktemp macOS issue)** — The smoke test now uses `mktemp -t curlew_faker_ssn` (macOS-portable, no literal suffix after Xs) plus `trap 'rm -f "$FAKER_FILE"; rm -rf "${FAKER_MD_DIR:-}"; kill "$FAKER_SRV_PID" 2>/dev/null || true' EXIT` to ensure cleanup on all exit paths.
 
 3. **High (MANUAL.md incorrect doc)** — `docs/MANUAL.md` now correctly states that `--format json` does not include a request-body field and that the SSN simply does not appear there; positive-redaction is documented for `-vv`, markdown report, and events stream.
 

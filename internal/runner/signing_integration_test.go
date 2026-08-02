@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/signer"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/signer"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // TestRunner_Signing_EndToEnd_Noop exercises the full registry → signing-field

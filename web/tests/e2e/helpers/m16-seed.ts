@@ -4,7 +4,7 @@
  * extracting tokens from the email-audit log.
  */
 
-const BACKEND_URL = process.env.APITEST_BACKEND_URL ?? 'http://localhost:5000';
+const BACKEND_URL = process.env.CURLEW_BACKEND_URL ?? 'http://localhost:5000';
 
 /** Response shape from POST /internal/test/seed-refresh. */
 interface SeedRefreshResponse {

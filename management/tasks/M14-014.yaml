@@ -9,7 +9,7 @@ observable: |
   dotnet test src/ApiTool.Backend.Tests --filter "FullyQualifiedName~SendGridSmtpSender|FullyQualifiedName~EmailQueueProcessor|FullyQualifiedName~Mjml"
   # Expected: Passed: >=10, Failed: 0
   ASPNETCORE_ENVIRONMENT=Testing \
-    APITOOL__SENDGRID__APIKEY=fake_dev_key \
+    CURLEW__SENDGRID__APIKEY=fake_dev_key \
     dotnet run --project src/ApiTool.Backend &
   sleep 3
   dotnet run --project src/ApiTool.Backend -- dev email-preview email_verification > /tmp/preview.html
@@ -21,7 +21,7 @@ behaviors:
   - "Given an EmailMessage on the System.Threading.Channels queue, when EmailQueueProcessor (an IHostedService) consumes it, then ISmtpSender.SendTemplateAsync is invoked with (to, slug, variables)"
   - "Given a slug not present in SENDGRID__TEMPLATES__<SLUG> env config, when SendTemplateAsync is invoked, then it raises EmailTemplateNotFoundException and the message is dead-lettered (not silently dropped)"
   - "Given a variable name not declared in the template manifest, when SendTemplateAsync is invoked, then the call rejects with EmailTemplateVariableUnknown — defending against the controller-leaks-user-keys bug class per docs/SPECIFICATION.md:8941"
-  - "Given the apitest-backend dev email-preview <slug> CLI command, when invoked, then it compiles the MJML to HTML using the manifest's test_data block, prints to stdout, and never calls SendGrid (no network, no API key required)"
+  - "Given the curlew-backend dev email-preview <slug> CLI command, when invoked, then it compiles the MJML to HTML using the manifest's test_data block, prints to stdout, and never calls SendGrid (no network, no API key required)"
   - "Given a CI build is tagged release, when the email-template upload job runs, then each compiled HTML is uploaded to SendGrid Dynamic Templates API and the resulting template ID is written into the secrets store as SENDGRID__TEMPLATES__<SLUG>"
   - "Given SendGrid returns 5xx, when SendGridSmtpSender posts a template send, then the EmailMessage is requeued with backoff up to 3 attempts; after exhausting retries the message is dead-lettered with last_error captured"
   - "Given SendGrid's Handlebars escaping default-on, when a variable contains '<script>', when rendered, then the rendered HTML escapes < and > (no XSS)"
@@ -32,7 +32,7 @@ scope: |
   EmailQueueProcessor as an IHostedService consuming
   System.Threading.Channels<EmailMessage>. Wires the MJML compile pipeline:
   templates/email/<slug>.mjml + templates/email/<slug>.json manifest,
-  apitest-backend dev email-preview <slug> renderer. CI upload job that posts
+  curlew-backend dev email-preview <slug> renderer. CI upload job that posts
   compiled HTML to SendGrid on tagged release and writes
   SENDGRID__TEMPLATES__<SLUG>. Variable-allowlist enforced at SendTemplateAsync
   per :8941–8942. NoopSmtpSender remains for non-prod environments where
@@ -41,7 +41,7 @@ scope: |
   PIPELINE; the M14-015 slice ships the SIX templates that exercise it.
 definition_of_done:
   - "All behavior tests pass (>=10)"
-  - "Live `apitest-backend dev email-preview` produces > 1000-byte HTML for at least one fixture template"
+  - "Live `curlew-backend dev email-preview` produces > 1000-byte HTML for at least one fixture template"
   - "Variable-allowlist rejection covered by a test"
   - "SendGrid 9.x NuGet referenced; build succeeds without warnings"
   - "Dead-letter path for repeated SendGrid 5xx covered"

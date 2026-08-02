@@ -42,7 +42,7 @@
 # grep -n '52 functions' docs/SPECIFICATION.md || echo "typo fixed"
 typo fixed
 
-# apitest run faker.yaml 2>&1
+# curlew run faker.yaml 2>&1
 [ERROR] request "dotted-name probe": URL: unknown dynamic function "faker.firstName"; available: base64, base64Decode, ...
 ```
 

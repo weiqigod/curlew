@@ -28,11 +28,11 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (overall) | 86.2% |
-| Coverage (cmd/apitest-agent-harness) | 93.9% |
+| Coverage (cmd/curlew-agent-harness) | 93.9% |
 
 ## Fix Commits
 

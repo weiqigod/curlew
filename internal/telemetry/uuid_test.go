@@ -8,7 +8,7 @@ import (
 // uuidRE matches the canonical 8-4-4-4-12 hex form of a UUID v4.
 // The version nibble (position 14) is fixed to '4' and the variant nibble
 // (position 19) is restricted to [89ab], matching the pattern used in
-// cmd/apitest/telemetry_test.go.
+// cmd/curlew/telemetry_test.go.
 var uuidRE = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 func TestNewUUIDv4(t *testing.T) {

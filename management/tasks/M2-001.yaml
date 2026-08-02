@@ -12,7 +12,7 @@ dependencies:
 
 observable: |
   Create a collection with `from_command: "echo secret123"` variable.
-  Run `apitest run tests.yaml` (at Solo tier) and confirm the variable resolves to "secret123".
+  Run `curlew run tests.yaml` (at Solo tier) and confirm the variable resolves to "secret123".
   Run at Free tier and confirm exit code 6 with feature gate message.
   Run `go test ./internal/variable/...` to verify from_command behavior.
 

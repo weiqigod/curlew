@@ -1,5 +1,5 @@
-# Shared vault configuration template for the apitest team.
-# Validates via: apitest validate testdata/team/shared-vault-template.yaml
+# Shared vault configuration template for the curlew team.
+# Validates via: curlew validate testdata/team/shared-vault-template.yaml
 team_secrets:
   vault_configs:
     production:

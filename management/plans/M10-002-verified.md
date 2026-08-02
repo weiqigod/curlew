@@ -14,22 +14,22 @@
 | `go test -race ./...` (via ci-local) | PASS | No races detected |
 | `golangci-lint run` | PASS | No findings |
 | `./smoke/run.sh` | PASS | Smoke test clean |
-| Coverage (cmd/apitest) | 81.4% | Meets >= 80% threshold |
+| Coverage (cmd/curlew) | 81.4% | Meets >= 80% threshold |
 
 ## Observable Output
 
 ```
 # SKILL.md has the real content (frontmatter + sections), not the placeholder.
-$ awk '/^---$/{c++} c==2{exit} {print}' .claude/skills/apitest/SKILL.md | grep -E '^description: '
-description: Run ApiTool collections and interpret results. Use when the user asks to run, test, hit, exercise, or check an HTTP API; ...
+$ awk '/^---$/{c++} c==2{exit} {print}' .claude/skills/curlew/SKILL.md | grep -E '^description: '
+description: Run Curlew collections and interpret results. Use when the user asks to run, test, hit, exercise, or check an HTTP API; ...
 
-$ grep -cE '^## (When invoked|Invocation|Where results land|How to narrate|Failure playbook|What to edit|Notes)$' .claude/skills/apitest/SKILL.md
+$ grep -cE '^## (When invoked|Invocation|Where results land|How to narrate|Failure playbook|What to edit|Notes)$' .claude/skills/curlew/SKILL.md
 7
 
-$ grep -E '^\| [0-9] ' .claude/skills/apitest/SKILL.md | wc -l | tr -d ' '
+$ grep -E '^\| [0-9] ' .claude/skills/curlew/SKILL.md | wc -l | tr -d ' '
 8
 
-$ go test -run 'TestSkillClaude_PlaybookMatchesBinary' -v ./cmd/apitest/...
+$ go test -run 'TestSkillClaude_PlaybookMatchesBinary' -v ./cmd/curlew/...
 --- PASS: TestSkillClaude_PlaybookMatchesBinary (0.69s)
     --- PASS: .../exit_0_all_passed
     --- PASS: .../exit_1_assertion_failed
@@ -45,11 +45,11 @@ $ go test -run 'TestSkillClaude_PlaybookMatchesBinary' -v ./cmd/apitest/...
 $ grep -c 'init --skill' docs/SPECIFICATION.md
 1
 
-$ grep -c 'Driving apitest with Claude Code' docs/MANUAL.md
+$ grep -c 'Driving curlew with Claude Code' docs/MANUAL.md
 2
 
 $ awk '/^## \[Unreleased\]/,/^## \[0/' CHANGELOG.md | grep -E '^- Added.*--skill claude'
-- Added: --skill claude flag for apitest init scaffolds Claude Code agent skill...
+- Added: --skill claude flag for curlew init scaffolds Claude Code agent skill...
 
 $ head -5 IMPROVEMENT.md | grep -E 'W1.*W5.*[Cc]omplete|Shipped'
 **Status:** Shipped — W1, W2, W3 complete (2026-04-24), W4 complete (2026-04-25), W5 complete (2026-04-25)
@@ -75,7 +75,7 @@ Result: MATCH
 | 4 | Each sub-test: scenario + run + exit-code assert + artifact assert | 10 sub-tests all PASS | PASS |
 | 5 | Exit 9 uses grace-expired fixture (LAST_VALIDATION_OVERRIDE=31d) | `exit_9_grace_expired` sub-test | PASS |
 | 6 | SPECIFICATION.md init --skill subsection | `grep -c 'init --skill'` = 1 | PASS |
-| 7 | MANUAL.md §4.9 with worked example | `grep -c 'Driving apitest...'` = 2 | PASS |
+| 7 | MANUAL.md §4.9 with worked example | `grep -c 'Driving curlew...'` = 2 | PASS |
 | 8 | CHANGELOG.md Added entry | observable grep matched | PASS |
 | 9 | IMPROVEMENT.md status flipped to Shipped | head-5 grep matched | PASS |
 | 10 | Consistency gate (no W5 pending / blocked on W4) | git grep exits 1 | PASS |
@@ -89,13 +89,13 @@ Result: MATCH
 | 3 | `TestSkillClaude_PlaybookMatchesBinary` passes for all codes | 10/10 sub-tests PASS | PASS |
 | 4 | `TestSkillClaude_SkillFileSnapshot` passes | PASS — golden verified stable | PASS |
 | 5 | SPECIFICATION.md has init --skill subsection | `grep -c 'init --skill'` = 1 | PASS |
-| 6 | MANUAL.md has §4.9 worked example | `grep -c 'Driving apitest with Claude Code'` = 2 | PASS |
+| 6 | MANUAL.md has §4.9 worked example | `grep -c 'Driving curlew with Claude Code'` = 2 | PASS |
 | 7 | CHANGELOG.md [Unreleased] has --skill claude Added entry | observable grep matched | PASS |
 | 8 | IMPROVEMENT.md §3 status flipped to Shipped | line 3 confirmed | PASS |
 | 9 | IMPROVEMENT.md §5 W5 block references M10-001 + M10-002 | line 279 confirmed | PASS |
 | 10 | No live W5 pending / blocked on W4 | git grep exits 1 (zero matches) | PASS |
 | 11 | go test ./... passes | PASS | PASS |
-| 12 | Coverage cmd/apitest >= 80% | 81.4% | PASS |
+| 12 | Coverage cmd/curlew >= 80% | 81.4% | PASS |
 | 13 | golangci-lint run 0 issues | PASS | PASS |
 | 14 | ./smoke/run.sh passes | PASS | PASS |
 | 15 | ./scripts/ci-local.sh passes | ci-local PASS | PASS |
@@ -136,11 +136,11 @@ TDD pattern visible: `test(cli)` RED at 3cc38a2 before `feat(templates,cli)` GRE
 
 | File | Action |
 |------|--------|
-| `templates/skills/claude/apitest/SKILL.md` | replaced placeholder with real skill body |
-| `cmd/apitest/skill_playbook_test.go` | created — 10-sub-test playbook test + snapshot test |
-| `cmd/apitest/testdata/skill_claude_golden.md` | created — byte-stable golden snapshot |
+| `templates/skills/claude/curlew/SKILL.md` | replaced placeholder with real skill body |
+| `cmd/curlew/skill_playbook_test.go` | created — 10-sub-test playbook test + snapshot test |
+| `cmd/curlew/testdata/skill_claude_golden.md` | created — byte-stable golden snapshot |
 | `docs/SPECIFICATION.md` | added Project Initialization section with init --skill subsection |
-| `docs/MANUAL.md` | added §4.9 Driving apitest with Claude Code |
+| `docs/MANUAL.md` | added §4.9 Driving curlew with Claude Code |
 | `CHANGELOG.md` | added M10-002 Added entry under [Unreleased] |
 | `IMPROVEMENT.md` | flipped §3 header + §5 W5 block to Shipped |
 | `management/backlog.yaml` | updated M10-002 status to review |

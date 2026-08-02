@@ -267,8 +267,8 @@ func TestWriteJUnitXML(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `--report` flag to `parseRunArgs`; add `"junit"` to format validation; add `report` return value |
-| `cmd/apitest/run_test.go` | modify | Add tests for `--report` flag parsing and `--format junit` recognition |
+| `cmd/curlew/main.go` | modify | Add `--report` flag to `parseRunArgs`; add `"junit"` to format validation; add `report` return value |
+| `cmd/curlew/run_test.go` | modify | Add tests for `--report` flag parsing and `--format junit` recognition |
 
 #### Current Code
 ```go
@@ -335,8 +335,8 @@ func TestRunCmd_format_junit_recognized(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add JUnit output path in `runCmdInner`; build JUnit output from runner results; feature gate check; `--report` file write; early bailout handling |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for `--format junit` end-to-end |
+| `cmd/curlew/main.go` | modify | Add JUnit output path in `runCmdInner`; build JUnit output from runner results; feature gate check; `--report` file write; early bailout handling |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for `--format junit` end-to-end |
 
 #### New Code — `buildJUnitOutput` helper function
 ```go
@@ -496,7 +496,7 @@ func TestRunCmd_format_junit_feature_gate_professional_tier(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update `printHelp()` to show `junit` in format options and `--report` flag |
+| `cmd/curlew/main.go` | modify | Update `printHelp()` to show `junit` in format options and `--report` flag |
 | `smoke/run.sh` | modify | Add JUnit XML smoke test section |
 
 #### Current Help Text
@@ -513,14 +513,14 @@ fmt.Println("  --report <file>     Write report to file instead of stdout (for -
 #### Smoke Test Addition
 ```bash
 echo "--- Running with --format junit (expect valid XML, gated at free tier) ---"
-JUNIT_EXIT=$(./apitest run "$SOME_FILE" --format junit 2>&1; echo "EXIT:$?")
+JUNIT_EXIT=$(./curlew run "$SOME_FILE" --format junit 2>&1; echo "EXIT:$?")
 echo "$JUNIT_EXIT" | grep -q "EXIT:6" && echo "PASS: --format junit gated at free tier" || { echo "FAIL: Expected exit 6"; exit 1; }
 
 echo "--- Help text shows junit in --format ---"
-./apitest --help | grep -q "junit" && echo "PASS: junit in help" || { echo "FAIL: Missing junit in help"; exit 1; }
+./curlew --help | grep -q "junit" && echo "PASS: junit in help" || { echo "FAIL: Missing junit in help"; exit 1; }
 
 echo "--- Help text shows --report ---"
-./apitest --help | grep -q "\-\-report" && echo "PASS: --report in help" || { echo "FAIL: Missing --report in help"; exit 1; }
+./curlew --help | grep -q "\-\-report" && echo "PASS: --report in help" || { echo "FAIL: Missing --report in help"; exit 1; }
 ```
 
 #### Impact on Existing Tests
@@ -535,7 +535,7 @@ echo "--- Help text shows --report ---"
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `format == "junit"` branches alongside existing `format == "json"` and `format == "tap"` error handling branches |
+| `cmd/curlew/main.go` | modify | Add `format == "junit"` branches alongside existing `format == "json"` and `format == "tap"` error handling branches |
 
 #### Current Pattern (repeated ~5 times in `runCmdInner`)
 ```go
@@ -572,12 +572,12 @@ Where `writeJUnitError` creates a minimal JUnit XML with a single error testcase
 func writeJUnitError(w io.Writer, err error) error {
     suites := &output.JUnitTestSuites{
         TestSuites: []output.JUnitTestSuite{{
-            Name:  "apitest",
+            Name:  "curlew",
             Tests: 1,
             Errors: 1,
             TestCases: []output.JUnitTestCase{{
                 Name:      "initialization",
-                ClassName: "apitest",
+                ClassName: "curlew",
                 Error: &output.JUnitError{
                     Message: err.Error(),
                     Type:    "InitializationError",
@@ -614,9 +614,9 @@ func TestRunCmd_format_junit_missing_file(t *testing.T) {
 |-----------|--------------|--------|----------------|
 | `internal/auth/gate_test.go` | (new) `TestCheckFeature_junitXML` | new test | write |
 | `internal/output/junit_test.go` | (new) all | new file | write |
-| `cmd/apitest/run_test.go` | `TestParseRunArgs_*` (if any exist) | breaks | update for new `report` return value |
-| `cmd/apitest/main_test.go` | (new) `TestRunCmd_format_junit_*` | new tests | write |
-| `cmd/apitest/main.go` | `watchCmd` | may break | update `parseRunArgs` call site |
+| `cmd/curlew/run_test.go` | `TestParseRunArgs_*` (if any exist) | breaks | update for new `report` return value |
+| `cmd/curlew/main_test.go` | (new) `TestRunCmd_format_junit_*` | new tests | write |
+| `cmd/curlew/main.go` | `watchCmd` | may break | update `parseRunArgs` call site |
 
 ## Risks and Edge Cases
 - **Risk:** `parseRunArgs` signature change breaks multiple call sites → **Mitigation:** Update all call sites (`runCmdInner`, `watchCmd`) in the same step; search for all references before committing.
@@ -631,7 +631,7 @@ func TestRunCmd_format_junit_missing_file(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -640,14 +640,14 @@ go test ./...
 Observable verification:
 ```bash
 # Feature gate at free tier:
-./apitest run tests.yaml --format junit
+./curlew run tests.yaml --format junit
 # Expected: exit code 6, feature gate message
 
 # At professional tier (requires test override):
 # Run go test with currentTier override, verify valid JUnit XML output.
 
 # File output:
-./apitest run tests.yaml --format junit --report results.xml
+./curlew run tests.yaml --format junit --report results.xml
 # Expected: results.xml contains valid JUnit XML, stdout is empty
 
 # XML validation:
@@ -657,5 +657,5 @@ xmllint --noout results.xml
 # Unit tests:
 go test ./internal/output/... -run TestWriteJUnitXML
 go test ./internal/auth/... -run TestCheckFeature_junitXML
-go test ./cmd/apitest/... -run TestRunCmd_format_junit
+go test ./cmd/curlew/... -run TestRunCmd_format_junit
 ```

@@ -13,7 +13,7 @@
 | `dotnet build ApiTool.Backend.sln -warnaserror` | PASS | 0 Warning(s), 0 Error(s) |
 | `dotnet test src/ApiTool.Backend.Tests` | PASS | 162 passed, 0 failed, 3 s |
 | Notifications filter (`FullyQualifiedName~Notifications`) | PASS | 24 passed, 0 failed |
-| `go build ./cmd/apitest` | PASS | Clean build |
+| `go build ./cmd/curlew` | PASS | Clean build |
 | `go test ./...` | PASS | All Go packages pass |
 | Coverage | N/A (C# backend — xUnit, no branch coverage tooling configured) | Meets DoD: ≥10 notification tests |
 

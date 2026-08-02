@@ -13,7 +13,7 @@ type Emitter struct {
 }
 
 // NewEmitter builds an Emitter from a pre-constructed Store and Client.
-// This is the preferred constructor for cmd/apitest which resolves the
+// This is the preferred constructor for cmd/curlew which resolves the
 // endpoint before building the Client.
 func NewEmitter(store *Store, client *Client) *Emitter {
 	return &Emitter{store: store, client: client}

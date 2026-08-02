@@ -211,7 +211,7 @@ return nil, fmt.Errorf("%w: %s", ErrEmptyCollection, path)
 var ErrMissingRequiredField = errors.New("missing required field")
 
 // parser.go
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 // ParseFile wraps errors in Structured for file/line context
 return nil, &apierrors.Structured{
@@ -313,7 +313,7 @@ return nil, fmt.Errorf("%w: %w", ErrNetwork, err)
 
 ```go
 // executor.go
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 // In Execute, when http.Do fails:
 netErr := apierrors.ClassifyNetworkError(err)
@@ -373,7 +373,7 @@ func PrintError(w io.Writer, msg string) {
 #### New Code
 
 ```go
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 // PrintStructuredError writes a formatted error using the [ERROR] format.
 func PrintStructuredError(w io.Writer, err error) {
@@ -438,9 +438,9 @@ func TestPrintRequestError(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Use `PrintStructuredError` and `PrintRequestError` |
-| `cmd/apitest/main_test.go` | modify | Update integration tests for new error format |
-| `cmd/apitest/run_test.go` | modify | Update expected error output if needed |
+| `cmd/curlew/main.go` | modify | Use `PrintStructuredError` and `PrintRequestError` |
+| `cmd/curlew/main_test.go` | modify | Update integration tests for new error format |
+| `cmd/curlew/run_test.go` | modify | Update expected error output if needed |
 
 #### Current Code
 
@@ -502,7 +502,7 @@ func TestCLIIntegration_ErrorFormat(t *testing.T) {
 
 ```bash
 echo "--- Structured error format ---"
-OUTPUT=$(./apitest run nonexistent.yaml 2>&1 || true)
+OUTPUT=$(./curlew run nonexistent.yaml 2>&1 || true)
 echo "$OUTPUT" | grep -q "\[ERROR\]" && echo "PASS: [ERROR] prefix present" || fail "Missing [ERROR] prefix"
 echo "$OUTPUT" | grep -q "nonexistent.yaml" && echo "PASS: file path in error" || fail "Missing file path in error"
 ```
@@ -520,8 +520,8 @@ echo "$OUTPUT" | grep -q "nonexistent.yaml" && echo "PASS: file path in error" |
 | `internal/httpexec/executor_test.go` | `TestExecute_network_error_on_connection_refused` | none | `errors.Is(err, ErrNetwork)` still works |
 | `internal/parser/parser_test.go` | All existing tests | none | `errors.Is` chain preserved via `Structured.Unwrap()` |
 | `internal/output/terminal_test.go` | `TestPrintError` | none | `PrintError` preserved unchanged |
-| `cmd/apitest/main_test.go` | `TestCLIIntegration` | may need update | Error format changes from `Error:` to `[ERROR]` |
-| `cmd/apitest/run_test.go` | Various | may need update | Check for new error format |
+| `cmd/curlew/main_test.go` | `TestCLIIntegration` | may need update | Error format changes from `Error:` to `[ERROR]` |
+| `cmd/curlew/run_test.go` | Various | may need update | Check for new error format |
 
 ## Risks and Edge Cases
 
@@ -535,7 +535,7 @@ echo "$OUTPUT" | grep -q "nonexistent.yaml" && echo "PASS: file path in error" |
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -545,27 +545,27 @@ Observable verification:
 ```bash
 # Parse error with file and line
 echo ":\ninvalid" > /tmp/bad.yaml
-./apitest run /tmp/bad.yaml
+./curlew run /tmp/bad.yaml
 # Expected: [ERROR] /tmp/bad.yaml:1 — invalid YAML syntax: ...
 
 # Missing required field
 echo -e "name: test\nrequests:\n  - name: no-url\n    method: GET" > /tmp/nourl.yaml
-./apitest run /tmp/nourl.yaml
+./curlew run /tmp/nourl.yaml
 # Expected: [ERROR] /tmp/nourl.yaml — request "no-url" is missing required field 'url'
 
 # Connection refused
 echo -e "name: test\nrequests:\n  - name: fail\n    method: GET\n    url: http://127.0.0.1:1/test" > /tmp/connrefused.yaml
-./apitest run /tmp/connrefused.yaml
+./curlew run /tmp/connrefused.yaml
 # Expected: [ERROR] fail — Connection refused at 127.0.0.1:1
 #           Hint: Check that the server is running and listening on this port
 
 # DNS failure
 echo -e "name: test\nrequests:\n  - name: dns-fail\n    method: GET\n    url: http://nonexistent.invalid/test" > /tmp/dnsfail.yaml
-./apitest run /tmp/dnsfail.yaml
+./curlew run /tmp/dnsfail.yaml
 # Expected: [ERROR] dns-fail — DNS resolution failed for nonexistent.invalid
 #           Hint: Check that the hostname is correct and DNS is configured
 
 # Missing file
-./apitest run nonexistent.yaml
+./curlew run nonexistent.yaml
 # Expected: [ERROR] nonexistent.yaml — file not found: nonexistent.yaml
 ```

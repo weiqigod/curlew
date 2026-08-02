@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Verify your email — ApiTool</title>
+	<title>Verify your email — Curlew</title>
 </svelte:head>
 
 <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4">

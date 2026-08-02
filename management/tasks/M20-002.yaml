@@ -10,18 +10,18 @@ dependencies:
   - M20-001
 
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   # 1. Each Latin-script locale produces region-appropriate names matching the SPEC:971-988 exemplars' shape.
   for L in en-GB fr-FR es-ES it-IT pt-BR nl-NL pl-PL sv-SE tr-TR; do
-    printf '{{$faker.fullName}} | {{$faker.phone}}\n' | ./apitest exec --stdin --seed 42 --locale $L --format json
+    printf '{{$faker.fullName}} | {{$faker.phone}}\n' | ./curlew exec --stdin --seed 42 --locale $L --format json
   done
   # Expected: fr-FR e.g. "Jean Dupont | +33 1 23 45 67 89"; sv-SE e.g. "Erik Svensson";
   # tr-TR e.g. "Ahmet Yılmaz" (note the dotted-I/dotless-ı handled correctly). Each phone
   # matches the locale's documented format from the spec table.
 
   # 2. en-GB now resolves to its OWN pool, no longer falling back to en-US.
-  printf '{{$faker.fullName}}\n' | ./apitest exec --stdin --seed 42 --locale en-GB -v 2>&1 \
+  printf '{{$faker.fullName}}\n' | ./curlew exec --stdin --seed 42 --locale en-GB -v 2>&1 \
     | grep -F 'falling back' && echo "UNEXPECTED FALLBACK" || echo "en-GB native pool OK"
   # Expected: "en-GB native pool OK" — no fallback warning now that the pool exists.
 
@@ -33,7 +33,7 @@ observable: |
   go test -run 'TestLocalePools_LatinScript_Shape' -v ./internal/variable/...
   # Expected: PASS.
 
-  go test ./internal/variable/... ./cmd/apitest/...
+  go test ./internal/variable/... ./cmd/curlew/...
   # Expected: PASS.
 
 behaviors:

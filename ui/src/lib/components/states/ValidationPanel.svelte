@@ -74,7 +74,7 @@
       <div class="diag at-mono ok">no issues reported — the file may have been fixed already</div>
     {/each}
 
-    <div class="foot">apitest never edits your files — there is deliberately no fix-it form here.</div>
+    <div class="foot">curlew never edits your files — there is deliberately no fix-it form here.</div>
 
     <div>
       <a class="at-btn ghost sm" href="#/"><Icon name="back" size={13} /> back to run view</a>

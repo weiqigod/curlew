@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 	"github.com/zalando/go-keyring"
 )
 
@@ -100,7 +100,7 @@ func TestStorage_NoKeychainFallsBackToFile(t *testing.T) {
 func TestStorage_ForceFileEnvironmentOverridesKeychain(t *testing.T) {
 	keyring.MockInit()
 	t.Cleanup(func() { keyring.MockInit() })
-	t.Setenv("APITEST_FORCE_FILE_STORAGE", "1")
+	t.Setenv("CURLEW_FORCE_FILE_STORAGE", "1")
 
 	cfgDir := t.TempDir()
 	s, err := backend.NewStorage(backend.StorageOptions{ConfigDir: cfgDir, DeviceID: "dev-ci"})
@@ -108,7 +108,7 @@ func TestStorage_ForceFileEnvironmentOverridesKeychain(t *testing.T) {
 		t.Fatal(err)
 	}
 	if s.KeychainAvailable() {
-		t.Fatal("expected APITEST_FORCE_FILE_STORAGE=1 to select encrypted file storage")
+		t.Fatal("expected CURLEW_FORCE_FILE_STORAGE=1 to select encrypted file storage")
 	}
 	if err := s.SetRefreshToken("rt-ci"); err != nil {
 		t.Fatal(err)

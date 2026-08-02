@@ -10,8 +10,8 @@ import (
 
 	gws "github.com/gorilla/websocket"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // TestExecute_realGorillaDialer spins up a real httptest server with a

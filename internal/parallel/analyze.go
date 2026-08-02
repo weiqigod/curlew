@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // AnalyzeOptions provides optional configuration for dependency analysis.

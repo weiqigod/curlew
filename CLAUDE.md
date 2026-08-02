@@ -6,13 +6,13 @@
 
 ## Project Overview
 
-**ApiTool** is a file-based API testing tool — a Postman replacement built for developers who prefer files, version control, and CLI workflows.
+**Curlew** is a file-based API testing tool — a Postman replacement built for developers who prefer files, version control, and CLI workflows.
 
 **Two codebases:**
 - **Go CLI** — the primary tool, distributed as a single static binary
 - **C# .NET backend** + web dashboard — authentication, dashboards
 
-**Current Status:** Implemented through M20 — the entire planned backlog (M1–M20) is complete (backlog exhausted 2026-06-12). The five-tier licensing/feature-gating system has since been removed from the Go CLI: every CLI feature is unconditional, and there is no `apitest license` command. `docs/MANUAL.md` is the authoritative feature reference. The Go CLI builds (`go build ./cmd/apitest`) and runs; the .NET backend, web dashboard, and local web UI are all built. New backlog work resumes the task lifecycle below.
+**Current Status:** Implemented through M20 — the entire planned backlog (M1–M20) is complete (backlog exhausted 2026-06-12). The five-tier licensing/feature-gating system has since been removed from the Go CLI: every CLI feature is unconditional, and there is no `curlew license` command. `docs/MANUAL.md` is the authoritative feature reference. The Go CLI builds (`go build ./cmd/curlew`) and runs; the .NET backend, web dashboard, and local web UI are all built. New backlog work resumes the task lifecycle below.
 
 ## Key Documentation
 
@@ -73,7 +73,7 @@ Every slice must be complete before moving on: input to output, error handling i
 ### Code Organization
 - `internal/` packages enforce encapsulation at the compiler level
 - Each package owns its domain and exposes a narrow interface
-- `cmd/apitest/` contains only the entry point
+- `cmd/curlew/` contains only the entry point
 
 ## Task Management
 
@@ -170,7 +170,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 ## Build Commands
 
 ```bash
-go build ./cmd/apitest          # Build binary
+go build ./cmd/curlew          # Build binary
 go test ./...                   # Run all tests
 go test -coverprofile=coverage.out ./...  # Tests with coverage
 go tool cover -func=coverage.out         # Coverage report
@@ -185,7 +185,7 @@ golangci-lint run               # Lint
 
 Before any commit:
 - [ ] On feature branch (not main)
-- [ ] `go build ./cmd/apitest` succeeds
+- [ ] `go build ./cmd/curlew` succeeds
 - [ ] `go test ./...` passes
 - [ ] `golangci-lint run` passes
 

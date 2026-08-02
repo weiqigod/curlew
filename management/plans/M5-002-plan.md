@@ -2,12 +2,12 @@
 
 ## Overview
 
-Deliver OIDC (OpenID Connect) SSO for the ApiTool backend using the
+Deliver OIDC (OpenID Connect) SSO for the Curlew backend using the
 authorization-code + PKCE flow: an owner-only endpoint to store an org's OIDC
 provider configuration, a login endpoint that redirects the browser to the
 IdP's `/authorize` URL with `state`/`nonce`/PKCE parameters, and a callback
 endpoint that exchanges the returned code for an ID token, validates it
-against the IdP's JWKS, and issues an ApiTool session cookie.
+against the IdP's JWKS, and issues an Curlew session cookie.
 
 ## Task Details
 
@@ -62,9 +62,9 @@ SSO providers coexist cleanly inside the `Sso/` package.
    (state / CSRF) and OIDC core §15.5.2 (nonce) require the relying party to
    bind the authorize request to the callback. We set three cookies on the
    `/login` response:
-   - `apitool_oidc_state` — random 32 bytes b64url, 10-minute max-age
-   - `apitool_oidc_nonce` — random 32 bytes b64url, 10-minute max-age
-   - `apitool_oidc_pkce`  — random 32 bytes b64url (code verifier), 10-minute max-age
+   - `curlew_oidc_state` — random 32 bytes b64url, 10-minute max-age
+   - `curlew_oidc_nonce` — random 32 bytes b64url, 10-minute max-age
+   - `curlew_oidc_pkce`  — random 32 bytes b64url (code verifier), 10-minute max-age
    All are HttpOnly, SameSite=Lax, Path=`/api/v1/sso/oidc`. The callback
    reads them, clears them, and validates that `state` matches and that the
    id_token `nonce` claim matches.
@@ -108,7 +108,7 @@ SSO providers coexist cleanly inside the `Sso/` package.
 7. **`OidcOptions`** mirrors `SamlOptions`. Backend base URL
    (`http://localhost:5000` by default) is needed to synthesise the
    absolute `redirect_uri` passed to the IdP. The web portal redirect URL and
-   session cookie name live here too. The existing `apitool_session` cookie
+   session cookie name live here too. The existing `curlew_session` cookie
    is reused — successful OIDC login sets the same JWT session cookie as
    successful SAML login.
 
@@ -203,9 +203,9 @@ public sealed class OidcOptions
     public string BackendBaseUrl { get; set; } = "http://localhost:5000";
     public TimeSpan DiscoveryCacheTtl { get; set; } = TimeSpan.FromMinutes(15);
     public TimeSpan StateCookieTtl { get; set; } = TimeSpan.FromMinutes(10);
-    public string StateCookieName { get; set; } = "apitool_oidc_state";
-    public string NonceCookieName { get; set; } = "apitool_oidc_nonce";
-    public string PkceCookieName { get; set; } = "apitool_oidc_pkce";
+    public string StateCookieName { get; set; } = "curlew_oidc_state";
+    public string NonceCookieName { get; set; } = "curlew_oidc_nonce";
+    public string PkceCookieName { get; set; } = "curlew_oidc_pkce";
 }
 ```
 
@@ -832,7 +832,7 @@ public static IEndpointRouteBuilder MapOidcEndpoints(this IEndpointRouteBuilder 
 - `CallbackHandler` — anonymous. Reads query params `code`, `state`. Reads
   the three cookies. Calls `OidcService.ConsumeCallbackAsync(...)`. On
   success: custom result that clears the state/nonce/pkce cookies, sets the
-  `apitool_session` cookie, and redirects to `WebPortalUrl`. Error mapping:
+  `curlew_session` cookie, and redirects to `WebPortalUrl`. Error mapping:
   - `OidcStateMismatch` → 400 `oidc_state_mismatch`
   - `OidcNonceMismatch` → 400 `oidc_nonce_mismatch`
   - `OidcInvalidIdToken` → 401 `oidc_invalid_id_token`
@@ -854,7 +854,7 @@ In `src/ApiTool.Backend.Tests/Sso/OidcEndpointsTests.cs`, using the same
 - `Get_login_sets_state_nonce_pkce_cookies`
 - `Get_login_with_unknown_org_returns_404`
 - `Get_login_with_sso_disabled_returns_404`
-- `Get_callback_success_issues_apitool_session_cookie_and_redirects` (B4)
+- `Get_callback_success_issues_curlew_session_cookie_and_redirects` (B4)
 - `Get_callback_clears_state_nonce_pkce_cookies_on_success`
 - `Get_callback_with_bad_state_returns_400_oidc_state_mismatch` (B5)
 - `Get_callback_with_unknown_email_returns_403_sso_user_not_member` (B6)
@@ -935,7 +935,7 @@ public FakeOidcDiscoveryClient? GetFakeOidcDiscovery() => Services.GetService<Fa
 ```json
 {
   "issuer_url": "https://idp.example.com",
-  "client_id": "apitool-client",
+  "client_id": "curlew-client",
   "client_secret": "s3cret",
   "redirect_uri": "http://localhost:5000/api/v1/sso/oidc/00000000-0000-0000-0000-000000000000/callback",
   "scopes": "openid email profile"
@@ -1046,7 +1046,7 @@ which must preserve existing SAML behaviour (covered by existing tests).
 - **Edge case:** User signs in via OIDC, then the org owner switches the
   provider to SAML, then the stale session cookie continues to work.
   **Handling:** The session cookie is independent of the provider once
-  minted. This is intentional — the cookie is an ApiTool session, not an
+  minted. This is intentional — the cookie is an Curlew session, not an
   IdP session. No action needed.
 
 - **Edge case:** `oidc-config.json` observable body uses
@@ -1091,7 +1091,7 @@ public static class OidcEndpoints { public static IEndpointRouteBuilder MapOidcE
 ## Verification
 
 ```bash
-cd /Users/peterlindqvist/kod/active/ApiTool
+cd /Users/peterlindqvist/kod/active/Curlew
 dotnet build src/ApiTool.Backend/ApiTool.Backend.csproj
 dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
   --filter "FullyQualifiedName~Sso&FullyQualifiedName~Oidc"

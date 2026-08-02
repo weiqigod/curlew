@@ -99,8 +99,8 @@ Review PASS trusted (iteration 2), spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +42/-17 |
-| `cmd/apitest/main_test.go` | modified | +7/-2 |
+| `cmd/curlew/main.go` | modified | +42/-17 |
+| `cmd/curlew/main_test.go` | modified | +7/-2 |
 | `internal/output/json.go` | modified | +21/-2 |
 | `internal/output/json_test.go` | modified | +135/-0 |
 | `internal/output/tap.go` | modified | +10/-0 |

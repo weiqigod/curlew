@@ -12,8 +12,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
-	"github.com/peterlindqvist/apitest/internal/scaffold"
-	"github.com/peterlindqvist/apitest/internal/schema"
+	"github.com/weiqigod/curlew/internal/scaffold"
+	"github.com/weiqigod/curlew/internal/schema"
 )
 
 // publishedSchemaPath returns the absolute path to schemas/collection-v1.json
@@ -84,7 +84,7 @@ func normalizeForJSONSchema(v any) any {
 }
 
 // TestSchema_validates_scaffolded_sample is the DoD test: the JSON Schema
-// validates the collections/sample.yaml file produced by `apitest init`.
+// validates the collections/sample.yaml file produced by `curlew init`.
 func TestSchema_validates_scaffolded_sample(t *testing.T) {
 	tmp := t.TempDir()
 	if err := scaffold.Init(scaffold.Options{Dir: tmp}); err != nil {
@@ -235,22 +235,22 @@ func TestSchema_output_defs_match(t *testing.T) {
 	}
 }
 
-// TestSchema_scaffolded_apitest_yaml_validates verifies that the file produced
+// TestSchema_scaffolded_curlew_yaml_validates verifies that the file produced
 // by scaffold.Init validates against schemas/project-v1.json.
-func TestSchema_scaffolded_apitest_yaml_validates(t *testing.T) {
+func TestSchema_scaffolded_curlew_yaml_validates(t *testing.T) {
 	tmp := t.TempDir()
 	if err := scaffold.Init(scaffold.Options{Dir: tmp}); err != nil {
 		t.Fatal(err)
 	}
-	doc := decodeYAMLFile(t, filepath.Join(tmp, "apitest.yaml"))
+	doc := decodeYAMLFile(t, filepath.Join(tmp, "curlew.yaml"))
 	sch := compileProjectSchema(t)
 	if err := sch.Validate(doc); err != nil {
-		t.Fatalf("apitest.yaml did not validate against project schema: %v", err)
+		t.Fatalf("curlew.yaml did not validate against project schema: %v", err)
 	}
 }
 
 // TestSchema_scaffolded_all_output_formats_validate verifies that each supported
-// --output format produces an apitest.yaml that validates against the project schema
+// --output format produces an curlew.yaml that validates against the project schema
 // end-to-end. This satisfies the DoD item: "each of terminal/json/tap/junit/html/markdown
 // produces a scaffold that the config validator accepts end-to-end".
 func TestSchema_scaffolded_all_output_formats_validate(t *testing.T) {
@@ -264,7 +264,7 @@ func TestSchema_scaffolded_all_output_formats_validate(t *testing.T) {
 		{"junit", scaffold.Options{OutputFormat: "junit"}},
 		{"html", scaffold.Options{OutputFormat: "html"}},
 		{"markdown", scaffold.Options{OutputFormat: "markdown"}},
-		{"skill_claude", scaffold.Options{SkillName: "claude", ApitestVersion: "test"}},
+		{"skill_claude", scaffold.Options{SkillName: "claude", CurlewVersion: "test"}},
 	}
 	sch := compileProjectSchema(t)
 	for _, tc := range cases {
@@ -275,28 +275,28 @@ func TestSchema_scaffolded_all_output_formats_validate(t *testing.T) {
 			if err := scaffold.Init(opts); err != nil {
 				t.Fatalf("scaffold.Init(%s): %v", tc.name, err)
 			}
-			doc := decodeYAMLFile(t, filepath.Join(tmp, "apitest.yaml"))
+			doc := decodeYAMLFile(t, filepath.Join(tmp, "curlew.yaml"))
 			if err := sch.Validate(doc); err != nil {
-				t.Fatalf("apitest.yaml for %s did not validate against project schema: %v", tc.name, err)
+				t.Fatalf("curlew.yaml for %s did not validate against project schema: %v", tc.name, err)
 			}
 		})
 	}
 }
 
 // TestSchema_skill_claude_scaffold_matches_fixture asserts that the scaffolded
-// apitest.yaml for --skill claude contains the output: block from the checked-in
+// curlew.yaml for --skill claude contains the output: block from the checked-in
 // fixture file.
 func TestSchema_skill_claude_scaffold_matches_fixture(t *testing.T) {
 	tmp := t.TempDir()
 	if err := scaffold.Init(scaffold.Options{
-		Dir:            tmp,
-		ProjectName:    "demo",
-		SkillName:      "claude",
-		ApitestVersion: "test",
+		Dir:           tmp,
+		ProjectName:   "demo",
+		SkillName:     "claude",
+		CurlewVersion: "test",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(tmp, "apitest.yaml"))
+	got, err := os.ReadFile(filepath.Join(tmp, "curlew.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

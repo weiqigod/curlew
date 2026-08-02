@@ -23,7 +23,7 @@ No findings. Code meets all standards.
 | Test Quality | PASS | All 7 behaviors covered; in-process tests for all key runCmd branches added; `TestRunPopulates*` tests verify Method/URL fields; `TestBuildJSONOutput*` suite covers all result shapes |
 
 ## Test Coverage
-- Package `cmd/apitest`: **87.9%** (DoD threshold: 80% ✓)
+- Package `cmd/curlew`: **87.9%** (DoD threshold: 80% ✓)
 - Package `internal/output`: **100.0%** ✓
 - Package `internal/runner`: **91.2%** ✓
 - Total: **93.0%** ✓

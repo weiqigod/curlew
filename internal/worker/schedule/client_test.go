@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
-	"github.com/peterlindqvist/apitest/internal/worker/schedule"
+	"github.com/weiqigod/curlew/internal/backend"
+	"github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 // newTestClient builds a schedule.Client wired to a test httptest.Server.

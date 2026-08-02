@@ -507,7 +507,7 @@ func TestRun_VaultResolution(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/vault/...
 go test ./internal/runner/...
 go test ./...
@@ -518,7 +518,7 @@ go test ./...
 Observable verification:
 ```bash
 # With mock/real AWS credentials configured:
-# apitest.yaml:
+# curlew.yaml:
 #   secrets:
 #     provider: aws-secrets-manager
 #     region: us-east-1
@@ -526,7 +526,7 @@ Observable verification:
 #       db_password: prod/db#password
 #
 # Then:
-apitest run tests.yaml
+curlew run tests.yaml
 # Confirm secrets are fetched and available as variables
 go test ./internal/vault/... -v -count=1
 ```

@@ -227,7 +227,7 @@
     <div class="confighint">
       <div class="ch-title">run history is disabled</div>
       <div class="ch-body at-mono">ui.history.enabled: false</div>
-      <div class="ch-sub">enable it in apitest.yaml to record and compare runs</div>
+      <div class="ch-sub">enable it in curlew.yaml to record and compare runs</div>
     </div>
   {:else}
     <HistoryRail base={effectiveBase ?? null} target={effectiveTarget ?? null} on:pick={(e) => pickRun(e.detail)} />

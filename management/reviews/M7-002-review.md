@@ -27,7 +27,7 @@ No findings. All previous iteration findings have been resolved.
 | Test Quality | PASS | All 11 subtests in `TestRun` now pass `Stderr` buffers; concurrent subtests (`heartbeats_sent_during_long_shard`, `heartbeat_failure_warning_uses_stderr_seam`, `concurrency_3_runs_three_requests_in_parallel`, `context_cancel_aborts_loop_cleanly`) correctly use `syncBuffer`; stdout-empty invariant guarded in all subtests; `TestStreamProgress` binary-level regression tests all four subcommands; `TestExecCmd_DryRun_UsesPrinterRequestDetail` asserts the `  > GET url` shape |
 
 ## Test Coverage
-- Coverage: `cmd/apitest` = 80.3%, `internal/worker` = 92.7%, total = 86.2%
+- Coverage: `cmd/curlew` = 80.3%, `internal/worker` = 92.7%, total = 86.2%
 - All packages meet ≥80% threshold
 - `go test -race ./...` passes
 

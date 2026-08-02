@@ -1,11 +1,11 @@
-# apitest ui — Specification
+# curlew ui — Specification
 
 **Version:** 1.0
 **Date:** 2026-06-11
 **Status:** Draft — pre-milestone design, complete enough to implement
-> **Note on tier gating (2026-08):** The licensing/tier system has since been removed from the CLI. All tier-gating statements in this spec are historical and no longer apply: there is no `/meta` tier block, no 403 `feature_gated` response, no `ui_run_history`/`parallel_execution`/`test_discovery`/`data_driven` entitlement checks, and no `APITEST_TIER` seam. The UI exposes every feature unconditionally; run-history persistence is controlled solely by the `ui.history.enabled` config flag.
+> **Note on tier gating (2026-08):** The licensing/tier system has since been removed from the CLI. All tier-gating statements in this spec are historical and no longer apply: there is no `/meta` tier block, no 403 `feature_gated` response, no `ui_run_history`/`parallel_execution`/`test_discovery`/`data_driven` entitlement checks, and no `CURLEW_TIER` seam. The UI exposes every feature unconditionally; run-history persistence is controlled solely by the `ui.history.enabled` config flag.
 
-**Relationship to other documents:** This is a standalone specification for the `apitest ui` feature. It is written against SPECIFICATION.md v4.4 and EVENTS_SCHEMA_v1.2.md; it defines the v1.3 events-schema delta (§7). It will be folded into a SPECIFICATION.md v4.5 bump when the milestone is scheduled. The interactive design prototype that this spec formalizes (a design-tool export) is committed at `docs/design/apitest-ui/` — open `apitest UI.html` for the interactive app or `apitest Canvas.html` for the artboards; `at-tokens.css` is the design-token ground truth, adopted verbatim into `ui/src/styles/tokens.css` (§10.5).
+**Relationship to other documents:** This is a standalone specification for the `curlew ui` feature. It is written against SPECIFICATION.md v4.4 and EVENTS_SCHEMA_v1.2.md; it defines the v1.3 events-schema delta (§7). It will be folded into a SPECIFICATION.md v4.5 bump when the milestone is scheduled. The interactive design prototype that this spec formalizes (a design-tool export) is committed at `docs/design/curlew-ui/` — open `curlew UI.html` for the interactive app or `curlew Canvas.html` for the artboards; `at-tokens.css` is the design-token ground truth, adopted verbatim into `ui/src/styles/tokens.css` (§10.5).
 
 **Terminology used consistently throughout (normative):**
 
@@ -46,10 +46,10 @@
 
 ## 1. Overview & product principles
 
-`apitest ui` starts a localhost HTTP server embedded in the existing single Go binary, serving an embedded single-page application. The UI is a **runner and inspector** over the user's YAML files:
+`curlew ui` starts a localhost HTTP server embedded in the existing single Go binary, serving an embedded single-page application. The UI is a **runner and inspector** over the user's YAML files:
 
 - **Files are the only source of truth.** The UI reads collections, environments, and project config from disk; it never edits them. There is deliberately no in-app editor and no fix-it form — every file reference carries an "open in editor" affordance instead.
-- **One write, clearly scoped.** The only thing the UI ever writes is its own run-history store under `.apitest/ui/` (§8), which is self-gitignored.
+- **One write, clearly scoped.** The only thing the UI ever writes is its own run-history store under `.curlew/ui/` (§8), which is self-gitignored.
 - **The UI is a lens over existing contracts.** Live runs stream over WebSocket as verbatim events-schema objects (§5); project structure comes from the same parser/validator the CLI uses; redaction uses the same `SensitiveSet` machinery. The UI adds a thin HTTP facade — not a second implementation of anything.
 - **Redaction is always on.** There is no `--allow-sensitive` for the UI and no reveal toggle in the frontend. Redacted values render as a `[REDACTED]` chip, full stop (§9.4).
 - **Everything is available.** Starting runs, inspecting results (including the in-memory ring of the last 5 runs), persisted history, run comparison, and parallel execution are all unconditionally available; the UI passes choices through to the runner and never gates them. (Historical tier-gating text elsewhere in this spec is superseded — see the note at the top.)
@@ -74,18 +74,18 @@
 
 ## 2. Command surface
 
-New file `cmd/apitest/ui.go` (precedent: `worker.go`, `perf.go`, `license.go` as sibling command files in package main), following the established triad: `uiCmdOut(args []string, stdout, stderr io.Writer) int`, `parseUIArgs(args []string) (uiFlags, error)`, `printUIHelpTo(w io.Writer)`.
+New file `cmd/curlew/ui.go` (precedent: `worker.go`, `perf.go`, `license.go` as sibling command files in package main), following the established triad: `uiCmdOut(args []string, stdout, stderr io.Writer) int`, `parseUIArgs(args []string) (uiFlags, error)`, `printUIHelpTo(w io.Writer)`.
 
 Wiring (all three asserted in sync by the existing `TestUsageSynopsis_MatchesPrintHelpFirstLine` pattern):
 
-- `case "ui":` in the command switch in `runWithWriters` (cmd/apitest/main.go). Like `run`, it first calls `checkGraceExpiredTo(stderr)` and returns 9 if the license grace period has expired.
+- `case "ui":` in the command switch in `runWithWriters` (cmd/curlew/main.go). Like `run`, it first calls `checkGraceExpiredTo(stderr)` and returns 9 if the license grace period has expired.
 - Entry in the `usageSynopses` map.
 - Line in `printHelpTo`: `  ui              Start the local web UI (runner & inspector)`.
 
 ### 2.1 Synopsis
 
 ```
-Usage: apitest ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] [--no-color]
+Usage: curlew ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] [--no-color]
 ```
 
 ### 2.2 Flags
@@ -105,16 +105,16 @@ Usage: apitest ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] 
 - `--allow-sensitive` — rejected with exit 1 and the message `the UI always redacts sensitive values`.
 - `--parallel` — parallelism is a per-run choice made in the UI, gated server-side per request (§4.7).
 
-**Hidden environment variable:** `APITEST_UI_DEV_PROXY=http://localhost:5173` — dev-mode reverse proxy to the Vite dev server (§3.4). Precedent for env-gated hidden behavior: `APITEST_INTERNAL`.
+**Hidden environment variable:** `CURLEW_UI_DEV_PROXY=http://localhost:5173` — dev-mode reverse proxy to the Vite dev server (§3.4). Precedent for env-gated hidden behavior: `CURLEW_INTERNAL`.
 
 ### 2.3 Startup sequence
 
 1. Grace check (`checkGraceExpiredTo`) → exit 9 if expired.
-2. `os.Getwd()` → `config.FindProjectRoot(wd)`. Not found → stderr `no apitest project found (no apitest.yaml in current or parent directories)` → exit 5 (identical to `apitest info`).
+2. `os.Getwd()` → `config.FindProjectRoot(wd)`. Not found → stderr `no curlew project found (no curlew.yaml in current or parent directories)` → exit 5 (identical to `curlew info`).
 3. `config.LoadProjectConfig(root)`; parse failure → exit 3.
 4. Resolve port/host per precedence: flag > `ui:` config block > built-in default (§11). Non-loopback host in config → exit 3.
 5. `net.Listen("tcp", "127.0.0.1:"+port)`; busy handling per the flags table → exit 1 with a hint naming the busy port.
-6. Mint the session token (§9.3), print `apitest ui listening on http://127.0.0.1:<port>/?token=<t>` to stdout, open the browser unless `--no-open` (darwin `open`, linux `xdg-open`, windows `cmd /c start`, via `exec.Command`; best-effort — failure is a stderr warning only).
+6. Mint the session token (§9.3), print `curlew ui listening on http://127.0.0.1:<port>/?token=<t>` to stdout, open the browser unless `--no-open` (darwin `open`, linux `xdg-open`, windows `cmd /c start`, via `exec.Command`; best-effort — failure is a stderr warning only).
 7. Serve until SIGINT/SIGTERM (`signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` — the watch command handles Interrupt only; `ui` adds SIGTERM for service managers). On signal: cancel any active run, flush the history store, `http.Server.Shutdown` with a 5 s timeout → exit 0.
 
 ### 2.4 Exit codes
@@ -136,7 +136,7 @@ Note: the MANUAL's master exit-code table lists 2 for usage errors, but every `*
 ### 3.1 Package layout
 
 ```
-cmd/apitest/ui.go                 command: flags, help, lifecycle, browser-open
+cmd/curlew/ui.go                 command: flags, help, lifecycle, browser-open
 internal/runservice/              extracted run pipeline (§6.1–6.2)
     runservice.go                 Execute(), Request/Result types
     sensitive.go                  BuildPreRunSensitive / BuildPostRunSensitive (extracted from main.go)
@@ -150,7 +150,7 @@ internal/uiserver/
     orchestrator.go               single-flight run lifecycle, event log, detail collector
     ws.go                         hub, per-connection pump, replay
     watcher.go                    fsnotify tree watcher
-    store.go                      .apitest/ui history store, retention, pruning
+    store.go                      .curlew/ui history store, retention, pruning
     gitinfo.go                    .git/HEAD reader (no shell-out)
     assets/assets.go              //go:embed all:dist
     assets/dist/index.html        committed placeholder (§3.3)
@@ -171,7 +171,7 @@ docs/events-schema/v1.3.json      new JSON schema
                        │      ├── runservice.Execute ── runner.Run  │
  browser ── REST ──────┤      │                                     │
    everything else     │ DetailCollector (full redacted results)    │
-                       │ Store (.apitest/ui, Solo+)                 │
+                       │ Store (.curlew/ui, Solo+)                 │
                        └────────────────────────────────────────────┘
 ```
 
@@ -196,7 +196,7 @@ func Dist() fs.FS { sub, _ := fs.Sub(distFS, "dist"); return sub }
 
 Served via `http.FileServerFS` with an SPA fallback: any non-`/api` path that doesn't match a file serves `index.html` (the SPA routes via URL hash, so the fallback is only ever hit for `/`). Cache headers: hashed assets `Cache-Control: public, max-age=31536000, immutable`; `index.html` `no-cache`.
 
-**`go build` without a frontend build — committed placeholder.** A minimal `internal/uiserver/assets/dist/index.html` is committed: a static page reading "apitest ui assets are not built into this binary. The API is live; build the UI with `scripts/build-ui.sh`." The root `.gitignore` gains:
+**`go build` without a frontend build — committed placeholder.** A minimal `internal/uiserver/assets/dist/index.html` is committed: a static page reading "curlew ui assets are not built into this binary. The API is live; build the UI with `scripts/build-ui.sh`." The root `.gitignore` gains:
 
 ```
 internal/uiserver/assets/dist/*
@@ -207,13 +207,13 @@ Real builds (`cd ui && vite build` → `../internal/uiserver/assets/dist`, wrapp
 
 ### 3.4 Dev mode
 
-`APITEST_UI_DEV_PROXY=http://localhost:5173 apitest ui` → all non-`/api` paths are reverse-proxied to the Vite dev server via `httputil.ReverseProxy` instead of the embedded FS. Chosen over a Vite-side proxy so the token flow, Host checks, and WS path are identical to production. The complementary frontend dev workflow (Vite proxying `/api` the other way) is described in §10.2.4; both work, the choice is the developer's.
+`CURLEW_UI_DEV_PROXY=http://localhost:5173 curlew ui` → all non-`/api` paths are reverse-proxied to the Vite dev server via `httputil.ReverseProxy` instead of the embedded FS. Chosen over a Vite-side proxy so the token flow, Host checks, and WS path are identical to production. The complementary frontend dev workflow (Vite proxying `/api` the other way) is described in §10.2.4; both work, the choice is the developer's.
 
 ### 3.5 Memory model
 
 - **Active run** (≤1): full event log + growing detail map, in memory.
 - **Ring**: the last **5** completed runs stay fully in memory (event log + details), regardless of tier. This is what makes free-tier run+inspect real — including inspecting the run you just made, and re-rendering a finished run's live view from replay.
-- **Store** (Solo+): persisted runs beyond the ring are served from `.apitest/ui/` (§8).
+- **Store** (Solo+): persisted runs beyond the ring are served from `.curlew/ui/` (§8).
 
 ---
 
@@ -252,7 +252,7 @@ All endpoints under `/api/v1/`. All responses `application/json; charset=utf-8` 
     "current": "free",
     "features": {
       "ui_run_history":     {"allowed": false, "required_tier": "solo",
-                             "message": "Run history and comparison in apitest ui require Solo tier",
+                             "message": "Run history and comparison in curlew ui require Solo tier",
                              "workaround": "Runs remain inspectable for the current session; use --events to persist NDJSON streams yourself"},
       "parallel_execution": {"allowed": false, "required_tier": "professional",
                              "message": "…", "workaround": "…"},
@@ -457,7 +457,7 @@ New feature registry entry in `internal/auth/registry.go` `DefaultRegistry()`:
 r.Register(FeatureDefinition{
     Name:         "ui_run_history",
     RequiredTier: TierSolo,
-    Description:  "Run history and comparison in apitest ui require Solo tier",
+    Description:  "Run history and comparison in curlew ui require Solo tier",
     Workaround:   "Runs remain inspectable in the UI for the current session; use --events to persist NDJSON streams yourself",
 })
 ```
@@ -468,7 +468,7 @@ Solo is the right tier by registry convention: Solo houses individual-productivi
 - **`DELETE /api/v1/runs/{run_id}`** → delete a persisted run directory (Solo). 404 for memory-only ids.
 - **`GET /api/v1/runs/{run_id}/events`** → raw `application/x-ndjson` stream of the run's stored or in-memory event log. Free for ring runs; persisted runs are implicitly Solo.
 
-The free-tier surface is unaffected: `GET /runs/{id}`, `/requests`, `/requests/{rid}`, `/body` all work for the active run and the 5-run memory ring at any tier. Only the persisted *list*, *delete*, and *compare* are gated. Below Solo, the store is never constructed and **nothing is written to `.apitest/ui/`**.
+The free-tier surface is unaffected: `GET /runs/{id}`, `/requests`, `/requests/{rid}`, `/body` all work for the active run and the 5-run memory ring at any tier. Only the persisted *list*, *delete*, and *compare* are gated. Below Solo, the store is never constructed and **nothing is written to `.curlew/ui/`**.
 
 ### 4.12 `GET /api/v1/compare?base=<run_id>&target=<run_id>` (Solo)
 
@@ -501,10 +501,10 @@ Each pair carries `name`/`method` (and each side `fail_message`/`error` per the 
 {"file": "collections/users.yaml", "line": 12}
 ```
 
-Launches the user's editor at file:line. Editor resolution order: `$APITEST_EDITOR` → config `ui.editor` (§11) → `code --goto <abs>:<line>` as a last-resort attempt. `$VISUAL`/`$EDITOR` are deliberately **not** consulted — they typically name terminal editors, which cannot be sensibly spawned from a detached server process. The editor value is executed as a command template: `{file}`/`{line}` placeholders substituted when present, else `<cmd> <abs-path>:<line>` appended.
+Launches the user's editor at file:line. Editor resolution order: `$CURLEW_EDITOR` → config `ui.editor` (§11) → `code --goto <abs>:<line>` as a last-resort attempt. `$VISUAL`/`$EDITOR` are deliberately **not** consulted — they typically name terminal editors, which cannot be sensibly spawned from a detached server process. The editor value is executed as a command template: `{file}`/`{line}` placeholders substituted when present, else `<cmd> <abs-path>:<line>` appended.
 
 - `204` — launched (fire-and-forget; non-zero editor exit is not detected).
-- `409 no_editor` — nothing configured and `code` not on PATH; `hint: "set ui.editor in apitest.yaml or $APITEST_EDITOR"`.
+- `409 no_editor` — nothing configured and `code` not on PATH; `hint: "set ui.editor in curlew.yaml or $CURLEW_EDITOR"`.
 - `file` is jailed to the project root; outside → 400.
 
 Token-guarded like every `/api` route. This endpoint exists because client-side `vscode://` URL schemes cover only some editors and fail silently when unhandled.
@@ -564,7 +564,7 @@ The CLI's `runCmdInner` is a ~1,300-line monolith interleaving flag parsing, eve
 
 1. **`internal/runservice.Execute`** — the happy-path pipeline: `parser.ParseFileWithOptions` (with `IncludeGate`/`SchemaGate` built from tier — the two small gate-constructor funcs move into runservice) → `config.LoadEnvironment` → `config.LoadProjectConfig` → `config.LoadDotenv` → pre-run `SensitiveSet` → `runner.Run`.
 2. **`internal/runservice/sensitive.go`** — `BuildPreRunSensitive(...)` and `BuildPostRunSensitive(...)`, extracted verbatim from the two inline blocks in main.go (post-run includes `summary.AuthSensitive`/`RuntimeSensitive`).
-3. **`internal/runservice/sink.go`** — `EmitterSink`, the events adapter moved out of package main unchanged in behavior (including the assertion-failure sentinel injection). `cmd/apitest` switches to the moved type — a mechanical edit; everything else in `runCmdInner` stays untouched this milestone. Converging `runCmdInner` itself onto `runservice.Execute` is an explicitly deferred follow-up (§15).
+3. **`internal/runservice/sink.go`** — `EmitterSink`, the events adapter moved out of package main unchanged in behavior (including the assertion-failure sentinel injection). `cmd/curlew` switches to the moved type — a mechanical edit; everything else in `runCmdInner` stays untouched this milestone. Converging `runCmdInner` itself onto `runservice.Execute` is an explicitly deferred follow-up (§15).
 
 ### 6.2 `internal/runservice` API
 
@@ -634,7 +634,7 @@ type ActiveRun struct {
 
 **Start** (`POST /runs`): under `mu`, reject if `active != nil` (409). Mint run id. Build the **sink fan-out** (implements `runner.EventSink`):
 
-1. `runservice.EmitterSink` over an `events.Emitter` whose `io.Writer` is the `EventLog` — each write parses the line's `id`, appends, and broadcasts a `run.event` frame. Emitter options: `{ApitestVersion, RunID}` as the CLI sets them.
+1. `runservice.EmitterSink` over an `events.Emitter` whose `io.Writer` is the `EventLog` — each write parses the line's `id`, appends, and broadcasts a `run.event` frame. Emitter options: `{CurlewVersion, RunID}` as the CLI sets them.
 2. `DetailCollector` — on `RequestStart` records identity/phase/source; on `AssertionResult` appends assertion items; on `RequestEnd` stores redacted full bodies (via `variable.RedactBody` + the `PreSensitive` set), redacted headers, timing, outcome. The emitter's redaction and the collector's redaction share the **same** `PreSensitive` set built by runservice before `runner.Run`.
 
 The run executes on a goroutine: `runservice.Execute(runCtx, …)`. On return: build a `CompletedRun` from the **authoritative** `[]RequestResult`/`Summary` (this overwrites collector entries — picking up the post-run `Sensitive` set including `AuthSensitive`/`RuntimeSensitive` for the stored copy, plus `WaveIndex`, retry details, and skip cascades), persist via `store` if non-nil, push into the ring (evict beyond 5), broadcast the terminal `run.state`.
@@ -658,13 +658,13 @@ A batch run executes every valid collection sequentially in tree order under **o
 
 ### 6.5 Excluded from UI-initiated runs in v1 (documented, not silent)
 
-Team-vault shared templates (Team tier; requires backend-cache plumbing from the cmd layer), plugin hooks (Enterprise, `APITEST_PLUGINS`), report upload (`pr-check`), distributed workers, and the interactive large-dataset confirmation prompt (`ConfirmLargeDataset: false` → oversized data-driven sets fail with the runner's guard error, surfaced as a run error). `VarSources` is populated exactly as the CLI run path does minus team/hooks/telemetry: `Project, EnvFile, DotEnv, Seed, Tier, Secrets, AuthProfiles, ProjectRoot, GlobalRetry, GlobalGraphQL, Parallel, CollectionDir, OnEvent, Selection, RunID, Diagnostics`.
+Team-vault shared templates (Team tier; requires backend-cache plumbing from the cmd layer), plugin hooks (Enterprise, `CURLEW_PLUGINS`), report upload (`pr-check`), distributed workers, and the interactive large-dataset confirmation prompt (`ConfirmLargeDataset: false` → oversized data-driven sets fail with the runner's guard error, surfaced as a run error). `VarSources` is populated exactly as the CLI run path does minus team/hooks/telemetry: `Project, EnvFile, DotEnv, Seed, Tier, Secrets, AuthProfiles, ProjectRoot, GlobalRetry, GlobalGraphQL, Parallel, CollectionDir, OnEvent, Selection, RunID, Diagnostics`.
 
 ---
 
 ## 7. Events schema v1.3 delta
 
-A backward-compatible, additive release following the documented evolution conventions (additive optional fields, changelog section, version-constant bump — the same pattern as v1.1 → v1.2). Ships as its own vertical slice (§14, slice 2): it benefits plain `apitest run --events` users independent of the UI.
+A backward-compatible, additive release following the documented evolution conventions (additive optional fields, changelog section, version-constant bump — the same pattern as v1.1 → v1.2). Ships as its own vertical slice (§14, slice 2): it benefits plain `curlew run --events` users independent of the UI.
 
 ### 7.1 httptrace capture in `internal/httpexec`
 
@@ -725,12 +725,12 @@ Timing *TimingInfo `json:"timing,omitempty"` // v1.3 additive
 
 ---
 
-## 8. Run history store (`.apitest/ui/`)
+## 8. Run history store (`.curlew/ui/`)
 
 ### 8.1 Layout
 
 ```
-<projectRoot>/.apitest/ui/
+<projectRoot>/.curlew/ui/
   .gitignore                 # single line: *
   runs/
     <run_id>/
@@ -739,9 +739,9 @@ Timing *TimingInfo `json:"timing,omitempty"` // v1.3 additive
       detail.json            # array of request-detail objects (§4.9 shape), bodies ≤ 1 MiB each
 ```
 
-Written **only** by the UI server — plain `apitest run` remains persistence-free. Writes are atomic: write `<run_id>.tmp/`, then `os.Rename`. `.apitest/` already exists as a tool-owned directory (auth cache); the UI nests under `.apitest/ui/` to avoid collisions.
+Written **only** by the UI server — plain `curlew run` remains persistence-free. Writes are atomic: write `<run_id>.tmp/`, then `os.Rename`. `.curlew/` already exists as a tool-owned directory (auth cache); the UI nests under `.curlew/ui/` to avoid collisions.
 
-**gitignore handling:** on first creation of `.apitest/ui/`, the store writes `.apitest/ui/.gitignore` containing `*` (the self-ignoring pattern used by terraform and package-manager caches). This is required, not belt-and-braces: the project scaffolder only adds `.apitest/` to the project `.gitignore` when `--skill` was used, so many existing projects don't ignore it. Making `init` always ignore `.apitest/` is a deferred follow-up (§15).
+**gitignore handling:** on first creation of `.curlew/ui/`, the store writes `.curlew/ui/.gitignore` containing `*` (the self-ignoring pattern used by terraform and package-manager caches). This is required, not belt-and-braces: the project scaffolder only adds `.curlew/` to the project `.gitignore` when `--skill` was used, so many existing projects don't ignore it. Making `init` always ignore `.curlew/` is a deferred follow-up (§15).
 
 ### 8.2 `meta.json` (store schema v1)
 
@@ -750,7 +750,7 @@ Written **only** by the UI server — plain `apitest run` remains persistence-fr
   "schema_version": 1,
   "run_id": "a1b2…(32-hex)",
   "created_at": "2026-06-11T09:30:00Z",
-  "apitest_version": "0.1.0-dev",
+  "curlew_version": "0.1.0-dev",
   "events_schema_version": "1.3",
   "collection_file": "collections/users.yaml",
   "collection_name": "Users API",
@@ -785,7 +785,7 @@ The store is constructed at server start only if `auth.CheckFeature(reg, "ui_run
 
 1. **Loopback-only bind, by construction.** The listener is literally `net.Listen("tcp", "127.0.0.1:"+port)`. Config `ui.host` accepts only `127.0.0.1`, `localhost` (resolved to 127.0.0.1), or `::1`; anything else is a startup error (exit 3). No flag can widen it. Remote use is the user's own SSH tunnel.
 2. **Host-header validation** middleware on every request: the hostname part of `Host` must be `localhost`, `127.0.0.1`, or `[::1]`, else 403 `forbidden_origin`. This is the DNS-rebinding defense — a rebound hostname arrives carrying the attacker's Host. WS upgrades additionally validate `Origin` (§5).
-3. **Session token (v1 ships it).** 32 hex chars from `crypto/rand`, minted per server start. Required on every `/api/*` request — `Authorization: Bearer <t>` (or `X-Apitest-UI-Token`); WS upgrade via `?token=`. The SPA boots from `http://127.0.0.1:<port>/?token=<t>` (printed and auto-opened), moves the token to `sessionStorage`, and strips it from the URL via `history.replaceState`. Static assets are served without the token (they contain nothing sensitive). Justification: loopback + Host checks do not protect against *other local users* on shared machines, and the token also closes CSRF completely; the cost is ~50 lines.
+3. **Session token (v1 ships it).** 32 hex chars from `crypto/rand`, minted per server start. Required on every `/api/*` request — `Authorization: Bearer <t>` (or `X-Curlew-UI-Token`); WS upgrade via `?token=`. The SPA boots from `http://127.0.0.1:<port>/?token=<t>` (printed and auto-opened), moves the token to `sessionStorage`, and strips it from the URL via `history.replaceState`. Static assets are served without the token (they contain nothing sensitive). Justification: loopback + Host checks do not protect against *other local users* on shared machines, and the token also closes CSRF completely; the cost is ~50 lines.
 4. **Redaction always on.** No `--allow-sensitive` for the UI. Every body/header/value leaving the server passes `variable.RedactBody`/`RedactHeaders`/value redaction with `allow=false`; persisted artifacts are redacted *before* hitting disk. The frontend's redacted chips intentionally have no reveal — a reveal would require persisting or transporting unredacted data, both rejected.
 5. **CSRF posture:** the token requirement on all endpoints defeats cross-origin form/fetch attacks (an attacker cannot read the token). Additionally, `Content-Type: application/json` is enforced on POST/DELETE, and Origin (when present) is validated.
 6. **Never exposed:** `os.Environ`; `.env` file contents; `secrets:`/vault configuration values; license JWTs/claims; absolute paths outside the project root (all file params jailed via `filepath.Clean` + root-prefix check; `/api/v1/files` additionally restricted to `.yaml`/`.yml`).
@@ -848,14 +848,14 @@ ui/
         states/   EmptyProject.svelte ValidationPanel.svelte GatePanel.svelte
                   Disconnected.svelte NotFoundPanel.svelte
   tests/e2e/                           # Playwright (§13.3)
-  tests/fixtures/project/              # fixture apitest project for e2e
+  tests/fixtures/project/              # fixture curlew project for e2e
 ```
 
 Types stay snake_case matching the wire format (no mapping layer); `types/events.ts` defines a discriminated union on the WS frame `type` and on the v1.3 event `type`.
 
 **Build:** `vite build` with `outDir: '../internal/uiserver/assets/dist'`, `emptyOutDir: true`, `base: './'` (assets resolve regardless of mount path). `scripts/build-ui.sh` runs `npm ci && npm run build` before `go build` in release/CI pipelines.
 
-**Dev mode:** `npm run dev` starts Vite on :5173 with `server.proxy` for `/api` → `http://127.0.0.1:8765` (`ws: true` for `/api/v1/ws`). Workflow: run `apitest ui --no-open` in a fixture project, copy the token, open `http://localhost:5173/?token=…`. (The server-side `APITEST_UI_DEV_PROXY` mode, §3.4, is the inverse arrangement; both work.)
+**Dev mode:** `npm run dev` starts Vite on :5173 with `server.proxy` for `/api` → `http://127.0.0.1:8765` (`ws: true` for `/api/v1/ws`). Workflow: run `curlew ui --no-open` in a fixture project, copy the token, open `http://localhost:5173/?token=…`. (The server-side `CURLEW_UI_DEV_PROXY` mode, §3.4, is the inverse arrangement; both work.)
 
 ### 10.3 App state model
 
@@ -873,7 +873,7 @@ Types stay snake_case matching the wire format (no mapping layer); `types/events
 | `ui.ts` | `prefs`, `helpOpen`, `focusZone` | theme/density/layout prefs, chrome state |
 | `toast.ts` | `toasts` | transient notices (copy confirmations, 409, open-in-editor results) |
 
-Persisted client prefs in `localStorage['apitest.prefs']` (JSON): `theme`, `density`, `runLayout` (`compact|columns|lanes`), `changesOnly`, `parallel`. Environment selection is per-session (`sessionStorage`), defaulting to `meta.project.default_env`.
+Persisted client prefs in `localStorage['curlew.prefs']` (JSON): `theme`, `density`, `runLayout` (`compact|columns|lanes`), `changesOnly`, `parallel`. Environment selection is per-session (`sessionStorage`), defaulting to `meta.project.default_env`.
 
 #### 10.3.2 Run lifecycle state machine (`run-machine.ts`)
 
@@ -972,8 +972,8 @@ Hand-rolled hash routing (`#/…`, ~80-line store-backed router). Rationale: dee
 
 #### 10.4.3 Boot sequence & state on reload (`main.ts`)
 
-1. If `location.search` contains `token`: store in `sessionStorage['apitest.token']`, then `history.replaceState(null, '', location.pathname + location.hash)` — the deep-link hash survives.
-2. No token in URL or sessionStorage → Disconnected screen (§10.6.7.1) with "restart `apitest ui` and reopen the printed URL". There is no login form.
+1. If `location.search` contains `token`: store in `sessionStorage['curlew.token']`, then `history.replaceState(null, '', location.pathname + location.hash)` — the deep-link hash survives.
+2. No token in URL or sessionStorage → Disconnected screen (§10.6.7.1) with "restart `curlew ui` and reopen the printed URL". There is no login form.
 3. Fetch `/meta`, `/tree`, `/environments` in parallel; open the WS.
 4. The `hello` frame carries the active run, if any → `subscribe {from_id: 0}`; full replay rebuilds live state, so a mid-run reload recovers completely.
 5. Resolve the route from the hash; 404s render `NotFoundPanel` inline.
@@ -1060,7 +1060,7 @@ Plus: `--fs-lg: 15px` (panel titles); `.at-gate` (gate panel), `.at-banner` (WS 
 - **Request row**: Dot (live status from the `requests` store, matched by slug — data-driven iterations match via `iteration.base_slug`, aggregating all iterations into the tree entry's dot; dotless when no run), name, `Method`. Tooltip: `TemplateUrl` rendering of the raw `url` + `file:line` — **template form, never resolved**. `data_driven: true` rows append a stack glyph `⛁` ("data-driven — expands at run time"). `required: true` is tooltip-only.
 - Click request → inspector if it has a result in the focused run; else focus the row + footer hint "no result yet — run to inspect". Double-click collection row → `#/tree/<path>` filter.
 - **Selection mode**: a checkbox appears on row hover; checking any row enters selection mode (checkboxes always visible, count in footer, `Esc` clears). Selection is scoped to **one collection**: checking a request in a different collection moves the selection there (clears the previous, with a toast "selection moved to <file>"). Feeds "Run selection".
-- **Footer**: `N collections · M requests`, spacer, `read-only` label, title "files are the source of truth — apitest never edits them". In selection mode: `n selected · esc to clear`.
+- **Footer**: `N collections · M requests`, spacer, `read-only` label, title "files are the source of truth — curlew never edits them". In selection mode: `n selected · esc to clear`.
 
 #### 10.6.2 Run view (`RunView.svelte`)
 
@@ -1122,7 +1122,7 @@ Route `#/runs/<id>/requests/<rid>?tab=…`. Loads `GET /runs/{id}/requests/{rid}
 - Collapsed preview: `{…} 12 keys` / `[…] 50 items`; click expands.
 - Arrays > 20 items show the first 20 + a dashed `… show N more items` button (per node; no further pagination in v1).
 - Search: matches keys and stringified leaf values, case-insensitive; hits get a `--warn` 14% background; ancestors force-expand; counter "n matches"; Enter/Shift+Enter cycle with scroll-into-view. Focused via `Ctrl/Cmd+F` inside the inspector (§10.7).
-- Copy-path: hover-visible per-row button; copies **`body.$` + JSONPath** (`body.$.data[3].amount`) — matching apitest's assertion syntax so paths paste directly into `assert:` blocks. Root copies `body.$`. Toolbar `Copy body` copies pretty-printed JSON.
+- Copy-path: hover-visible per-row button; copies **`body.$` + JSONPath** (`body.$.data[3].amount`) — matching curlew's assertion syntax so paths paste directly into `assert:` blocks. Root copies `body.$`. Toolbar `Copy body` copies pretty-printed JSON.
 - Pretty/Raw `.at-seg` toggle; Raw = 2-space re-serialized text.
 - Redacted leaves: string values equal to `[REDACTED]` render the `Redacted` chip.
 - The Body tab shows the **response**; the request body lives in the Request tab.
@@ -1147,7 +1147,7 @@ Route `#/runs/<id>/requests/<rid>?tab=…`. Loads `GET /runs/{id}/requests/{rid}
 
 **10.6.3.7 Skipped outcome.** A single centered panel: hollow skip dot, "Skipped", verbatim `skip_reason` mono. The Request tab remains available (definition + source are still useful); Body/Headers/Assertions/Timing are disabled with tooltip "request was not executed".
 
-**10.6.3.8 Open in editor** (`OpenInEditor.svelte`). On click, `POST /api/v1/open {file, line}` (§4.13). On 204: flash `→ editor` 1.4 s. On 409 `no_editor`: toast with the server hint ("set ui.editor in apitest.yaml or $APITEST_EDITOR"). If the endpoint 404s (older binary), degrade to copying `file:line` to the clipboard with a "copied path" flash.
+**10.6.3.8 Open in editor** (`OpenInEditor.svelte`). On click, `POST /api/v1/open {file, line}` (§4.13). On 204: flash `→ editor` 1.4 s. On 409 `no_editor`: toast with the server hint ("set ui.editor in curlew.yaml or $CURLEW_EDITOR"). If the endpoint 404s (older binary), degrade to copying `file:line` to the clipboard with a "copied path" flash.
 
 #### 10.6.4 Compare screen (`Compare.svelte`, `#/compare`)
 
@@ -1171,7 +1171,7 @@ Rendering (`DiffView.svelte`): unified view per the prototype — line numbers, 
 
 #### 10.6.5 Empty project state (`EmptyProject.svelte`)
 
-Shown when `/tree` returns zero collections. Verbatim from the prototype: headline "No collections in this repo yet", explanation referencing `collections/` (or `meta.project.collection_filter` when set), the `apitest init` terminal mock, and the "this view refreshes automatically — apitest is watching the repo" footer (true: `files.changed` → tree refetch swaps this screen out live). Sidebar hidden; Run button disabled with tooltip "no collections".
+Shown when `/tree` returns zero collections. Verbatim from the prototype: headline "No collections in this repo yet", explanation referencing `collections/` (or `meta.project.collection_filter` when set), the `curlew init` terminal mock, and the "this view refreshes automatically — curlew is watching the repo" footer (true: `files.changed` → tree refetch swaps this screen out live). Sidebar hidden; Run button disabled with tooltip "no collections".
 
 #### 10.6.6 Validation panel (`ValidationPanel.svelte`, `#/file/<path>`)
 
@@ -1179,13 +1179,13 @@ Prototype layout with corrections:
 - Data: the tree entry's `issues[]`, refreshed via `GET /validate?path=` on mount and whenever `files.changed` includes the path.
 - Renders **all** issues, not just the first: each issue = a severity-colored diagnostic banner (`error` → `--err`, `warning` → `--warn`) with `Line <n>:` + `message` verbatim; the **`hint` field renders as its own line** beneath (`hint: did you mean 'equals'?`, `--fg2` italic) — the prototype's hardcoded inline `←` arrow annotation is dropped; never fabricate annotations.
 - Body copy: "This file was skipped — its requests won't run until the file parses. Fix it in your editor; the tree reloads the moment you save."
-- Footer kept verbatim: "apitest never edits your files — there is deliberately no fix-it form here." `OpenInEditor` wired to the first issue's line.
+- Footer kept verbatim: "curlew never edits your files — there is deliberately no fix-it form here." `OpenInEditor` wired to the first issue's line.
 
 #### 10.6.7 Global states
 
-**10.6.7.1 Server unreachable** (`Disconnected.svelte`). Full-screen replacement (chrome hidden) when boot fails or `serverReachable` flips false: centered terminal-styled panel — "apitest ui is not running"; body "the server at 127.0.0.1:<port> stopped or this tab's session expired. Restart it and reopen the printed URL:"; mock `$ apitest ui` line. A Retry ghost button re-probes `/meta`; auto-retry every 5 s with a subtle countdown. On success: full re-boot (§10.4.3) without losing the hash. A `401` on any API call (token rotated — the server restarted) lands here too: the old token is dead; the new URL carries the new one.
+**10.6.7.1 Server unreachable** (`Disconnected.svelte`). Full-screen replacement (chrome hidden) when boot fails or `serverReachable` flips false: centered terminal-styled panel — "curlew ui is not running"; body "the server at 127.0.0.1:<port> stopped or this tab's session expired. Restart it and reopen the printed URL:"; mock `$ curlew ui` line. A Retry ghost button re-probes `/meta`; auto-retry every 5 s with a subtle countdown. On success: full re-boot (§10.4.3) without losing the hash. A `401` on any API call (token rotated — the server restarted) lands here too: the old token is dead; the new URL carries the new one.
 
-**10.6.7.2 WS reconnecting banner** (`WsBanner.svelte`). Slim bar under the top bar, `--warn` 8% background: spinner + "reconnecting to apitest…"; if a run was live, append "run continues — events will catch up". On reconnect: flash `--ok` "reconnected" 1.5 s, then remove (replay fills gaps silently). `aria-live="polite"`.
+**10.6.7.2 WS reconnecting banner** (`WsBanner.svelte`). Slim bar under the top bar, `--warn` 8% background: spinner + "reconnecting to curlew…"; if a run was live, append "run continues — events will catch up". On reconnect: flash `--ok` "reconnected" 1.5 s, then remove (replay fills gaps silently). `aria-live="polite"`.
 
 **10.6.7.3 Gate panel** (`GatePanel.svelte`). Reusable for any 403 `feature_gated` (history/compare, defensive run gates). Content from the 403 details or `/meta` features: lock glyph; title "`<feature>` requires `<required_tier>`"; the server's `message` verbatim; `workaround` (when present) as a terminal-styled line; a single ghost link "see plans →". Modal only for the defensive 403-on-run case; otherwise rendered in place, never blocking unrelated UI.
 
@@ -1258,7 +1258,7 @@ Global listener with a **focus-zone** model (`focusZone: 'sidebar' | 'list' | 'i
 
 ## 11. Configuration
 
-New top-level `ui:` block in `apitest.yaml`:
+New top-level `ui:` block in `curlew.yaml`:
 
 ```yaml
 ui:
@@ -1292,8 +1292,8 @@ UI *UIConfig
 ```
 
 - **Precedence per field: CLI flag > `ui:` block > built-in default** — the same model as the existing output-config precedence, minus the collection level (collections have no say over the UI).
-- The embedded project JSON schema (`schemas/project-v1.json`) gains the `ui:` object so `apitest validate` and `apitest schema --project` stay accurate.
-- Editor resolution order at `/open` time: `$APITEST_EDITOR` env var > `ui.editor` > `code --goto` fallback (§4.13).
+- The embedded project JSON schema (`schemas/project-v1.json`) gains the `ui:` object so `curlew validate` and `curlew schema --project` stay accurate.
+- Editor resolution order at `/open` time: `$CURLEW_EDITOR` env var > `ui.editor` > `code --goto` fallback (§4.13).
 
 ---
 
@@ -1313,7 +1313,7 @@ Mechanics:
 
 - Gates are checked server-side with `auth.CheckFeature(auth.DefaultRegistry(), key, currentTier())`; gated endpoints return 403 `feature_gated` with the `auth.GateResult` fields in `details` (§4.1). The UI uses plain `CheckFeature` (not the trial-claims variant) for consistency with the runner-internal gates, which do not receive trial claims from the CLI run path today; wiring trial claims is a deferred follow-up (§15).
 - The client learns entitlements from `/meta.tier.features` and renders **gated-not-hidden** UX (§10.6.1.3, §10.6.4.1): locked buttons and GatePanels with the registry's `message` and `workaround` verbatim. The server re-enforces regardless of what the client renders.
-- Tier source: the CLI's `currentTier()` as-is — release binaries derive it from the cryptographically verified cached License JWT and fall back to Free when no usable license exists. Repository test/smoke builds enable an `APITEST_TIER` linker seam; release binaries ignore that environment variable.
+- Tier source: the CLI's `currentTier()` as-is — release binaries derive it from the cryptographically verified cached License JWT and fall back to Free when no usable license exists. Repository test/smoke builds enable an `CURLEW_TIER` linker seam; release binaries ignore that environment variable.
 
 ---
 
@@ -1325,7 +1325,7 @@ Mechanics:
 - **WS tests**: gorilla dialer against the httptest server (precedent: `internal/websocket/integration_test.go`) — hello/subscribe/replay-from-id (gapless, no duplicates), slow-consumer disconnect, origin rejection.
 - **Orchestrator tests**: inject a fake `runner.ExecuteFunc` with testdata collections (exactly as runner tests do) — single-flight 409, cancellation → `cancelled`, ring eviction at 5, batch-run aggregation and gating, sink fan-out producing both an event log and collected details with shared redaction.
 - **Store tests**: `t.TempDir()` — atomic write, retention pruning at `max_runs`, corrupt-dir tolerance, the self-ignoring `.gitignore`, the 1 MiB body cap, no-write below Solo.
-- **runservice extraction**: behavior-lock tests — existing `apitest run` golden outputs stay green after the `EmitterSink`/sensitive-builder moves.
+- **runservice extraction**: behavior-lock tests — existing `curlew run` golden outputs stay green after the `EmitterSink`/sensitive-builder moves.
 - **httptrace**: unit tests against `httptest.NewServer`/`httptest.NewTLSServer` asserting phase presence (fresh vs reused connections), nil for non-HTTP protocols, and unchanged `Result.Duration` semantics; events golden tests updated for schema 1.3.
 
 ### 13.2 Frontend unit & component (Vitest, jsdom; `@testing-library/svelte`)
@@ -1338,11 +1338,11 @@ Mechanics:
 
 ### 13.3 Playwright e2e — against the real binary
 
-**Decision: real `apitest ui` binary + fixture project + tiny local echo API.** The e2e job builds the Go binary (with built UI assets), starts a small deterministic echo server (endpoints: JSON, one slow, one 500, one connection-refused port for the `error` outcome, one > 256 KiB body, one binary body), and launches `apitest ui --port 0 --no-open` in `ui/tests/fixtures/project/`. Playwright `webServer` wires both. Rationale: mocking the WS protocol would test our own mock; the contract risk lives exactly at the Go↔SPA seam.
+**Decision: real `curlew ui` binary + fixture project + tiny local echo API.** The e2e job builds the Go binary (with built UI assets), starts a small deterministic echo server (endpoints: JSON, one slow, one 500, one connection-refused port for the `error` outcome, one > 256 KiB body, one binary body), and launches `curlew ui --port 0 --no-open` in `ui/tests/fixtures/project/`. Playwright `webServer` wires both. Rationale: mocking the WS protocol would test our own mock; the contract risk lives exactly at the Go↔SPA seam.
 
-**Tier matrix (required — several runner features are tier-gated):** the suite launches the binary with `APITEST_TIER` per scenario group. The fixture project keeps gated features in **separate collections** so lower-tier scenarios never trip runner gates:
+**Tier matrix (required — several runner features are tier-gated):** the suite launches the binary with `CURLEW_TIER` per scenario group. The fixture project keeps gated features in **separate collections** so lower-tier scenarios never trip runner gates:
 
-| Tier (`APITEST_TIER`) | Fixture collections exercised | Scenarios |
+| Tier (`CURLEW_TIER`) | Fixture collections exercised | Scenarios |
 |---|---|---|
 | free | `basic.yaml` (happy path, a failing assertion, an error endpoint, setup/teardown, a sensitive env var), `broken.yaml` (invalid) | boot + token strip; run happy path; error row + Error tab; skip reason; big-body; binary panel; validation panel; redacted chip; gated History (gate panel); mid-run reload |
 | solo | + `retried.yaml` (a retried request — `retry` is Solo-gated in the runner; a free-tier run of it would abort with a gate error) | history rail populates; compare diff; identical-state panel; delete run; retry badge |
@@ -1364,13 +1364,13 @@ Each slice is TDD-able and observable via curl/browser; slice 2 is a pure-core c
 
 | # | Slice | Observable |
 |---|---|---|
-| 1 | **`ui` command + server skeleton** — switch case, flags/help/usage triad, project-root discovery, loopback bind + port scan, token + Host middleware, embedded placeholder, `GET /api/v1/meta`, clean shutdown | `apitest ui --no-open`, then `curl -H "Authorization: Bearer $T" 127.0.0.1:8765/api/v1/meta` |
-| 2 | **httptrace timing + events v1.3** — `httpexec.Timing`, runner event plumbing (timing/attempts only), emitter `timing` field, `SchemaVersion = "1.3"`, docs + JSON schema, golden updates | `apitest run x.yaml --events /tmp/e.ndjson && jq 'select(.type=="request.end").timing' /tmp/e.ndjson` (note: `--events` takes a file path; there is no stdout mode) |
+| 1 | **`ui` command + server skeleton** — switch case, flags/help/usage triad, project-root discovery, loopback bind + port scan, token + Host middleware, embedded placeholder, `GET /api/v1/meta`, clean shutdown | `curlew ui --no-open`, then `curl -H "Authorization: Bearer $T" 127.0.0.1:8765/api/v1/meta` |
+| 2 | **httptrace timing + events v1.3** — `httpexec.Timing`, runner event plumbing (timing/attempts only), emitter `timing` field, `SchemaVersion = "1.3"`, docs + JSON schema, golden updates | `curlew run x.yaml --events /tmp/e.ndjson && jq 'select(.type=="request.end").timing' /tmp/e.ndjson` (note: `--events` takes a file path; there is no stdout mode) |
 | 3 | **Read-only project API** — `/tree`, `/environments`, `/validate`, `/files`, env-value redaction | curl against the repo's `examples/` project |
-| 4 | **runservice extraction** — `Execute`, sensitive-set builders, `EmitterSink` move; cmd/apitest switched to the moved sink; behavior-lock tests | existing `apitest run` goldens stay green |
+| 4 | **runservice extraction** — `Execute`, sensitive-set builders, `EmitterSink` move; cmd/curlew switched to the moved sink; behavior-lock tests | existing `curlew run` goldens stay green |
 | 5 | **Run orchestration + WS streaming** — `POST /runs` (single-flight, gates, batch), orchestrator, EventLog, hub, hello/subscribe/replay, `/runs/current`, `GET /runs/{id}` (state + summary), cancel | `websocat` or a browser console streaming a live run |
 | 6 | **Inspector REST** — DetailCollector + `RequestEndEvent` additive fields, `/requests`, `/requests/{id}`, `/body`, source snippets, memory ring of 5 | curl full detail incl. timing + redacted bodies mid-run |
-| 7 | **History store (Solo gate)** — `ui_run_history` registry entry, store + meta.json + gitinfo + retention + self-ignoring gitignore, `/runs` list, DELETE, `/events` download, 403 gate shape | `APITEST_TIER=solo` vs free behavior |
+| 7 | **History store (Solo gate)** — `ui_run_history` registry entry, store + meta.json + gitinfo + retention + self-ignoring gitignore, `/runs` list, DELETE, `/events` download, 403 gate shape | `CURLEW_TIER=solo` vs free behavior |
 | 8 | **Comparison** — `/compare` alignment + deltas; `/open` endpoint | two runs, curl the diff JSON; `curl -X POST …/open` |
 | 9 | **Watcher + SPA shell** — `files.changed` frames, tree etag, browser-open, dev proxy, `ui:` config + JSON schema, CI globs; SPA boot/chrome/tree | browser shows the live tree, watching indicator pulses on save |
 | 10 | **SPA run view + inspector** — state machine, reducer, compact/columns/lanes, all inspector tabs | full run-and-inspect in the browser |
@@ -1385,10 +1385,10 @@ Each slice is TDD-able and observable via curl/browser; slice 2 is a pure-core c
 Explicitly out of this milestone, recorded so they aren't lost:
 
 1. **Converge `runCmdInner` onto `runservice.Execute`** — the CLI run path keeps its monolith this milestone; the extraction (§6.1) is sized for the UI's needs. A later refactor milestone can migrate the CLI onto the same pipeline.
-2. **`apitest init` should always add `.apitest/` to the project `.gitignore`** — today it does so only with `--skill`. The store's self-ignoring `.gitignore` (§8.1) covers the gap meanwhile.
+2. **`curlew init` should always add `.curlew/` to the project `.gitignore`** — today it does so only with `--skill`. The store's self-ignoring `.gitignore` (§8.1) covers the gap meanwhile.
 3. **Events-schema doc phase-string fix** — v1.2's `setup|test|teardown` documentation vs the emitted `setup|main|teardown`; corrected in the v1.3 document (§7.3), no emission change.
 4. **MANUAL exit-code table** — says 2 for usage errors; every command returns 1. Reconcile the table (or the commands) repo-wide.
-5. **CLI-run persistence opt-in** — letting plain `apitest run` write to `.apitest/ui/runs/` (config-gated) so CLI runs appear in UI history. Deliberately excluded from v1 to keep the CLI persistence-free.
+5. **CLI-run persistence opt-in** — letting plain `curlew run` write to `.curlew/ui/runs/` (config-gated) so CLI runs appear in UI history. Deliberately excluded from v1 to keep the CLI persistence-free.
 6. **Trial-claims wiring for runner-internal gates** — `VarSources.TrialClaims` is never set by the CLI run path today; the UI follows suit (§12). Wiring trials through both paths is one follow-up.
 7. **Team-vault, plugins, report upload in UI runs** (§6.5) — each needs cmd-layer plumbing extracted before the UI can offer it.
 8. **Wave-0 `omitempty` emission fix** — a v2.0 (breaking) candidate: emit `wave_index` unconditionally for parallel runs. Documented quirk until then (§7.3).

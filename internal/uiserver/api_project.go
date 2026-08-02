@@ -10,10 +10,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/validator"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/validator"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // resolveInRoot jails a root-relative request path to the project root.

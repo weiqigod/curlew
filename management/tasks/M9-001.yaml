@@ -10,7 +10,7 @@ track: go-cli
 dependencies: [M8-005]
 observable: |
   # request_slug appears on every request.start and request.end event.
-  ./apitest run collections/sample.yaml --events run.ndjson
+  ./curlew run collections/sample.yaml --events run.ndjson
   jq -c 'select(.kind=="request.start") | {name, request_id, request_slug}' run.ndjson
   # Expected: each line has a request_slug derived from name, e.g.,
   #   {"name":"Get user","request_id":"req-1","request_slug":"get-user"}

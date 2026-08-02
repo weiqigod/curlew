@@ -10,26 +10,26 @@ dependencies:
   - M1-019
 
 observable: |
-  Run `apitest watch tests.yaml` and edit tests.yaml in another terminal.
+  Run `curlew watch tests.yaml` and edit tests.yaml in another terminal.
   Confirm the collection re-runs automatically when the file is saved.
   Press Ctrl+C to stop watching.
   Run `go test ./internal/watch/...` to verify file monitoring.
 
 behaviors:
-  - "Given `apitest watch tests.yaml`, when the collection file is modified and saved, then the collection re-runs automatically"
-  - "Given `apitest watch tests.yaml`, when an external request file referenced by the collection is modified, then the collection re-runs"
-  - "Given `apitest watch tests.yaml`, when the environment file is modified, then the collection re-runs"
-  - "Given `apitest watch tests.yaml`, when the .env file is modified, then the collection re-runs"
-  - "Given `apitest watch tests.yaml`, when a non-related file is modified, then no re-run occurs"
-  - "Given `apitest watch tests.yaml`, when Ctrl+C is pressed, then the watcher stops cleanly with exit code 0"
-  - "Given `apitest watch tests.yaml --env dev`, when run, then environment flags are preserved across re-runs"
+  - "Given `curlew watch tests.yaml`, when the collection file is modified and saved, then the collection re-runs automatically"
+  - "Given `curlew watch tests.yaml`, when an external request file referenced by the collection is modified, then the collection re-runs"
+  - "Given `curlew watch tests.yaml`, when the environment file is modified, then the collection re-runs"
+  - "Given `curlew watch tests.yaml`, when the .env file is modified, then the collection re-runs"
+  - "Given `curlew watch tests.yaml`, when a non-related file is modified, then no re-run occurs"
+  - "Given `curlew watch tests.yaml`, when Ctrl+C is pressed, then the watcher stops cleanly with exit code 0"
+  - "Given `curlew watch tests.yaml --env dev`, when run, then environment flags are preserved across re-runs"
   - "Given rapid successive file saves (debounce), when the file is saved multiple times within 500ms, then only one re-run occurs"
 
 scope: |
   Create `internal/watch/` package with file system monitoring using `fsnotify` library.
-  Add `watch` command to `cmd/apitest/main.go` that accepts the same flags as `run`.
+  Add `watch` command to `cmd/curlew/main.go` that accepts the same flags as `run`.
   Implement debouncing (500ms) to prevent rapid re-runs. Track all related files
-  (collection, external requests, environments, .env, apitest.yaml) for change detection.
+  (collection, external requests, environments, .env, curlew.yaml) for change detection.
   Display clear terminal output showing re-run triggers and timestamps.
 
 definition_of_done:

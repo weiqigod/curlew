@@ -10,7 +10,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerFinancial' -v ./internal/variable/...
   # Expected: PASS — all 8 financial functions registered.
@@ -38,12 +38,12 @@ observable: |
   go test -run 'TestRegistry_FakerFinancial_Seeded' -v ./internal/variable/...
   # Expected: PASS — given --seed=42, two consecutive runs produce byte-equal output.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Body: {"card":"{{$faker.creditCard}}","cvv":"{{$faker.creditCardCVV}}","iban":"{{$faker.iban}}","price":{{$faker.price}}}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: card/cvv/iban appear as [REDACTED] in the captured request-body
   # of the JSON output; price is a 2-decimal numeric.
-  apitest run collections/sample.yaml --dry-run --format markdown
+  curlew run collections/sample.yaml --dry-run --format markdown
   # Expected: card/cvv/iban appear as [REDACTED] in the markdown report.
 
   go test ./...

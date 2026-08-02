@@ -1,4 +1,4 @@
-module github.com/peterlindqvist/apitest
+module github.com/weiqigod/curlew
 
 go 1.24.0
 

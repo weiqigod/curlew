@@ -9,10 +9,10 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-// keyring service + user constants. Service is the apitool-cli identity;
+// keyring service + user constants. Service is the curlew-cli identity;
 // user is the secret slot ("refresh_token", "device_id", ...).
 const (
-	keyringService           = "apitool-cli"
+	keyringService           = "curlew-cli"
 	keyringUserRefreshToken  = "refresh_token"
 	keyringUserAccessToken   = "access_token"
 	refreshTokenFileBaseName = "refresh_token.enc"
@@ -38,7 +38,7 @@ type Storage interface {
 
 // StorageOptions configure Storage construction.
 type StorageOptions struct {
-	ConfigDir string // ~/.config/apitesttool by default; override via APITEST_CONFIG_DIR
+	ConfigDir string // ~/.config/curlew by default; override via CURLEW_CONFIG_DIR
 	DeviceID  string // empty when called pre-login; HKDF-salted with machine-id
 	// ForceFile, when true, skips the keychain probe and always uses the
 	// encrypted-file backend. Tests use this to exercise the fallback path
@@ -67,7 +67,7 @@ func NewStorage(opts StorageOptions) (Storage, error) {
 	refreshFile := newEncryptedFile(filepath.Join(opts.ConfigDir, refreshTokenFileBaseName), salt)
 	accessFile := newEncryptedFile(filepath.Join(opts.ConfigDir, accessTokenFileBaseName), salt)
 
-	if opts.ForceFile || os.Getenv("APITEST_FORCE_FILE_STORAGE") == "1" {
+	if opts.ForceFile || os.Getenv("CURLEW_FORCE_FILE_STORAGE") == "1" {
 		return &fileStorage{refreshFile: refreshFile, accessFile: accessFile}, nil
 	}
 	if probeKeychainAvailable() {
@@ -79,7 +79,7 @@ func NewStorage(opts StorageOptions) (Storage, error) {
 // probeKeychainAvailable probes whether the OS keychain is reachable.
 // Returns true when the keychain service is up (even if the slot is empty).
 func probeKeychainAvailable() bool {
-	_, err := keyring.Get(keyringService, "_apitool_probe_unused_user_")
+	_, err := keyring.Get(keyringService, "_curlew_probe_unused_user_")
 	if err == nil {
 		return true
 	}

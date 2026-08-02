@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, 0 warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, 0 warnings |
 | `go test ./...` | PASS | All Go tests pass (cached) |
 | `./scripts/ci-local.sh --go` | PASS | Go gate passes fully |
 | `dotnet build /p:TreatWarningsAsErrors=true` | PASS | 0 warnings, 0 errors |
@@ -62,7 +62,7 @@ Result: MATCH (verified by integration tests when stripe-mock is available; unit
 | Naming conventions | PASS — No stuttering; exported symbols have doc comments |
 | Code organization | PASS — StripeRateLimitedException in own file; internal constructor with InternalsVisibleTo |
 | Test quality | PASS — All 7 behaviors covered; endpoint-level tests for #4/#5/#6 |
-| Env var naming | PASS — Section="ApiTool:Stripe" correctly binds APITOOL__STRIPE__* end-to-end |
+| Env var naming | PASS — Section="Curlew:Stripe" correctly binds CURLEW__STRIPE__* end-to-end |
 | Input validation | PASS — StripePriceAllowlist guards price_id; ValidateOnStart fails fast on misconfiguration |
 
 (Branch A: Review PASS from management/reviews/M14-008-review.md trusted; spot-check clean)
@@ -88,7 +88,7 @@ Result: MATCH (verified by integration tests when stripe-mock is available; unit
 | `18a7f307` | docs(subscriptions): add Stripe configuration section to self-hosted README + CHANGELOG entry (M14-008) |
 | `2bf9a97b` | chore(task): mark M14-008 as review |
 | `f399fc45` | docs(review): add review with findings for M14-008 |
-| `2ce56a17` | fix(subscriptions): align StripeOptions.Section with APITOOL__STRIPE__* convention |
+| `2ce56a17` | fix(subscriptions): align StripeOptions.Section with CURLEW__STRIPE__* convention |
 | `0d9684e5` | fix(subscriptions): remove dead existingCustomerId query in CreateCheckoutByPriceAsync |
 | `ac62e306` | refactor(subscriptions): move StripeRateLimitedException to its own file |
 | `74c0b8d0` | fix(subscriptions): make StripeGateway test-injection constructor internal |

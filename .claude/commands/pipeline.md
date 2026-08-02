@@ -141,7 +141,7 @@ When done, state: "Execute phase complete for <TASK-ID>."
 
 **After agent returns:**
 
-1. Run `go build ./cmd/apitest` — verify it succeeds
+1. Run `go build ./cmd/curlew` — verify it succeeds
 2. Run `go test ./...` — verify all tests pass
 3. If build or tests fail: **STOP** — "Execute phase produced broken build/tests. Manual intervention needed."
 4. Read `management/backlog.yaml` — verify task status is now `review`

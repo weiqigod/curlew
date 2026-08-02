@@ -8,7 +8,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | High | `TestSkillClaude_SkillFileSnapshot` only replaced `"apitest 0.1.0-dev"` (version comment line), missing the bold form `**0.1.0-dev**` in the Notes section. Golden file line 127 stored the hardcoded version, breaking on every version bump. | Added a second `bytes.ReplaceAll` for `"**"+version+"**"` → `"**v0.0.0-test**"`. Regenerated the golden with `APITEST_UPDATE_SNAPSHOTS=1`. Golden now has `v0.0.0-test` on both line 6 and line 127. | ✓ tests pass |
+| 1 | High | `TestSkillClaude_SkillFileSnapshot` only replaced `"curlew 0.1.0-dev"` (version comment line), missing the bold form `**0.1.0-dev**` in the Notes section. Golden file line 127 stored the hardcoded version, breaking on every version bump. | Added a second `bytes.ReplaceAll` for `"**"+version+"**"` → `"**v0.0.0-test**"`. Regenerated the golden with `CURLEW_UPDATE_SNAPSHOTS=1`. Golden now has `v0.0.0-test` on both line 6 and line 127. | ✓ tests pass |
 | 2 | Medium | `ndjsonContainsRunEnd`, `ndjsonContainsRunError`, and `ndjsonContainsRequestEndNetworkError` silently returned `false` when `os.ReadFile` failed, masking missing-file failures as "event not found" failures. | Added `t.Logf("...: events file missing or unreadable: %v", err)` before each `return false` in all three helpers. | ✓ tests pass |
 | 3 | Medium | MANUAL.md §4.9 line 1506 stated "Five files are created in addition to the bare scaffold" — factually incorrect (one new file plus two modifications to existing files). | Replaced with: "The following are created or modified in addition to the standard scaffold:" with `(new file)` / `(modified)` annotations on each bullet. | ✓ tests pass |
 
@@ -20,10 +20,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
-| Coverage (cmd/apitest) | 81.4% |
+| Coverage (cmd/curlew) | 81.4% |
 
 ## Fix Commits
 

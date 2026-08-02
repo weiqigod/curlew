@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/output/events"
+	"github.com/weiqigod/curlew/internal/output/events"
 )
 
 type metaServer struct {

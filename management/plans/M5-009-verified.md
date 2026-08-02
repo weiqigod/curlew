@@ -19,11 +19,11 @@
 
 ## Smoke Fix
 
-A SIGPIPE issue was identified and fixed in `smoke/run.sh`: the `worker --help` check at line 1688 piped directly (`./apitest worker --help | grep -q "..."`) which causes exit code 141 under `set -euo pipefail` because `grep -q` closes stdin before the binary finishes writing. Fixed by capturing output first:
+A SIGPIPE issue was identified and fixed in `smoke/run.sh`: the `worker --help` check at line 1688 piped directly (`./curlew worker --help | grep -q "..."`) which causes exit code 141 under `set -euo pipefail` because `grep -q` closes stdin before the binary finishes writing. Fixed by capturing output first:
 
 ```bash
-WORKER_HELP=$(./apitest worker --help 2>&1)
-echo "$WORKER_HELP" | grep -q "Usage: apitest worker"
+WORKER_HELP=$(./curlew worker --help 2>&1)
+echo "$WORKER_HELP" | grep -q "Usage: curlew worker"
 ```
 
 This matches the pattern used by all other smoke test checks.
@@ -63,8 +63,8 @@ Result: MATCH
 | 1 | All behavior tests pass | `go test ./...` — all 23 worker tests pass | PASS |
 | 2 | Observable output works as specified | `TestWorker_E2E_Observable` + smoke `worker --help` | PASS |
 | 3 | Test coverage >= 80% | `internal/worker` coverage: 91.6% | PASS |
-| 4 | No build warnings or lint errors | `go build ./cmd/apitest` clean; `golangci-lint run` 0 issues | PASS |
-| 5 | Help text for apitest worker updated | `cmd/apitest/worker.go` `printWorkerHelp()` documents all flags | PASS |
+| 4 | No build warnings or lint errors | `go build ./cmd/curlew` clean; `golangci-lint run` 0 issues | PASS |
+| 5 | Help text for curlew worker updated | `cmd/curlew/worker.go` `printWorkerHelp()` documents all flags | PASS |
 | 6 | Smoke test or equivalent integration check updated | `smoke/run.sh` — `=== Worker --help (M5-009) ===` block added and now passing | PASS |
 
 ## Code Review
@@ -117,16 +117,16 @@ TDD pattern is visible: every `test(worker)` commit precedes the corresponding `
 | `internal/worker/run_test.go` | created — TestRun (11 cases) |
 | `internal/worker/coordinator_fake_test.go` | created — httptest-based fake coordinator |
 | `internal/worker/integration_test.go` | created — TestWorker_E2E_Observable, TestWorker_E2E_Unauthorized |
-| `cmd/apitest/worker.go` | created — workerCmd, parseWorkerArgs, printWorkerHelp |
-| `cmd/apitest/worker_test.go` | created — TestParseWorkerArgs (7 cases) |
-| `cmd/apitest/main.go` | modified — added `case "worker":` and `worker` to printHelp |
+| `cmd/curlew/worker.go` | created — workerCmd, parseWorkerArgs, printWorkerHelp |
+| `cmd/curlew/worker_test.go` | created — TestParseWorkerArgs (7 cases) |
+| `cmd/curlew/main.go` | modified — added `case "worker":` and `worker` to printHelp |
 | `smoke/run.sh` | modified — added worker --help check; fixed SIGPIPE bug in check |
 | `testdata/worker/sample-shard.json` | created — 3-request fixture |
 | `CHANGELOG.md` | modified — Unreleased entry added |
 
 ## Issues Found
 
-One issue found during verification: the smoke test's `worker --help` check used a direct pipe (`./apitest worker --help | grep -q "..."`) which fails with exit code 141 (SIGPIPE) under `set -euo pipefail`. Fixed by capturing output first (`WORKER_HELP=$(./apitest worker --help 2>&1)`) to match the pattern used by all other smoke checks.
+One issue found during verification: the smoke test's `worker --help` check used a direct pipe (`./curlew worker --help | grep -q "..."`) which fails with exit code 141 (SIGPIPE) under `set -euo pipefail`. Fixed by capturing output first (`WORKER_HELP=$(./curlew worker --help 2>&1)`) to match the pattern used by all other smoke checks.
 
 ## Recommendation
 

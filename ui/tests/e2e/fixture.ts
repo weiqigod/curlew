@@ -22,7 +22,7 @@ export interface FixtureOptions {
   refusedUrl: string;
 }
 
-const APITEST_YAML = `project_name: e2e-fixture
+const CURLEW_YAML = `project_name: e2e-fixture
 `;
 
 function devEnv(opts: FixtureOptions): string {
@@ -174,7 +174,7 @@ requests:
 export function writeFixtureProject(dir: string, opts: FixtureOptions): void {
   fs.mkdirSync(path.join(dir, 'collections'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'environments'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'apitest.yaml'), APITEST_YAML);
+  fs.writeFileSync(path.join(dir, 'curlew.yaml'), CURLEW_YAML);
   fs.writeFileSync(path.join(dir, 'environments', 'dev.yaml'), devEnv(opts));
   fs.writeFileSync(path.join(dir, 'collections', 'basic.yaml'), BASIC_YAML);
   fs.writeFileSync(path.join(dir, 'collections', 'broken.yaml'), BROKEN_YAML);

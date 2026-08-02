@@ -7,15 +7,15 @@ phase: "M11: Output-format follow-ups (IMPROVEMENT §2.4 + §6 W5 bonus)"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   TMP=$(mktemp -d); cd "$TMP"
 
   # Live exec writes a JSONL entry with run_id (32-char hex) and request_id (req-1).
   # The integration test uses an httptest.Server, not a live network.
-  go test -run 'TestExecCmd_LogContainsRunIDAndRequestID' -v ./cmd/apitest/...
+  go test -run 'TestExecCmd_LogContainsRunIDAndRequestID' -v ./cmd/curlew/...
   # Expected: PASS — JSONL line contains run_id matching ^[0-9a-f]{32}$ and request_id == "req-1".
 
-  go test -run 'TestExecCmd_LogDryRun_RunIDPresent' -v ./cmd/apitest/...
+  go test -run 'TestExecCmd_LogDryRun_RunIDPresent' -v ./cmd/curlew/...
   # Expected: PASS — dry-run also emits a run_id.
 
   # Schema fields exist on JSONLEntry.
@@ -66,7 +66,7 @@ scope: |
   2. RequestID for exec is always 'req-1' (single-request).
 
   3. Update tests in internal/output/jsonl_test.go and the exec block of
-     cmd/apitest/main_test.go (TestExecCmd_logFileContent area).
+     cmd/curlew/main_test.go (TestExecCmd_logFileContent area).
 
   4. Doc updates: MANUAL.md §4.5 example, SPECIFICATION.md mention,
      CHANGELOG entry.
@@ -81,8 +81,8 @@ scope: |
   Files:
   - internal/output/jsonl.go (struct additions)
   - internal/output/ids.go or similar (run-id generator helper)
-  - cmd/apitest/main.go (exec command path populates new fields)
-  - internal/output/jsonl_test.go and cmd/apitest/main_test.go (new + updated tests)
+  - cmd/curlew/main.go (exec command path populates new fields)
+  - internal/output/jsonl_test.go and cmd/curlew/main_test.go (new + updated tests)
   - docs/SPECIFICATION.md, docs/MANUAL.md, CHANGELOG.md, IMPROVEMENT.md
 
   Not in scope:
@@ -97,7 +97,7 @@ definition_of_done:
   - "Exec invocations populate both fields (live and dry-run)"
   - "MANUAL.md §4.5 example shows the new fields"
   - "go test ./... passes"
-  - "go test -cover ./internal/output/... ./cmd/apitest/... >= 80%"
+  - "go test -cover ./internal/output/... ./cmd/curlew/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"

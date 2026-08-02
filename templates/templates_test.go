@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/templates"
+	"github.com/weiqigod/curlew/templates"
 )
 
 func TestWalk_ClaudeYieldsAllTopicFiles(t *testing.T) {
@@ -61,7 +61,7 @@ func TestWalk_UnknownSkillReturnsSentinel(t *testing.T) {
 
 func TestSkillRootDir_Claude(t *testing.T) {
 	got := templates.SkillRootDir("claude")
-	want := ".claude/skills/apitest"
+	want := ".claude/skills/curlew"
 	if got != want {
 		t.Errorf("SkillRootDir(claude) = %q, want %q", got, want)
 	}
@@ -72,10 +72,10 @@ func TestRender_ClaudeSubstitutesVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if !strings.Contains(got, "apitest 1.2.3") {
+	if !strings.Contains(got, "curlew 1.2.3") {
 		t.Errorf("expected version 1.2.3 in output, got:\n%s", got)
 	}
-	if strings.Contains(got, "{{apitest_version}}") {
+	if strings.Contains(got, "{{curlew_version}}") {
 		t.Errorf("untouched template token in output:\n%s", got)
 	}
 }
@@ -95,7 +95,7 @@ func TestRender_VersionCommentPresent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "<!-- apitest-skill: claude v1.0 (apitest 9.9.9) -->"
+	want := "<!-- curlew-skill: claude v1.0 (curlew 9.9.9) -->"
 	if !strings.Contains(got, want) {
 		t.Errorf("missing version comment %q in output:\n%s", want, got)
 	}
@@ -122,7 +122,7 @@ func TestIsSupportedSkill(t *testing.T) {
 
 func TestSkillRelativePath_Claude(t *testing.T) {
 	got := templates.SkillRelativePath("claude")
-	want := ".claude/skills/apitest/SKILL.md"
+	want := ".claude/skills/curlew/SKILL.md"
 	if got != want {
 		t.Errorf("SkillRelativePath(claude) = %q, want %q", got, want)
 	}

@@ -4,7 +4,7 @@
     <mj-section>
       <mj-column>
         <mj-text font-size="20px" font-weight="bold">
-          Your ApiTool account has been deleted
+          Your Curlew account has been deleted
         </mj-text>
         <mj-text>
           The account for {{user_email}} was permanently deleted on

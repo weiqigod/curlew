@@ -157,8 +157,8 @@ import (
 	"fmt"
 	"sort"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/jsonpath"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/jsonpath"
 )
 
 var (
@@ -424,7 +424,7 @@ func TestRun_extract(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -435,5 +435,5 @@ Observable verification:
 # Create a collection with extraction:
 # First request POSTs to httpbin.org/post (which echoes the body),
 # extracts a value, and second request uses it.
-./apitest run smoke/extract_collection.yaml
+./curlew run smoke/extract_collection.yaml
 ```

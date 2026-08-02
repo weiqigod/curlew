@@ -86,8 +86,8 @@ Review PASS trusted (round 2), spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +39/-4 |
-| `cmd/apitest/main_test.go` | modified | +198 |
+| `cmd/curlew/main.go` | modified | +39/-4 |
+| `cmd/curlew/main_test.go` | modified | +198 |
 | `internal/runner/runner.go` | modified | +7/-1 |
 | `internal/runner/runner_test.go` | modified | +161/-42 |
 | `internal/variable/variable.go` | modified | +15 |

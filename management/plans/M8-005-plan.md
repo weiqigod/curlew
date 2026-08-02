@@ -85,7 +85,7 @@ byte-identical to M8-004.
   would (a) couple the runner to `os.Stderr` globally and (b) make tests
   flaky.
 - Cleanest injection: add an `io.Writer` field `Diagnostics` to `VarSources`.
-  When nil (zero-value default), no diagnostic is emitted. cmd/apitest
+  When nil (zero-value default), no diagnostic is emitted. cmd/curlew
   passes `stderr` (already threaded as `io.Writer` through `runCmd`).
   Tests pass a `*bytes.Buffer` and assert on it.
 - Verbosity: the task says "verbosity: normal and above". The runner has
@@ -110,7 +110,7 @@ byte-identical to M8-004.
 - Extension: after failing to find the producer in main, scan
   `fullSetupItems`. If found: enrich with a message explicitly tagged as a
   likely-analyzer-bug path. Suffix: `" (producer was in setup but the
-  minimal-setup analysis did not include it — this is likely an apitest
+  minimal-setup analysis did not include it — this is likely an curlew
   bug; please report)"`.
 - This path is unreachable when the analyzer is correct, because setup
   producers referenced by the selection would be included in the closure.
@@ -445,7 +445,7 @@ if len(vars.Selection) > 0 {
 			// was skipped.
 			if vars.Diagnostics != nil {
 				_, _ = fmt.Fprintf(vars.Diagnostics,
-					"apitest: --only minimal-setup analysis failed (%s); running full setup\n",
+					"curlew: --only minimal-setup analysis failed (%s); running full setup\n",
 					strings.Join(graph.Errors, "; "),
 				)
 			}
@@ -805,7 +805,7 @@ func enrichSelectionCliff(err error, fullMainItems []parser.RequestItem, selecti
 // when --only is active, checks whether the missing variable's producer is a
 // filtered-out main item. When the producer is not found in fullMainItems, it
 // additionally scans fullSetupItems — in that case the analyzer missed a
-// {{variable}} reference, which is a likely apitest bug; the enriched error
+// {{variable}} reference, which is a likely curlew bug; the enriched error
 // notes that. Returns err unchanged when Selection is empty, when the error
 // is not an undefined-variable error, or when no producer is found.
 func enrichSelectionCliff(err error, fullMainItems, fullSetupItems []parser.RequestItem, selection []string) error {
@@ -871,7 +871,7 @@ func enrichSelectionCliff(err error, fullMainItems, fullSetupItems []parser.Requ
 			continue
 		}
 		msg := fmt.Sprintf(
-			"variable {{%s}} is not defined; normally extracted from setup request %q which was pruned by --only (the minimal-setup analyser did not detect a reference; this is likely an apitest bug — please report)",
+			"variable {{%s}} is not defined; normally extracted from setup request %q which was pruned by --only (the minimal-setup analyser did not detect a reference; this is likely an curlew bug — please report)",
 			varName, it.Name,
 		)
 		hint := fmt.Sprintf(
@@ -937,7 +937,7 @@ func TestRunner_OnlyCliff_SetupProducer(t *testing.T) {
 	if !strings.Contains(enriched.Error(), "pruned by --only") {
 		t.Errorf("expected error to mention pruning, got: %s", enriched.Error())
 	}
-	if !strings.Contains(enriched.Error(), "likely an apitest bug") {
+	if !strings.Contains(enriched.Error(), "likely an curlew bug") {
 		t.Errorf("expected error to flag as a likely bug, got: %s", enriched.Error())
 	}
 	// Must still wrap the original error for errors.Is.
@@ -953,15 +953,15 @@ func TestRunner_OnlyCliff_SetupProducer(t *testing.T) {
 
 ---
 
-### Step 5: Wire stderr through cmd/apitest
+### Step 5: Wire stderr through cmd/curlew
 **Rationale:** Smallest change in the cmd layer. Connect existing `stderr io.Writer` to `VarSources.Diagnostics` so the fallback diagnostic reaches the user.
 
 #### Files to Modify
 
 | File                           | Action | Description                                                                                |
 |--------------------------------|--------|--------------------------------------------------------------------------------------------|
-| `cmd/apitest/main.go`          | modify | Add `Diagnostics: stderr,` to the three VarSources constructions on lines 611, 1001, 1291. |
-| `cmd/apitest/main_test.go`     | modify | Add `TestRun_OnlyAnalyzerFallback_StderrDiagnostic` (integration test).                     |
+| `cmd/curlew/main.go`          | modify | Add `Diagnostics: stderr,` to the three VarSources constructions on lines 611, 1001, 1291. |
+| `cmd/curlew/main_test.go`     | modify | Add `TestRun_OnlyAnalyzerFallback_StderrDiagnostic` (integration test).                     |
 
 #### Current Code (main.go:1291 example)
 ```go
@@ -1024,7 +1024,7 @@ Insert after the existing "In watch mode" paragraph:
 variables are transitively referenced by the selected request. Setup items with
 no `extract:` block are treated as pure seeders and always run. This speeds up
 the inner loop when your setup phase is large but the request under test only
-needs a subset. If apitest cannot analyse the dependency graph (e.g. duplicate
+needs a subset. If curlew cannot analyse the dependency graph (e.g. duplicate
 producers), it falls back to running the full setup and prints a one-line
 warning on stderr.
 ```
@@ -1052,8 +1052,8 @@ None (docs-only). Verification is via smoke test and manual read.
 | `internal/runner/runner_test.go`       | `TestRunner_OnlyFilter`                  | unchanged   | Must still pass (regression).                     |
 | `internal/runner/runner_test.go`       | `TestRun_OnlyVariableCliff`              | signature   | `enrichSelectionCliff` gains a param — not a public concern, but check no test dependency on old signature. |
 | `internal/runner/runner_test.go`       | `TestFilterMainItems`                    | unchanged   | No change.                                        |
-| `cmd/apitest/main_test.go`             | `TestRun_OnlyAnalyzerFallback_StderrDiagnostic` | new  | Add; RED→GREEN in Step 5.                         |
-| `cmd/apitest/main_test.go`             | `TestParseRunArgs_Only` and friends      | unchanged   | No wiring change for arg parsing.                  |
+| `cmd/curlew/main_test.go`             | `TestRun_OnlyAnalyzerFallback_StderrDiagnostic` | new  | Add; RED→GREEN in Step 5.                         |
+| `cmd/curlew/main_test.go`             | `TestParseRunArgs_Only` and friends      | unchanged   | No wiring change for arg parsing.                  |
 
 ---
 
@@ -1067,7 +1067,7 @@ None (docs-only). Verification is via smoke test and manual read.
 - **Edge case: `col.Setup.Items` is empty.** → **Handling:** The new branch's `if len(col.Setup.Items) > 0` guard skips analysis entirely; `prunedSetup` stays as the empty slice. No overhead.
 - **Edge case: `filtered` is identical to `col.Requests.Items` (--only lists every main item).** → **Handling:** The closure still runs but the shape reduces to "keep every setup item referenced plus no-extract" — identical to the default case when only one or two setup items lack extracts. No bug; just a tautological reduction. Behaviour: matches user expectation.
 - **Risk: Shallow-copy of `col.Setup` drops a shared `Retry` pointer accidentally.** → **Mitigation:** Mirror the existing `parser.Section{Retry: col.Requests.Retry, Items: filtered}` line exactly; `Retry` is a pointer and is re-threaded explicitly (not dereferenced). Verified by reading parser.Section struct at collection.go:125-128.
-- **Risk: Watch mode subtly regresses because --only is re-parsed on every file event.** → **Mitigation:** The task YAML explicitly notes `apitest watch` just re-invokes run with the same --only args — propagation is transparent. The cmd layer doesn't change its watch wiring. Verified by TestWatch_OnlyPropagates at main_test.go:8482.
+- **Risk: Watch mode subtly regresses because --only is re-parsed on every file event.** → **Mitigation:** The task YAML explicitly notes `curlew watch` just re-invokes run with the same --only args — propagation is transparent. The cmd layer doesn't change its watch wiring. Verified by TestWatch_OnlyPropagates at main_test.go:8482.
 
 ---
 
@@ -1107,7 +1107,7 @@ fullSetupForCliff []parser.RequestItem // runner-internal, callers leave nil
 
 Build / test / lint / smoke:
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 go test -run 'TestParallel_AncestorClosure|TestRunner_OnlyPrunesSetup|TestRunner_OnlyPrunesSetup_ChainedProducers|TestRunner_OnlyPrunesSetup_NoExtractSeeder|TestRunner_OnlyPrunesSetup_AnalyzerFallback|TestRunner_OnlyCliff_SetupProducer' ./...
 go test -cover ./internal/parallel/... ./internal/runner/...
@@ -1118,28 +1118,28 @@ go test -cover ./internal/parallel/... ./internal/runner/...
 
 Observable (case 1 — closure skips Seed users / Seed posts):
 ```bash
-./apitest run collections/multi.yaml --only "Get user" --events run.ndjson
+./curlew run collections/multi.yaml --only "Get user" --events run.ndjson
 jq -c 'select(.kind=="request.start") | .name' run.ndjson
 # Expected: "Login", "Warm cache", "Get user"
 ```
 
 Observable (case 2 — chained producers traverse setup→setup):
 ```bash
-./apitest run collections/multi.yaml --only "List posts" --events run.ndjson
+./curlew run collections/multi.yaml --only "List posts" --events run.ndjson
 jq -c 'select(.kind=="request.start") | .name' run.ndjson
 # Expected: "Seed users", "Seed posts", "Warm cache", "List posts"
 ```
 
 Observable (case 3 — analyser-invalid fallback):
 ```bash
-./apitest run collections/ambiguous.yaml --only "Get user" 2>stderr.log
+./curlew run collections/ambiguous.yaml --only "Get user" 2>stderr.log
 grep 'minimal-setup analysis failed' stderr.log
 # Expected: diagnostic line present; all setup items execute.
 ```
 
 Observable (case 4 — no --only, no pruning):
 ```bash
-./apitest run collections/multi.yaml
+./curlew run collections/multi.yaml
 # Expected: all 4 setup items run, both main items run.
 ```
 

@@ -39,21 +39,21 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 	}
 	if editor == "" {
 		writeAPIError(w, http.StatusConflict, "no_editor", "no editor configured",
-			"set ui.editor in apitest.yaml or $APITEST_EDITOR", nil)
+			"set ui.editor in curlew.yaml or $CURLEW_EDITOR", nil)
 		return
 	}
 
 	args := buildEditorArgs(editor, abs, body.Line)
 	if len(args) == 0 {
 		writeAPIError(w, http.StatusConflict, "no_editor", "editor command is empty",
-			"set ui.editor in apitest.yaml or $APITEST_EDITOR", nil)
+			"set ui.editor in curlew.yaml or $CURLEW_EDITOR", nil)
 		return
 	}
 	cmd := exec.Command(args[0], args[1:]...) //nolint:gosec // user-configured editor command, localhost-only server
 	cmd.Dir = s.opts.Root
 	if err := cmd.Start(); err != nil {
 		writeAPIError(w, http.StatusConflict, "no_editor", "could not launch editor: "+err.Error(),
-			"set ui.editor in apitest.yaml or $APITEST_EDITOR", nil)
+			"set ui.editor in curlew.yaml or $CURLEW_EDITOR", nil)
 		return
 	}
 	go func() { _ = cmd.Wait() }() // reap; non-zero editor exit is not detected

@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/output/events"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/output/events"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // EmitterSink implements runner.EventSink by forwarding to an events.Emitter.
@@ -21,7 +21,7 @@ import (
 // before they are emitted into the NDJSON stream, matching the same redaction
 // applied to terminal/JSON/TAP/JUnit output formatters.
 //
-// Moved out of cmd/apitest (where it was the unexported eventsAdapter)
+// Moved out of cmd/curlew (where it was the unexported eventsAdapter)
 // unchanged in behavior, including the assertion-failure sentinel injection.
 type EmitterSink struct {
 	em             *events.Emitter
@@ -34,7 +34,7 @@ type EmitterSink struct {
 // NewEmitterSink creates an EmitterSink wrapping the given emitter.
 // sensitive may be nil (treated as an empty set — no body redaction).
 // allowSensitive mirrors the --allow-sensitive flag; service callers
-// (apitest ui) always pass false.
+// (curlew ui) always pass false.
 func NewEmitterSink(em *events.Emitter, errOut io.Writer, sensitive *variable.SensitiveSet, allowSensitive bool) *EmitterSink {
 	return &EmitterSink{em: em, errOut: errOut, sensitive: sensitive, allowSensitive: allowSensitive}
 }

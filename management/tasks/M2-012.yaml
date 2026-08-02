@@ -9,9 +9,9 @@ dependencies:
   - M2-011
 
 observable: |
-  Run `apitest watch tests.yaml` and modify the collection.
+  Run `curlew watch tests.yaml` and modify the collection.
   Confirm the terminal clears and shows re-run results with clear timestamps.
-  Run `apitest watch tests.yaml --format json` and confirm JSON output per run.
+  Run `curlew watch tests.yaml --format json` and confirm JSON output per run.
   Run `go test ./internal/watch/...` for watch UX tests.
 
 behaviors:

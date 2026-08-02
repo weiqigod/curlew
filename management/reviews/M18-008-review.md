@@ -1,6 +1,6 @@
 # Code Review: M18-008
 
-**Task:** CLI telemetry emitter: internal/telemetry package, persistent install_id, `apitest telemetry` subcommand
+**Task:** CLI telemetry emitter: internal/telemetry package, persistent install_id, `curlew telemetry` subcommand
 **Reviewer:** AI
 **Date:** 2026-05-19
 **Branch:** feature/M18-008-cli-telemetry-emitter
@@ -44,12 +44,12 @@ Both resolved in improve pass 2.
 | Naming | PASS | No stuttering. Short names in tight scopes, descriptive at package level. All exported types and functions carry doc comments. Package name lowercase single-word. No dead exported API. |
 | Code Organization | PASS | `internal/backend` import forbidden by CI grep guard (verified active in `scripts/ci-local.sh:115`). `defer` used for response body close and context cancellation. Single responsibility per file. `internal/` encapsulation respected throughout. |
 | Correctness | PASS | Atomic writes via tmp+rename pattern. Both files enforced mode 0600 after rename. Ring buffer capped at 10 (newest-first). 2s telemetry timeout bounded so run exit time is not delayed. Session UUID distinct from install_id. `delete-request` handles offline gracefully — local files removed regardless of POST outcome. |
-| Test Quality | PASS | 29 tests in `internal/telemetry` (≥18 required). 20 tests in `cmd/apitest` telemetry files. All 9 task YAML behaviors covered. `go test -race` passes. `uuidRE` consistent across packages. New edge-case tests added in iteration 3: `TestTelemetryCmd_DeleteRequestOnFreshDir`, `TestTelemetryCmd_DisableOnFreshDir`, `TestStoreDisableOnFreshDir` directly exercise the fixed paths. |
+| Test Quality | PASS | 29 tests in `internal/telemetry` (≥18 required). 20 tests in `cmd/curlew` telemetry files. All 9 task YAML behaviors covered. `go test -race` passes. `uuidRE` consistent across packages. New edge-case tests added in iteration 3: `TestTelemetryCmd_DeleteRequestOnFreshDir`, `TestTelemetryCmd_DisableOnFreshDir`, `TestStoreDisableOnFreshDir` directly exercise the fixed paths. |
 
 ## Test Coverage
 - Coverage (`internal/telemetry`): **82.0%** (meets ≥80% requirement)
 - Tests in `internal/telemetry`: **29** (meets ≥18 requirement; 33 counting subtests)
-- Tests total (including `cmd/apitest` telemetry files): **49**
+- Tests total (including `cmd/curlew` telemetry files): **49**
 
 ## Spec Compliance
 

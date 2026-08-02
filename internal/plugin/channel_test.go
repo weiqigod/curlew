@@ -204,7 +204,7 @@ func TestHost_LoadForRun_KeepsChannelsAlive(t *testing.T) {
 	lsp := &loopSpawner{handle: func(req rpcRequest) rpcResponse {
 		callCount++
 		switch req.Method {
-		case "apitest/hello":
+		case "curlew/hello":
 			return rpcResponse{
 				Result: json.RawMessage(`{"name":"loopplugin","version":"1.0","hooks":["on_request"],"protocol_version":1}`),
 			}
@@ -230,7 +230,7 @@ func TestHost_LoadForRun_KeepsChannelsAlive(t *testing.T) {
 	defer channels[0].Close() //nolint:errcheck
 
 	// Make a second call over the same channel to verify it's still alive.
-	_, err = channels[0].Call(context.Background(), "apitest/on_request", json.RawMessage(`{}`))
+	_, err = channels[0].Call(context.Background(), "curlew/on_request", json.RawMessage(`{}`))
 	if err != nil {
 		t.Fatalf("second call: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestHost_LoadForRun_ReturnsChannelsParallelToPlugins(t *testing.T) {
 
 	makeLoop := func(name string) *loopSpawner {
 		return &loopSpawner{handle: func(req rpcRequest) rpcResponse {
-			if req.Method == "apitest/hello" {
+			if req.Method == "curlew/hello" {
 				return rpcResponse{
 					Result: json.RawMessage(`{"name":"` + name + `","version":"1.0","hooks":[],"protocol_version":1}`),
 				}
@@ -289,7 +289,7 @@ func TestHost_Close_TerminatesRunningChannels(t *testing.T) {
 
 	closedCh := make(chan struct{}, 1)
 	lsp := &loopSpawner{handle: func(req rpcRequest) rpcResponse {
-		if req.Method == "apitest/hello" {
+		if req.Method == "curlew/hello" {
 			return rpcResponse{
 				Result: json.RawMessage(`{"name":"killme","version":"1.0","hooks":[],"protocol_version":1}`),
 			}

@@ -18,7 +18,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/graphql_test.yaml
+$ ./curlew run /tmp/graphql_test.yaml
 Collection: GraphQL Test
 [ERROR] GraphQL protocol support requires Professional tier ($19/month)
 Exit code: 6

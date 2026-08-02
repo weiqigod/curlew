@@ -29,7 +29,7 @@ No findings.
 - `internal/parser`: 89.3%
 - `internal/runner`: 86.2%
 - `internal/auth`: 88.9%
-- `cmd/apitest`: 83.8%
+- `cmd/curlew`: 83.8%
 
 All packages exceed the >= 80% threshold.
 
@@ -55,7 +55,7 @@ Remaining sub-function gaps (not findings — all acceptable):
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS (all 27 packages) |
 | `go test -race ./internal/assertion/... ./internal/parser/... ./internal/runner/...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |

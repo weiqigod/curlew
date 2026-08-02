@@ -95,8 +95,8 @@ Review PASS trusted (round 2), spot-check clean.
 | `internal/parser/testdata/with_variables.yaml` | create | +9 |
 | `internal/runner/runner.go` | modify | +35/-13 |
 | `internal/runner/runner_test.go` | modify | +265/-21 |
-| `cmd/apitest/main.go` | modify | +4/-2 |
-| `cmd/apitest/main_test.go` | modify | +135 |
+| `cmd/curlew/main.go` | modify | +4/-2 |
+| `cmd/curlew/main_test.go` | modify | +135 |
 | `smoke/run.sh` | modify | +35 |
 
 ## Issues Found

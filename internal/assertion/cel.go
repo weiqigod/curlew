@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	celgo "github.com/google/cel-go/cel"
-	apicel "github.com/peterlindqvist/apitest/internal/cel"
+	apicel "github.com/weiqigod/curlew/internal/cel"
 )
 
 // CELInput describes one CEL assertion to evaluate.

@@ -13,7 +13,7 @@
 | 3 | Medium | No test exercises multi-shard iteration — the primary worker loop (claim → complete → claim → complete → 204) was completely untested | Added `TestRun/two_shards_then_204` sub-test: 2 shards (3 requests + 2 requests), asserts `ShardsCompleted==2`, `TotalPass==5`, both "Completed" lines in stdout, and 2 `SubmitResult` calls | ✓ tests pass |
 | 4 | Low | Dead code: redundant `errors.Is(err, ErrUnauthorized)` inner branch in `Run` — both branches returned `(summary, err)` identically | Collapsed to a single `return summary, err` without the inner `errors.Is` check | ✓ tests pass |
 | 5 | Low | `_ []int` (expected status codes) parameter in `doWithRetry` silently discarded — misleading API | Removed the parameter entirely and updated all three call sites (`Claim`, `SubmitResult`, `Heartbeat`) | ✓ tests pass |
-| 6 | Low | `containsStr` in `internal/worker/worker_test.go` and `containsSubstr` in `cmd/apitest/worker_test.go` are manual reimplementations of `strings.Contains` | Replaced both helpers with `strings.Contains` (added `"strings"` import to both files, removed helper functions) | ✓ tests pass |
+| 6 | Low | `containsStr` in `internal/worker/worker_test.go` and `containsSubstr` in `cmd/curlew/worker_test.go` are manual reimplementations of `strings.Contains` | Replaced both helpers with `strings.Contains` (added `"strings"` import to both files, removed helper functions) | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -23,7 +23,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage (`internal/worker`) | 91.6% |

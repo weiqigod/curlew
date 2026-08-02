@@ -13,8 +13,8 @@ This edition encodes the fifteen load-bearing decisions resolved in `docs/M18_IN
 - **Audit-log bulk export.** New "Audit Log Export & Retention" top-level section. The existing `?format=csv` handler at `AuditLogEndpoints.cs:76-82` is lifted into a bulk-export shape: `MaxLimit=200` cap removed for `format ∈ {csv, jsonl}`; `Transfer-Encoding: chunked` streaming; JSONL added alongside CSV; Enterprise tier gate via `AuditLogExportTierGate` (using the M16 `ITierGate` foundation); new `audit_log.export` RBAC permission. Async-job export model deferred — sync streaming covers ~1M rows comfortably.
 - **Audit-log retention + RBAC.** Per-org `audit_log_retention_days` column (default 365, capped at 365 for non-Enterprise). New `AuditLogCleanupHost : BackgroundService` runs daily, hard-deletes rows past retention. New `audit_log.view` and `audit_log.export` permissions added to RBAC; hardcoded Owner/Admin gate at `AuditLogQueryService.cs:24` lifted to permission check; new "Security Auditor" custom-role template carries `audit_log.view` only (separation-of-duties evidence for SOC 2).
 - **GDPR data subject rights (full).** New "GDPR Data Subject Rights (Full)" top-level section. Extends the prior coverage at `:6643–6710` (which addressed telemetry only) to the full per-user data surface. **Export:** `POST /api/v1/users/me/export-requests` queues a build of a JSON bundle limited strictly to data-subject's own attributable rows across 13 user-attributable tables (enumerated); `GET /api/v1/users/me/export-requests/{id}` returns signed-URL pointer (24h expiry) backed by `IObjectStore` (S3/GCS); rate-limited 1/user/24h. **Deletion:** `User.PendingDeletionAt` + `User.AnonymisedAt` columns; 30-day cooldown matching `:6671`; re-authentication required (password re-entry within last 5 minutes); `UserDeletionFinalizerHost : BackgroundService` finalizes past cooldown; email notifications on initiation AND on completion. **Anonymisation function:** `IUserAnonymiser` replaces `ActorId` with NULL and `ActorEmail` with deterministic `deleted-user-{first8(sha256(user_id+org_id))}` across audit-log entries; irreversible; the act of anonymisation emits a `user.anonymised` audit event preserving the audit-of-audit trail. **Last-admin protection** extends the existing `OwnerCannotLeave` check to user-delete trigger sites.
-- **Telemetry Phase 3 implementation (supersedes per-session-UUID model).** Prior versions specified a per-execution session UUID at `:6374`. v4.4 reverses this to a **persistent install ID** — anonymous UUID generated on first run, stored at `~/.config/apitesttool/install_id` (mode 0600), regeneratable via `apitest telemetry reset-id`, deleted when `apitest telemetry delete-request` finalizes. The session UUID is preserved as a per-execution sub-identifier nested inside the install-ID's events; both layers ship. The change is justified by the conversion-funnel analytics utility — the session-only model cannot distinguish "one user ran the CLI 10 times" from "10 users ran it once," which makes the whole telemetry pipeline near-useless for the questions Phase 3 was designed to answer. Lawful basis remains opt-in consent per GDPR Article 6(1)(a). New "Telemetry Phase 3 Implementation Pipeline" top-level section covers: backend ingest endpoint (`POST /api/v1/telemetry/events`, anonymous, idempotency-keyed, 64KB body cap, per-`install_id` rate-limit); `telemetry_events` table + `telemetry_daily_aggregates` rollup (`TelemetryAggregatorHost` daily); 90-day raw-event retention per `:6604`; CLI emitter as new `internal/telemetry/` package with dedicated HTTP client (no Bearer, does not share `internal/backend/client.go`); `apitest telemetry {enable, disable, status, reset-id, export, delete-request}` subcommand. **M18 scope:** Phase 3 only. Phase 1 sends nothing per the spec's existing position (no work); Phase 2 (registration UX) splits to a post-M18 follow-up; the team-side analytics dashboard splits to a post-M18 follow-up.
-- **Encryption-at-rest extension (v2).** New "Encryption-at-Rest Extension (v2)" top-level section. Closes both open encryption-at-rest deferrals: `team_vaults.template_jsonb` (v3-10) and `schedules.env_vars` sensitive values (spec `:11057`). Reuses the existing `IKmsClient` envelope pattern at `Licensing/Keys/IKmsClient.cs:8-43`. New `TeamVaultKeyProvider` and `ScheduleEnvKeyProvider` clone `GoogleKmsGitLabKeyProvider`'s per-row DEK + KMS-wrapped KEK pattern. Single migration adds ciphertext + DEK-ciphertext columns to both tables, backfills, drops plaintext columns after verification. The v3-10 manifest-validator stays — encryption is added in addition. Self-hosted-without-KMS path keeps the file-provider fallback. Signing-key plaintext fallback decision: kept as deployment-mode-dependent (self-hosted may opt out via `APITEST_SIGNING_KEY_MODE=file`); SaaS production builds add a CI lint asserting `SELECT COUNT(*) FROM signing_keys WHERE kms_key_id IS NULL = 0` (build fails otherwise).
+- **Telemetry Phase 3 implementation (supersedes per-session-UUID model).** Prior versions specified a per-execution session UUID at `:6374`. v4.4 reverses this to a **persistent install ID** — anonymous UUID generated on first run, stored at `~/.config/curlew/install_id` (mode 0600), regeneratable via `curlew telemetry reset-id`, deleted when `curlew telemetry delete-request` finalizes. The session UUID is preserved as a per-execution sub-identifier nested inside the install-ID's events; both layers ship. The change is justified by the conversion-funnel analytics utility — the session-only model cannot distinguish "one user ran the CLI 10 times" from "10 users ran it once," which makes the whole telemetry pipeline near-useless for the questions Phase 3 was designed to answer. Lawful basis remains opt-in consent per GDPR Article 6(1)(a). New "Telemetry Phase 3 Implementation Pipeline" top-level section covers: backend ingest endpoint (`POST /api/v1/telemetry/events`, anonymous, idempotency-keyed, 64KB body cap, per-`install_id` rate-limit); `telemetry_events` table + `telemetry_daily_aggregates` rollup (`TelemetryAggregatorHost` daily); 90-day raw-event retention per `:6604`; CLI emitter as new `internal/telemetry/` package with dedicated HTTP client (no Bearer, does not share `internal/backend/client.go`); `curlew telemetry {enable, disable, status, reset-id, export, delete-request}` subcommand. **M18 scope:** Phase 3 only. Phase 1 sends nothing per the spec's existing position (no work); Phase 2 (registration UX) splits to a post-M18 follow-up; the team-side analytics dashboard splits to a post-M18 follow-up.
+- **Encryption-at-rest extension (v2).** New "Encryption-at-Rest Extension (v2)" top-level section. Closes both open encryption-at-rest deferrals: `team_vaults.template_jsonb` (v3-10) and `schedules.env_vars` sensitive values (spec `:11057`). Reuses the existing `IKmsClient` envelope pattern at `Licensing/Keys/IKmsClient.cs:8-43`. New `TeamVaultKeyProvider` and `ScheduleEnvKeyProvider` clone `GoogleKmsGitLabKeyProvider`'s per-row DEK + KMS-wrapped KEK pattern. Single migration adds ciphertext + DEK-ciphertext columns to both tables, backfills, drops plaintext columns after verification. The v3-10 manifest-validator stays — encryption is added in addition. Self-hosted-without-KMS path keeps the file-provider fallback. Signing-key plaintext fallback decision: kept as deployment-mode-dependent (self-hosted may opt out via `CURLEW_SIGNING_KEY_MODE=file`); SaaS production builds add a CI lint asserting `SELECT COUNT(*) FROM signing_keys WHERE kms_key_id IS NULL = 0` (build fails otherwise).
 - **Compliance artifact inventory.** New "Compliance Artifact Inventory" top-level section. M18 produces evidence inputs to the SOC 2 / ISO 27001 audit; the audit engagement itself is a business-process initiative outside the milestone framework. Inputs produced: `docs/COMPLIANCE.md` umbrella; `docs/security/{info-sec-policy.md,access-review-policy.md,incident-response-runbook.md,data-classification-matrix.md,data-inventory.md,vendor-inventory.md,data-flow-customer.md,data-flow-internal.md}`. Vendor inventory covers Stripe, SendGrid, Google KMS, AWS, GitHub Apps, GitLab with data shared / retention / breach-notification SLA / vendor SOC 2 status. First vendor pen-test orchestrated as part of the milestone; remediation log lands as `docs/security/pentest-YYYY-Q.md`. Pen-test cadence: annual.
 - **Carry-along triage.** GHES support (spec `:9076` "M18 or later") — moved to a future Enterprise-features milestone, NOT M18. Faker locale code-vs-spec drift (REVIEW.md §1c) — filed as a separate small follow-up milestone (`faker_locale_completion`, provisional M20); spec at `:949–994` is already complete. Hourly-rollup view (`:10241`) and p99 trends (`:10245`) — out of M18 scope.
 
@@ -25,9 +25,9 @@ This edition encodes the eleven load-bearing decisions resolved in `docs/M16_INV
 - **Auth model resolution.** v4.2.1 carried a stale "magic-link" sentence in the Security Implementation section that conflicted with the existing Argon2id password store. v4.3 resolves to **traditional password + email-verification + password-reset-via-token** flow. Magic link is retired as a design direction; the device-code grant from v4.2 remains for CLI auth, web auth uses email/password.
 - **Password reset + email verification flow.** New "Password Reset & Email Verification" top-level section. Time-bound, single-use, hash-stored tokens (`password_reset_tokens`, `email_verification_tokens` tables); 30-minute reset-token lifetime, 24-hour verification-token lifetime; per-email and per-IP rate limits via existing `Internal/RateLimit`; identical responses for existence-leak defense; verification gates `POST /api/v1/subscriptions/checkout` only — free use is unblocked. The `password_reset` and `trial_expiring` SendGrid templates (deferred from M14) ship in M16.
 - **Trial data model.** New `trials` table; uniqueness scope is **per-(user, feature)** globally — one trial per feature per user, ever. The 14-day full trial at registration sets `trial_state = active` for all features; per-feature 7-day on-demand trials apply only to features the user did NOT consume during the 14-day window. Tier upgrade transitions trials to `trial_state = expired` (the upgrade obviates the trial). `trial_expiring` cron runs daily, queues 3-day-out and 1-day-out reminder emails.
-- **Schedule execution model.** **Self-hosted runner** chosen — option (b) from the M16 investigation. The CLI's existing `apitest worker` mode (M11) gains a `--schedule-pull` flag; workers poll `GET /api/v1/schedules/next-run`, execute the collection locally, post results via `POST /api/v1/schedules/{run_id}/results`. Backend-resident execution is deliberately rejected: it would require embedding the Go runner in the .NET backend or running the CLI as a subprocess from the backend container, and would shift the security blast radius from the customer's VPC to ours. `schedules.timezone` column added (IANA TZ identifier; default `UTC`); `scheduled_runs.result_id` FK added.
+- **Schedule execution model.** **Self-hosted runner** chosen — option (b) from the M16 investigation. The CLI's existing `curlew worker` mode (M11) gains a `--schedule-pull` flag; workers poll `GET /api/v1/schedules/next-run`, execute the collection locally, post results via `POST /api/v1/schedules/{run_id}/results`. Backend-resident execution is deliberately rejected: it would require embedding the Go runner in the .NET backend or running the CLI as a subprocess from the backend container, and would shift the security blast radius from the customer's VPC to ours. `schedules.timezone` column added (IANA TZ identifier; default `UTC`); `scheduled_runs.result_id` FK added.
 - **GitLab Commit Status API integration.** New section parallel to "GitHub Checks API Integration." **Project Access Token (PAT) auth** chosen for M16 — the customer creates a PAT with `api` scope on each integrated project and pastes it into our dashboard. OAuth App and GitLab App models are deferred. Self-managed GitLab is supported via per-org `gitlab_base_url`. Webhook ingestion uses HMAC-SHA256 with per-webhook secrets; `gitlab_installations` and `gitlab_webhook_events` tables mirror the GitHub schema. `gitlab.com` and self-managed instances supported; GitLab Dedicated and GitLab Cloud Native are out of scope.
-- **Shared vault backend propagation.** "Layer 4" rewritten end-to-end. New `team_vaults` table (org-scoped, JSONB-encoded coordinates; **plaintext-with-coordinate-validation** model — vault provider *coordinates* (e.g., `aws-secrets-manager arn:...`) are stored as JSONB; actual secret values never live in our DB). Backend endpoints `GET/PUT/DELETE /api/v1/organizations/{orgId}/vault-config` with `vault_config.manage`/`vault_config.view` RBAC. CLI fetches via `apitest license --refresh` or implicitly on `apitest run` start, caches at `~/.config/apitesttool/team_vault.json` with 5-minute TTL. **Enforcement closed at the `APITEST_TEAM_CONFIG` load site**: the `shared_vault_templates` feature gate is now consulted at runtime (closes the registered-but-not-enforced revenue leak identified in REVIEW.md item 14).
+- **Shared vault backend propagation.** "Layer 4" rewritten end-to-end. New `team_vaults` table (org-scoped, JSONB-encoded coordinates; **plaintext-with-coordinate-validation** model — vault provider *coordinates* (e.g., `aws-secrets-manager arn:...`) are stored as JSONB; actual secret values never live in our DB). Backend endpoints `GET/PUT/DELETE /api/v1/organizations/{orgId}/vault-config` with `vault_config.manage`/`vault_config.view` RBAC. CLI fetches via `curlew license --refresh` or implicitly on `curlew run` start, caches at `~/.config/curlew/team_vault.json` with 5-minute TTL. **Enforcement closed at the `CURLEW_TEAM_CONFIG` load site**: the `shared_vault_templates` feature gate is now consulted at runtime (closes the registered-but-not-enforced revenue leak identified in REVIEW.md item 14).
 - **Tier-gate generic abstraction.** v4.2.1's `SsoTierGate.EnsureEnterpriseAsync` lifted to a generic `ITierGate.EnsureAsync(orgId, requiredTier, ct)` in `src/ApiTool.Backend/Internal/TierGates/`. `SsoTierGate` and the M16 new gates (`ScheduleExecutorTierGate`, `VaultConfigTierGate`, `DashboardTierGate`) all become call-site adapters over the single canonical implementation. RFC 7807 error mapping is centralized: tier-mismatch returns `402 Payment Required` for authenticated endpoints with the org's tier embedded, `404 Not Found` with `Cache-Control: no-store` for unauthenticated public endpoints (mirrors M15-002's pattern).
 - **Dashboard response schemas.** "Test Results Dashboard" section pinned with concrete schemas for `GET /organizations/{orgId}/results/stats` and `/results/failures`. Daily aggregation; 30-day default window with `?window=7d|30d|90d` selector; failure taxonomy is per-`(method, path_template)` over the selected window, sorted by failure count, top 10. Health metrics (p95 latency, error-rate trend) deferred to a future milestone — M16 ships pass-rate trends and frequently-failing endpoints only.
 - **Trial JWT claim consumption (CLI side).** [internal/license/jwt.go](internal/license/jwt.go) `Claims` struct gains `trial_state` and `trial_expiry` fields with `omitempty`; new `Claims.IsTrialActiveFor(feature string) bool` accessor consulted at every premium-feature gate in [internal/auth/registry.go](internal/auth/registry.go). One-line struct change but a strict prerequisite for any feature gate that consults trial state.
@@ -44,7 +44,7 @@ This edition encodes the ten load-bearing decisions resolved in `docs/M14_INVEST
 - **Three-token model:** License JWT (30 days valid + 14-day grace, offline-verified), Access token (1 hour, online), Refresh token (90-day sliding / 365-day absolute, opaque). The `LicenseCache` interface is replaced by two distinct claim shapes plus a separate cache file.
 - **Signing-key storage:** new `IKeyProvider` interface with `FileKeyProvider` (`deploy/self-hosted/`) and `GoogleKmsKeyProvider` (SaaS, FIPS 140-2 Level 3 HSM tier). 90-day rotation cadence; 60-day verification window for old keys. JWKS endpoint renamed to `/api/v1/.well-known/jwks.json` (RFC 8615). New `signing_keys` table.
 - **Refresh-token model:** opaque tokens with rotation-on-every-use, family revocation on reuse detection (RFC 9700 §4.14), CLI single-flight `flock` to prevent concurrent-invocation races, hybrid OS-keychain + encrypted-file storage. The `refresh_tokens` schema is replaced (new `family_id` / `parent_id` / `rotated_at` columns).
-- **CLI ↔ backend contract:** new section. Bearer JWT auth scheme, device-code login (RFC 8628) with browser auto-open when interactive, RFC 7807 Problem Details error model, exit-code taxonomy for `apitest license --refresh`. The unified `/auth/refresh` endpoint mints all three tokens in one round-trip; there is no separate `/api/v1/license/issue`.
+- **CLI ↔ backend contract:** new section. Bearer JWT auth scheme, device-code login (RFC 8628) with browser auto-open when interactive, RFC 7807 Problem Details error model, exit-code taxonomy for `curlew license --refresh`. The unified `/auth/refresh` endpoint mints all three tokens in one round-trip; there is no separate `/api/v1/license/issue`.
 - **Stripe webhook idempotency:** Postgres-backed `stripe_webhook_events` table (not Redis); 9 events; 5-failure retry budget then quarantine; event-ordering defense (handlers re-fetch from Stripe); multi-secret rotation via `STRIPE__WEBHOOK_SECRETS`.
 - **Stripe test strategy:** three layers — unit (`FakeStripeGateway`), integration (`stripe-mock` Docker container in CI), smoke (Stripe test mode pre-release).
 - **SendGrid template pipeline:** in-repo MJML + JSON manifest source-of-truth; CI uploads templates to SendGrid on tagged release; 6-template M14 inventory (`email_verification`, `auth_device_code`, `billing_receipt`, `billing_payment_failed`, `billing_subscription_canceled`, `account_security_alert`); template-injection prevention via manifest-allowlisted variables.  
@@ -390,7 +390,7 @@ This edition encodes the ten load-bearing decisions resolved in `docs/M14_INVEST
     - [Login Flow — Device-Code Grant (RFC 8628)](#login-flow--device-code-grant-rfc-8628)
     - [Endpoint Reference](#endpoint-reference)
     - [Error Model — RFC 7807 Problem Details](#error-model--rfc-7807-problem-details)
-    - [CLI Exit-Code Taxonomy — `apitest license --refresh`](#cli-exit-code-taxonomy--apitest-license---refresh)
+    - [CLI Exit-Code Taxonomy — `curlew license --refresh`](#cli-exit-code-taxonomy--curlew-license---refresh)
   - [GitHub Checks API Integration](#github-checks-api-integration)
     - [Threat Model](#threat-model)
     - [Architecture Overview](#architecture-overview)
@@ -498,7 +498,7 @@ Focus on validation over exploration: comprehensive test suites with reliable re
 
 | Persona | Role | Primary Need | Workflow | Recommended Tier | Key Features |
 |---------|------|--------------|----------|------------------|--------------|
-| **Sarah (Developer)** | Backend developer testing REST APIs | Speed & simplicity; quick endpoint verification throughout development | Inline collections in single file; runs frequently via `apitest run` | Free | CLI integration, rapid test feedback |
+| **Sarah (Developer)** | Backend developer testing REST APIs | Speed & simplicity; quick endpoint verification throughout development | Inline collections in single file; runs frequently via `curlew run` | Free | CLI integration, rapid test feedback |
 | **Marcus (QA Tester)** | QA engineer with hundreds of regression tests | Organization & reporting; detailed bug reports for non-technical stakeholders | Extracted reusable requests; organized collections by scenario | Professional | Parallel execution, HTML reports |
 | **Priya (DevOps)** | CI/CD pipeline integration | Reliability & integration; headless execution, proper exit codes, machine-readable output | Isolated environments, modular collections, standard output formats | Professional | Exit codes, JSON/XML output, parallel execution, no-interaction mode |
 
@@ -595,7 +595,7 @@ New protocols implement the adapter interface with: protocol-specific namespace,
 
 **Simple project:**
 ```
-apitest.yaml
+curlew.yaml
 quick_test.yaml
 environments/
   dev.yaml
@@ -605,7 +605,7 @@ environments/
 
 **Mature project:**
 ```
-apitest.yaml
+curlew.yaml
 environments/
   dev.yaml
   staging.yaml
@@ -629,10 +629,10 @@ collections/
 schemas/
   user_schema.json
 .env
-.apitestignore
+.curlewignore
 ```
 
-`apitest.yaml` is required and defines project-level settings. Collections (YAML files) define workflows, starting inline and naturally extracting to `requests/` directory. `environments/` holds environment-specific variables. `schemas/` stores JSON Schemas for response validation (premium). `.apitestignore` works like `.gitignore`. `.env` stores local secrets.
+`curlew.yaml` is required and defines project-level settings. Collections (YAML files) define workflows, starting inline and naturally extracting to `requests/` directory. `environments/` holds environment-specific variables. `schemas/` stores JSON Schemas for response validation (premium). `.curlewignore` works like `.gitignore`. `.env` stores local secrets.
 
 ### Data Flow During Test Execution
 
@@ -675,7 +675,7 @@ flowchart TD
 
 **Exit 6 Example:**
 ```bash
-apitest run suite.yaml --non-interactive --format json
+curlew run suite.yaml --non-interactive --format json
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 6 ]; then
   # Parse JSON for feature gate details
@@ -686,7 +686,7 @@ fi
 
 Precedence (lowest to highest):
 1. Dynamic functions (`{{$timestamp}}`, `{{$uuid}}`)
-2. Global variables (apitest.yaml)
+2. Global variables (curlew.yaml)
 3. Environment variables (environments/dev.yaml)
 4. Local secrets (.env)
 5. from_command values (Solo tier)
@@ -698,8 +698,8 @@ Precedence (lowest to highest):
 
 **--env-var Usage:**
 ```bash
-apitest run tests.yaml --env-var API_KEY --env-var DB_HOST
-apitest run tests.yaml --env-var API_KEY=$CI_API_KEY
+curlew run tests.yaml --env-var API_KEY --env-var DB_HOST
+curlew run tests.yaml --env-var API_KEY=$CI_API_KEY
 ```
 
 ### Variable Sensitivity and Security
@@ -835,9 +835,9 @@ Redacted in output as `[REDACTED]`.
 ### Reproducibility with Seeding
 
 ```bash
-apitest run tests.yaml --seed 12345      # Same seed = identical values
-apitest run tests.yaml --seed 12345      # Same results
-apitest run tests.yaml                   # No seed = truly random
+curlew run tests.yaml --seed 12345      # Same seed = identical values
+curlew run tests.yaml --seed 12345      # Same results
+curlew run tests.yaml                   # No seed = truly random
 ```
 
 Seeding affects: `$randomInt`, `$randomFloat`, `$randomString`, `$uuid`, `$faker.*`. Timestamp functions use real time unless `--fixed-time` specified.
@@ -961,9 +961,9 @@ Redacted in outputs as `[REDACTED]`.
 ### Localization Support
 
 ```bash
-apitest run tests.yaml --locale de-DE  # German
-apitest run tests.yaml --locale fr-FR  # French
-apitest run tests.yaml --locale ja-JP  # Japanese
+curlew run tests.yaml --locale de-DE  # German
+curlew run tests.yaml --locale fr-FR  # French
+curlew run tests.yaml --locale ja-JP  # Japanese
 ```
 
 **Supported Locales:**
@@ -990,7 +990,7 @@ apitest run tests.yaml --locale ja-JP  # Japanese
 
 **Locale in Config:**
 ```yaml
-# apitest.yaml (project-wide)
+# curlew.yaml (project-wide)
 config:
   locale: "de-DE"
 
@@ -1010,8 +1010,8 @@ config:
 Same seed = identical output across runs, platforms, and tool versions:
 
 ```bash
-apitest run tests.yaml --seed 12345  # Run 1: "Sarah Johnson"
-apitest run tests.yaml --seed 12345  # Run 2: "Sarah Johnson" (identical)
+curlew run tests.yaml --seed 12345  # Run 1: "Sarah Johnson"
+curlew run tests.yaml --seed 12345  # Run 2: "Sarah Johnson" (identical)
 ```
 
 **Guarantees:**
@@ -1022,8 +1022,8 @@ apitest run tests.yaml --seed 12345  # Run 2: "Sarah Johnson" (identical)
 
 **Seed + Locale:** Independent—seed controls selection within locale pool.
 ```bash
-apitest run tests.yaml --seed 12345 --locale en-US   # "Sarah"
-apitest run tests.yaml --seed 12345 --locale de-DE   # "Sophie" (same position)
+curlew run tests.yaml --seed 12345 --locale en-US   # "Sarah"
+curlew run tests.yaml --seed 12345 --locale de-DE   # "Sophie" (same position)
 ```
 
 ### Parametric Functions
@@ -1281,7 +1281,7 @@ extract:
 
 Variable resolution precedence (lowest to highest):
 1. Dynamic functions (`{{$timestamp}}`, `{{$uuid}}`)
-2. Global variables (`apitest.yaml`)
+2. Global variables (`curlew.yaml`)
 3. Environment variables
 4. Local secrets (`.env`)
 5. Collection variables
@@ -1604,7 +1604,7 @@ retry:
 
 ### Global Configuration
 
-Place in `apitest.yaml` `defaults` section. Conservative defaults: disabled by default, idempotent methods only.
+Place in `curlew.yaml` `defaults` section. Conservative defaults: disabled by default, idempotent methods only.
 
 ### Collection-Level Configuration
 
@@ -1652,7 +1652,7 @@ From lowest (defaults) to highest (overrides):
 
 ```mermaid
 flowchart BT
-    A["Built-in Defaults"] --> B["Global Config<br/>apitest.yaml"]
+    A["Built-in Defaults"] --> B["Global Config<br/>curlew.yaml"]
     B --> C["Section-Level<br/>setup/requests/teardown"]
     C --> D["Collection-Level"]
     D --> E["Request-Level"]
@@ -1819,7 +1819,7 @@ retry_on:
   # status_ranges: ["5xx"]     # equivalent to "500-599"
 ```
 
-Ranges that fail to parse are rejected by `apitest validate` as errors — they are never silently ignored.
+Ranges that fail to parse are rejected by `curlew validate` as errors — they are never silently ignored.
 
 **Default retriable codes**: 429 (rate limit), 502 (gateway error), 503 (unavailable), 504 (gateway timeout).
 
@@ -2271,7 +2271,7 @@ Fields are URL-encoded as key=value pairs. Arrays and objects not supported.
 
 #### File Path Resolution
 
-Paths resolve relative to project root (directory containing apitest.yaml). Absolute paths generate warnings if outside project directory. Path traversal (e.g., `../../../../etc/passwd`) is blocked. Dynamic paths support variable interpolation.
+Paths resolve relative to project root (directory containing curlew.yaml). Absolute paths generate warnings if outside project directory. Path traversal (e.g., `../../../../etc/passwd`) is blocked. Dynamic paths support variable interpolation.
 
 #### Content-Type Auto-Detection
 
@@ -2302,7 +2302,7 @@ Warning threshold: 100MB. Hard limit: 500MB. These limits apply across all tiers
 
 Response body in-memory limit: 50MB per response (truncated beyond this). Warning at 10MB. `save_to` directive bypasses in-memory limit by streaming to disk. Data-driven accumulation capped at 100MB.
 
-Configurable in apitest.yaml:
+Configurable in curlew.yaml:
 ```yaml
 limits:
   max_response_body_mb: 50
@@ -2368,7 +2368,7 @@ Terminal output shows file metadata without contents. JSON output includes multi
 
 #### Parallel Execution with File Uploads
 
-File uploads are safe in parallel mode. File reads performed once per request (read-only). Temporary files have unique names: `apitest-temp-{request-id}-{timestamp}.dat`. No race conditions.
+File uploads are safe in parallel mode. File reads performed once per request (read-only). Temporary files have unique names: `curlew-temp-{request-id}-{timestamp}.dat`. No race conditions.
 
 #### Integration with Other Features
 
@@ -2551,7 +2551,7 @@ GraphQL's unique error model: HTTP 200 responses can contain errors. Three scena
 
 Partial success configuration:
 ```yaml
-# Global in apitest.yaml
+# Global in curlew.yaml
 graphql:
   error_handling:
     partial_success: fail      # Default: fail on any errors
@@ -2964,13 +2964,13 @@ Connection errors: Failed to establish connection (server down, incorrect URL, f
 
 ### Command Structure and Philosophy
 
-Commands follow intuitive structure: `apitest <command> <target> [flags]`. Core commands: `run` (execute tests), `validate` (check collections), `list` (show available items), `watch` (auto-rerun on changes).
+Commands follow intuitive structure: `curlew <command> <target> [flags]`. Core commands: `run` (execute tests), `validate` (check collections), `list` (show available items), `watch` (auto-rerun on changes).
 
 ### Dependency Visualization Command
 
 Visualize test dependencies with DOT format:
 ```bash
-apitest run --show-dependencies --export-graph deps.dot user_tests.yaml
+curlew run --show-dependencies --export-graph deps.dot user_tests.yaml
 ```
 
 Generates dependency graph showing request relationships. Abbreviated DOT format example:
@@ -2987,16 +2987,16 @@ Used in CI/CD with Graphviz to generate PNG visualizations.
 
 ### Request Selection (--only)
 
-`apitest run` accepts a repeatable `--only "<name>"` flag to run exactly the
+`curlew run` accepts a repeatable `--only "<name>"` flag to run exactly the
 named main requests. Setup and teardown phases always run in full regardless of
 `--only`. The flag can be repeated to form a union:
 
 ```bash
 # Run only the "Get user" request (setup + teardown still run)
-apitest run tests.yaml --only "Get user"
+curlew run tests.yaml --only "Get user"
 
 # Run "Get user" and "Update user" (union selection)
-apitest run tests.yaml --only "Get user" --only "Update user"
+curlew run tests.yaml --only "Get user" --only "Update user"
 ```
 
 Values are exact, case-sensitive matches against main request names. Whitespace
@@ -3024,7 +3024,7 @@ Hint:  Add the producer to --only (e.g. --only "Get user" --only "Update user")
 
 **Duplicate name rejection:** Duplicate main request names in a collection are
 rejected at parse time (exit 3) with a line-numbered error. This invariant is
-enforced by `apitest run`, `apitest watch`, and `apitest validate` automatically.
+enforced by `curlew run`, `curlew watch`, and `curlew validate` automatically.
 
 **Data-driven requests:** When a data-driven request is selected, all its
 declared iterations run. Per-iteration filtering is V2 scope.
@@ -3050,7 +3050,7 @@ parallel), the runner falls back to the full setup and emits a one-line
 diagnostic on stderr:
 
 ```
-apitest: --only minimal-setup analysis failed (<reason>); running full setup
+curlew: --only minimal-setup analysis failed (<reason>); running full setup
 ```
 
 ### Debugging Failed Dependencies
@@ -3080,7 +3080,7 @@ To debug:
 
 Parallel execution dry run simulates without HTTP:
 ```bash
-apitest run user_tests.yaml --parallel --dry-run --show-dependencies
+curlew run user_tests.yaml --parallel --dry-run --show-dependencies
 
 Collection: user_tests.yaml (dry run mode - no HTTP requests)
 
@@ -3100,21 +3100,21 @@ Exit code: 0
 
 ### Project Initialization
 
-`apitest init [dir]` scaffolds a new ApiTool project. The default scaffold
-creates `apitest.yaml`, `.gitignore`, `.env.example`, `environments/dev.yaml`,
+`curlew init [dir]` scaffolds a new Curlew project. The default scaffold
+creates `curlew.yaml`, `.gitignore`, `.env.example`, `environments/dev.yaml`,
 and `collections/sample.yaml`. Two flags extend the scaffold for declarative
 output and agent-driven workflows.
 
 #### `--output <format>` flag
 
-Selects the `output:` block written to `apitest.yaml`. Accepts the same enum
-as `apitest run --format`: `terminal` (default), `json`, `tap`, `junit`,
+Selects the `output:` block written to `curlew.yaml`. Accepts the same enum
+as `curlew run --format`: `terminal` (default), `json`, `tap`, `junit`,
 `html`, `markdown`. Each format's scaffolded block carries a default
 `report:` path appropriate to the format (e.g. `report.html` for `html`,
 `responses/` for `markdown`). Unknown values exit 3 with an error naming the
 supported enum.
 
-The flag is independent of `apitest run --format`: `--output` is the
+The flag is independent of `curlew run --format`: `--output` is the
 *scaffolded* default; `--format` at run time always wins per the
 CLI > collection > project > built-in precedence (see §Output Block).
 
@@ -3122,28 +3122,28 @@ CLI > collection > project > built-in precedence (see §Output Block).
 
 Scaffolds an agent-driven workflow alongside the standard project files. v1
 ships with one skill, `claude`, which targets Claude Code's skill loader. The
-flag is opt-in; bare `apitest init` is byte-identical to its pre-M10
+flag is opt-in; bare `curlew init` is byte-identical to its pre-M10
 behaviour.
 
 When `--skill claude` is passed, three additional things happen:
 
-1. `.claude/skills/apitest/SKILL.md` is written with the embedded skill
+1. `.claude/skills/curlew/SKILL.md` is written with the embedded skill
    template. The template carries trigger phrases, the canonical
    invocation form, the artifact tree, narration discipline, and a
-   per-exit-code failure playbook. The `{{apitest_version}}` token is
+   per-exit-code failure playbook. The `{{curlew_version}}` token is
    substituted at scaffold time.
-2. The `output:` block written to `apitest.yaml` defaults to
+2. The `output:` block written to `curlew.yaml` defaults to
    `format: markdown` (when `--output` is not also passed) and gains an
-   `events: .apitest/run.ndjson` line. This makes the skill's claims
+   `events: .curlew/run.ndjson` line. This makes the skill's claims
    about default artifact paths self-true at scaffold time — the agent
    does not need to know about `--format markdown --report responses/
-   --events .apitest/run.ndjson` because the YAML declares them.
-3. `.gitignore` gains a `.apitest/` entry alongside `.env`.
+   --events .curlew/run.ndjson` because the YAML declares them.
+3. `.gitignore` gains a `.curlew/` entry alongside `.env`.
 
-If a `.claude/skills/apitest/SKILL.md` already exists, it is left
-untouched (matches the `apitest.yaml` no-overwrite rule). The skill is
+If a `.claude/skills/curlew/SKILL.md` already exists, it is left
+untouched (matches the `curlew.yaml` no-overwrite rule). The skill is
 checked in to the user's repo so they can edit it freely; subsequent
-`apitest init --skill claude` runs are no-ops on the skill file.
+`curlew init --skill claude` runs are no-ops on the skill file.
 
 The agent-driven workflow is walked through with a worked example in
 MANUAL.md §4.9. The original design rationale is preserved in
@@ -3154,7 +3154,7 @@ MANUAL.md §4.9. The original design rationale is preserved in
 Two collection JSON Schemas are published in-repo at stable paths so
 editors with YAML schema support (e.g. `redhat.vscode-yaml`) can drive
 autocomplete, hover documentation, and inline validation without any
-extension specific to ApiTool.
+extension specific to Curlew.
 
 **Published paths.**
 
@@ -3165,10 +3165,10 @@ extension specific to ApiTool.
   variable-entry object form (`{from_command | value, sensitive, cache}`),
   and the `assertions.status` `oneOf[integer, array[integer]]` with values
   in 100–599.
-- `schemas/project-v1.json` — `apitest.yaml` project file grammar.
+- `schemas/project-v1.json` — `curlew.yaml` project file grammar.
 
 The files are byte copies of the embedded `internal/schema/*.json` schemas
-used at runtime by `apitest validate`; `go:embed` keeps the in-repo and
+used at runtime by `curlew validate`; `go:embed` keeps the in-repo and
 embedded copies in lockstep.
 
 **VS Code wiring.**
@@ -3177,7 +3177,7 @@ embedded copies in lockstep.
 {
   "yaml.schemas": {
     "./schemas/collection-v1.json": "collections/*.yaml",
-    "./schemas/project-v1.json":    "apitest.yaml"
+    "./schemas/project-v1.json":    "curlew.yaml"
   }
 }
 ```
@@ -3371,9 +3371,9 @@ or human-owned region and a CLI-owned region delimited by HTML comment
 sentinels:
 
 ```markdown
-<!-- BEGIN apitest:response id=req-3 slug=get-user run=abc123def456... -->
+<!-- BEGIN curlew:response id=req-3 slug=get-user run=abc123def456... -->
 ... CLI-owned 10-section block ...
-<!-- END apitest:response id=req-3 slug=get-user run=abc123def456... -->
+<!-- END curlew:response id=req-3 slug=get-user run=abc123def456... -->
 ```
 
 The opening and closing sentinels carry all three IDs. Re-running the
@@ -3459,7 +3459,7 @@ its payload. Colour on stderr follows the TTY/`NO_COLOR` rules
 independently of stdout's format.
 
 **Test discipline.** Stream segregation is enforced by a stream-discipline
-matrix test (`cmd/apitest/main_test.go`) that captures stdout and stderr
+matrix test (`cmd/curlew/main_test.go`) that captures stdout and stderr
 separately for every command path and asserts each stream carries only
 its declared content. Shipped via M7-001 through M7-005.
 
@@ -3798,13 +3798,13 @@ Fix: Simplify your variable chain or define intermediate values directly.
 
 The `.env` file provides local secrets that overlay on top of environment variables. The loading mechanics are:
 
-**Discovery:** The engine searches for `.env` in the project root (the directory containing `apitest.yaml`). Only this single location is checked — there is no upward directory traversal. If no `.env` file exists, loading silently succeeds with no variables added.
+**Discovery:** The engine searches for `.env` in the project root (the directory containing `curlew.yaml`). Only this single location is checked — there is no upward directory traversal. If no `.env` file exists, loading silently succeeds with no variables added.
 
 **Parse rules:** The `.env` file uses standard dotenv format: one `KEY=VALUE` pair per line. Lines starting with `#` are comments. Empty lines are ignored. Values may be optionally quoted with single or double quotes; quotes are stripped from the value. Inline comments after values are NOT supported (the `#` is treated as part of the value). Multi-line values are not supported. The file must be UTF-8 encoded.
 
 **Precedence interaction:** `.env` variables sit at precedence level 3, above environment file variables (level 2) and below collection variables (level 4). When both an environment file and `.env` define the same key, the `.env` value wins. When both `.env` and a collection variable define the same key, the collection variable wins. Environment variables from the OS shell (e.g., `export FOO=bar`) are NOT automatically loaded — only the `.env` file and explicitly defined variable sources participate in the precedence chain.
 
-**Validation on init:** When `apitest init` creates a new project, it must create a `.gitignore` file (or append to an existing one) containing `.env`. It must also create a `.env.example` file with placeholder values and a comment explaining that `.env` should never be committed.
+**Validation on init:** When `curlew init` creates a new project, it must create a `.gitignore` file (or append to an existing one) containing `.env`. It must also create a `.env.example` file with placeholder values and a comment explaining that `.env` should never be committed.
 
 ### Assertion Evaluation
 
@@ -4516,7 +4516,7 @@ Execution Flow:
 
 **Scenario**:
 ```yaml
-# In apitest.yaml
+# In curlew.yaml
 auth_profiles:
   admin_token:
     type: dynamic
@@ -5202,7 +5202,7 @@ Without parallel: ~3600ms (sum of all requests)
 When using `--parallel` with mixed protocols, verbose output shows protocol-specific execution:
 
 ```bash
-apitest run mixed_test.yaml --parallel 4 --verbose
+curlew run mixed_test.yaml --parallel 4 --verbose
 ```
 
 Output includes protocol indicators:
@@ -5240,12 +5240,12 @@ License enforcement uses **feature gating** rather than request counting. The to
 
 **Authentication methods:**
 
-For non-interactive use (CI/CD, AI agents), the `APITEST_API_KEY` environment variable provides authentication without browser-based login. This is available from Phase 1:
+For non-interactive use (CI/CD, AI agents), the `CURLEW_API_KEY` environment variable provides authentication without browser-based login. This is available from Phase 1:
 
 ```bash
 # CI/CD pipeline authentication
-export APITEST_API_KEY=at_live_abc123def456
-apitest run tests.yaml --non-interactive --format json
+export CURLEW_API_KEY=at_live_abc123def456
+curlew run tests.yaml --non-interactive --format json
 ```
 
 **Token structure:**
@@ -5393,7 +5393,7 @@ Schema definition:
 Fix: Change variable type to Float
   mutation CreateProduct($price: Float!) { ... }
 
-Tip: Use 'apitest validate' to check schema compatibility before running tests
+Tip: Use 'curlew validate' to check schema compatibility before running tests
 ```
 
 For fragment dependency errors:
@@ -5533,9 +5533,9 @@ A key design principle is that test organization emerges naturally from usage pa
 
 Users typically start by creating a collection file with inline request definitions. Everything is in one place, easy to understand, and quick to iterate on. As they build more collections, they notice duplication—the same login request appears in multiple collections, or similar user creation requests differ only in test data.
 
-The `extract` command facilitates refactoring by automating the mechanical work of moving inline requests to external files. When a user runs `apitest extract user_tests.yaml --request "Admin Login" --output requests/auth/admin_login.yaml`, the tool creates the external file with the request definition, updates the collection to reference it, and ensures variable dependencies are preserved.
+The `extract` command facilitates refactoring by automating the mechanical work of moving inline requests to external files. When a user runs `curlew extract user_tests.yaml --request "Admin Login" --output requests/auth/admin_login.yaml`, the tool creates the external file with the request definition, updates the collection to reference it, and ensures variable dependencies are preserved.
 
-Interactive extraction could prompt users when duplication is detected. After running collections, if the tool notices that the same or very similar request definitions appear in multiple files, it could suggest extraction. For example, "Notice: The 'Admin Login' request appears in 3 collections. Consider extracting it with: apitest extract user_tests.yaml --request 'Admin Login' --output requests/auth/admin_login.yaml"
+Interactive extraction could prompt users when duplication is detected. After running collections, if the tool notices that the same or very similar request definitions appear in multiple files, it could suggest extraction. For example, "Notice: The 'Admin Login' request appears in 3 collections. Consider extracting it with: curlew extract user_tests.yaml --request 'Admin Login' --output requests/auth/admin_login.yaml"
 
 The reverse operation should also be possible. If a user has extracted a request but only uses it in one place, they might want to inline it for simplicity. The `inline` command would take an external reference and replace it with the full inline definition, essentially undoing an extraction.
 
@@ -5556,7 +5556,7 @@ Example test projects for common APIs help users get started quickly. Providing 
 
 ## Secret Management Architecture
 
-This section defines the complete secret management strategy for apitest. The fundamental design principle is **integration-only**: apitest never stores, transmits, or manages secrets. It integrates with the developer's existing secret infrastructure, eliminating the security liability of hosting a secrets vault and removing compliance burden.
+This section defines the complete secret management strategy for curlew. The fundamental design principle is **integration-only**: curlew never stores, transmits, or manages secrets. It integrates with the developer's existing secret infrastructure, eliminating the security liability of hosting a secrets vault and removing compliance burden.
 
 ### Design Philosophy
 
@@ -5575,7 +5575,7 @@ BEARER_TOKEN=eyJhbGciOi...
 API_KEY=sk_test_abc123
 
 # Via CLI — injects from CI environment
-apitest run tests.yaml --env-var API_KEY --env-var DB_PASSWORD
+curlew run tests.yaml --env-var API_KEY --env-var DB_PASSWORD
 ```
 
 ### Layer 2: from_command (Solo Tier, $9/month)
@@ -5606,7 +5606,7 @@ The `from_command` source works with any tool that can output a value to stdout.
 Vault provider profiles provide declarative, structured integration with major secret management platforms. Instead of writing raw CLI commands, users declare their vault provider and the tool handles authentication, retrieval, caching, and credential refresh:
 
 ```yaml
-# In apitest.yaml or environment file
+# In curlew.yaml or environment file
 secrets:
   provider: aws-secrets-manager
   region: eu-west-1
@@ -5669,9 +5669,9 @@ All vault provider profile variables are automatically marked as `sensitive: tru
 
 ### Layer 4: Shared Vault Configuration Templates (Team Tier, $39/month)
 
-For teams, vault provider configurations need to be shared across team members without each person configuring their own profiles. The Team tier provides shared vault configuration templates that describe how to connect to the team's vault infrastructure. v4.3 specifies the full backend storage and propagation model — through M14, only local-file delivery (`APITEST_TEAM_CONFIG`) was supported.
+For teams, vault provider configurations need to be shared across team members without each person configuring their own profiles. The Team tier provides shared vault configuration templates that describe how to connect to the team's vault infrastructure. v4.3 specifies the full backend storage and propagation model — through M14, only local-file delivery (`CURLEW_TEAM_CONFIG`) was supported.
 
-**Storage model — plaintext-with-coordinate-validation.** The `team_vaults` table stores vault provider *coordinates* (e.g., `aws-secrets-manager` ARN paths, Azure Key Vault names, 1Password vault IDs), not the secrets themselves. The actual secret values remain in the customer's vault provider; ApiTool's CLI fetches them at runtime via the configured provider profile, identical to the Solo-tier path. Because the stored content is *coordinates* and not *secrets*, encryption-at-rest is not strictly required. v4.3 ships plaintext JSONB storage with a mandatory manifest validator that rejects any submitted template containing fields named `password`, `secret`, `token`, `key` *with non-coordinate values* (heuristic: a value matching `^[A-Za-z0-9+/=._-]{16,}$` that is not a recognized provider coordinate pattern is rejected as a likely literal secret). Server-side AES-256-GCM under a KMS-wrapped DEK is deferred to M18 if customer regulatory requirements emerge.
+**Storage model — plaintext-with-coordinate-validation.** The `team_vaults` table stores vault provider *coordinates* (e.g., `aws-secrets-manager` ARN paths, Azure Key Vault names, 1Password vault IDs), not the secrets themselves. The actual secret values remain in the customer's vault provider; Curlew's CLI fetches them at runtime via the configured provider profile, identical to the Solo-tier path. Because the stored content is *coordinates* and not *secrets*, encryption-at-rest is not strictly required. v4.3 ships plaintext JSONB storage with a mandatory manifest validator that rejects any submitted template containing fields named `password`, `secret`, `token`, `key` *with non-coordinate values* (heuristic: a value matching `^[A-Za-z0-9+/=._-]{16,}$` that is not a recognized provider coordinate pattern is rejected as a likely literal secret). Server-side AES-256-GCM under a KMS-wrapped DEK is deferred to M18 if customer regulatory requirements emerge.
 
 **Template format** (the YAML structure shipped to and from the backend; identical to v4.2.1's local-file format):
 
@@ -5692,7 +5692,7 @@ team_secrets:
         db_password: staging-db-password
 ```
 
-**Per-environment overrides.** A team member running `apitest run --env staging-local` may override individual `keys` entries via local-file fallback (CLI checks `APITEST_TEAM_CONFIG` *after* the backend fetch and merges with backend-config-as-base, local-file-as-overlay). The override is intentional: it lets a developer point staging tests at their own personal secret without disturbing the team config. The backend config itself remains read-only from the CLI's perspective.
+**Per-environment overrides.** A team member running `curlew run --env staging-local` may override individual `keys` entries via local-file fallback (CLI checks `CURLEW_TEAM_CONFIG` *after* the backend fetch and merges with backend-config-as-base, local-file-as-overlay). The override is intentional: it lets a developer point staging tests at their own personal secret without disturbing the team config. The backend config itself remains read-only from the CLI's perspective.
 
 **Backend endpoints** (Team tier, gated by `vault_config.{view,manage}` RBAC permissions):
 
@@ -5704,18 +5704,18 @@ team_secrets:
 
 There is intentionally no `PATCH` endpoint — partial updates are error-prone for a YAML structure with arbitrary nesting. Clients fetch, edit, and PUT.
 
-**Tier gate enforcement (closes the registered-but-not-enforced revenue leak per REVIEW.md item 14).** The backend endpoints route through `VaultConfigTierGate` (an adapter over the generic `ITierGate.EnsureAsync` per "Tier-Gate Generic Abstraction"); orgs below Team tier receive `402 Payment Required` with the org's current tier embedded in the RFC 7807 problem detail. The CLI side enforces the same gate at the `APITEST_TEAM_CONFIG` load site in `internal/vault/teamtemplate/`: when the env var is set on a JWT with `tier ∉ {team, enterprise}` and `IsTrialActiveFor("shared_vault_templates")` is false, the CLI emits the standard feature-gated error per "Feature Gate Implementation" and exits with code 5 (feature gate). This closes the same class of leak as M15-001 (plugin loading) and M15-002 (SSO).
+**Tier gate enforcement (closes the registered-but-not-enforced revenue leak per REVIEW.md item 14).** The backend endpoints route through `VaultConfigTierGate` (an adapter over the generic `ITierGate.EnsureAsync` per "Tier-Gate Generic Abstraction"); orgs below Team tier receive `402 Payment Required` with the org's current tier embedded in the RFC 7807 problem detail. The CLI side enforces the same gate at the `CURLEW_TEAM_CONFIG` load site in `internal/vault/teamtemplate/`: when the env var is set on a JWT with `tier ∉ {team, enterprise}` and `IsTrialActiveFor("shared_vault_templates")` is false, the CLI emits the standard feature-gated error per "Feature Gate Implementation" and exits with code 5 (feature gate). This closes the same class of leak as M15-001 (plugin loading) and M15-002 (SSO).
 
 **CLI propagation pattern.** The backend-stored template is delivered to the CLI via the same auth surface as the License JWT, on a separate cache file:
 
-- **Cache location:** `~/.config/apitesttool/team_vault.json` (JSON envelope: `{ "fetched_at": <unix>, "version": <int>, "template": <object> }`).
-- **Refresh cadence:** **5-minute TTL** by default. `apitest license --refresh` forces a refetch. `apitest run` performs a stale-while-revalidate fetch: returns cached value immediately if within TTL; if stale and the backend is reachable, fetches in foreground (blocks the run by ≤2s — empirically negligible vs the cost of a real test run); if stale and the backend is unreachable, returns the cached value with a stderr warning. If no cache exists at all, blocks until fetched (failures here surface the same exit-code taxonomy as `--refresh` per CLI ↔ Backend Integration).
-- **Concurrent-invocation safety:** the same `flock` on `~/.config/apitesttool/refresh.lock` as the License JWT cache prevents thrash when many CI workers boot in parallel.
+- **Cache location:** `~/.config/curlew/team_vault.json` (JSON envelope: `{ "fetched_at": <unix>, "version": <int>, "template": <object> }`).
+- **Refresh cadence:** **5-minute TTL** by default. `curlew license --refresh` forces a refetch. `curlew run` performs a stale-while-revalidate fetch: returns cached value immediately if within TTL; if stale and the backend is reachable, fetches in foreground (blocks the run by ≤2s — empirically negligible vs the cost of a real test run); if stale and the backend is unreachable, returns the cached value with a stderr warning. If no cache exists at all, blocks until fetched (failures here surface the same exit-code taxonomy as `--refresh` per CLI ↔ Backend Integration).
+- **Concurrent-invocation safety:** the same `flock` on `~/.config/curlew/refresh.lock` as the License JWT cache prevents thrash when many CI workers boot in parallel.
 
 **Override precedence within Layer 4 itself** (the existing 10-level variable precedence is unchanged at the outer level; this is internal to Layer 4):
 
 1. Backend-fetched template (base).
-2. Local file at `APITEST_TEAM_CONFIG` if set (overlay; per-key merge — local file's keys replace backend's at the same path).
+2. Local file at `CURLEW_TEAM_CONFIG` if set (overlay; per-key merge — local file's keys replace backend's at the same path).
 3. CLI flags `--team-vault-key key=value` (rare; for ad-hoc CI overrides).
 
 When the CLI is offline and no cache exists, Layer 4 silently disables (the precedence chain proceeds to Layer 3 vault provider profiles). A clear stderr line tells the user the team vault is unavailable; the run does not fail.
@@ -5724,8 +5724,8 @@ When the CLI is offline and no cache exists, Layer 4 silently disables (the prec
 
 | CLI command | Endpoint | Notes |
 |---|---|---|
-| `apitest license --refresh` | implicit `GET /api/v1/organizations/{orgId}/vault-config` after `/auth/refresh` | Single round-trip refresh of all org-scoped state. |
-| (implicit during `apitest run`) | `GET /api/v1/organizations/{orgId}/vault-config` | Stale-while-revalidate per cache TTL above. |
+| `curlew license --refresh` | implicit `GET /api/v1/organizations/{orgId}/vault-config` after `/auth/refresh` | Single round-trip refresh of all org-scoped state. |
+| (implicit during `curlew run`) | `GET /api/v1/organizations/{orgId}/vault-config` | Stale-while-revalidate per cache TTL above. |
 
 The `team_vaults` schema is defined in the Database Schema appendix.
 
@@ -5757,7 +5757,7 @@ Registration is prompted when a user encounters a feature gate. The gate error i
   https://apitesttool.com/register
 
   Already registered? Log in:
-  apitest auth login
+  curlew auth login
 ```
 
 **JSON experience (for AI agents):**
@@ -5870,11 +5870,11 @@ The endpoint re-mints all three tokens so the user's CLI sees the new feature on
 
 **Expiry notification (M16 cron).** A daily background job (`TrialExpiryNotifier`) runs at 09:00 UTC. For every active trial expiring within the next 3 days (and not yet notified at 3-day mark), it queues a `trial_expiring` SendGrid email. Same job re-runs for the 1-day mark. The `trials` table tracks two `notified_*_at` columns to prevent duplicate emails. This template is one of the two SendGrid templates explicitly deferred from M14 (per Email Service Integration § "M14 Inventory").
 
-**CLI activation surface.** New subcommand `apitest license trial start <feature>` calls `POST /api/v1/trials/{feature}`, persists the new tokens, and prints a one-line confirmation. Help text under `apitest license --help`:
+**CLI activation surface.** New subcommand `curlew license trial start <feature>` calls `POST /api/v1/trials/{feature}`, persists the new tokens, and prints a one-line confirmation. Help text under `curlew license --help`:
 
 ```
   trial start <feature>   Activate a 7-day on-demand trial of <feature>.
-                          Use 'apitest info --tier' to see which features are
+                          Use 'curlew info --tier' to see which features are
                           available for trial. Trials are one-per-feature; once
                           consumed, the feature requires a paid subscription.
 ```
@@ -5903,7 +5903,7 @@ The free tier provides everything needed for basic CI/CD integration:
 # GitHub Actions — Free Tier
 - name: Run API Tests
   run: |
-    apitest run tests.yaml \
+    curlew run tests.yaml \
       --env staging \
       --env-var API_KEY \
       --format json \
@@ -5923,9 +5923,9 @@ The Solo tier adds features that strengthen CI/CD quality gates:
 # GitHub Actions — Solo Tier
 - name: Run API Tests
   env:
-    APITEST_API_KEY: ${{ secrets.APITEST_API_KEY }}
+    CURLEW_API_KEY: ${{ secrets.CURLEW_API_KEY }}
   run: |
-    apitest run tests.yaml \
+    curlew run tests.yaml \
       --env staging \
       --deterministic \
       --log test-results.jsonl \
@@ -5943,7 +5943,7 @@ The Solo tier adds features that strengthen CI/CD quality gates:
 The Professional tier enables production-grade CI/CD integration:
 - **Parallel execution** for faster pipeline runs (`--parallel 4` runs independent requests concurrently)
 - **Collection composition** via `include` for organizing large test suites that CI runs as a single unit
-- **Test discovery** via pattern matching (`apitest test "**/*_test.yaml"`)
+- **Test discovery** via pattern matching (`curlew test "**/*_test.yaml"`)
 - **Advanced retry** with exponential backoff for flaky environments
 - **OpenAPI import** for generating test collections from API specifications in CI
 
@@ -5951,9 +5951,9 @@ The Professional tier enables production-grade CI/CD integration:
 # GitHub Actions — Professional Tier
 - name: Run Full API Test Suite
   env:
-    APITEST_API_KEY: ${{ secrets.APITEST_API_KEY }}
+    CURLEW_API_KEY: ${{ secrets.CURLEW_API_KEY }}
   run: |
-    apitest test collections/ \
+    curlew test collections/ \
       --env staging \
       --parallel 4 \
       --format junit \
@@ -5983,13 +5983,13 @@ Scheduled test runs (Team tier) require a worker to execute the customer's colle
 
 ### Why Self-Hosted (and Not Backend-Resident)
 
-A backend-resident executor — where our backend runs `apitest run` against the customer's collection — was rejected for three reasons:
+A backend-resident executor — where our backend runs `curlew run` against the customer's collection — was rejected for three reasons:
 
 1. **Security blast radius.** A scheduled run hits whatever URLs the customer's collection points at. Running those calls from our IPs makes our infrastructure the source of every customer's outbound traffic; SOC 2 and compliance reviews would balloon.
-2. **Source-of-truth question.** The customer's `apitest.yaml` lives in their git repo. A backend-resident executor needs that YAML pushed to a `team_projects` table we maintain, which doubles the storage surface (results AND projects) for what's currently a single-purpose service.
+2. **Source-of-truth question.** The customer's `curlew.yaml` lives in their git repo. A backend-resident executor needs that YAML pushed to a `team_projects` table we maintain, which doubles the storage surface (results AND projects) for what's currently a single-purpose service.
 3. **Implementation cost.** The runner is Go, the backend is .NET. Embedding the runner means cross-compiling a Go library or running the CLI as a subprocess from the backend container. Both are weeks of plumbing for a feature that's stronger architected differently.
 
-The self-hosted runner reuses the existing distributed-worker infra from M11 (`apitest worker` mode for distributed perf testing). Scheduled runs are one more job type on the same pull-based queue.
+The self-hosted runner reuses the existing distributed-worker infra from M11 (`curlew worker` mode for distributed perf testing). Scheduled runs are one more job type on the same pull-based queue.
 
 ### Schedule Executor Architecture
 
@@ -6008,7 +6008,7 @@ The self-hosted runner reuses the existing distributed-worker infra from M11 (`a
 │                          │                  │     YAML from customer's │
 │                          │                  │     git/disk             │
 │                          │                  │   ↓                      │
-│                          │                  │   apitest run --collection
+│                          │                  │   curlew run --collection
 │                          │                  │     against customer URLs│
 │                          │                  │   ↓                      │
 │                          │                  │   POST /schedules/{id}/  │
@@ -6022,7 +6022,7 @@ The backend never sees the collection YAML and never makes outbound HTTP calls t
 
 ### Worker Operating Modes
 
-`apitest worker` already exists from M11 (distributed perf shards). v4.3 adds a `--schedule-pull` flag and the corresponding poll path. A single worker process can serve both modes; the same heartbeat / reaper / health-check infrastructure from M11 applies.
+`curlew worker` already exists from M11 (distributed perf shards). v4.3 adds a `--schedule-pull` flag and the corresponding poll path. A single worker process can serve both modes; the same heartbeat / reaper / health-check infrastructure from M11 applies.
 
 | Flag | Polls | Job claim endpoint | Result endpoint |
 |---|---|---|---|
@@ -6030,7 +6030,7 @@ The backend never sees the collection YAML and never makes outbound HTTP calls t
 | `--schedule-pull` (v4.3, new in M16) | Schedule run queue | `GET /api/v1/schedules/next-run` | `POST /api/v1/schedules/runs/{run_id}/result` |
 | `--all-modes` | Both queues | both | both |
 
-**Worker authentication.** The worker authenticates with the same `apitest login` access token as any CLI invocation. The org's owner runs `apitest login` on the worker host once; the refresh-token machinery from v4.2 handles long-running session lifetime. Workers are bound to one org; cross-org workers are not supported.
+**Worker authentication.** The worker authenticates with the same `curlew login` access token as any CLI invocation. The org's owner runs `curlew login` on the worker host once; the refresh-token machinery from v4.2 handles long-running session lifetime. Workers are bound to one org; cross-org workers are not supported.
 
 **Multi-worker coordination.** The same `claim_token` mechanism that prevents two perf workers from running the same shard prevents two schedule workers from running the same `scheduled_run`. The first worker to call `GET /schedules/next-run` for a given `scheduled_run.id` gets a 200 with the run details and the row transitions to `status = 'running'`; subsequent workers calling for the same run get a 409. Heartbeats every 30s; if a worker fails to heartbeat for 5 minutes, the `ShardReaper` (extended to also reap stale schedule runs) transitions the row back to `queued` and a different worker can claim.
 
@@ -6055,13 +6055,13 @@ Backend-stored collections (the `team_projects` model) are explicitly NOT in M16
 
 ### Secrets Propagation to the Worker
 
-A scheduled run needs the org's variables and secrets. The worker uses the same Layer 4 shared vault config it would use for an interactive `apitest run`:
+A scheduled run needs the org's variables and secrets. The worker uses the same Layer 4 shared vault config it would use for an interactive `curlew run`:
 
 1. On startup, the worker fetches `/api/v1/organizations/{orgId}/vault-config` and caches the template per the standard 5-minute TTL.
 2. On every claim, the worker uses the cached template (refreshing if stale) to resolve `{{secrets.*}}` references at runtime.
 3. The actual secret values are pulled from the customer's vault provider (AWS Secrets Manager, Azure Key Vault, etc.) by the worker, via the customer's IAM identity. **The backend never sees a secret value.**
 
-This is the same model as interactive CLI runs — the only thing different about a scheduled run is that a worker is on the other end of `--schedule-pull` instead of a developer typing `apitest run`.
+This is the same model as interactive CLI runs — the only thing different about a scheduled run is that a worker is on the other end of `--schedule-pull` instead of a developer typing `curlew run`.
 
 ### Cron Time Zone Handling
 
@@ -6072,7 +6072,7 @@ This is the same model as interactive CLI runs — the only thing different abou
 | Failure | Behaviour |
 |---|---|
 | Worker process dies mid-run | `ShardReaper` reaps after 5-minute heartbeat timeout; row returns to `queued`; next claim runs the schedule fresh. No automatic retry of failures-from-test-perspective (a 500-response from the customer's API is a *successful* schedule run with `pass_count=0, fail_count=N`). |
-| Backend unreachable when worker tries to post result | Worker retries with exponential backoff for up to 1 hour. If still unreachable, writes to `~/.config/apitesttool/pending-uploads/` (existing pattern from CLI ↔ Backend Integration). |
+| Backend unreachable when worker tries to post result | Worker retries with exponential backoff for up to 1 hour. If still unreachable, writes to `~/.config/curlew/pending-uploads/` (existing pattern from CLI ↔ Backend Integration). |
 | Schedule fires while previous run is still `running` | Backend skips creation of the new row. `schedules.last_run_at` is updated to track the firing; the dashboard displays "skipped — previous run still in progress." Stack-up is prevented by design. |
 | No worker available for an org | `scheduled_runs` rows accumulate in `queued` state. `Dashboard alerts` (M16 `team_email_notifications` per existing M4-008 pattern) include a warning when more than 5 runs are queued for >15 minutes. |
 
@@ -6232,7 +6232,7 @@ When a user first encounters a feature gate (e.g., attempting to use `from_comma
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Register for a free 14-day trial of all features:
-  apitest register
+  curlew register
 
 Or learn more: https://apitesttool.com/pricing
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -6358,7 +6358,7 @@ If survey shows:
 ║    ✗ No personally identifiable information                ║
 ║                                                            ║
 ║  Privacy policy: https://apitesttool.com/privacy           ║
-║  Opt out anytime: apitest telemetry disable                ║
+║  Opt out anytime: curlew telemetry disable                ║
 ╚════════════════════════════════════════════════════════════╝
 
   [Y] Yes, help improve    [N] No thanks    [L] Learn more
@@ -6386,11 +6386,11 @@ Your choice: _
 ##### Identity & Session Data (v4-8 Persistent Install ID Model)
 
 > **v4-8 supersession.** The per-execution session UUID at `:6374` is superseded by a
-> persistent `install_id` stored at `~/.config/apitesttool/install_id` (mode 0600).
+> persistent `install_id` stored at `~/.config/curlew/install_id` (mode 0600).
 > The session UUID is preserved as `session_id` nested inside each event's payload.
 > See §&nbsp;Telemetry Phase 3 Implementation Pipeline (`:11382`) for the wire contract.
 >
-> CLI commands: `apitest telemetry {enable, disable, status, reset-id, export, delete-request}`
+> CLI commands: `curlew telemetry {enable, disable, status, reset-id, export, delete-request}`
 
 ##### Session-Level Data (Collected Per Execution)
 
@@ -6541,7 +6541,7 @@ The following data is **never** collected under any circumstances:
 
 ```bash
 # View current telemetry status
-apitest telemetry status
+curlew telemetry status
 
 # Output:
 # Telemetry: enabled
@@ -6550,28 +6550,28 @@ apitest telemetry status
 # Last sent: 2025-01-15T10:30:00Z
 
 # Disable telemetry
-apitest telemetry disable
+curlew telemetry disable
 
 # Output:
 # Telemetry disabled.
 # No data will be collected or sent.
-# To re-enable: apitest telemetry enable
+# To re-enable: curlew telemetry enable
 
 # Enable telemetry
-apitest telemetry enable
+curlew telemetry enable
 
 # Output:
 # Telemetry enabled.
-# See what's collected: apitest telemetry show-data
+# See what's collected: curlew telemetry show-data
 # Privacy policy: https://apitesttool.com/privacy
 
 # View last telemetry payload (transparency)
-apitest telemetry show-data
+curlew telemetry show-data
 
 # Output: (shows the exact JSON that would be/was sent)
 
 # View telemetry history
-apitest telemetry history
+curlew telemetry history
 
 # Output:
 # Last 10 telemetry sessions:
@@ -6581,10 +6581,10 @@ apitest telemetry history
 # ...
 
 # Export all telemetry data (for GDPR requests)
-apitest telemetry export > my-telemetry-data.json
+curlew telemetry export > my-telemetry-data.json
 
 # Request data deletion
-apitest telemetry delete-request
+curlew telemetry delete-request
 
 # Output:
 # Data deletion request submitted.
@@ -6596,11 +6596,11 @@ apitest telemetry delete-request
 ##### Telemetry Configuration
 
 ```yaml
-# In apitest.yaml (project-level, overrides global)
+# In curlew.yaml (project-level, overrides global)
 telemetry:
   enabled: false  # Disable for this project
 
-# In ~/.apitest/config.yaml (user-level)
+# In ~/.curlew/config.yaml (user-level)
 telemetry:
   enabled: true
   # Optional: reduce data collection
@@ -6669,17 +6669,17 @@ Conversion survey data older than 1 year is anonymized:
 
 | Right | How to Exercise | Response Time |
 |-------|-----------------|---------------|
-| **Right to Access** | `apitest telemetry export` or email support | 30 days |
-| **Right to Deletion** | `apitest telemetry delete-request` or email support | 30 days |
-| **Right to Portability** | `apitest telemetry export` (machine-readable JSON) | Immediate |
+| **Right to Access** | `curlew telemetry export` or email support | 30 days |
+| **Right to Deletion** | `curlew telemetry delete-request` or email support | 30 days |
+| **Right to Portability** | `curlew telemetry export` (machine-readable JSON) | Immediate |
 | **Right to Rectification** | Email support with corrections | 30 days |
-| **Right to Object** | `apitest telemetry disable` | Immediate |
+| **Right to Object** | `curlew telemetry disable` | Immediate |
 | **Right to Restrict** | Set `telemetry.minimal: true` in config | Immediate |
 
 ##### Data Deletion Procedures
 
 **For Telemetry Data:**
-1. User runs `apitest telemetry delete-request`
+1. User runs `curlew telemetry delete-request`
 2. CLI submits deletion request with list of session IDs
 3. Server queues session IDs for deletion
 4. Deletion job runs within 30 days
@@ -6938,7 +6938,7 @@ Track support ticket volume and resolution time to understand support burden. Hi
 The tool supports multiple authentication methods:
 
 1. **API Key** (Primary for CI/CD and AI agents)
-   - `APITEST_API_KEY` environment variable
+   - `CURLEW_API_KEY` environment variable
    - Non-interactive, works in CI pipelines and AI agent workflows
    - Available from Phase 1
 
@@ -7205,7 +7205,7 @@ After grace period expires (unpaid status):
 **Free → Professional:**
 
 ```
-1. User runs: apitest upgrade
+1. User runs: curlew upgrade
    OR visits: https://apitesttool.com/pricing
 
 2. If not logged in:
@@ -7237,7 +7237,7 @@ After grace period expires (unpaid status):
    https://apitesttool.com/billing?success=true
 
 7. User's next token refresh includes new tier
-   OR user runs: apitest login (force refresh)
+   OR user runs: curlew login (force refresh)
 ```
 
 **Professional → Team:**
@@ -7631,19 +7631,19 @@ The Stripe Customer Portal allows users to:
 
 ```bash
 # View current subscription status
-$ apitest subscription
+$ curlew subscription
 Subscription: Professional
 Status: Active
 Billing: $19/month (next: February 1, 2025)
 Features: parallel, retry, data_driven, graphql, websocket, html_reports
 
 # Initiate upgrade (opens browser)
-$ apitest upgrade
+$ curlew upgrade
 Opening browser to upgrade your subscription...
 → https://apitesttool.com/pricing
 
 # View billing portal (opens browser)
-$ apitest billing
+$ curlew billing
 Opening Stripe billing portal...
 → https://billing.stripe.com/p/session/...
 ```
@@ -8091,7 +8091,7 @@ License validation extends authentication with detailed validation frequency, of
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | JWT signing algorithm | **ES256** (ECDSA P-256, RFC 6979 deterministic) | Smaller tokens (~0.9 KB vs ~1.4 KB), faster signing than RS256-4096, modern default for greenfield 2026 systems, universally supported by cloud KMS (including Google Cloud KMS HSM tier). EdDSA considered and rejected: AWS KMS lacks Ed25519 support, Azure Key Vault Ed25519 requires expensive managed-HSM tier, GCP KMS does not support EdDSA for JWT signing |
-| Token model | **Three tokens, three roles** — License JWT (offline), Access token (online), Refresh token (opaque) | Decouples normal CLI operation from backend uptime. Backend outages up to ~6 weeks do not interrupt `apitest run` against the user's own APIs |
+| Token model | **Three tokens, three roles** — License JWT (offline), Access token (online), Refresh token (opaque) | Decouples normal CLI operation from backend uptime. Backend outages up to ~6 weeks do not interrupt `curlew run` against the user's own APIs |
 | License JWT lifetime | **30 days valid + 14-day grace** | Existing M5-013/M5-014 grace machinery; single missed refresh window does not lock the user out |
 | Access token lifetime | **1 hour** | CLI usage is bursty (`gh` 8h, `gcloud` ~1h class). 15-minute tokens force unnecessary refresh churn; 1 hour balances revocation latency against refresh-frequency cost |
 | Refresh token lifetime | **90-day sliding / 365-day absolute** | Calibrated to RFC 9700 §4.14; matches `gh auth` / `gcloud` posture; annual forced re-login serves as hygiene measure |
@@ -8116,10 +8116,10 @@ Three tokens with three different roles, three different lifetimes, three differ
 | Token | What it proves | Lifetime | Verified | Used for | If backend down |
 |---|---|---|---|---|---|
 | **License JWT** | "User is licensed at tier X with features Y" | 30 days valid + 14-day grace | Offline (CLI uses embedded JWKS / cached JWKS) | Every CLI invocation; gates feature access | CLI keeps working until grace exhausted (~6 weeks worst case) |
-| **Access token** | "Bearer may call backend API endpoints" | 1 hour | Online (backend validates each call as a signed JWT it verifies locally) | Backend-touching commands only: `report upload`, `pr-checks post`, `account view`, `license refresh` itself | Those commands fail with "backend unreachable, retry later" — `apitest run` is unaffected |
-| **Refresh token** | "Bearer may mint a new License JWT + Access token" | 90-day sliding / 365-day absolute | Online (DB lookup, family-revocation check) | `/auth/refresh` only | After 365-day absolute expiry, user runs `apitest login` once |
+| **Access token** | "Bearer may call backend API endpoints" | 1 hour | Online (backend validates each call as a signed JWT it verifies locally) | Backend-touching commands only: `report upload`, `pr-checks post`, `account view`, `license refresh` itself | Those commands fail with "backend unreachable, retry later" — `curlew run` is unaffected |
+| **Refresh token** | "Bearer may mint a new License JWT + Access token" | 90-day sliding / 365-day absolute | Online (DB lookup, family-revocation check) | `/auth/refresh` only | After 365-day absolute expiry, user runs `curlew login` once |
 
-**Why 1 hour for access tokens (not the 15 minutes recommended for typical SaaS):** CLI usage is bursty — a developer runs `apitest run` ten times in a debugging session, then nothing for hours. With 15-minute tokens, every session boundary triggers a refresh. With 1-hour tokens, most active sessions need zero refreshes, and revocation latency remains acceptable for the threats this tool faces (chargeback, ToS violation, leaked CI credential).
+**Why 1 hour for access tokens (not the 15 minutes recommended for typical SaaS):** CLI usage is bursty — a developer runs `curlew run` ten times in a debugging session, then nothing for hours. With 15-minute tokens, every session boundary triggers a refresh. With 1-hour tokens, most active sessions need zero refreshes, and revocation latency remains acceptable for the threats this tool faces (chargeback, ToS violation, leaked CI credential).
 
 **Why 30+14 days for the License JWT:** the offline-grace machinery already shipped as M5-013/M5-014 — the architecture exists; v4.2 only needs to use it correctly. 30-day validity means most users refresh once per month silently. 14-day grace means a single missed refresh window does not lock anyone out. Combined: a backend outage of up to ~6 weeks (worst case for a user who refreshed just before the outage) does not interrupt the CLI's primary function.
 
@@ -8127,7 +8127,7 @@ Three tokens with three different roles, three different lifetimes, three differ
 
 - **License JWT**: when CLI is invoked AND license JWT is < 7 days from expiry AND backend is reachable, fire-and-forget background refresh. Never blocks the user. If refresh fails, retry on next invocation.
 - **Access token**: lazy refresh — only attempted when the CLI is about to call a backend endpoint AND the token has < 5 minutes remaining. If refresh fails, the backend-touching command fails with a clear "backend unreachable" message; the CLI invocation overall does not fail unless that command was the only thing requested.
-- **Refresh token**: never refreshed proactively; the user explicitly runs `apitest login` to start a new family.
+- **Refresh token**: never refreshed proactively; the user explicitly runs `curlew login` to start a new family.
 
 **Revocation latency trade-off (License JWT):** because the License JWT is offline-verified for up to 30 days valid + 14-day grace = 44 days, the backend cannot instantly revoke a user's license. Three escape valves:
 
@@ -8137,20 +8137,20 @@ Three tokens with three different roles, three different lifetimes, three differ
 
 **CLI flow:**
 
-1. `apitest run` → check License JWT validity (offline) → if valid, proceed → if expired but within grace, proceed with warning → if grace exhausted, refuse with clear instructions to run `apitest license --refresh` (or `apitest login`).
-2. `apitest report upload` → check Access token validity → if expired/expiring, attempt silent refresh → if refresh succeeds, upload → if refresh fails, queue upload to `~/.config/apitesttool/pending-uploads/` for next successful refresh.
+1. `curlew run` → check License JWT validity (offline) → if valid, proceed → if expired but within grace, proceed with warning → if grace exhausted, refuse with clear instructions to run `curlew license --refresh` (or `curlew login`).
+2. `curlew report upload` → check Access token validity → if expired/expiring, attempt silent refresh → if refresh succeeds, upload → if refresh fails, queue upload to `~/.config/curlew/pending-uploads/` for next successful refresh.
 3. Background daily timer (only when CLI is invoked) → if License JWT < 7 days from expiry AND backend reachable, refresh silently.
 
 ### Token Claim Shapes
 
-The CLI cache file at `~/.config/apitesttool/license_cache.json` stores the three tokens plus a small set of CLI-local bookkeeping fields. The tokens themselves carry the authoritative claims; the cache file is not the source of truth for any tier/feature decision.
+The CLI cache file at `~/.config/curlew/license_cache.json` stores the three tokens plus a small set of CLI-local bookkeeping fields. The tokens themselves carry the authoritative claims; the cache file is not the source of truth for any tier/feature decision.
 
 **License JWT claims** (offline-verified by CLI on every invocation; `typ: "license+jwt"` per RFC 8725 §3.11):
 
 | Claim | Type | Notes |
 |---|---|---|
 | `iss` | string | `https://api.apitool.dev` (env-suffixed in dev/staging) |
-| `aud` | string | `apitool-license` — License JWT audience; verified offline by CLI |
+| `aud` | string | `curlew-license` — License JWT audience; verified offline by CLI |
 | `sub` | UUID string | User ID; immutable |
 | `exp` | int | Unix timestamp; 30-day lifetime |
 | `nbf` | int | `iat - 30s` skew tolerance |
@@ -8174,7 +8174,7 @@ The trial fields (`trial_state`, `trial_expiry`) are populated to `none`/`null` 
 | Claim | Type | Notes |
 |---|---|---|
 | `iss` | string | Same as License JWT |
-| `aud` | string | `apitool-cli-api` — Access token audience; backend rejects mismatched `aud` |
+| `aud` | string | `curlew-cli-api` — Access token audience; backend rejects mismatched `aud` |
 | `sub` | UUID string | User ID |
 | `exp` | int | 1-hour lifetime |
 | `nbf` | int | `iat - 30s` skew tolerance |
@@ -8217,7 +8217,7 @@ This collapses what would otherwise be two round-trips (License JWT refresh + Ac
 
 **Reuse detection — family revocation.** If a presented refresh token's `rotated_at` is non-null (i.e., the token has already been redeemed), the entire `family_id` is revoked: every row with that `family_id` is updated with `revoked_at = NOW(), revoke_reason = 'reuse_detected'`. This is the canonical OAuth security pattern (Auth0, Okta, Stripe). Consequences:
 
-- The user is forced to re-authenticate via `apitest login`.
+- The user is forced to re-authenticate via `curlew login`.
 - An `account_security_alert` email is queued (see SendGrid template inventory).
 - A high-priority security event is logged with the IP and user-agent of the request that triggered the detection.
 
@@ -8229,28 +8229,28 @@ This collapses what would otherwise be two round-trips (License JWT refresh + Ac
 
 The loose 90/365 profile is chosen deliberately to minimise re-auth friction — active CLI users effectively never see expiry, and even occasional users (CI runners that fire once a month) stay logged in for a year. The annual forced re-login serves as a hygiene measure for abandoned-laptop / employee-turnover scenarios. `gcloud` and `gh auth` both treat refresh tokens as effectively indefinite for similar reasons.
 
-**CLI single-flight lock — non-optional.** Reuse detection is unforgiving: two concurrent CLI invocations both attempting to refresh the same token would race — one succeeds and rotates the token, the other presents the now-rotated token and triggers family revocation, logging the user out as if they were under attack. The CLI implementation MUST hold an exclusive `flock` on `~/.config/apitesttool/refresh.lock` (or platform equivalent) for the duration of any refresh call. Behaviour:
+**CLI single-flight lock — non-optional.** Reuse detection is unforgiving: two concurrent CLI invocations both attempting to refresh the same token would race — one succeeds and rotates the token, the other presents the now-rotated token and triggers family revocation, logging the user out as if they were under attack. The CLI implementation MUST hold an exclusive `flock` on `~/.config/curlew/refresh.lock` (or platform equivalent) for the duration of any refresh call. Behaviour:
 
 1. Concurrent invocations block on the lock.
 2. Once the first refresh completes and updates the cache, subsequent invocations re-read the cache and find a fresh token; no second refresh needed.
 3. Hard timeout of 5 seconds on the lock acquisition; on timeout, the waiting invocation falls back to re-reading the cache and proceeding with whatever token is there — preventing deadlock if a previous CLI process crashed mid-refresh and left a stale lock file.
 
-This is not optional once family-revocation is in play. Without it, normal user behaviour (running two `apitest` commands in adjacent terminals) randomly nukes their session.
+This is not optional once family-revocation is in play. Without it, normal user behaviour (running two `curlew` commands in adjacent terminals) randomly nukes their session.
 
 **CLI-side refresh-token storage** (RFC 9700 §4.10.1 forbids plaintext storage). The CLI uses a hybrid strategy modelled on `gh auth`:
 
 1. **OS keychain when available.** macOS Keychain, Windows Credential Manager, Linux `secret-tool` / libsecret. Strongest where available — but Linux `secret-tool` requires a running keyring daemon (gnome-keyring or KWallet) which is frequently absent on servers, headless boxes, CI runners, and Docker containers — exactly the environments an API testing tool is invoked in.
-2. **Encrypted-file fallback when keychain is unavailable.** AES-256-GCM with a key derived from `(device_id + machine-id)` via HKDF, stored in separate `~/.config/apitesttool/refresh_token.enc` and `access_token.enc` files with mode 0600. Always works in headless contexts.
+2. **Encrypted-file fallback when keychain is unavailable.** AES-256-GCM with a key derived from `(device_id + machine-id)` via HKDF, stored in separate `~/.config/curlew/refresh_token.enc` and `access_token.enc` files with mode 0600. Always works in headless contexts.
 
 Cross-platform keychain integration is a known quantity — Go libraries (e.g. `zalando/go-keyring`) cover all three OSes, and the encrypted-file fallback is the same code path that an OS-keychain-only design would need anyway for headless contexts. The two paths are unified behind a single CLI-internal interface; consumers do not branch on storage mode.
 
 **Why NOT DPoP.** RFC 9449 (DPoP) would sender-constrain tokens cryptographically, but at heavy cost: per-request JWT signing on the CLI side and public-key verification on every API call backend-side. The threat model that DPoP protects against (token-extraction-then-replay) is largely covered by refresh-rotation + device-binding for an API testing tool. DPoP is out of scope for v4.2 by design — not deferred, but determined to be the wrong cost/benefit for this product. Re-evaluate only if a concrete sender-constraint requirement emerges before launch.
 
-**Device binding.** First-run CLI registers the device via `POST /api/v1/devices` with `{name, fingerprint}`; the backend mints a `device_id` UUID and returns it. The CLI persists `device_id` at `~/.config/apitesttool/device.json` (mode 0600). All refresh requests must include `device_id`; the backend rejects requests where the supplied `device_id` does not match the refresh token's bound `device_id`. The fingerprint (SHA-256 of `machine-id + hostname + OS`) is a best-effort signal stored alongside the device row, NOT the primary binding — machines can be cloned. Primary binding is the server-minted UUID.
+**Device binding.** First-run CLI registers the device via `POST /api/v1/devices` with `{name, fingerprint}`; the backend mints a `device_id` UUID and returns it. The CLI persists `device_id` at `~/.config/curlew/device.json` (mode 0600). All refresh requests must include `device_id`; the backend rejects requests where the supplied `device_id` does not match the refresh token's bound `device_id`. The fingerprint (SHA-256 of `machine-id + hostname + OS`) is a best-effort signal stored alongside the device row, NOT the primary binding — machines can be cloned. Primary binding is the server-minted UUID.
 
 ### Daily Validation Logic
 
-**License Cache Storage:** `~/.config/apitesttool/license_cache.json`
+**License Cache Storage:** `~/.config/curlew/license_cache.json`
 
 ```typescript
 interface LicenseCache {
@@ -8262,23 +8262,23 @@ interface LicenseCache {
 }
 ```
 
-The authoritative tier/features/limits live inside the License JWT and Access token; the cache file is a transport medium, not a duplicate state store. The `device_id` is persisted separately at `~/.config/apitesttool/device.json` (mode 0600) so the device identity survives token rotation.
+The authoritative tier/features/limits live inside the License JWT and Access token; the cache file is a transport medium, not a duplicate state store. The `device_id` is persisted separately at `~/.config/curlew/device.json` (mode 0600) so the device identity survives token rotation.
 
 **Validation Decision Algorithm:**
 
 - No cache = not authenticated (Free tier)
 - License JWT valid (`now < exp`) = use it
 - License JWT in grace window (`exp ≤ now < grace_until`) = use it with warning; trigger background refresh if backend reachable
-- License JWT past `grace_until` = refuse paid features; require `apitest license --refresh` or `apitest login`
+- License JWT past `grace_until` = refuse paid features; require `curlew license --refresh` or `curlew login`
 
 **Force Validation Triggers:**
 
 | Trigger | Description |
 |---------|-------------|
-| `apitest login` | Always validates and mints a fresh refresh-token family |
-| `apitest license --refresh` | Explicitly requests re-validation; mints all three tokens in one round-trip |
+| `curlew login` | Always validates and mints a fresh refresh-token family |
+| `curlew license --refresh` | Explicitly requests re-validation; mints all three tokens in one round-trip |
 | Access token expiration | JWT `exp` claim passed (1 hour) — lazy refresh on next backend-touching command |
-| `apitest license --validate` | Debug command for testing |
+| `curlew license --validate` | Debug command for testing |
 | First run after CLI update | Validates compatibility with new version |
 
 ### Offline JWT Verification
@@ -8294,13 +8294,13 @@ The CLI verifies the License JWT locally using an embedded public key when the s
 5. Find matching public key (embedded, cached, or online)
 6. Verify ES256 signature using the EC P-256 public key
 7. Check expiration claims (`exp`, `nbf`) with 30-second skew tolerance
-8. Verify issuer (`iss`) and audience (`aud`) claims; License JWT requires `aud == "apitool-license"`, Access token requires `aud == "apitool-cli-api"`
+8. Verify issuer (`iss`) and audience (`aud`) claims; License JWT requires `aud == "curlew-license"`, Access token requires `aud == "curlew-cli-api"`
 9. Extract tier, features, and authorization-relevant claims
 
 **Key Lookup Order:**
 
 1. Search embedded JWKS in CLI binary
-2. Search locally cached JWKS (`~/.config/apitesttool/jwks_cache.json`)
+2. Search locally cached JWKS (`~/.config/curlew/jwks_cache.json`)
 3. If online: Fetch from `/api/v1/.well-known/jwks.json` (RFC 8615 well-known URI), cache result with `Cache-Control: max-age=3600`
 4. If key not found: Validation fails with `key_not_found` error
 
@@ -8334,7 +8334,7 @@ The backend signs all License JWTs and Access tokens through a single `IKeyProvi
 | `deploy/self-hosted/` | `FileKeyProvider` | `Keys/signing/<kid>.pem` mode 0600, owned by service account; operator generates at install time |
 | SaaS multi-tenant | `GoogleKmsKeyProvider` | Asymmetric `EC_SIGN_P256_SHA256` key in Google Cloud KMS HSM tier (FIPS 140-2 Level 3). Signatures via `projects.locations.keyRings.cryptoKeys.cryptoKeyVersions.asymmetricSign`. Private key never leaves the HSM |
 
-**Multi-product context.** ApiTool is one of four planned SaaS products at roughly the same scale, all sharing a single GCP account for KMS. Each product gets its own signing key (security boundary that matters); all keys live in the same KMS service (one ops surface, one billing line, one IAM model). Per-product backend service accounts have `roles/cloudkms.signerVerifier` granted only on their own product's keys, enforcing the boundary at the IAM layer. With ~3 active key versions per product × 4 products = ~12 active key versions, monthly KMS cost is ~$12 (or $0 for ~25 months on the $300 new-account credit). The `IKeyProvider` interface abstracts the per-product key URI so the same provider implementation serves all four products.
+**Multi-product context.** Curlew is one of four planned SaaS products at roughly the same scale, all sharing a single GCP account for KMS. Each product gets its own signing key (security boundary that matters); all keys live in the same KMS service (one ops surface, one billing line, one IAM model). Per-product backend service accounts have `roles/cloudkms.signerVerifier` granted only on their own product's keys, enforcing the boundary at the IAM layer. With ~3 active key versions per product × 4 products = ~12 active key versions, monthly KMS cost is ~$12 (or $0 for ~25 months on the $300 new-account credit). The `IKeyProvider` interface abstracts the per-product key URI so the same provider implementation serves all four products.
 
 **`IKeyProvider` surface:**
 
@@ -8377,7 +8377,7 @@ type JWK struct {
 **Key Selection Priority:**
 
 1. **Embedded keys**: Always checked first (instant, no I/O)
-2. **Cached JWKS**: Checked second (`~/.config/apitesttool/jwks_cache.json`)
+2. **Cached JWKS**: Checked second (`~/.config/curlew/jwks_cache.json`)
 3. **Online fetch**: Fetched from `/api/v1/.well-known/jwks.json` if online and key not found, cached with `Cache-Control` directive
 4. **Failure**: If key not found anywhere, validation fails with `key_not_found` error
 
@@ -8397,7 +8397,7 @@ A **`next` key** is always pre-staged (loaded but not yet signing) and published
 | **Retire** | Day 60 | Old `verifying` key → `revoked`; removed from JWKS responses | Embedded JWKS in older CLI binaries falls through to online fetch |
 | **Next pre-stage** | Day 83 | Generate next `next` key for the upcoming Day 90 promotion | — |
 
-**Emergency rotation:** `apitest-backend keys rotate --emergency` promotes `next` to `current` immediately, removes the compromised key from JWKS within 1 minute (cache-bust), and revokes all refresh tokens issued under the compromised key. Because a `next` key is always pre-staged, emergency rotation does not require key generation under time pressure.
+**Emergency rotation:** `curlew-backend keys rotate --emergency` promotes `next` to `current` immediately, removes the compromised key from JWKS within 1 minute (cache-bust), and revokes all refresh tokens issued under the compromised key. Because a `next` key is always pre-staged, emergency rotation does not require key generation under time pressure.
 
 ### Device Management
 
@@ -8405,10 +8405,10 @@ Users can view and manage their authenticated devices via CLI and web portal.
 
 **CLI Commands:**
 
-- `apitest devices` — List authenticated devices
-- `apitest devices --verbose` — List with detailed information
-- `apitest devices revoke <device-id>` — Deauthorize a device
-- `apitest logout --all` — Sign out of all devices
+- `curlew devices` — List authenticated devices
+- `curlew devices --verbose` — List with detailed information
+- `curlew devices revoke <device-id>` — Deauthorize a device
+- `curlew logout --all` — Sign out of all devices
 
 **Device Limits by Tier:**
 
@@ -8418,10 +8418,10 @@ Users can view and manage their authenticated devices via CLI and web portal.
 
 ### License Status CLI Commands
 
-- `apitest license` — Display license status and features
-- `apitest license --refresh` — Validate and refresh tokens
-- `apitest license --debug` — Display JWT payload and cache info
-- `apitest license --validate` — Debug command for testing
+- `curlew license` — Display license status and features
+- `curlew license --refresh` — Validate and refresh tokens
+- `curlew license --debug` — Display JWT payload and cache info
+- `curlew license --validate` — Debug command for testing
 
 ### Database Schema
 
@@ -8433,8 +8433,8 @@ See **Database Schema Reference (Appendix)** → **License Tables** for complete
 | Type | When Recorded |
 |------|---------------|
 | `startup` | First run of the day (daily validation) |
-| `refresh` | Explicit `apitest license --refresh` |
-| `manual` | Debug validation via `apitest license --validate` |
+| `refresh` | Explicit `curlew license --refresh` |
+| `manual` | Debug validation via `curlew license --validate` |
 | `token_refresh` | Access token expired, refresh token used |
 | `grace_check` | Offline validation during grace period |
 
@@ -8472,7 +8472,7 @@ See **Database Schema Reference (Appendix)** → **License Tables** for complete
 | `subscription_inactive` | 403 | Subscription canceled or unpaid | Prompt to resubscribe |
 | `subscription_past_due` | 200 | Payment failed, in dunning period | Show payment warning, continue |
 | `device_limit_exceeded` | 403 | Too many devices registered | Prompt to remove device |
-| `device_revoked` | 401 | This device was deauthorized | Re-authenticate with `apitest login` |
+| `device_revoked` | 401 | This device was deauthorized | Re-authenticate with `curlew login` |
 | `invalid_token` | 401 | JWT malformed or tampered | Re-authenticate |
 | `token_expired` | 401 | Access token expired | Use refresh token or re-authenticate |
 | `key_not_found` | 401 | JWT kid not in JWKS | Update CLI or fetch keys online |
@@ -8575,7 +8575,7 @@ Response: 422 Unprocessable Entity
 { "type": ".../errors/password-too-weak", "title": "Password rejected", "status": 422, "detail": "Password strength score 1/4; minimum 3/4 required.", "score": 1 }
 ```
 
-The confirm endpoint atomically: verifies the hash matches a row with `consumed_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`; sets `users.password_hash = argon2id(new_password)`; sets the row's `consumed_at = NOW()`; revokes ALL of the user's refresh-token families (per RFC 9700 §4.14, account-level secret change forces re-auth). The CLI session terminates on next access-token refresh; the user runs `apitest login` again.
+The confirm endpoint atomically: verifies the hash matches a row with `consumed_at IS NULL AND revoked_at IS NULL AND expires_at > NOW()`; sets `users.password_hash = argon2id(new_password)`; sets the row's `consumed_at = NOW()`; revokes ALL of the user's refresh-token families (per RFC 9700 §4.14, account-level secret change forces re-auth). The CLI session terminates on next access-token refresh; the user runs `curlew login` again.
 
 **Email verification:**
 
@@ -8617,7 +8617,7 @@ This policy lives behind a single `RequireVerifiedEmail` filter in `src/ApiTool.
 
 Two templates ship with M16 (deferred from M14's six-template inventory):
 
-- `password_reset` — variables: `user_email`, `reset_url`, `expires_at_local`, `requester_ip`, `requester_ua`. Subject: "Reset your ApiTool password (expires in 30 minutes)".
+- `password_reset` — variables: `user_email`, `reset_url`, `expires_at_local`, `requester_ip`, `requester_ua`. Subject: "Reset your Curlew password (expires in 30 minutes)".
 - `trial_expiring` (per "Trial Persistence and Activation") — variables: `user_email`, `feature`, `expires_at_local`, `upgrade_url`. Subject: "Your trial of {feature} expires {when}".
 
 Both follow the M14 manifest pattern (per "Email Service Integration → SendGrid Template Authoring"). Manifest-allowlisted variables only; `SendGridSmtpSender` rejects any variable not in the manifest.
@@ -8626,12 +8626,12 @@ Both follow the M14 manifest pattern (per "Email Service Integration → SendGri
 
 Password reset and email verification are entirely web-based — there is no CLI subcommand for either. The user clicks a link in their email and lands on the web dashboard. This is intentional: forcing users to a browser keeps the UX consistent with how every other web-based auth-recovery flow works, and avoids the security pitfall of having the CLI accept a token-and-new-password pair in argv.
 
-A user whose CLI session is broken because they reset their password sees `apitest login` fail with the standard `invalid_credentials` error and is directed to repeat `apitest login` after the password change.
+A user whose CLI session is broken because they reset their password sees `curlew login` fail with the standard `invalid_credentials` error and is directed to repeat `curlew login` after the password change.
 
 
 ## CLI ↔ Backend Integration
 
-This section defines the contract between the `apitest` CLI and the ApiTool backend: how the CLI authenticates, the endpoint surface it consumes, the error model both sides agree on, and the exit-code taxonomy the CLI maps backend responses to. It is the authoritative reference for M14 implementation slices that touch either side of the boundary.
+This section defines the contract between the `curlew` CLI and the Curlew backend: how the CLI authenticates, the endpoint surface it consumes, the error model both sides agree on, and the exit-code taxonomy the CLI maps backend responses to. It is the authoritative reference for M14 implementation slices that touch either side of the boundary.
 
 ### Auth Scheme
 
@@ -8643,7 +8643,7 @@ Authorization: Bearer <access_token>
 
 Refresh tokens are passed in the **request body** of `/auth/refresh` and `/auth/revoke` only — never in headers, never in URL parameters, never in query strings. This follows RFC 9700 §4.10 storage rules and pre-empts the URL-leak class of bugs (referrer headers, server access logs, browser history).
 
-The Access token is a JWT with `typ: "at+jwt"` (RFC 9068) signed by the same `IKeyProvider` as the License JWT, audience `apitool-cli-api`. The backend validates it locally on every protected endpoint — no DB round-trip is required for normal authorization decisions because the authz-relevant claims (`tier`, `org_id`, `device_id`) are duplicated into the token. See "Token Claim Shapes" for the full claim list.
+The Access token is a JWT with `typ: "at+jwt"` (RFC 9068) signed by the same `IKeyProvider` as the License JWT, audience `curlew-cli-api`. The backend validates it locally on every protected endpoint — no DB round-trip is required for normal authorization decisions because the authz-relevant claims (`tier`, `org_id`, `device_id`) are duplicated into the token. See "Token Claim Shapes" for the full claim list.
 
 ### Login Flow — Device-Code Grant (RFC 8628)
 
@@ -8658,7 +8658,7 @@ CLI authentication uses the OAuth 2.0 Device Authorization Grant (RFC 8628). Thi
 1. CLI calls `POST /api/v1/auth/device/start` and receives `{device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval}`.
 2. CLI prints the `user_code` (8 characters) and `verification_uri` to stdout. If an interactive TTY is detected AND the platform has a default browser registered, the CLI also fires off the browser pointed at `verification_uri_complete` (the URL with the code pre-filled, per RFC 8628 §3.3.1) — matches `gh auth login` UX. The printed URL + code remain as a fallback path for users whose browser auto-open fails.
 3. CLI polls `POST /api/v1/auth/device/poll` every `interval` seconds (default 5s) with the `device_code`. Responses follow RFC 8628: `authorization_pending`, `slow_down` (back off the polling interval), `expired_token`, or success.
-4. On success, the response is `{license_jwt, access_token, refresh_token, device_id}`. The CLI persists all four — the License JWT in its offline cache, API access and refresh tokens in the OS keychain (or encrypted-file fallback), and `device_id` in `~/.config/apitesttool/device.json`.
+4. On success, the response is `{license_jwt, access_token, refresh_token, device_id}`. The CLI persists all four — the License JWT in its offline cache, API access and refresh tokens in the OS keychain (or encrypted-file fallback), and `device_id` in `~/.config/curlew/device.json`.
 
 **Browser auto-open detection** is best-effort — the CLI invokes `open` on macOS, `xdg-open` on Linux, and `start` on Windows via `os/exec`. The `--no-browser` flag forces print-only output for users who want to see the URL.
 
@@ -8681,7 +8681,7 @@ The v4.2 endpoint surface for CLI authentication, refresh, and account managemen
 | `GET` | `/api/v1/me` | bearer | Account view: tier, features, request_limit consumed today, org details, billing summary |
 | `POST` | `/api/v1/pr-checks` | bearer | PR-check upload from CLI (already specified elsewhere; listed here for surface completeness) |
 
-There is **no separate `/api/v1/license/issue` endpoint**. `/auth/refresh` is the unified issuance path that mints all three tokens. This simplifies the CLI surface: `apitest license --refresh` calls `/auth/refresh`, parses the response, persists all three tokens.
+There is **no separate `/api/v1/license/issue` endpoint**. `/auth/refresh` is the unified issuance path that mints all three tokens. This simplifies the CLI surface: `curlew license --refresh` calls `/auth/refresh`, parses the response, persists all three tokens.
 
 ### Error Model — RFC 7807 Problem Details
 
@@ -8692,7 +8692,7 @@ All `4xx` and `5xx` responses use `application/problem+json` (RFC 7807) with the
   "type":       "https://api.apitool.dev/errors/refresh-token-reused",
   "title":      "Refresh token reuse detected",
   "status":     401,
-  "detail":     "Token has been rotated; entire token family revoked. Re-authenticate via 'apitest login'.",
+  "detail":     "Token has been rotated; entire token family revoked. Re-authenticate via 'curlew login'.",
   "code":       "AUTH_REFRESH_REUSED",
   "request_id": "req_a3f4d2c1"
 }
@@ -8707,29 +8707,29 @@ All `4xx` and `5xx` responses use `application/problem+json` (RFC 7807) with the
 | `code` | Stable machine-readable identifier the CLI maps to exit codes. UPPER_SNAKE_CASE |
 | `request_id` | Correlation ID; matches the `X-Request-Id` response header (already a project pattern) |
 
-The CLI handles the response by branching on `code`, not on `status` or `title`. The `type` URL is surfaced in `apitest license --debug` output for quick navigation to the docs.
+The CLI handles the response by branching on `code`, not on `status` or `title`. The `type` URL is surfaced in `curlew license --debug` output for quick navigation to the docs.
 
-### CLI Exit-Code Taxonomy — `apitest license --refresh`
+### CLI Exit-Code Taxonomy — `curlew license --refresh`
 
-`apitest license --refresh` requests a new License JWT + Access token + rotated refresh token in one round-trip. Its exit codes mirror and extend the existing `--validate` taxonomy at [cmd/apitest/license.go:42–66](cmd/apitest/license.go:42).
+`curlew license --refresh` requests a new License JWT + Access token + rotated refresh token in one round-trip. Its exit codes mirror and extend the existing `--validate` taxonomy at [cmd/curlew/license.go:42–66](cmd/curlew/license.go:42).
 
 | Exit | Meaning | Triggers |
 |---|---|---|
 | 0 | Success | All three tokens refreshed and cached |
 | 1 | Internal error | Unexpected failure; bug |
-| 2 | No cache | No refresh token stored — run `apitest login` |
+| 2 | No cache | No refresh token stored — run `curlew login` |
 | 3 | Network failure | Cannot reach backend; previous License JWT still valid (within 30d + 14d grace) — CLI normal operation continues |
 | 4 | Refresh expired | Refresh token past sliding-window or absolute deadline; re-auth required |
 | 5 | Family revoked | Security event — reuse detected or admin-initiated revocation; re-auth required |
 | 6 | Server error | 5xx response; retry later. Previous License JWT remains valid |
-| 7 | Device not registered | First run; needs `apitest login` to register |
+| 7 | Device not registered | First run; needs `curlew login` to register |
 
-Exit codes 3 and 6 (network/server failure) are **non-fatal for normal CLI operation** — the user can keep running `apitest run` against their own APIs because the License JWT is offline-verified and remains valid until expiry+grace exhausts. The CLI logs a warning ("license refresh failed, will retry next invocation") and exits non-zero only because the user explicitly asked for a refresh.
+Exit codes 3 and 6 (network/server failure) are **non-fatal for normal CLI operation** — the user can keep running `curlew run` against their own APIs because the License JWT is offline-verified and remains valid until expiry+grace exhausts. The CLI logs a warning ("license refresh failed, will retry next invocation") and exits non-zero only because the user explicitly asked for a refresh.
 
 
 ## GitHub Checks API Integration
 
-This section covers the outbound integration that posts PR-check results from the ApiTool backend to GitHub's Checks API on the customer's pull request. It is the authoritative reference for M14 implementation slices that touch the GitHub-side surface (added to M14's scope via decision #11 in `docs/M14_INVESTIGATION.md`).
+This section covers the outbound integration that posts PR-check results from the Curlew backend to GitHub's Checks API on the customer's pull request. It is the authoritative reference for M14 implementation slices that touch the GitHub-side surface (added to M14's scope via decision #11 in `docs/M14_INVESTIGATION.md`).
 
 The CLI surface (`--report-upload`, `--pr`, `--repo`) and the backend's internal `POST /api/v1/pr-checks` endpoint were shipped in M4-007 but stop at the database — nothing currently calls GitHub. This supplement specifies the missing outbound path: GitHub App registration and credential custody, two-stage authentication (App JWT → installation token), the `github_installations` lifecycle, the Checks API payload mapping, the inbound webhook handler for installation lifecycle and re-run events, and the security rules that govern the whole flow.
 
@@ -8758,7 +8758,7 @@ The backend posts a Check Run by performing the following request-time flow. Eac
                            ┌─────────────────────────────┐
   CLI                      │  Backend                    │             GitHub
   ───                      │  ───────                    │             ──────
-  apitest run              │                             │
+  curlew run              │                             │
   --report-upload          │                             │
   ─ Bearer Access token ──►│  /api/v1/pr-checks          │
                            │  ① decode org_id from JWT   │
@@ -8851,11 +8851,11 @@ Pinning this list in writing is the security-review gate. The least-privilege po
 
 ### Installation Lifecycle
 
-A customer installs the App on their org or selected repos via the GitHub UI. GitHub sends an `installation.created` webhook to our `/webhooks/github` endpoint; the handler upserts a `github_installations` row keyed by `(app_id, installation_id)`, with `org_id` resolved from a pending-link table or set later when the customer associates the install with their ApiTool org.
+A customer installs the App on their org or selected repos via the GitHub UI. GitHub sends an `installation.created` webhook to our `/webhooks/github` endpoint; the handler upserts a `github_installations` row keyed by `(app_id, installation_id)`, with `org_id` resolved from a pending-link table or set later when the customer associates the install with their Curlew org.
 
-**Linking an install to an ApiTool org.** Two paths:
+**Linking an install to an Curlew org.** Two paths:
 
-1. **Dashboard-initiated** (preferred). Customer clicks "Connect GitHub" in the ApiTool dashboard while logged in. The dashboard redirects them to GitHub's App-install flow with `state` = a one-time signed token containing `org_id`. GitHub redirects back with the new `installation_id`; our callback verifies `state` and writes the `(installation_id, org_id)` link.
+1. **Dashboard-initiated** (preferred). Customer clicks "Connect GitHub" in the Curlew dashboard while logged in. The dashboard redirects them to GitHub's App-install flow with `state` = a one-time signed token containing `org_id`. GitHub redirects back with the new `installation_id`; our callback verifies `state` and writes the `(installation_id, org_id)` link.
 2. **Webhook-first**. Customer installs the App from GitHub directly. We receive `installation.created` with no associated `org_id`; we store the row with `org_id = NULL`. The customer later visits the dashboard, sees a pending install, claims it. We verify they are an admin of the GitHub account named in the install, then write `org_id`.
 
 **Repo-set tracking.** GitHub events keep `repo_set` current:
@@ -8920,7 +8920,7 @@ Authorization: Bearer <installation token>
 Accept: application/vnd.github+json
 
 {
-  "name":        "ApiTool",
+  "name":        "Curlew",
   "head_sha":    "<git_sha from CLI>",
   "external_id": "<our pr_checks.external_id UUID>",
   "status":      "completed",
@@ -8954,7 +8954,7 @@ Accept: application/vnd.github+json
 
 `action_required` is reserved for a future "approval" workflow and is NOT emitted in M14.
 
-**Always post on green.** ApiTool always posts a check run, including on success. This matches `gh pr checks`, GitHub Actions, and every other commodity CI integration — green checks signal that coverage exists. The opt-out is at the customer's CI config (don't pass `--report-upload`), not at the backend.
+**Always post on green.** Curlew always posts a check run, including on success. This matches `gh pr checks`, GitHub Actions, and every other commodity CI integration — green checks signal that coverage exists. The opt-out is at the customer's CI config (don't pass `--report-upload`), not at the backend.
 
 **Payload size limits.**
 
@@ -9005,7 +9005,7 @@ GitHub posts events to `POST /webhooks/github`. The handler verifies the signatu
 | `installation.unsuspend` | Clear `suspended_at`; resume normal operation |
 | `installation_repositories.added` | Append to `repo_set` |
 | `installation_repositories.removed` | Remove from `repo_set`; mark in-flight `pr_checks` for those repos as `PRCHECK_REPO_NOT_COVERED` |
-| `check_run.rerequested` | Re-run the originating ApiTool collection on the same `head_sha`; emit a new check run |
+| `check_run.rerequested` | Re-run the originating Curlew collection on the same `head_sha`; emit a new check run |
 | `marketplace_purchase.*` | (Future — out of M14) |
 
 **Signature verification.** GitHub sends `X-Hub-Signature-256: sha256=<hex>` computed as HMAC-SHA256 over the raw request body using the App's webhook secret. Our verifier:
@@ -9055,7 +9055,7 @@ Redacted values are replaced with `<redacted: NN chars>` — preserving length a
 The list is configurable but not removable below a baseline (the CLI refuses to ship an empty redaction list with `--report-upload`). Customers with extra-sensitive header names extend the list:
 
 ```yaml
-# apitest.yml
+# curlew.yml
 pr_checks:
   redact_headers:
     - X-Internal-Token
@@ -9065,7 +9065,7 @@ pr_checks:
 **2. Default-off response-body inclusion (CLI side, customer opt-in).** Response bodies are NOT included in `output.text` by default. The customer opts in:
 
 ```yaml
-# apitest.yml
+# curlew.yml
 pr_checks:
   include_response_bodies: true
   redact_body_patterns:
@@ -9181,7 +9181,7 @@ OAuth App support and GitLab App support are deferred. If customer demand emerge
                            ┌─────────────────────────────┐
   CLI                      │  Backend                    │             GitLab
   ───                      │  ───────                    │             ──────
-  apitest run              │                             │
+  curlew run              │                             │
   --report-upload          │                             │
   ─ Bearer Access token ──►│  /api/v1/pr-checks          │
                            │  ① decode org_id from JWT   │
@@ -9255,10 +9255,10 @@ Content-Type: application/json
 
 {
   "state": "success|failed|canceled|running",
-  "name": "ApiTool",
+  "name": "Curlew",
   "description": "12 passed, 0 failed (2.3s)",  // ≤255 chars
   "target_url": "https://app.apitool.dev/runs/<result_id>",
-  "context": "ci/apitool"
+  "context": "ci/curlew"
 }
 ```
 
@@ -9349,11 +9349,11 @@ The cross-cutting decisions that close the M16 design pass. Detail and rationale
 | v3-4 | Trial uniqueness scope | **Per-(user, feature), globally** — one trial per feature per user, ever. The 14-day full trial is implemented as one row per feature; per-feature on-demand trials are unavailable for any feature consumed during the 14-day window. `UNIQUE (user_id, feature)` enforces this at schema level. | Registration and Trial Model → Trial Persistence and Activation |
 | v3-5 | Trial JWT claim consumption (CLI) | **`Claims.TrialState` and `Claims.TrialExpiry` added to `internal/license/jwt.go`** with `omitempty`. `Claims.IsTrialActiveFor(feature)` reads from the existing `features` claim (issuer adds trialing features for the trial duration). Trial state is consulted at every premium-feature gate in `internal/auth/registry.go`. | Registration and Trial Model → Trial Persistence and Activation |
 | v3-6 | Trial-on-tier-upgrade transition | **Active trials transition to `kind = 'preempted_by_subscription'` on Stripe checkout success.** Prevents the user being marked simultaneously trialing and subscribed. The next License JWT issuance reflects `trial_state = expired`. | Registration and Trial Model → Trial Persistence and Activation |
-| v3-7 | Schedule execution topology | **Self-hosted runner.** `apitest worker --schedule-pull` polls `GET /api/v1/schedules/next-run`, executes locally, posts results via `POST /api/v1/schedules/runs/{run_id}/result`. Backend-resident execution explicitly rejected (security blast radius, source-of-truth, implementation cost). | Schedule Execution Model |
+| v3-7 | Schedule execution topology | **Self-hosted runner.** `curlew worker --schedule-pull` polls `GET /api/v1/schedules/next-run`, executes locally, posts results via `POST /api/v1/schedules/runs/{run_id}/result`. Backend-resident execution explicitly rejected (security blast radius, source-of-truth, implementation cost). | Schedule Execution Model |
 | v3-8 | Schedule cron timezone | **Per-schedule `timezone` column (IANA TZ identifier; default `UTC`).** DST-aware via `Cronos`. | Schedule Execution Model → Cron Time Zone Handling, schema appendix `schedules` |
 | v3-9 | Scheduled-run secrets propagation | **Worker reuses Layer 4 shared vault config** with the same 5-min TTL cache. Backend never sees secret values; worker pulls from customer's vault provider. | Schedule Execution Model → Secrets Propagation to the Worker |
 | v3-10 | Shared vault storage model | **Plaintext-with-coordinate-validation (M16); AES-256-GCM envelope encryption added (M18-009, closes deferral).** `team_vaults.template_jsonb_ciphertext` + `template_jsonb_kid` store the AES-256-GCM ciphertext blob and KEK-id; the manifest validator still runs against cleartext before encryption. `ITeamVaultKeyProvider` (file or Google KMS) wraps per-row DEK. `TeamVaultBackfillHost` encrypts existing rows on startup. Migration 2 (`DropTeamVaultPlaintext`) drops the plaintext column after backfill completes. | Layer 4: Shared Vault Configuration Templates → Storage Model; Encryption-at-Rest Extension (v2) |
-| v3-11 | Shared vault enforcement | **Closed at the `APITEST_TEAM_CONFIG` load site in `internal/vault/teamtemplate/`** (CLI-side enforcement) AND at `VaultConfigTierGate` (backend-side). Both sides consult the `shared_vault_templates` feature gate, closing the registered-but-not-enforced revenue leak that REVIEW.md item 14 surfaced. | Layer 4 → Tier gate enforcement; Tier-Gate Generic Abstraction |
+| v3-11 | Shared vault enforcement | **Closed at the `CURLEW_TEAM_CONFIG` load site in `internal/vault/teamtemplate/`** (CLI-side enforcement) AND at `VaultConfigTierGate` (backend-side). Both sides consult the `shared_vault_templates` feature gate, closing the registered-but-not-enforced revenue leak that REVIEW.md item 14 surfaced. | Layer 4 → Tier gate enforcement; Tier-Gate Generic Abstraction |
 | v3-12 | Tier-gate generic abstraction | **`ITierGate.EnsureAsync(orgId, requiredTier, ct)`** in `Internal/TierGates/`. `SsoTierGate` and the M16 new gates become call-site adapters. RFC 7807 mapping centralized: `402` for authenticated endpoints, `404 + Cache-Control: no-store` for public flows (mirrors M15-002). | Tier-Gate Generic Abstraction (under Backend Architecture Decisions) |
 | v3-13 | GitLab auth model | **Project Access Tokens.** OAuth Apps and GitLab Apps deferred. PAT stored as AES-256-GCM ciphertext under per-row DEK; KEK in `IGitLabKeyProvider` (file/KMS). | GitLab Commit Status API Integration → Why PATs |
 | v3-14 | GitLab self-managed | **Supported via per-org `gitlab_base_url` + optional `gitlab_ca_bundle`.** GitLab Dedicated and GitLab Cloud Native out of scope. | GitLab Commit Status API Integration → Self-Managed Support |
@@ -9374,12 +9374,12 @@ The cross-cutting decisions that close the M18 design pass. Detail and rationale
 | v4-5 | GDPR deletion state machine | **`User.PendingDeletionAt` + `User.AnonymisedAt` columns; 30-day cooldown per `:6671`; re-authentication required (password re-entry within last 5 minutes); `UserDeletionFinalizerHost` finalizes past cooldown.** Email notifications on initiation AND completion. | GDPR Data Subject Rights (Full) → Deletion State Machine |
 | v4-6 | Anonymisation function semantics | **`IUserAnonymiser` replaces `ActorId` with NULL and `ActorEmail` with deterministic `deleted-user-{first8(sha256(user_id+org_id))}` across audit-log entries; hard-deletes everything in the in-deletion-hard set; irreversible.** Emits `user.anonymised` audit event preserving the audit-of-audit trail. | GDPR Data Subject Rights (Full) → Anonymisation Function |
 | v4-7 | Last-admin protection extension | **Block `DELETE /api/v1/users/me` when user is sole owner of any org with members.** Reuses existing `OwnerCannotLeave` error code; response lists every blocking org. | GDPR Data Subject Rights (Full) → Last-Admin Protection |
-| v4-8 | Telemetry identity model | **Reverses prior per-session-UUID model to persistent install ID.** Anonymous UUID at `~/.config/apitesttool/install_id` (mode 0600); regeneratable via `apitest telemetry reset-id`; deleted on `delete-request`. Session UUID preserved as sub-identifier. Justified by conversion-funnel analytics utility. | Telemetry Phase 3 Implementation Pipeline → Identity Model |
+| v4-8 | Telemetry identity model | **Reverses prior per-session-UUID model to persistent install ID.** Anonymous UUID at `~/.config/curlew/install_id` (mode 0600); regeneratable via `curlew telemetry reset-id`; deleted on `delete-request`. Session UUID preserved as sub-identifier. Justified by conversion-funnel analytics utility. | Telemetry Phase 3 Implementation Pipeline → Identity Model |
 | v4-9 | Telemetry lawful basis | **Explicit opt-in consent under GDPR Article 6(1)(a) for Phase 3.** Phase 1 sends nothing (no basis needed). Phase 2 is registration UX, not telemetry. | Telemetry Phase 3 Implementation Pipeline → Lawful Basis |
 | v4-10 | Telemetry phase scope for M18 | **M18 ships Phase 3 ingest + emitter + storage.** Phase 2 registration polish + team-side analytics dashboard split to post-M18 follow-up milestones. | Telemetry Phase 3 Implementation Pipeline → M18 Scope |
 | v4-11 | Telemetry CLI emitter shape | **New `internal/telemetry/` package with dedicated HTTP client.** Does NOT reuse `internal/backend/client.go` — telemetry sends anonymously (no Bearer), idempotency key per event, distinct endpoint host. | Telemetry Phase 3 Implementation Pipeline → CLI Emitter Architecture |
 | v4-12 | Encryption-at-rest extension | **Apply existing `IKmsClient` envelope (per-row DEK + KMS-wrapped KEK) to `team_vaults.template_jsonb` (closes v3-10) and `schedules.env_vars` (closes spec `:11057`) in a single migration.** New `TeamVaultKeyProvider` and `ScheduleEnvKeyProvider` clone the GitLab provider pattern. | Encryption-at-Rest Extension (v2) → Scope and Migration |
-| v4-13 | Signing-key plaintext fallback | **Kept deployment-mode-dependent.** Self-hosted may opt out via `APITEST_SIGNING_KEY_MODE=file`. SaaS production builds add a CI lint failing if any `signing_keys.kms_key_id IS NULL`. | Encryption-at-Rest Extension (v2) → Signing-Key Mode Control |
+| v4-13 | Signing-key plaintext fallback | **Kept deployment-mode-dependent.** Self-hosted may opt out via `CURLEW_SIGNING_KEY_MODE=file`. SaaS production builds add a CI lint failing if any `signing_keys.kms_key_id IS NULL`. | Encryption-at-Rest Extension (v2) → Signing-Key Mode Control |
 | v4-14 | SOC 2 / ISO 27001 scope for M18 | **Minimum viable evidence collection only.** M18 produces policies, vendor inventory, data-flow diagrams, and orchestrates the first vendor pen-test. The audit engagement is a business-process initiative outside the milestone framework. | Compliance Artifact Inventory → M18 Scope |
 | v4-15 | Pen-test cadence | **Annual.** Next engagement scheduled before prior SOC 2 Type II observation window closes. First engagement is part of M18's compliance-artifact slice. | Compliance Artifact Inventory → Pen-Test Cadence |
 
@@ -9437,10 +9437,10 @@ This section defines the backend server architecture, specifying technology choi
 The backend follows Clean Architecture with four layers:
 
 **Layers:**
-1. **ApiTestTool.Api** — Entry point, Minimal API endpoints, middleware, configuration
-2. **ApiTestTool.Application** — Use cases, DTOs, validators, service interfaces
-3. **ApiTestTool.Domain** — Entities, enums, value objects, domain exceptions
-4. **ApiTestTool.Infrastructure** — Dapper repositories, Redis, SendGrid, Stripe, background jobs
+1. **CurlewTool.Api** — Entry point, Minimal API endpoints, middleware, configuration
+2. **CurlewTool.Application** — Use cases, DTOs, validators, service interfaces
+3. **CurlewTool.Domain** — Entities, enums, value objects, domain exceptions
+4. **CurlewTool.Infrastructure** — Dapper repositories, Redis, SendGrid, Stripe, background jobs
 
 **Layer Dependencies:**
 - **Api** → Application, Infrastructure (for DI registration)
@@ -9586,7 +9586,7 @@ templates/email/
 
 SendGrid's UI-managed templates drift silently from code review and accumulate untracked variables; in-repo MJML files do not. SendGrid is the *delivery* mechanism; *authoring* lives in the repo.
 
-**Dev preview.** `apitest-backend dev email-preview <slug>` compiles the MJML and renders a preview using the manifest's `test_data` block. No network call; no SendGrid account required for local development.
+**Dev preview.** `curlew-backend dev email-preview <slug>` compiles the MJML and renders a preview using the manifest's `test_data` block. No network call; no SendGrid account required for local development.
 
 **CI upload flow.** On a tagged release, a CI job uploads each template's compiled HTML to SendGrid via the Dynamic Templates API, captures the resulting template ID, and writes `SENDGRID__TEMPLATES__<SLUG>` into the secrets store consumed by the deployed backend. This keeps the SendGrid template IDs synchronised with the in-repo templates without manual UI clicks.
 
@@ -9595,7 +9595,7 @@ SendGrid's UI-managed templates drift silently from code review and accumulate u
 ```json
 {
   "slug": "billing_receipt",
-  "subject": "Your ApiTool receipt for {{billing_period}}",
+  "subject": "Your Curlew receipt for {{billing_period}}",
   "variables": {
     "first_name":      "string",
     "billing_period":  "string (e.g. 'May 2026')",
@@ -9902,7 +9902,7 @@ The authoritative claim shapes for the License JWT (`typ: "license+jwt"`) and th
 | Algorithm allowlist | `{"ES256"}` (RFC 8725 §3.1) |
 | `typ` requirement | `at+jwt` (RFC 9068; reject all other values per RFC 8725 §3.11) |
 | Issuer (`iss`) | `https://api.apitool.dev` (env-suffixed in dev/staging) |
-| Audience (`aud`) | `apitool-cli-api` |
+| Audience (`aud`) | `curlew-cli-api` |
 | Lifetime (`exp - iat`) | 1 hour |
 | Clock skew tolerance | 30 seconds |
 | Signing key source | `IKeyProvider.GetVerificationJwksAsync()` (cached for 1 hour); accepts the active `current` key plus all `verifying` keys still within the 60-day rotation window |
@@ -10309,7 +10309,7 @@ Call `POST /auth/logout` with optional `all_devices` flag. Clear local state sto
 
 **Vault Configuration (`/org/[slug]/secrets`):** Secrets list with name, last updated date/user, usage count, edit/delete buttons. "+ Add" modal: secret name (alphanumeric + underscore), value input (masked, toggle show), save button. Usage syntax info: `{{secrets.SECRET_NAME}}`. Endpoints: `GET /organizations/{org_id}/secrets`, `POST/PATCH/DELETE /secrets/{name}`.
 
-**Vault Templates (`/org/[slug]/vault-config`):** v4.3 dashboard surface for the Layer 4 shared-vault template (per "Layer 4: Shared Vault Configuration Templates"). YAML editor with syntax highlighting and manifest-validator-on-save (rejects literal-secret-shaped values). Audit log of who modified the template when. "Generate CLI snippet" button produces the `apitest license --refresh` command users run to pull the updated template. Endpoints: `GET/PUT/DELETE /api/v1/organizations/{orgId}/vault-config`. Tier-gated by `VaultConfigTierGate.EnsureTeamOrAboveAsync`.
+**Vault Templates (`/org/[slug]/vault-config`):** v4.3 dashboard surface for the Layer 4 shared-vault template (per "Layer 4: Shared Vault Configuration Templates"). YAML editor with syntax highlighting and manifest-validator-on-save (rejects literal-secret-shaped values). Audit log of who modified the template when. "Generate CLI snippet" button produces the `curlew license --refresh` command users run to pull the updated template. Endpoints: `GET/PUT/DELETE /api/v1/organizations/{orgId}/vault-config`. Tier-gated by `VaultConfigTierGate.EnsureTeamOrAboveAsync`.
 
 **Schedules (`/org/[slug]/schedules`):** List of cron schedules with name, expression, timezone, next-run, last-run, last-status badge. Create-schedule modal: name, cron expression with live preview, timezone picker (IANA TZ identifier dropdown), collection ref input, env vars (key/value pairs, sensitive ones masked). "Run now" button per schedule. Per-schedule run history page lists recent `scheduled_runs` with status, duration, link to the result. Endpoints: `GET/POST/PATCH/DELETE /api/v1/schedules`, `POST /api/v1/schedules/{id}/run-now`. Tier-gated by `ScheduleExecutorTierGate.EnsureTeamOrAboveAsync`.
 
@@ -10412,7 +10412,7 @@ Similar modules exist for: users, organizations, subscriptions. Each wraps base 
 
 **docker-compose.yml (Development):**
 
-Services: dashboard (builds from Dockerfile, port 3000), api (image: apitesttool/api, port 5000), postgres (port 5432, env: DB name/user/pass), redis (port 6379).
+Services: dashboard (builds from Dockerfile, port 3000), api (image: curlew/api, port 5000), postgres (port 5432, env: DB name/user/pass), redis (port 6379).
 
 Environment variables:
 - `VITE_API_URL`: Backend API URL (required)
@@ -10869,7 +10869,7 @@ The `INSERT ... ON CONFLICT (event_id) DO NOTHING RETURNING received_at` pattern
 ```sql
 CREATE TABLE github_installations (
     installation_id   BIGINT PRIMARY KEY,                       -- GitHub's installation ID
-    app_id            BIGINT NOT NULL,                          -- our GitHub App's numeric ID (one per ApiTool product)
+    app_id            BIGINT NOT NULL,                          -- our GitHub App's numeric ID (one per Curlew product)
     org_id            UUID REFERENCES organizations(id) ON DELETE CASCADE,  -- NULL until claim flow links it
     account_login     TEXT NOT NULL,                            -- e.g. 'acme-corp' (display only)
     account_type      TEXT NOT NULL,                            -- 'Organization' | 'User'
@@ -10887,7 +10887,7 @@ CREATE INDEX        idx_github_installations_app   ON github_installations(app_i
 CREATE INDEX        idx_github_installations_alive ON github_installations(installation_id) WHERE deleted_at IS NULL;
 ```
 
-The `UNIQUE` partial index is the structural enforcer of "one installation per ApiTool org" — it raises a database error if a code path tries to bind two non-deleted installations to the same `org_id`. `org_id` is nullable to support the "webhook-first" install path where GitHub delivers `installation.created` before the customer claims the install in the dashboard. The `last_synced_at` column drives the daily reconciliation job.
+The `UNIQUE` partial index is the structural enforcer of "one installation per Curlew org" — it raises a database error if a code path tries to bind two non-deleted installations to the same `org_id`. `org_id` is nullable to support the "webhook-first" install path where GitHub delivers `installation.created` before the customer claims the install in the dashboard. The `last_synced_at` column drives the daily reconciliation job.
 
 **github_webhook_events** — Idempotency store and audit trail for GitHub webhook deliveries; mirrors `stripe_webhook_events`
 
@@ -10927,7 +10927,7 @@ CREATE TABLE pr_checks (
     check_run_id          BIGINT,                               -- GitHub's check_run.id; populated after successful POST
     external_id           UUID NOT NULL DEFAULT gen_random_uuid(),  -- our idempotency key sent to GitHub
     conclusion            TEXT,                                 -- success | failure | neutral | cancelled | skipped | timed_out | action_required
-    details_url           TEXT,                                 -- link back to ApiTool dashboard
+    details_url           TEXT,                                 -- link back to Curlew dashboard
     output_title          TEXT,
     output_summary        TEXT,                                 -- markdown, ≤ 60_000 chars
     output_text           TEXT,                                 -- markdown, ≤ 60_000 chars (response bodies excluded by default)
@@ -11303,8 +11303,8 @@ Example: `license_validations` partitioned as `license_validations_2026_01`, `li
 **Initial Deployment:**
 
 ```sql
-CREATE DATABASE apitesttool WITH ENCODING 'UTF8';
-\c apitesttool
+CREATE DATABASE curlew WITH ENCODING 'UTF8';
+\c curlew
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 BEGIN;
   -- Create all tables in dependency order
@@ -11343,8 +11343,8 @@ Build MVP with free-tier features and AI-agent infrastructure.
 
 **Authentication & Licensing:**
 - Feature gate framework returning `trial_available`, `register_for_trial` fields
-- API key auth via `APITEST_API_KEY` environment variable
-- OAuth device flow for `apitest login`
+- API key auth via `CURLEW_API_KEY` environment variable
+- OAuth device flow for `curlew login`
 - JWT token generation, OS keychain storage
 - License server, 14-day full-feature trial
 - 1,000-request guard rail
@@ -11370,7 +11370,7 @@ Professional tier ($19/month) for CI/CD pipelines.
 - Advanced retry logic (exponential backoff, jitter, conditional rules)
 - HTML reports, JSON Schema validation
 - GraphQL requests, WebSocket testing
-- `apitest import openapi <spec-path>`
+- `curlew import openapi <spec-path>`
 
 ### Phase 4: Team Tier Features (Months 10-12)
 
@@ -11400,11 +11400,11 @@ Enterprise tier for large organizations.
 
 | Concept | Value |
 |---------|-------|
-| Identity layer | **Persistent install ID** — anonymous UUID v4 generated on first `apitest` invocation |
-| Storage (CLI) | `~/.config/apitesttool/install_id` (mode 0600) |
+| Identity layer | **Persistent install ID** — anonymous UUID v4 generated on first `curlew` invocation |
+| Storage (CLI) | `~/.config/curlew/install_id` (mode 0600) |
 | Privacy | Opt-in consent only (GDPR Article 6(1)(a)); zero-telemetry default |
-| Lawful basis | v4-9 opt-in consent model — backend accepts events only from users who have opted in via `apitest telemetry enable` |
-| Consent withdrawal | `apitest telemetry delete-request` triggers deletion of all raw events attributed to the install ID |
+| Lawful basis | v4-9 opt-in consent model — backend accepts events only from users who have opted in via `curlew telemetry enable` |
+| Consent withdrawal | `curlew telemetry delete-request` triggers deletion of all raw events attributed to the install ID |
 
 ### Ingest Endpoint Contract
 
@@ -11484,7 +11484,7 @@ Only the whitelisted keys are aggregated: `duration_ms`, `collection_size`, `req
 ### CLI Emitter Contract (M18-008)
 
 The CLI MUST:
-- Maintain `install_id` at `~/.config/apitesttool/install_id`; generate on first use if absent.
+- Maintain `install_id` at `~/.config/curlew/install_id`; generate on first use if absent.
 - Use a **dedicated HTTP client** (`internal/telemetry/client.go`); never share `internal/backend/client.go`. No Bearer token is sent.
 - Generate a fresh UUID v4 `Idempotency-Key` per event emission.
 - Respect the opt-in flag — emit nothing if telemetry is disabled.

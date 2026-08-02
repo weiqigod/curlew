@@ -6,11 +6,11 @@ created: 2026-03-09
 phase: "M1: Core CLI"
 dependencies: [M1-020]
 observable: |
-  Run `echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./apitest exec --stdin --format json`.
+  Run `echo '{"url":"https://httpbin.org/get","method":"GET"}' | ./curlew exec --stdin --format json`.
   Verify request executed and JSON output returned.
 behaviors:
-  - "Given apitest exec --stdin, when JSON request is piped in, then the request is executed"
-  - "Given apitest exec with inline arguments (URL, method), when executed, then request runs without a collection file"
+  - "Given curlew exec --stdin, when JSON request is piped in, then the request is executed"
+  - "Given curlew exec with inline arguments (URL, method), when executed, then request runs without a collection file"
   - "Given --dry-run flag, when executed, then request details are shown but no HTTP request is made"
   - "Given --log output.jsonl flag, when executed, then structured JSONL log entry is appended to the file"
   - "Given --non-interactive flag, when an error occurs, then no prompts or interactive elements are shown"

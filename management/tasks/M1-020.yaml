@@ -6,7 +6,7 @@ created: 2026-03-09
 phase: "M1: Core CLI"
 dependencies: [M1-019]
 observable: |
-  Run ./apitest run collection.yaml --format json | jq .
+  Run ./curlew run collection.yaml --format json | jq .
   Verify valid JSON with all fields.
 behaviors:
   - "Given --format json flag, when executed, then output is valid JSON"

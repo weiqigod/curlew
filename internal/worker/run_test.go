@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // syncBuffer is a bytes.Buffer safe for concurrent use. heartbeatLoop and Run()

@@ -12,10 +12,10 @@
 </script>
 
 <svelte:head>
-	<title>Features — ApiTool cookbook</title>
+	<title>Features — Curlew cookbook</title>
 	<meta
 		name="description"
-		content="Every ApiTool capability and the example scenarios that demonstrate it."
+		content="Every Curlew capability and the example scenarios that demonstrate it."
 	/>
 </svelte:head>
 

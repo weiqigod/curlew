@@ -16,7 +16,7 @@ No findings.
 | Category | Status | Notes |
 |----------|--------|-------|
 | Error Handling | PASS | All errors returned, not panicked. Wrapped with `%w`. Sentinel `ErrEmitterClosed` defined and registered in `hints_init.go`. `EmitRunError(nil)` returns an explicit error. `NewEmitter(nil)` returns an explicit error. |
-| Input Validation | PASS | `NewEmitter` validates `opts.ApitestVersion != ""` (added in iter 3). Nil cliArgs normalized to `[]string{}` before marshaling (added in iter 2). Nil writer rejected. |
+| Input Validation | PASS | `NewEmitter` validates `opts.CurlewVersion != ""` (added in iter 3). Nil cliArgs normalized to `[]string{}` before marshaling (added in iter 2). Nil writer rejected. |
 | Naming | PASS | No stuttering. All exported types, functions, methods, and constants have doc comments. `RequestEndInput` is clear. Short names in tight scopes. Package is `events`. |
 | Code Organization | PASS | Package is isolated under `internal/output/events`, imports only `internal/errors` from the internal tree. Single responsibility. No circular dependencies. `defer e.mu.Unlock()` used throughout. No unused imports or symbols. Exported surface is minimal. |
 | Correctness | PASS | `atMs` captured once in `EmitRunEnd` so `DurationMs` and `AtMs` reflect the same instant (fixed in iter 3). Atomic id counter is separate from the writer mutex — documented in struct godoc. `go test -race` passes. No goroutine leaks. |
@@ -33,7 +33,7 @@ No findings.
 
 | Behavior | Test(s) |
 |----------|---------|
-| 1. RunStart emits kind=run.start, schema_version=0.1, non-empty run_id, id=1, at_ms=0, started_at, apitest_version, cli_args | `TestEmitter_RunStart_MinimalFields` |
+| 1. RunStart emits kind=run.start, schema_version=0.1, non-empty run_id, id=1, at_ms=0, started_at, curlew_version, cli_args | `TestEmitter_RunStart_MinimalFields` |
 | 2. RequestStart+RequestEnd: monotonic ids, same run_id, same request_id, at_ms non-decreasing | `TestEmitter_RequestStartEnd_PairedIDs` |
 | 3. Failed request with registered sentinel: error carries category, code, hint | `TestEmitter_RequestEnd_RegisteredSentinelHint` |
 | 4. *NetworkError: category=network, code in NETWORK_* set | `TestEmitter_RequestEnd_NetworkErrorKinds` |

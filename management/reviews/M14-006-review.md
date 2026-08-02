@@ -1,6 +1,6 @@
 # Code Review: M14-006
 
-**Task:** CLI: apitest license --refresh + --debug + 8-code exit taxonomy
+**Task:** CLI: curlew license --refresh + --debug + 8-code exit taxonomy
 **Reviewer:** AI
 **Date:** 2026-05-05
 **Branch:** feature/M14-006-license-refresh-and-debug
@@ -31,12 +31,12 @@ No findings.
 | Error Handling | PASS | All errors wrapped with `%w`; sentinels `ErrRefreshExpired`, `ErrRefreshReused`, `ErrDeviceMismatch` in `internal/backend/refresh.go`; `translateRefreshError` preserves `*ProblemDetails` via multi-unwrap `refreshSentinelError.Unwrap() []error`; `errors.Is` and `errors.As` both work through the chain; no swallowed errors; best-effort operations (`os.WriteFile` for last_error, `os.Remove`, `enc.Encode`) explicitly blanked with `_ =` and documented as best-effort. |
 | Input Validation | PASS | nil token handled in `claimStringFn`, `claimInt64Fn`, `headerKidFn`; missing `device.json` exits 7; missing refresh token exits 2; malformed JWT in `--debug` falls back gracefully (best-effort parse, nil-safe helpers). |
 | Naming | PASS | No stuttering; doc comments on all exported symbols (`ErrRefreshExpired`, `ErrRefreshReused`, `ErrDeviceMismatch`, `Tokens`, `RefreshTokens`); unexported helpers named correctly (`translateRefreshError`, `refreshSentinelError`, `refreshCodeToSentinel`). |
-| Code Organization | PASS | RFC 7807 → sentinel translation in `internal/backend`; exit-code mapping in `cmd/apitest/license.go`; clear separation of concerns mirrors `loginExitForError` pattern; `defer` used for flock unlock and file close; `internal/backend/hints_init.go` registers the three new sentinels in the error registry. |
+| Code Organization | PASS | RFC 7807 → sentinel translation in `internal/backend`; exit-code mapping in `cmd/curlew/license.go`; clear separation of concerns mirrors `loginExitForError` pattern; `defer` used for flock unlock and file close; `internal/backend/hints_init.go` registers the three new sentinels in the error registry. |
 | Correctness | PASS | Empty-LicenseJWT guard prevents cache corruption on flock-timeout path (covered by `TestLicenseRefresh_EmptyLicenseJWT_DoesNotCorruptCache`); flock serialises concurrent `--refresh` invocations; previous JWT untouched on exit 3 and exit 6 (covered by `TestLicenseRefresh_PreviousJWTRemainsValidOnNetworkFailure` and `…OnServerError`); `daysUntilExpiry` returns 0 for already-expired tokens (non-negative path) and -1 on any parse error; `errors.As(*ProblemDetails)` traverses the multi-unwrap chain correctly on Go 1.25; context propagation uses `context.Background()` consistent with all other CLI commands. |
 | Test Quality | PASS | 13 `TestLicenseRefresh_*` tests (DOD requires ≥10); 4 `TestLicenseDebug_*` tests; 2 help-text tests; all 8 behaviors from the task YAML have corresponding test(s); error paths tested (not just happy path); `errors.As(*ProblemDetails)` asserted in `TestRefreshTokens_AuthRefreshExpired_ReturnsSentinel`; sentinel non-match asserted in `TestRefreshTokens_UnknownAuthCode_BubblesProblemDetails`; smoke test covers 6 exit-code paths (0, 3, 5, 6, 7, no-cache) against the real binary. |
 
 ## Test Coverage
-- `cmd/apitest`: **81.5%** (above 80% gate — PASS)
+- `cmd/curlew`: **81.5%** (above 80% gate — PASS)
 - `internal/backend`: **84.4%** (PASS)
 - `internal/license`: **88.1%** (PASS)
 
@@ -44,11 +44,11 @@ No findings.
 
 | DOD Item | Status |
 |----------|--------|
-| `go test ./cmd/apitest/... -run TestLicenseRefresh` passes with ≥10 tests | PASS (13 tests) |
+| `go test ./cmd/curlew/... -run TestLicenseRefresh` passes with ≥10 tests | PASS (13 tests) |
 | Real binary invocation against stub produces exit 0, 2/7, 3, 5, 6, 7 | PASS (smoke test covers all six paths) |
 | Help text documents every exit code for `--refresh` and `--debug` | PASS (verified by `TestLicenseHelp_DocumentsRefreshExitCodes` and `…DebugExitCodes`) |
 | `MANUAL.md` updated with 8-code exit-taxonomy table | PASS |
-| `SPECIFICATION.md:8269–8284` cited in `cmd/apitest/license.go` header | PASS |
+| `SPECIFICATION.md:8269–8284` cited in `cmd/curlew/license.go` header | PASS |
 | `smoke/run.sh` extended to verify `--refresh` exits 2/7 when no cache exists | PASS |
 
 ## Summary

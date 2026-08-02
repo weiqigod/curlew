@@ -19,12 +19,12 @@ No findings. All issues from prior iterations have been resolved.
 | Error Handling | PASS | No new error paths introduced. `buildSummaryJSON` and `buildDataDrivenIterations` are pure transformations. All pre-existing error wrapping patterns unchanged. |
 | Input Validation | PASS | Nil `summary` handled by `buildSummaryJSON(nil)` → zeroed struct (never nil pointer). Nil `r.Result` guarded before `.Duration.Milliseconds()`. Empty `IterationData` guarded by `len() > 0` check before assignment. |
 | Naming | PASS | `buildSummaryJSON`, `buildDataDrivenIterations`, `SummaryJSON`, `DataDrivenIterationJSON` follow Effective Go. No stuttering. All exported types have doc comments. Functions are package-private following the established `buildDataDrivenJSON` / `computeDataDrivenStats` pattern. |
-| Code Organization | PASS | Struct additions in `internal/output/json.go` follow the existing type layout. New helpers in `cmd/apitest/main.go` co-located with the builders they extend. No circular dependencies. `internal/` boundaries respected. |
+| Code Organization | PASS | Struct additions in `internal/output/json.go` follow the existing type layout. New helpers in `cmd/curlew/main.go` co-located with the builders they extend. No circular dependencies. `internal/` boundaries respected. |
 | Correctness | PASS | All three production JSON paths (run, exec, exec dry-run) call `buildSummaryJSON`, guaranteeing `Summary` is never nil. Dry-run fix at `main.go:3332` (found in iteration 2) is present. `buildDataDrivenIterations` status classification mirrors `computeDataDrivenStats`. `iterations[].length == total_iterations` invariant holds. Network-error iterations (nil `r.Result`) produce `DurationMs: 0` correctly. |
 | Test Quality | PASS | Table-driven tests. Error paths covered (network error → `"failed"`, skipped → `"skipped"`). `TestExecCmd_dryRunJsonSchema` asserts `out.Summary != nil` (fix from iteration 2 is present). All 10 task behaviors have corresponding test coverage. Integration test `TestRunCmdDirect_DataDriven_JSONFormat` exercises the real formatter with a live test server. |
 
 ## Test Coverage
-- Coverage (`cmd/apitest`): 81.7% (above the 80% DoD threshold)
+- Coverage (`cmd/curlew`): 81.7% (above the 80% DoD threshold)
 - Coverage (`internal/output`): 93.9%
 - Missing coverage: none identified
 
@@ -51,7 +51,7 @@ All 10 behaviors from M11-002.yaml are verified:
 - `go build`: PASS
 - `go test`: PASS (all packages)
 - `go test -race`: PASS
-- `go coverage`: 86.9% total, 81.7% `cmd/apitest`, 93.9% `internal/output`
+- `go coverage`: 86.9% total, 81.7% `cmd/curlew`, 93.9% `internal/output`
 - `golangci-lint`: 0 issues
 - `./smoke/run.sh`: PASS (the `--format junit gated at Free tier` smoke failure is a pre-existing issue from M11-001 on main; not introduced by this branch — `smoke/run.sh` not changed by M11-002)
 

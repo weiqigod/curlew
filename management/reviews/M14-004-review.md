@@ -49,11 +49,11 @@ No findings.
 | DoD Item | Status |
 |----------|--------|
 | `go test ./internal/backend/... passes with >=14 tests` | PASS — 23 tests |
-| `apitest internal backend-probe --self-test` exits 0 with documented stdout | PASS — `OK: client built; lock OK; keychain available=true; rfc7807 mapping OK` |
+| `curlew internal backend-probe --self-test` exits 0 with documented stdout | PASS — `OK: client built; lock OK; keychain available=true; rfc7807 mapping OK` |
 | `ProblemDetails` exported with stable JSON tags; godoc explains Code-not-Status | PASS — `problem.go:19` and `doc.go` both carry the branching rule |
 | Storage fallback covered by test simulating "no keychain" on Linux | PASS — `TestStorage_NoKeychainFallsBackToFile` uses `keyring.MockInitWithError` |
 | flock contention covered by 2-goroutine test asserting ordering | PASS — `TestRefreshTokens_Concurrent_OnlyOneNetworkCall` with `handlerExitTime` ordering guard |
-| Help text adds `internal backend-probe` as hidden (gated behind `APITEST_INTERNAL=1`) | PASS — `TestPrintHelp_DoesNotMentionInternal` passes |
+| Help text adds `internal backend-probe` as hidden (gated behind `CURLEW_INTERNAL=1`) | PASS — `TestPrintHelp_DoesNotMentionInternal` passes |
 | `doc.go` cites `SPECIFICATION.md:7938–7951` + `:8195–8202` | PASS — all four spec line refs present in `doc.go` |
 
 ## Summary

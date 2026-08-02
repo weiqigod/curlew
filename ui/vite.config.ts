@@ -12,7 +12,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Dev workflow (§10.2): `apitest ui --no-open` on :8765, Vite on :5173.
+      // Dev workflow (§10.2): `curlew ui --no-open` on :8765, Vite on :5173.
       '/api': {
         target: 'http://127.0.0.1:8765',
         ws: true,

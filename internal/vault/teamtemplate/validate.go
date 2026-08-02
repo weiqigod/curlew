@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/peterlindqvist/apitest/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault"
 )
 
 // validate walks all environments and accumulates validation issues.

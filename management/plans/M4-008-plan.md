@@ -463,10 +463,10 @@ dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj \
 # Expected: Passed: >=10, Failed: 0
 
 # Migration applies cleanly
-rm -f src/ApiTool.Backend/Data/apitool-dev.db
+rm -f src/ApiTool.Backend/Data/curlew-dev.db
 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/ApiTool.Backend &
 sleep 3
-sqlite3 src/ApiTool.Backend/Data/apitool-dev.db ".tables" \
+sqlite3 src/ApiTool.Backend/Data/curlew-dev.db ".tables" \
   | grep -E "notification_rules|notification_deliveries"
 ```
 

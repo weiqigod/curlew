@@ -10,12 +10,12 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | No warnings |
+| `go build ./cmd/curlew` | PASS | No warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All scenarios pass including JSON checks |
-| Coverage (`cmd/apitest`) | 87.9% | Meets >= 80% ✓ |
+| Coverage (`cmd/curlew`) | 87.9% | Meets >= 80% ✓ |
 | Coverage (`internal/output`) | 100.0% | ✓ |
 | Coverage (`internal/runner`) | 91.2% | ✓ |
 | Coverage (total) | 93.0% | ✓ |
@@ -23,7 +23,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run collection.yaml --format json | jq .
+$ ./curlew run collection.yaml --format json | jq .
 {
   "name": "Demo",
   "status": "passed",
@@ -70,8 +70,8 @@ Result: MATCH
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all 7 behaviors covered | PASS |
-| 2 | Observable output works as specified | `./apitest run collection.yaml --format json \| jq .` produces valid JSON with all fields | PASS |
-| 3 | Test coverage >= 80% | 93.0% total; 87.9% cmd/apitest; 100.0% internal/output | PASS |
+| 2 | Observable output works as specified | `./curlew run collection.yaml --format json \| jq .` produces valid JSON with all fields | PASS |
+| 3 | Test coverage >= 80% | 93.0% total; 87.9% cmd/curlew; 100.0% internal/output | PASS |
 | 4 | No build warnings or lint errors | Clean build; `golangci-lint` 0 issues | PASS |
 | 5 | Help text updated | `--format <type>` shown in help and smoke test verifies it | PASS |
 | 6 | Smoke test updated | JSON smoke scenarios added and all pass | PASS |
@@ -123,8 +123,8 @@ TDD pattern visible: `test(...)` commits precede all `feat(...)` commits through
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — `--format` flag, `buildJSONOutput`, `extractJSONOperator`, format validation |
-| `cmd/apitest/main_test.go` | modified — in-process and integration tests for JSON mode |
+| `cmd/curlew/main.go` | modified — `--format` flag, `buildJSONOutput`, `extractJSONOperator`, format validation |
+| `cmd/curlew/main_test.go` | modified — in-process and integration tests for JSON mode |
 | `internal/output/json.go` | added — JSON types and `WriteJSON` |
 | `internal/output/json_test.go` | added — full test suite for JSON output |
 | `internal/runner/runner.go` | modified — `Method` and `URL` fields on `RequestResult` |

@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_RandomPassword' -v ./internal/variable/...
   # Expected: PASS — $randomPassword('16') returns a 16-char string
@@ -27,9 +27,9 @@ observable: |
   # Expected: PASS — length=3 returns a structured error (must be >= 4
   # to satisfy the four-class requirement); length=0 also errors.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a body field temp_password: "{{$randomPassword('20')}}"
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: rendered temp_password is a 20-char string with mixed
   # character classes.
 

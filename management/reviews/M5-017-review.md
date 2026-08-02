@@ -34,8 +34,8 @@ No findings.
 ## Test Coverage
 
 - `internal/plugin`: **87.9%** (exceeds 80% threshold)
-- `cmd/apitest` overall: **81.6%** (exceeds 80% threshold)
-- `cmd/apitest/plugins.go` breakdown:
+- `cmd/curlew` overall: **81.6%** (exceeds 80% threshold)
+- `cmd/curlew/plugins.go` breakdown:
   - `pluginsCmd`: 100%
   - `pluginsListCmd`: 91.3%
   - `renderPluginsTable`: 91.7%
@@ -47,11 +47,11 @@ No findings.
 |----------|---------|--------|
 | B1: single plugin handshake + table output | `TestPluginsList_HappyPath`, `TestHost_Load/single_plugin_happy_path`, `TestHost_Load_WithRealFixture` | PASS |
 | B2: handshake timeout → non-fatal warning, exit 0 | `TestPluginsList_TimeoutWarning`, `TestHost_Load_HandshakeTimeout` | PASS |
-| B3: APITEST_PLUGINS is a directory → all executables loaded | `TestPluginsList_Directory`, `TestDiscover/directory_expands_to_sorted_executables` | PASS |
+| B3: CURLEW_PLUGINS is a directory → all executables loaded | `TestPluginsList_Directory`, `TestDiscover/directory_expands_to_sorted_executables` | PASS |
 | B4: unknown hook → warning + continue | `TestPluginsList_UnknownHookWarning`, `TestHost_Load/unknown_hook_ignored_with_warning` | PASS |
 | B5: duplicate name → error + exit 2 | `TestPluginsList_DuplicateNameExits2`, `TestHost_Load/duplicate_plugin_name_is_fatal` | PASS |
 | B6: not executable → error + exit 2 | `TestPluginsList_MissingPathExits2`, `TestDiscover/non-executable_file_produces_fatal_error` | PASS |
-| B7: `--help` documents APITEST_PLUGINS | `TestPluginsList_Help`, `TestPluginsList_HelpArg` | PASS |
+| B7: `--help` documents CURLEW_PLUGINS | `TestPluginsList_Help`, `TestPluginsList_HelpArg` | PASS |
 | B8: docs/plugins.md documents handshake schema | `docs/plugins.md` reviewed; wire format, env var, exit codes, Go example, security note all present | PASS |
 
 ## Observable Verification

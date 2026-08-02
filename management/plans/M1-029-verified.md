@@ -85,8 +85,8 @@ Review PASS trusted (management/reviews/M1-029-review.md), spot-check clean.
 | `internal/output/terminal_test.go` | modified | Added `TestPrinter_GuardRail` with 4 test cases |
 | `internal/output/json.go` | modified | Added `GuardRailJSON` struct, `GuardRail` field on `JSONOutput` |
 | `internal/output/json_test.go` | modified | Added `TestGuardRailJSON_Serialization` with 2 test cases |
-| `cmd/apitest/main.go` | modified | Guard rail check + exit code 2 for terminal, JSON, TAP formats |
-| `cmd/apitest/main_test.go` | modified | Added `TestRunCmd_GuardRail` with 5 integration test cases |
+| `cmd/curlew/main.go` | modified | Guard rail check + exit code 2 for terminal, JSON, TAP formats |
+| `cmd/curlew/main_test.go` | modified | Added `TestRunCmd_GuardRail` with 5 integration test cases |
 
 ## Issues Found
 None

@@ -1,6 +1,6 @@
 {
   "slug": "billing_subscription_canceled",
-  "subject": "Your ApiTool subscription has been canceled",
+  "subject": "Your Curlew subscription has been canceled",
   "variables": {
     "first_name":     "string",
     "tier":           "string (e.g. 'Pro')",

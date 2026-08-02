@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/backend"
+	"github.com/weiqigod/curlew/internal/backend"
 )
 
 // trialSuccessResponse writes a 200 activation response.

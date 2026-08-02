@@ -25,30 +25,30 @@ observable: |
   # TestSchema_published_path_matches_embed,
   # TestSchema_file_exists_at_published_path.
 
-  # `apitest schema` still emits the JSON Schema, now versioned.
-  ./apitest schema | jq -r .title
-  # Expected: "ApiTest Collection v1"
-  ./apitest schema | jq -r '.["$id"]'
-  # Expected: https://raw.githubusercontent.com/peterlindqvist/apitest/main/schemas/collection-v1.json
+  # `curlew schema` still emits the JSON Schema, now versioned.
+  ./curlew schema | jq -r .title
+  # Expected: "Curlew Collection v1"
+  ./curlew schema | jq -r '.["$id"]'
+  # Expected: https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/collection-v1.json
 
   # Manual: with redhat.vscode-yaml installed and the documented
   # .vscode/settings.json snippet applied locally, opening
   # collections/sample.yaml surfaces autocomplete, hover docs, and
   # inline validation.
 behaviors:
-  - "schemas/collection-v1.json exists at repo root as a Draft 2020-12 schema with $id set to the raw.githubusercontent.com/peterlindqvist/apitest/main URL and title 'ApiTest Collection v1'."
+  - "schemas/collection-v1.json exists at repo root as a Draft 2020-12 schema with $id set to the raw.githubusercontent.com/peterlindqvist/curlew/main URL and title 'Curlew Collection v1'."
   - "schema.CollectionSchema returns bytes byte-identical to the contents of schemas/collection-v1.json (TestSchema_published_path_matches_embed)."
   - "The JSON Schema validates collections/sample.yaml produced by scaffold.Init in a fresh temp dir (TestSchema_validates_scaffolded_sample)."
   - "The JSON Schema rejects a copy of sample.yaml with the required top-level 'name' field removed (TestSchema_rejects_sample_missing_required_name)."
   - "schemas/collection-v1.json is reachable from the test working dir via runtime.Caller walk-up (TestSchema_file_exists_at_published_path)."
   - "docs/MANUAL.md §1.5 'Editor setup (VS Code)' documents the yaml.schemas snippet (relative path + raw URL) and names redhat.vscode-yaml as the prerequisite."
   - "CHANGELOG.md [Unreleased] → Added has an M8-001 bullet."
-  - "`apitest schema` stdout contains the published schema content (no caller behaviour change)."
+  - "`curlew schema` stdout contains the published schema content (no caller behaviour change)."
 scope: |
   Move the embedded collection schema to schemas/collection-v1.json. New
   repo-root package schemas/ owns the //go:embed. internal/schema/schema.go
   becomes a one-line alias (var CollectionSchema = schemas.CollectionV1).
-  Add $id and bump title to 'ApiTest Collection v1'. Document the VS Code
+  Add $id and bump title to 'Curlew Collection v1'. Document the VS Code
   yaml.schemas snippet in MANUAL.md §1.5. Add four tests: DoD sample-validates,
   negative control, drift guard, file-exists. CHANGELOG entry.
 

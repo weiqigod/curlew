@@ -301,7 +301,7 @@ func TestRun_RetryAttemptDetailsPropagated(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/terminal.go` | modify | Add `RetryAttemptDetail` method |
 | `internal/output/terminal_test.go` | modify | Add tests for retry detail output |
-| `cmd/apitest/main.go` | modify | Call `RetryAttemptDetail` when verbose and retryCount > 0 |
+| `cmd/curlew/main.go` | modify | Call `RetryAttemptDetail` when verbose and retryCount > 0 |
 
 #### New Code (terminal.go)
 ```go
@@ -358,7 +358,7 @@ func TestPrinterRetryAttemptDetails(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/json.go` | modify | Add `AttemptDetails` field to `JSONRequest` and `JSONAttemptDetail` struct |
 | `internal/output/json_test.go` | modify | Add tests for attempt_details in JSON |
-| `cmd/apitest/main.go` | modify | Populate `AttemptDetails` in `buildJSONOutput` |
+| `cmd/curlew/main.go` | modify | Populate `AttemptDetails` in `buildJSONOutput` |
 
 #### New Code (json.go)
 ```go
@@ -378,7 +378,7 @@ type JSONRequest struct {
 }
 ```
 
-#### cmd/apitest/main.go buildJSONOutput:
+#### cmd/curlew/main.go buildJSONOutput:
 ```go
 // After setting RetryCount:
 if r.RetryCount > 0 && len(r.AttemptDetails) > 0 {
@@ -427,7 +427,7 @@ func TestJSONOutputAttemptDetails(t *testing.T) {
 |------|--------|-------------|
 | `internal/output/tap.go` | modify | Add retry diagnostic comment support |
 | `internal/output/tap_test.go` | modify | Add tests for retry diagnostics in TAP |
-| `cmd/apitest/main.go` | modify | Pass retry details to TAP builder |
+| `cmd/curlew/main.go` | modify | Pass retry details to TAP builder |
 
 #### Current Code (tap.go TAPResult)
 ```go
@@ -577,7 +577,7 @@ func TestRun_DataDrivenWithRetry_FailFast(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -586,13 +586,13 @@ go test ./...
 Observable verification:
 ```bash
 # Run a collection with retries and parallel execution
-apitest run tests.yaml --parallel -v
+curlew run tests.yaml --parallel -v
 
 # Run data-driven with retries
-apitest run tests.yaml -v
+curlew run tests.yaml -v
 
 # Verify JSON output includes attempt_details
-apitest run tests.yaml --format json | jq '.requests[].attempt_details'
+curlew run tests.yaml --format json | jq '.requests[].attempt_details'
 
 # Run integration tests
 go test ./internal/retry/... -v

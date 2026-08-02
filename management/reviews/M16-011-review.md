@@ -1,6 +1,6 @@
 # Code Review: M16-011
 
-**Task:** apitest worker --schedule-pull mode with file: collection ref and pending-uploads queue
+**Task:** curlew worker --schedule-pull mode with file: collection ref and pending-uploads queue
 **Reviewer:** AI
 **Date:** 2026-05-11
 **Branch:** feature/M16-011-schedule-pull-worker
@@ -38,13 +38,13 @@ All four findings from iteration 2 (Low severity) are confirmed fixed:
 | Naming | PASS | No stuttering. All exported symbols have doc comments. `HTTPClient` interface naming correct. Package names are lowercase single-word. |
 | Code Organization | PASS | Package boundary clean. `internal/worker/schedule/` is self-contained. `backend.Client` extended additively with `GetJSONOptional`. No circular dependencies. `defer` used correctly for cleanup (response bodies, timers, heartbeat goroutine). |
 | Correctness | FAIL | Finding 1: nil `*ExecutionOutcome` from `Execute` causes panic in `buildResultRequest` — no nil guard and interface contract undocumented. All other correctness properties verified: happy path, drain, network-failure enqueue, `git:` rejection, claim-reap abandonment, 401-fatal, `--once` integration. |
-| Test Quality | PASS | All 9 task behaviors have test coverage. Behavior 8 (`--perf-pull` concurrency) is explicitly deferred per plan Open Decision 2 and documented in help text and package doc. Coverage: 84.9% on `internal/worker/schedule`, 81.5% on `cmd/apitest`, 83.9% on `internal/backend` — all exceed the 80% threshold. |
+| Test Quality | PASS | All 9 task behaviors have test coverage. Behavior 8 (`--perf-pull` concurrency) is explicitly deferred per plan Open Decision 2 and documented in help text and package doc. Coverage: 84.9% on `internal/worker/schedule`, 81.5% on `cmd/curlew`, 83.9% on `internal/backend` — all exceed the 80% threshold. |
 
 ## Test Coverage
 
 - `internal/worker/schedule`: **84.9%** (exceeds ≥80% threshold)
 - `internal/backend`: **83.9%** (exceeds threshold)
-- `cmd/apitest`: **81.5%** (exceeds threshold)
+- `cmd/curlew`: **81.5%** (exceeds threshold)
 
 ## Summary
 

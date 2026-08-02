@@ -19,24 +19,24 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/bad.yaml
+$ ./curlew run /tmp/bad.yaml
 [ERROR] /tmp/bad.yaml:2 — invalid YAML syntax: yaml: line 2: could not find expected ':'
 
-$ ./apitest run /tmp/nourl.yaml
+$ ./curlew run /tmp/nourl.yaml
 [ERROR] /tmp/nourl.yaml — request "no-url" is missing required field 'url'
   Hint: Every request must specify a url field
 
-$ ./apitest run /tmp/connrefused.yaml
+$ ./curlew run /tmp/connrefused.yaml
 Collection: test
 [ERROR] fail — Connection refused at 127.0.0.1:1
   Hint: Check that the server is running and listening on this port
 
-$ ./apitest run /tmp/dnsfail.yaml
+$ ./curlew run /tmp/dnsfail.yaml
 Collection: test
 [ERROR] dns-fail — DNS resolution failed for nonexistent.invalid
   Hint: Check that the hostname is correct and DNS is configured
 
-$ ./apitest run nonexistent.yaml
+$ ./curlew run nonexistent.yaml
 [ERROR] nonexistent.yaml — file not found: nonexistent.yaml
 ```
 
@@ -109,8 +109,8 @@ Review PASS trusted (management/reviews/M1-008-review.md), spot-check clean.
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +2/-2 |
-| `cmd/apitest/main_test.go` | modified | +57 |
+| `cmd/curlew/main.go` | modified | +2/-2 |
+| `cmd/curlew/main_test.go` | modified | +57 |
 | `internal/errors/errors.go` | created | +185 |
 | `internal/errors/errors_test.go` | created | +156 |
 | `internal/httpexec/executor.go` | modified | +8/-2 |

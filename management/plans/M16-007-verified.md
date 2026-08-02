@@ -17,7 +17,7 @@
 | Coverage (`internal/license`) | 88.7% | Meets >= 80% threshold |
 | Coverage (`internal/auth`) | 89.8% | Meets >= 80% threshold |
 | Coverage (`internal/backend`) | 84.8% | Meets >= 80% threshold |
-| Coverage (`cmd/apitest`) | 81.5% | Meets >= 80% threshold |
+| Coverage (`cmd/curlew`) | 81.5% | Meets >= 80% threshold |
 | Coverage (`internal/runner`) | 84.8% | Meets >= 80% threshold |
 | Coverage (all changed packages combined) | 83.2% | Meets >= 80% threshold |
 
@@ -27,22 +27,22 @@ The full observable requires a running backend (backend portion is integration-t
 The CLI-observable portion was verified:
 
 ```
-$ ./apitest license trial --help
-Usage: apitest license trial start <feature>
+$ ./curlew license trial --help
+Usage: curlew license trial start <feature>
 
 Activate a 7-day on-demand trial of <feature>.
 Trials are one-per-feature; once consumed, the feature requires
-a paid subscription. Use 'apitest info --tier' to see which features
+a paid subscription. Use 'curlew info --tier' to see which features
 are available for trial.
 
 Exit codes:
   0  trial activated; tokens refreshed
   1  internal error
-  2  no cached refresh token (run apitest login)
+  2  no cached refresh token (run curlew login)
   3  network failure
   5  trial already consumed for that feature
   6  backend 5xx, or feature slug unknown
-  7  device not registered (run apitest login)
+  7  device not registered (run curlew login)
 ```
 
 The end-to-end seam (backend + CLI) is exercised by:
@@ -65,18 +65,18 @@ Result: MATCH (verified via unit tests with httptest stubs)
 | 6 | Feature gates consult IsTrialActiveFor before rejecting on RequiredTier | `TestCheckFeatureWithClaims_active_trial_overrides_tier_block`, `TestRun_VaultGate/active_trial_overrides_tier_gate_for_vault` | PASS |
 | 7 | CLI persists tokens and prints confirmation with expires_at on 200 | `TestLicenseTrialStartOut_grants_persists_tokens_and_prints_expires_at` | PASS |
 | 8 | CLI exits 5 on 409 with previous-grant date in message | `TestLicenseTrialStartOut_already_consumed_returns_5_with_clear_message`, `TestLicenseTrialStartOut_already_consumed_no_previous_grant_returns_5` | PASS |
-| 9 | `apitest license trial --help` documents subcommand and one-per-feature constraint | `TestLicenseTrialCmdOut_help_renders_subcommand`, `TestLicenseCmdOut_help_documents_trial_subcommand` | PASS |
+| 9 | `curlew license trial --help` documents subcommand and one-per-feature constraint | `TestLicenseTrialCmdOut_help_renders_subcommand`, `TestLicenseCmdOut_help_documents_trial_subcommand` | PASS |
 
 ## Definition of Done
 
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | All 9 behaviors covered by tests; `go test ./...` passes all packages | PASS |
-| 2 | Observable command works as specified | `apitest license trial --help` renders correctly; E2E seam verified via httptest stubs | PASS |
-| 3 | Test coverage >= 80% on new code | All changed packages ≥80%: license 88.7%, auth 89.8%, backend 84.8%, cmd/apitest 81.5%, runner 84.8% | PASS |
-| 4 | No build warnings or lint errors | `go build ./cmd/apitest` clean; `golangci-lint run` 0 findings | PASS |
+| 2 | Observable command works as specified | `curlew license trial --help` renders correctly; E2E seam verified via httptest stubs | PASS |
+| 3 | Test coverage >= 80% on new code | All changed packages ≥80%: license 88.7%, auth 89.8%, backend 84.8%, cmd/curlew 81.5%, runner 84.8% | PASS |
+| 4 | No build warnings or lint errors | `go build ./cmd/curlew` clean; `golangci-lint run` 0 findings | PASS |
 | 5 | OpenAPI/HTTP API doc updated for POST /api/v1/trials/{feature} | `docs/api-errors.md` updated with TRIAL_ALREADY_CONSUMED and TRIAL_FEATURE_UNKNOWN rows | PASS |
-| 6 | Help text updated for new flags/subcommands (apitest license trial start) | `printLicenseTrialHelpTo` and `printLicenseHelpTo` both updated; tests assert content | PASS |
+| 6 | Help text updated for new flags/subcommands (curlew license trial start) | `printLicenseTrialHelpTo` and `printLicenseHelpTo` both updated; tests assert content | PASS |
 | 7 | Smoke test updated for user-visible behavior | `smoke/run.sh` includes "License Trial Help (M16-007)" section; passes clean | PASS |
 
 ## Code Review
@@ -132,9 +132,9 @@ Branch A: Review PASS (iteration 5) trusted; spot-check confirmed:
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/license.go` | modified — trial subcommand routing + licenseTrialCmdOut + licenseTrialStartOut |
-| `cmd/apitest/license_trial_test.go` | created — 18 CLI trial tests |
-| `cmd/apitest/trial_interface_test.go` | created — compile-time TrialChecker interface check |
+| `cmd/curlew/license.go` | modified — trial subcommand routing + licenseTrialCmdOut + licenseTrialStartOut |
+| `cmd/curlew/license_trial_test.go` | created — 18 CLI trial tests |
+| `cmd/curlew/trial_interface_test.go` | created — compile-time TrialChecker interface check |
 | `docs/api-errors.md` | modified — TRIAL_ALREADY_CONSUMED + TRIAL_FEATURE_UNKNOWN |
 | `internal/auth/gate.go` | modified — TrialChecker interface + CheckFeatureWithClaims |
 | `internal/auth/gate_test.go` | modified — CheckFeatureWithClaims tests |

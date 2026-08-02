@@ -1,9 +1,9 @@
-// Package main is the datadog-metrics example plugin for ApiTool.
+// Package main is the datadog-metrics example plugin for Curlew.
 //
-// It listens on stdin for JSON-RPC 2.0 requests from apitest, responds to the
-// apitest/hello handshake declaring the on_response and on_result hooks, and
-// submits an apitest.request.duration gauge metric to Datadog on every
-// apitest/on_response call.
+// It listens on stdin for JSON-RPC 2.0 requests from curlew, responds to the
+// curlew/hello handshake declaring the on_response and on_result hooks, and
+// submits an curlew.request.duration gauge metric to Datadog on every
+// curlew/on_response call.
 //
 // Configuration is done via environment variables:
 //
@@ -74,7 +74,7 @@ func printMetadata(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "Version:  %s\n", pluginVersion)
 	_, _ = fmt.Fprintf(w, "Hooks:    on_response, on_result\n")
 	_, _ = fmt.Fprintf(w, "Protocol: 1\n")
-	_, _ = fmt.Fprintf(w, "\nSubmits apitest.request.duration (gauge) to Datadog v2 /api/v2/series\n")
+	_, _ = fmt.Fprintf(w, "\nSubmits curlew.request.duration (gauge) to Datadog v2 /api/v2/series\n")
 	_, _ = fmt.Fprintf(w, "on every on_response hook. Disabled when DATADOG_API_KEY is unset.\n")
 }
 
@@ -83,14 +83,14 @@ func printMetadata(w io.Writer) {
 // spawning a process or wiring up a full stdin/stdout loop.
 func handle(ctx context.Context, cfg config, client *http.Client, stderr io.Writer, method string, params json.RawMessage) (any, error) {
 	switch method {
-	case "apitest/hello":
+	case "curlew/hello":
 		return map[string]any{
 			"name":             pluginName,
 			"version":          pluginVersion,
 			"hooks":            []string{"on_response", "on_result"},
 			"protocol_version": 1,
 		}, nil
-	case "apitest/on_response":
+	case "curlew/on_response":
 		if !cfg.enabled {
 			return map[string]any{}, nil
 		}
@@ -103,7 +103,7 @@ func handle(ctx context.Context, cfg config, client *http.Client, stderr io.Writ
 			return map[string]any{}, nil
 		}
 		metric := ddMetric{
-			Metric: "apitest.request.duration",
+			Metric: "curlew.request.duration",
 			Type:   3, // gauge
 			Points: []ddPoint{{Timestamp: time.Now().Unix(), Value: float64(p.DurationMs)}},
 			Tags:   []string{fmt.Sprintf("status:%d", p.StatusCode)},
@@ -114,7 +114,7 @@ func handle(ctx context.Context, cfg config, client *http.Client, stderr io.Writ
 		}
 		_, _ = fmt.Fprintf(stderr, "[plugin:%s] submitted 1 metric\n", pluginName)
 		return map[string]any{}, nil
-	case "apitest/on_result":
+	case "curlew/on_result":
 		return map[string]any{}, nil
 	default:
 		return map[string]any{}, nil

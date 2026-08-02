@@ -11,7 +11,7 @@ dependencies:
   - M20-003
 
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   # 1. MANUAL.md documents all 15 locales (deferral notes from M13 replaced).
   grep -c -E '`(en-US|en-GB|de-DE|fr-FR|es-ES|it-IT|pt-BR|ja-JP|zh-CN|ko-KR|nl-NL|pl-PL|ru-RU|sv-SE|tr-TR)`' docs/MANUAL.md
@@ -28,7 +28,7 @@ observable: |
   # run-1 output == run-2 output for $faker.fullName/$faker.phone/$faker.city.
 
   # 4. The matrix is also exercisable from the CLI as a documented worked example.
-  ./apitest run testdata/locale/reproducibility-matrix.yaml --seed 12345
+  ./curlew run testdata/locale/reproducibility-matrix.yaml --seed 12345
   # Expected: all assertions pass — the collection runs the same seed across multiple
   # --locale-configured collections and pins the expected localized values.
 
@@ -66,7 +66,7 @@ definition_of_done:
   - "go test ./... passes"
   - "docs/MANUAL.md contains a 15-row locale reference table and no remaining 'deferred from M13' locale notes"
   - "TestLocale_ReproducibilityMatrix covers all 15 locales and passes"
-  - "testdata/locale/reproducibility-matrix.yaml runs green via `apitest run`"
+  - "testdata/locale/reproducibility-matrix.yaml runs green via `curlew run`"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
 

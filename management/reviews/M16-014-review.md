@@ -35,7 +35,7 @@ No findings. All three findings from iteration 2 have been resolved:
 |---|----------|---------|
 | 1 | Migration applies with `provider TEXT NOT NULL DEFAULT 'github'`, nullable FK/bigint columns | `PrCheckEntitySchemaTests`, `PrCheckProviderMigrationTests` |
 | 2 | Existing rows default to `provider='github'` | `ExistingRow_WithoutProvider_DefaultsToGithub` (entity + migration variants) |
-| 3 | `success → success`, name=ApiTool, description≤255, target_url HTTPS | `PostsSuccess_BodyContains_State_Name_Description_Context`, `StateMapping_TableDriven` |
+| 3 | `success → success`, name=Curlew, description≤255, target_url HTTPS | `PostsSuccess_BodyContains_State_Name_Description_Context`, `StateMapping_TableDriven` |
 | 4 | `timed_out → failed` with `[timed out]` prefix | `StateMapping_TableDriven`, `Description_LongerThan255_TruncatedWithMarker` |
 | 5 | `neutral/skipped → success` with `neutral:` / `skipped:` prefix | `StateMapping_TableDriven` |
 | 6 | 401 → `access_token_revoked_at` set, audit `gitlab.pat.revoked`, `status=gitlab_token_revoked` | `Returns401_MarksAccessTokenRevoked_AndSetsStatus_GitLabTokenRevoked` (with `SpyAuditWriter`) |

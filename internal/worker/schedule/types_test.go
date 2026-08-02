@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/worker/schedule"
+	"github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 func TestTypes_NextRunResponse_RoundTrip(t *testing.T) {

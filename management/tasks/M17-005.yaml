@@ -9,7 +9,7 @@ phase: "M17: First-party signers and signing helpers"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_JwtDecodeHeader_Vector' -v ./internal/variable/...
   # Expected: PASS — using the JWT.io canonical example
@@ -43,10 +43,10 @@ observable: |
   # verify signatures — that is explicitly out of scope; documented in
   # MANUAL.md as a security-relevant caveat).
 
-  TMP=$(mktemp -d); cd "$TMP"; ./apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; ./curlew init demo && cd demo
   # Add a request with extract:
   #   token_alg: "{{$jsonpath('$.alg', $jwtDecodeHeader('{{access_token}}'))}}"
-  ./apitest run collections/sample.yaml --dry-run --format json | grep -F '"alg"'
+  ./curlew run collections/sample.yaml --dry-run --format json | grep -F '"alg"'
   # Expected: rendered request shows the alg field extracted from the
   # decoded header (proves the function returns valid JSON consumable
   # by $jsonpath).

@@ -31,7 +31,7 @@ Previous findings addressed:
 - `internal/plugin`: 81.4%
 - `internal/plugin/hooks`: 82.1%
 - `internal/runner`: 85.6%
-- `cmd/apitest`: 81.6%
+- `cmd/curlew`: 81.6%
 
 All packages at or above the 80% threshold.
 
@@ -50,4 +50,4 @@ All packages at or above the 80% threshold.
 
 ## Summary
 
-All findings from iterations 1 and 2 are resolved. The architecture is clean: `internal/plugin` handles discovery and handshake, `internal/plugin/hooks` owns the dispatch logic, `internal/runner` wires hooks around each HTTP exec call, and the CLI wiring in `cmd/apitest` is minimal and testable. Error handling, input validation, naming, code organisation, correctness, and test quality all meet project standards. The smoke test passes end-to-end with the hooklog fixture.
+All findings from iterations 1 and 2 are resolved. The architecture is clean: `internal/plugin` handles discovery and handshake, `internal/plugin/hooks` owns the dispatch logic, `internal/runner` wires hooks around each HTTP exec call, and the CLI wiring in `cmd/curlew` is minimal and testable. Error handling, input validation, naming, code organisation, correctness, and test quality all meet project standards. The smoke test passes end-to-end with the hooklog fixture.

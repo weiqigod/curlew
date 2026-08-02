@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 func TestIsRetriable(t *testing.T) {

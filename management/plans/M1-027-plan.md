@@ -75,7 +75,7 @@ func TestListCollections(t *testing.T) {
 
 #### New Code
 ```go
-// InfoJSONOutput is the JSON structure for apitest info --format json.
+// InfoJSONOutput is the JSON structure for curlew info --format json.
 type InfoJSONOutput struct {
     ProjectRoot  string   `json:"project_root"`
     ProjectName  string   `json:"project_name"`
@@ -176,8 +176,8 @@ func TestCollectionSchema(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `infoCmd`, `parseInfoArgs`, wire in `run()` switch |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for info command |
+| `cmd/curlew/main.go` | modify | Add `infoCmd`, `parseInfoArgs`, wire in `run()` switch |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for info command |
 
 #### Current Code (switch statement in `run()`):
 ```go
@@ -208,7 +208,7 @@ func parseInfoArgs(args []string) (format string, noColor bool, err error)
 
 **Behavior:**
 - Uses `os.Getwd()` → `config.FindProjectRoot()` for project discovery
-- No project found → exit 5 with error: `"no apitest project found (no apitest.yaml in current or parent directories)"`
+- No project found → exit 5 with error: `"no curlew project found (no curlew.yaml in current or parent directories)"`
 - `--format json` → JSON via `WriteInfoJSON`
 - Default (no `--format`) → human-readable terminal output
 - `--format <invalid>` → exit 1
@@ -272,8 +272,8 @@ func TestInfoCmd(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `schemaCmd`, `parseSchemaArgs` |
-| `cmd/apitest/main_test.go` | modify | Add integration tests for schema command |
+| `cmd/curlew/main.go` | modify | Add `schemaCmd`, `parseSchemaArgs` |
+| `cmd/curlew/main_test.go` | modify | Add integration tests for schema command |
 
 #### New Code
 ```go
@@ -318,8 +318,8 @@ func TestSchemaCmd(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `info` and `schema` to `printHelp()` |
-| `cmd/apitest/main_test.go` | modify | Add help text assertions |
+| `cmd/curlew/main.go` | modify | Add `info` and `schema` to `printHelp()` |
+| `cmd/curlew/main_test.go` | modify | Add help text assertions |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -346,14 +346,14 @@ func TestSchemaCmd(t *testing.T) {
 ```bash
 echo "=== Info command ==="
 echo "--- Info: in project directory ---"
-# Create temp project, run apitest info --format json, verify exit 0
+# Create temp project, run curlew info --format json, verify exit 0
 
 echo "--- Info: outside project directory (expect error) ---"
-# Run in temp dir without apitest.yaml, verify exit 5
+# Run in temp dir without curlew.yaml, verify exit 5
 
 echo "=== Schema command ==="
 echo "--- Schema: valid JSON Schema output ---"
-# Run apitest schema --format json, verify valid JSON
+# Run curlew schema --format json, verify valid JSON
 ```
 
 #### Impact on Existing Tests
@@ -371,9 +371,9 @@ No existing tests will break. All changes are additive (new switch cases, new pa
 
 ## Risks and Edge Cases
 
-- **Risk:** `info` run outside project directory → **Mitigation:** Return exit code 5 with clear error: "no apitest project found (no apitest.yaml in current or parent directories)"
-- **Edge case:** Empty project (apitest.yaml exists but no collections/environments) → **Handling:** Return valid output with empty arrays `[]`, never `null`
-- **Edge case:** Malformed apitest.yaml → **Handling:** Return exit 5 with parse error from `LoadProjectConfig`
+- **Risk:** `info` run outside project directory → **Mitigation:** Return exit code 5 with clear error: "no curlew project found (no curlew.yaml in current or parent directories)"
+- **Edge case:** Empty project (curlew.yaml exists but no collections/environments) → **Handling:** Return valid output with empty arrays `[]`, never `null`
+- **Edge case:** Malformed curlew.yaml → **Handling:** Return exit 5 with parse error from `LoadProjectConfig`
 - **Risk:** JSON Schema correctness/completeness → **Mitigation:** Write schema against current `Collection` struct fields in `internal/parser/collection.go`; test that schema has expected top-level properties
 - **Edge case:** `collections/` directory doesn't exist → **Handling:** `ListCollections` returns empty slice
 - **Risk:** `go:embed` requires file to exist at compile time → **Mitigation:** Create `collection.json` in Step 3 before any build step
@@ -382,7 +382,7 @@ No existing tests will break. All changes are additive (new switch cases, new pa
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -391,17 +391,17 @@ go test ./...
 Observable verification:
 ```bash
 # In a project directory:
-./apitest info --format json | jq .
+./curlew info --format json | jq .
 # Verify: JSON with project_root, project_name, collections, environments
 
-./apitest info
+./curlew info
 # Verify: human-readable summary
 
 # Anywhere:
-./apitest schema --format json | jq .
+./curlew schema --format json | jq .
 # Verify: valid JSON Schema output with $schema keyword
 
 # Outside project directory:
-cd /tmp && ./apitest info
+cd /tmp && ./curlew info
 # Verify: error message about no project found, exit code 5
 ```

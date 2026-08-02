@@ -104,7 +104,7 @@ Review PASS trusted (management/reviews/M2-025-review.md, iteration 2), spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +32 |
+| `cmd/curlew/main.go` | modified | +32 |
 | `internal/datadriven/parallel.go` | modified | +14/-1 |
 | `internal/output/json.go` | modified | +10 |
 | `internal/output/json_test.go` | modified | +85 |

@@ -1,6 +1,6 @@
 # Code Review: M19-006
 
-**Task:** Expand templates/skills/claude/apitest/ to multi-file skill
+**Task:** Expand templates/skills/claude/curlew/ to multi-file skill
 **Reviewer:** AI
 **Date:** 2026-05-17
 **Branch:** feature/M19-006-multi-file-skill
@@ -26,24 +26,24 @@ No findings. All three findings from iteration 1 were resolved by the improve ph
 | Input Validation | PASS | `embeddedBase` validates `skillName` before any I/O; sentinel propagates correctly through `Walk` and `Render` |
 | Naming | PASS | No stuttering; all exported symbols (`Walk`, `SkillRootDir`, `ErrUnknownSkill`, `SupportedSkills`) have doc comments; package names correct |
 | Code Organization | PASS | `internal/` boundaries respected; `installSkill` is unexported; `templates` package exposes minimal surface |
-| Correctness | PASS | `Walk` yields verbatim bytes (no substitution); `installSkill` applies `{{apitest_version}}` substitution to `.md` files only; per-file skip-if-exists semantics correct; `all:` embed directive handles recursive layout |
+| Correctness | PASS | `Walk` yields verbatim bytes (no substitution); `installSkill` applies `{{curlew_version}}` substitution to `.md` files only; per-file skip-if-exists semantics correct; `all:` embed directive handles recursive layout |
 | Test Quality | PASS | All six behaviors from the task YAML covered by dedicated tests; `TestSkillClaude_MultiFile_ExpressionsDocumentsCEL` now asserts the decision table; `TestWalk_AllFilesAreMarkdown` guards against accidental binary embeds |
 
 ## Test Coverage
 
 - `templates`: 87.5%
 - `internal/scaffold`: 87.1%
-- `cmd/apitest`: 81.5%
+- `cmd/curlew`: 81.5%
 - All above the 80% threshold.
 
 ## Behavior Coverage
 
 | Behavior (from task YAML) | Test(s) |
 |---|---|
-| `apitest init --skill claude` materialises root SKILL.md + 10 per-topic files | `TestInit_SkillClaude_WritesAllTopicFiles`, `TestSkillClaude_MultiFile_PresentAfterInit` |
+| `curlew init --skill claude` materialises root SKILL.md + 10 per-topic files | `TestInit_SkillClaude_WritesAllTopicFiles`, `TestSkillClaude_MultiFile_PresentAfterInit` |
 | Root SKILL.md contains trigger phrases + topic index with one-line summaries | `TestSkillClaude_MultiFile_SkillMdIndexesTopicFiles`, `TestSkillClaude_MultiFile_TriggerPhrasesPreserved` |
 | `expressions.md` documents `if:`, `cel:`, standard activation, disabled functions, decision table | `TestSkillClaude_MultiFile_ExpressionsDocumentsCEL` |
-| `failure-playbook.md` has entries for `ERR_CEL_PARSE` and `ERR_CEL_TYPE` + `apitest validate` | `TestSkillClaude_MultiFile_PlaybookHasCELErrorCodes` |
+| `failure-playbook.md` has entries for `ERR_CEL_PARSE` and `ERR_CEL_TYPE` + `curlew validate` | `TestSkillClaude_MultiFile_PlaybookHasCELErrorCodes` |
 | Embedded-FS walker writes every file recursively | `TestInit_SkillClaude_WritesAllTopicFiles`, `TestWalk_ClaudeYieldsAllTopicFiles` |
 | `TestSkillPlaybook` still passes against the multi-file layout | `TestSkillClaude_PlaybookMatchesBinary` (all 10 sub-tests), `TestSkillClaude_SkillFileSnapshot` |
 

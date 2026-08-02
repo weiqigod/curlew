@@ -1,6 +1,6 @@
-# ApiTool — Examples Cookbook (site)
+# Curlew — Examples Cookbook (site)
 
-A standalone, fully-static showcase site for ApiTool: a filterable gallery of
+A standalone, fully-static showcase site for Curlew: a filterable gallery of
 sophisticated, end-to-end example scenarios that combine many CLI features at once
 (auth chaining, data-driven, parallel waves, GraphQL/WebSocket, signing, vaults, CI,
 distributed/perf, compliance).
@@ -39,7 +39,7 @@ title: My scenario
 intent: One-sentence "what this proves" hook.
 group: core            # core | resilience | security | automation  (see src/lib/content/taxonomy.ts)
 features: [auth, cel]  # ids from taxonomy.ts — validated at build time
-command: apitest run collections/mine.yaml
+command: curlew run collections/mine.yaml
 order: 25              # global sort order
 runnable: false        # true if the captured output is from a real run
 ---
@@ -59,6 +59,6 @@ derive from it. Adding a feature there makes it available everywhere.
 ## Output captured vs representative
 
 Examples that target free public endpoints (e.g. `httpbin.org`) are marked
-`runnable: true` and show output captured from a real `apitest` run. Scenarios that
+`runnable: true` and show output captured from a real `curlew` run. Scenarios that
 need a private API, paid provider, or backend show output modeled on the real tool's
 documented format, labelled with a `<Callout type="output">`.

@@ -443,7 +443,7 @@ for k, v := range item.Variables.Values {
 
 ---
 
-### Step 5: `cmd/apitest/main.go` — CLI Flag, Sensitivity Building, Redaction
+### Step 5: `cmd/curlew/main.go` — CLI Flag, Sensitivity Building, Redaction
 
 **Rationale:** Wires everything together. Comes last because it depends on all prior steps.
 
@@ -451,8 +451,8 @@ for k, v := range item.Variables.Values {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | --allow-sensitive flag, SensitiveSet construction, header redaction before formatters, help text |
-| `cmd/apitest/main_test.go` | modify | Add tests for flag parsing and redaction behavior |
+| `cmd/curlew/main.go` | modify | --allow-sensitive flag, SensitiveSet construction, header redaction before formatters, help text |
+| `cmd/curlew/main_test.go` | modify | Add tests for flag parsing and redaction behavior |
 
 #### Current Code
 ```go
@@ -550,17 +550,17 @@ requests:
 New smoke checks:
 ```bash
 # Sensitive values should be redacted at -vv
-output=$(./apitest run -vv smoke/fixtures/sensitive.yaml 2>&1)
+output=$(./curlew run -vv smoke/fixtures/sensitive.yaml 2>&1)
 echo "$output" | grep -v "secret123" || fail "password value leaked in verbose output"
 echo "$output" | grep -v "sk_live_abc" || fail "api_key value leaked in verbose output"
 echo "$output" | grep "\[REDACTED\]" || fail "[REDACTED] not shown for sensitive vars"
 
 # --allow-sensitive reveals values
-output=$(./apitest run -vv --allow-sensitive smoke/fixtures/sensitive.yaml 2>&1)
+output=$(./curlew run -vv --allow-sensitive smoke/fixtures/sensitive.yaml 2>&1)
 echo "$output" | grep "secret123" || fail "--allow-sensitive did not show password value"
 
 # --allow-sensitive in help text
-./apitest run --help 2>&1 | grep "allow-sensitive" || fail "--allow-sensitive not in help"
+./curlew run --help 2>&1 | grep "allow-sensitive" || fail "--allow-sensitive not in help"
 ```
 
 ---
@@ -572,7 +572,7 @@ echo "$output" | grep "secret123" || fail "--allow-sensitive did not show passwo
 | `internal/parser/*_test.go` | breaks | Change `col.Variables["k"]` to `col.Variables.Values["k"]` (all occurrences) |
 | `internal/runner/runner_test.go` | breaks | Change `Variables: map[string]string{...}` to `Variables: parser.SensitiveVars{Values: ...}` |
 | `internal/config/dotenv_test.go` | breaks | Accept extra `*variable.SensitiveSet` return value from `ParseDotenv` |
-| `cmd/apitest/main_test.go` | breaks | Accept extra `bool` return from `parseRunArgs` |
+| `cmd/curlew/main_test.go` | breaks | Accept extra `bool` return from `parseRunArgs` |
 | `internal/variable/*_test.go` | none | New files only |
 
 ---
@@ -595,7 +595,7 @@ echo "$output" | grep "secret123" || fail "--allow-sensitive did not show passwo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -617,10 +617,10 @@ requests:
 EOF
 
 # Redacted by default at -vv:
-./apitest run -vv /tmp/sensitive-test.yaml
+./curlew run -vv /tmp/sensitive-test.yaml
 # Expect: password and api_key values show [REDACTED]
 
 # Plain text with --allow-sensitive:
-./apitest run -vv --allow-sensitive /tmp/sensitive-test.yaml
+./curlew run -vv --allow-sensitive /tmp/sensitive-test.yaml
 # Expect: actual values shown
 ```

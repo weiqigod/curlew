@@ -140,7 +140,7 @@ echo "  run_id=$RUN_ID"
 [ -n "$RUN_ID" ] || fail "run_id missing from run-now response" 1
 
 # ── Step 6: worker --schedule-pull --once ─────────────────────────────────
-step 6 "apitest worker --schedule-pull --once"
+step 6 "curlew worker --schedule-pull --once"
 # Pre-seed a license config dir so the worker can read the access token.
 WORKER_CFG_DIR=$(mktemp -d)
 TRIAL_CFG_DIR=$(mktemp -d)
@@ -153,11 +153,11 @@ print(json.dumps(rec))
 " > "$WORKER_CFG_DIR/license.json"
 
 for WORKER_ATTEMPT in $(seq 1 10); do
-    APITEST_CONFIG_DIR="$WORKER_CFG_DIR" \
-    APITEST_BACKEND_URL="$BACKEND_URL" \
-    APITEST_BACKEND_TOKEN="$ACCESS_TOKEN" \
+    CURLEW_CONFIG_DIR="$WORKER_CFG_DIR" \
+    CURLEW_BACKEND_URL="$BACKEND_URL" \
+    CURLEW_BACKEND_TOKEN="$ACCESS_TOKEN" \
     BACKEND_URL="$BACKEND_URL" \
-        "$REPO_ROOT/apitest" worker \
+        "$REPO_ROOT/curlew" worker \
             --schedule-pull \
             --once \
             --backend "$BACKEND_URL" \
@@ -255,23 +255,23 @@ echo "  trial_expiring email found=$FOUND_MAIL"
 [ "$FOUND_MAIL" -eq 1 ] || fail "trial_expiring email not queued within ${TIMEOUT_MAIL}s" 10
 
 # ── Step 11: on-demand trial activation via CLI ───────────────────────────
-step 11 "apitest license trial start shared_vault_templates"
-APITEST_INTERNAL=1 \
-APITEST_CONFIG_DIR="$TRIAL_CFG_DIR" \
-APITEST_INTERNAL_DEVICE_ID="$DEVICE_ID" \
-APITEST_INTERNAL_REFRESH_TOKEN="$REFRESH_TOKEN" \
-APITEST_INTERNAL_ACCESS_TOKEN="$TRIAL_ACCESS_TOKEN" \
-    "$REPO_ROOT/apitest" internal seed-login >/dev/null
+step 11 "curlew license trial start shared_vault_templates"
+CURLEW_INTERNAL=1 \
+CURLEW_CONFIG_DIR="$TRIAL_CFG_DIR" \
+CURLEW_INTERNAL_DEVICE_ID="$DEVICE_ID" \
+CURLEW_INTERNAL_REFRESH_TOKEN="$REFRESH_TOKEN" \
+CURLEW_INTERNAL_ACCESS_TOKEN="$TRIAL_ACCESS_TOKEN" \
+    "$REPO_ROOT/curlew" internal seed-login >/dev/null
 # Run license trial start; capture exit code explicitly.
 # Exit 0  = newly activated.
 # Exit 5  = trial already consumed (acceptable — idempotent re-run of e2e).
 # Any other exit code is a genuine failure.
 set +e
-APITEST_CONFIG_DIR="$TRIAL_CFG_DIR" \
-APITEST_FORCE_FILE_STORAGE=1 \
-APITEST_BACKEND_URL="$BACKEND_URL" \
-APITEST_BACKEND_TOKEN="$TRIAL_ACCESS_TOKEN" \
-    "$REPO_ROOT/apitest" license trial start shared_vault_templates \
+CURLEW_CONFIG_DIR="$TRIAL_CFG_DIR" \
+CURLEW_FORCE_FILE_STORAGE=1 \
+CURLEW_BACKEND_URL="$BACKEND_URL" \
+CURLEW_BACKEND_TOKEN="$TRIAL_ACCESS_TOKEN" \
+    "$REPO_ROOT/curlew" license trial start shared_vault_templates \
     --backend "$BACKEND_URL" \
     --token "$TRIAL_ACCESS_TOKEN"
 TRIAL_START_EXIT=$?
@@ -281,7 +281,7 @@ if [ "$TRIAL_START_EXIT" -eq 0 ]; then
 elif [ "$TRIAL_START_EXIT" -eq 5 ]; then
     echo "  license trial start: trial already consumed (exit 5, acceptable)"
 else
-    fail "apitest license trial start failed with unexpected exit code $TRIAL_START_EXIT" 11
+    fail "curlew license trial start failed with unexpected exit code $TRIAL_START_EXIT" 11
 fi
 
 # Verify the backend-issued License JWT carries the feature in features[].
@@ -387,8 +387,8 @@ if [ -d "$REPO_ROOT/web" ] && command -v npx >/dev/null 2>&1; then
         -H "Content-Type: application/json" \
         -d "{\"email\":\"$TRIAL_EMAIL\"}" >/dev/null
 
-    APITEST_BACKEND_URL="$BACKEND_URL" \
-    APITEST_BACKEND_TOKEN="$ACCESS_TOKEN" \
+    CURLEW_BACKEND_URL="$BACKEND_URL" \
+    CURLEW_BACKEND_TOKEN="$ACCESS_TOKEN" \
     M16_E2E_TRIAL_EMAIL="$TRIAL_EMAIL" \
     WEB_BASE_URL="$WEB_BASE_URL" \
         bash -c 'cd '"$REPO_ROOT/web"' && npx playwright test tests/e2e/m16-happy-path.spec.ts'

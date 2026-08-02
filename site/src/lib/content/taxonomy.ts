@@ -38,7 +38,7 @@ export const FEATURES: FeatureTag[] = [
 	{
 		id: 'parallel',
 		label: 'Parallel waves',
-		blurb: 'Declare dependencies; ApiTool topologically sorts requests into concurrent waves.',
+		blurb: 'Declare dependencies; Curlew topologically sorts requests into concurrent waves.',
 		badge: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
 	},
 	{

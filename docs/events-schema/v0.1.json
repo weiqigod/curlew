@@ -1,10 +1,10 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://apitest.dev/events-schema/v0.1.json",
-  "title": "ApiTool Agent Event Stream v0.1",
+  "$id": "https://curlew.dev/events-schema/v0.1.json",
+  "title": "Curlew Agent Event Stream v0.1",
   "deprecated": true,
-  "deprecation_message": "v0.1 is retained for historical reference. Migrate to v1.0: https://apitest.dev/events-schema/v1.0.json",
-  "description": "NDJSON event stream emitted by apitest run when --events is provided. Each line is one event object matching exactly one of the definitions below.",
+  "deprecation_message": "v0.1 is retained for historical reference. Migrate to v1.0: https://curlew.dev/events-schema/v1.0.json",
+  "description": "NDJSON event stream emitted by curlew run when --events is provided. Each line is one event object matching exactly one of the definitions below.",
   "oneOf": [
     { "$ref": "#/definitions/RunStart" },
     { "$ref": "#/definitions/RunError" },
@@ -102,7 +102,7 @@
       ],
       "required": [
         "schema_version", "run_id", "id", "at_ms", "kind",
-        "started_at", "apitest_version", "cli_args"
+        "started_at", "curlew_version", "cli_args"
       ],
       "properties": {
         "schema_version": { "const": "0.1" },
@@ -114,9 +114,9 @@
           "type": "string",
           "description": "RFC3339Nano UTC timestamp when the run began."
         },
-        "apitest_version": {
+        "curlew_version": {
           "type": "string",
-          "description": "apitest binary version.",
+          "description": "curlew binary version.",
           "minLength": 1
         },
         "cli_args": {

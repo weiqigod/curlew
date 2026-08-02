@@ -1,7 +1,7 @@
 # Implementation Plan: M5-013
 
 ## Overview
-Build the `internal/license` package: an offline JWT verifier (RS256) backed by an embedded JWKS, a key-lookup chain (embedded → cached → online → fail), a 30-day grace-period state machine persisted at `~/.config/apitesttool/license.json`, and a new `apitest license --validate` subcommand that exercises both. All work uses only the Go standard library.
+Build the `internal/license` package: an offline JWT verifier (RS256) backed by an embedded JWKS, a key-lookup chain (embedded → cached → online → fail), a 30-day grace-period state machine persisted at `~/.config/curlew/license.json`, and a new `curlew license --validate` subcommand that exercises both. All work uses only the Go standard library.
 
 ## Task Details
 - **ID:** M5-013
@@ -25,19 +25,19 @@ These decisions resolve open questions before implementation. Documented for the
 
 1. **Package layout.** New package `internal/license`. Sub-package `internal/license/jwks` for JWK parsing (RSA only, RS256 only). State machine, persistence, env wiring all live in `internal/license`. JWT parser/verifier lives in `internal/license` (single file) — small enough not to warrant a sub-package.
 2. **No external dependencies.** RS256 verification uses `crypto/rsa`, `crypto/sha256`, `crypto/x509`, `crypto/rand` (already in stdlib). JWK n/e decoding uses `encoding/base64.RawURLEncoding` and `math/big`. We **do not** add `github.com/golang-jwt/jwt` or `gopkg.in/square/go-jose`. This matches `docs/TECH_CHOICES.md` ("standard library first").
-3. **Embedded JWKS via `go:embed`.** `internal/license/keys/jwks.json` holds a single test key with kid `apitest-2025-01`. The matching private key (`internal/license/keys/testdata/private.pem`) is **only** used by tests to mint fixture tokens — not embedded in the binary.
-4. **State persistence path.** `~/.config/apitesttool/license.json` (Linux/macOS) — derived via `os.UserConfigDir()` + `apitesttool/license.json`. We do not deviate from spec line 7411 path.
-5. **JWKS cache path.** `~/.config/apitesttool/jwks_cache.json` (spec line 7423). Same dir.
-6. **Online fetch.** Out of scope for this task. The lookup chain has an "online" stage but `M5-013` runs with `APITEST_OFFLINE=1` always (per observable). The online stage returns `ErrOffline` whenever `APITEST_OFFLINE=1` is set, and is otherwise a NOT-IMPLEMENTED stub that also returns `ErrOffline`. A follow-up task (M5-014/M5-015) wires the real HTTPS fetch.
-7. **Test mode env var.** `APITEST_LAST_VALIDATION_OVERRIDE` (e.g. `25d`, `31d`, `2h`) is honoured **always**, not gated to test builds. Reasoning: spec wording says "test builds" but Go has no clean test-build tag for a CLI binary; the env var is undocumented in `--help`, only mentioned in tests. Still safe — only changes the *perceived* `last_validated_at` in-memory.
-8. **Exit codes.** Reuse the existing convention from `cmd/apitest/main.go`:
+3. **Embedded JWKS via `go:embed`.** `internal/license/keys/jwks.json` holds a single test key with kid `curlew-2025-01`. The matching private key (`internal/license/keys/testdata/private.pem`) is **only** used by tests to mint fixture tokens — not embedded in the binary.
+4. **State persistence path.** `~/.config/curlew/license.json` (Linux/macOS) — derived via `os.UserConfigDir()` + `curlew/license.json`. We do not deviate from spec line 7411 path.
+5. **JWKS cache path.** `~/.config/curlew/jwks_cache.json` (spec line 7423). Same dir.
+6. **Online fetch.** Out of scope for this task. The lookup chain has an "online" stage but `M5-013` runs with `CURLEW_OFFLINE=1` always (per observable). The online stage returns `ErrOffline` whenever `CURLEW_OFFLINE=1` is set, and is otherwise a NOT-IMPLEMENTED stub that also returns `ErrOffline`. A follow-up task (M5-014/M5-015) wires the real HTTPS fetch.
+7. **Test mode env var.** `CURLEW_LAST_VALIDATION_OVERRIDE` (e.g. `25d`, `31d`, `2h`) is honoured **always**, not gated to test builds. Reasoning: spec wording says "test builds" but Go has no clean test-build tag for a CLI binary; the env var is undocumented in `--help`, only mentioned in tests. Still safe — only changes the *perceived* `last_validated_at` in-memory.
+8. **Exit codes.** Reuse the existing convention from `cmd/curlew/main.go`:
    - `6` — feature_gated / verification failure (matches `key_not_found`, `signature_invalid`).
    - `9` — feature_gated for premium commands when `GRACE_EXPIRED` (matches grep result `return 9` is **not** present, but spec demands this code; we introduce it cleanly here).
    - `0` — VALID and GRACE_PERIOD (with stderr warning when `days >= 21`).
    Re-checking grep output, exit `9` does not yet appear. We introduce it.
 9. **Sentinel errors.** `ErrKeyNotFound`, `ErrSignatureInvalid`, `ErrTokenExpired`, `ErrTokenMalformed`, `ErrOffline`, `ErrGraceExpired`, `ErrNoLicense`. All exported.
 10. **Help text.** A single new line in `printHelp()` for `license [--validate|--refresh|--debug]`. The `--refresh` and `--debug` variants are stubs (print "not yet implemented") so the command is not lying about features it does not have. **Only `--validate` is wired in this task.**
-11. **Wiring.** A new file `cmd/apitest/license.go` adds `licenseCmd(args []string) int`. `main.go` switch adds `case "license": return licenseCmd(args[1:])`.
+11. **Wiring.** A new file `cmd/curlew/license.go` adds `licenseCmd(args []string) int`. `main.go` switch adds `case "license": return licenseCmd(args[1:])`.
 12. **State machine boundaries.** State is a *derived* function of `(now, last_validated_at, grace_started_at)` — not stored as a string. Persistence stores only the timestamps; the state is recomputed on each call. Avoids state drift from clock changes.
 13. **Tier in fixture.** The JWT payload claims `tier: "enterprise"` for the fixture so the observable matches.
 14. **Smoke test additions.** Three new sections at end of `smoke/run.sh`: offline VALID, GRACE_PERIOD warning (day 25), GRACE_EXPIRED feature gate (day 31).
@@ -57,9 +57,9 @@ Step ordering by blast radius: pure utilities first (no dependencies), then stat
 |------|--------|-------------|
 | `internal/license/jwks/jwks.go` | create | JWK + JWKS structs, `ParseJWKS([]byte) (*Set, error)`, `(*Set).LookupRSA(kid) (*rsa.PublicKey, bool)` |
 | `internal/license/jwks/jwks_test.go` | create | Table-driven tests for parsing and lookup |
-| `internal/license/keys/jwks.json` | create | Embedded JWKS (1 key, kid `apitest-2025-01`) |
+| `internal/license/keys/jwks.json` | create | Embedded JWKS (1 key, kid `curlew-2025-01`) |
 | `internal/license/keys/testdata/private.pem` | create | Matching RSA-2048 private key for test fixture only |
-| `internal/license/keys/testdata/jwks_extra.json` | create | Second key (`apitest-2025-02`) used for cache-fallback test |
+| `internal/license/keys/testdata/jwks_extra.json` | create | Second key (`curlew-2025-02`) used for cache-fallback test |
 | `internal/license/keys/embed.go` | create | `//go:embed jwks.json` declaration |
 
 #### New Code
@@ -167,7 +167,7 @@ func TestLookupRSA(t *testing.T) {
         kid       string
         wantOK    bool
     }{
-        {"existing kid returns key", "apitest-2025-01", true},
+        {"existing kid returns key", "curlew-2025-01", true},
         {"unknown kid returns false", "missing-kid", false},
         {"empty kid returns false", "", false},
     }
@@ -357,8 +357,8 @@ import (
     "os"
     "path/filepath"
 
-    "github.com/peterlindqvist/apitest/internal/license/jwks"
-    "github.com/peterlindqvist/apitest/internal/license/keys"
+    "github.com/weiqigod/curlew/internal/license/jwks"
+    "github.com/weiqigod/curlew/internal/license/keys"
 )
 
 var (
@@ -444,8 +444,8 @@ func (r *KeyResolver) saveCached(s *jwks.Set) error {
 ```go
 func TestKeyResolver_Embedded(t *testing.T) { /* embedded kid found, source=embedded */ }
 func TestKeyResolver_CachedFallback(t *testing.T) {
-    // Write extra JWKS to tempDir/jwks_cache.json with kid apitest-2025-02
-    // Resolve(apitest-2025-02) -> source=cached
+    // Write extra JWKS to tempDir/jwks_cache.json with kid curlew-2025-02
+    // Resolve(curlew-2025-02) -> source=cached
 }
 func TestKeyResolver_OfflineFails(t *testing.T) {
     // Resolve(unknown-kid) with isOffline=true -> ErrKeyNotFound
@@ -569,13 +569,13 @@ func TestEvaluate(t *testing.T) {
 ---
 
 ### Step 5: License store (persistence + env overrides)
-**Rationale:** Wraps Step 4's pure logic with disk I/O and the `APITEST_LAST_VALIDATION_OVERRIDE` env var. Small surface, file-only changes.
+**Rationale:** Wraps Step 4's pure logic with disk I/O and the `CURLEW_LAST_VALIDATION_OVERRIDE` env var. Small surface, file-only changes.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `internal/license/store.go` | create | `Store` reads/writes `~/.config/apitesttool/license.json`; respects override env |
+| `internal/license/store.go` | create | `Store` reads/writes `~/.config/curlew/license.json`; respects override env |
 | `internal/license/store_test.go` | create | Round-trip tests; corruption recovery; env overrides |
 
 #### New Code
@@ -595,7 +595,7 @@ import (
 
 var ErrNoLicense = errors.New("license: no license on disk")
 
-const overrideEnv = "APITEST_LAST_VALIDATION_OVERRIDE"
+const overrideEnv = "CURLEW_LAST_VALIDATION_OVERRIDE"
 
 type Store struct{ path string }
 
@@ -685,7 +685,7 @@ func TestParseExtendedDuration(t *testing.T) {
 ---
 
 ### Step 6: Validator orchestration (offline_validate path)
-**Rationale:** The single public entry point that the CLI calls. Composes the resolver, parser, verifier, and state machine. Has the only `APITEST_OFFLINE` env-var check.
+**Rationale:** The single public entry point that the CLI calls. Composes the resolver, parser, verifier, and state machine. Has the only `CURLEW_OFFLINE` env-var check.
 
 #### Files to Modify
 
@@ -709,7 +709,7 @@ import (
 )
 
 // OfflineEnv reports whether the binary should treat itself as offline.
-func OfflineEnv() bool { return os.Getenv("APITEST_OFFLINE") == "1" }
+func OfflineEnv() bool { return os.Getenv("CURLEW_OFFLINE") == "1" }
 
 type Result struct {
     State       State
@@ -783,16 +783,16 @@ func TestValidator_KidInCachedJWKS(t *testing.T) { /* token kid only in cached J
 
 ---
 
-### Step 7: CLI `apitest license --validate` subcommand
+### Step 7: CLI `curlew license --validate` subcommand
 **Rationale:** Wires the validator into the binary. Last step because everything below it is now green. Touching `main.go` has the largest blast radius for compile errors.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/license.go` | create | `licenseCmd(args []string) int`, prints status, returns exit codes |
-| `cmd/apitest/license_test.go` | create | Integration tests invoking `run([]string{"license", "--validate"})` |
-| `cmd/apitest/main.go` | modify | Add `case "license":`; add `printHelp()` line |
+| `cmd/curlew/license.go` | create | `licenseCmd(args []string) int`, prints status, returns exit codes |
+| `cmd/curlew/license_test.go` | create | Integration tests invoking `run([]string{"license", "--validate"})` |
+| `cmd/curlew/main.go` | modify | Add `case "license":`; add `printHelp()` line |
 
 #### Current Code (main.go switch)
 
@@ -821,7 +821,7 @@ default:
 ```
 
 ```go
-// cmd/apitest/license.go
+// cmd/curlew/license.go
 package main
 
 import (
@@ -831,10 +831,10 @@ import (
     "os"
     "path/filepath"
 
-    "github.com/peterlindqvist/apitest/internal/license"
+    "github.com/weiqigod/curlew/internal/license"
 )
 
-// licenseCmd handles `apitest license [--validate|--refresh|--debug]`.
+// licenseCmd handles `curlew license [--validate|--refresh|--debug]`.
 func licenseCmd(args []string) int {
     if len(args) == 0 || args[0] == "--help" {
         printLicenseHelp()
@@ -886,7 +886,7 @@ func licenseValidate() int {
     }
 
     if res.State == license.StateNoLicense {
-        _, _ = fmt.Fprintln(os.Stderr, "no license: run `apitest login` first")
+        _, _ = fmt.Fprintln(os.Stderr, "no license: run `curlew login` first")
         return 2
     }
 
@@ -912,44 +912,44 @@ func licenseValidate() int {
 }
 
 func licenseConfigDir() (string, error) {
-    if override := os.Getenv("APITEST_CONFIG_DIR"); override != "" {
+    if override := os.Getenv("CURLEW_CONFIG_DIR"); override != "" {
         return override, nil
     }
     base, err := os.UserConfigDir()
     if err != nil { return "", fmt.Errorf("locate config dir: %w", err) }
-    return filepath.Join(base, "apitesttool"), nil
+    return filepath.Join(base, "curlew"), nil
 }
 
 func printLicenseHelp() {
-    fmt.Println("Usage: apitest license [--validate|--refresh|--debug]")
+    fmt.Println("Usage: curlew license [--validate|--refresh|--debug]")
     fmt.Println()
     fmt.Println("  --validate   Validate the cached license offline using the embedded JWKS,")
-    fmt.Println("               then derive the grace-period state. Honors APITEST_OFFLINE=1.")
+    fmt.Println("               then derive the grace-period state. Honors CURLEW_OFFLINE=1.")
     fmt.Println("               Exit codes: 0 valid or in grace; 6 verification failure;")
     fmt.Println("               2 no license on disk.")
     fmt.Println("  --refresh    (not yet implemented)")
     fmt.Println("  --debug      (not yet implemented)")
     fmt.Println()
     fmt.Println("Env vars:")
-    fmt.Println("  APITEST_OFFLINE=1                       Force offline mode (skip server fetch)")
-    fmt.Println("  APITEST_CONFIG_DIR=path                 Override ~/.config/apitesttool")
-    fmt.Println("  APITEST_LAST_VALIDATION_OVERRIDE=25d    Test-only: simulate days since validation")
+    fmt.Println("  CURLEW_OFFLINE=1                       Force offline mode (skip server fetch)")
+    fmt.Println("  CURLEW_CONFIG_DIR=path                 Override ~/.config/curlew")
+    fmt.Println("  CURLEW_LAST_VALIDATION_OVERRIDE=25d    Test-only: simulate days since validation")
 }
 ```
 
 #### Tests to Write FIRST
 
 ```go
-// cmd/apitest/license_test.go
+// cmd/curlew/license_test.go
 func TestLicenseValidate_Offline_Valid(t *testing.T) {
     cfgDir := t.TempDir()
     writeFixtureLicense(t, cfgDir, /*lastValidated=*/time.Now().Add(-1*time.Hour))
-    t.Setenv("APITEST_CONFIG_DIR", cfgDir)
-    t.Setenv("APITEST_OFFLINE", "1")
+    t.Setenv("CURLEW_CONFIG_DIR", cfgDir)
+    t.Setenv("CURLEW_OFFLINE", "1")
     rc, stdout, stderr := captureRun(t, []string{"license", "--validate"})
     require.Equal(t, 0, rc)
     require.Contains(t, stdout, "Validating license offline...")
-    require.Contains(t, stdout, "Key source: embedded JWKS (kid=apitest-2025-01)")
+    require.Contains(t, stdout, "Key source: embedded JWKS (kid=curlew-2025-01)")
     require.Contains(t, stdout, "Tier: enterprise")
     require.Contains(t, stdout, "State: VALID")
     require.Empty(t, stderr)
@@ -958,9 +958,9 @@ func TestLicenseValidate_Offline_Valid(t *testing.T) {
 func TestLicenseValidate_Offline_GracePeriod_Day25(t *testing.T) {
     cfgDir := t.TempDir()
     writeFixtureLicense(t, cfgDir, time.Now().Add(-1*time.Hour))
-    t.Setenv("APITEST_CONFIG_DIR", cfgDir)
-    t.Setenv("APITEST_OFFLINE", "1")
-    t.Setenv("APITEST_LAST_VALIDATION_OVERRIDE", "25d")
+    t.Setenv("CURLEW_CONFIG_DIR", cfgDir)
+    t.Setenv("CURLEW_OFFLINE", "1")
+    t.Setenv("CURLEW_LAST_VALIDATION_OVERRIDE", "25d")
     rc, _, stderr := captureRun(t, []string{"license", "--validate"})
     require.Equal(t, 0, rc)
     require.Contains(t, stderr, "Warning: 5 days until grace period expires")
@@ -972,7 +972,7 @@ func TestLicenseValidate_Offline_GraceExpired_Day31(t *testing.T) {
 
 func TestLicenseValidate_NoLicense(t *testing.T) {
     cfgDir := t.TempDir() // no file written
-    t.Setenv("APITEST_CONFIG_DIR", cfgDir)
+    t.Setenv("CURLEW_CONFIG_DIR", cfgDir)
     rc, _, stderr := captureRun(t, []string{"license", "--validate"})
     require.Equal(t, 2, rc)
     require.Contains(t, stderr, "no license")
@@ -981,32 +981,32 @@ func TestLicenseValidate_NoLicense(t *testing.T) {
 func TestLicenseValidate_TamperedToken(t *testing.T) {
     cfgDir := t.TempDir()
     writeTamperedFixture(t, cfgDir)
-    t.Setenv("APITEST_CONFIG_DIR", cfgDir)
-    t.Setenv("APITEST_OFFLINE", "1")
+    t.Setenv("CURLEW_CONFIG_DIR", cfgDir)
+    t.Setenv("CURLEW_OFFLINE", "1")
     rc, _, stderr := captureRun(t, []string{"license", "--validate"})
     require.Equal(t, 6, rc)
     require.Contains(t, stderr, "signature_invalid")
 }
 
 func TestLicenseValidate_UnknownKid(t *testing.T) {
-    // Token signed with kid=apitest-2099-99 not in embedded or cached -> rc=6 "key_not_found"
+    // Token signed with kid=curlew-2099-99 not in embedded or cached -> rc=6 "key_not_found"
 }
 
 func TestLicenseHelp(t *testing.T) {
     rc, stdout, _ := captureRun(t, []string{"license", "--help"})
     require.Equal(t, 0, rc)
     require.Contains(t, stdout, "--validate")
-    require.Contains(t, stdout, "APITEST_OFFLINE")
+    require.Contains(t, stdout, "CURLEW_OFFLINE")
 }
 ```
 
 #### Test Helpers Already Available
 
-`cmd/apitest/main_test.go` already has a `captureRun` pattern (or equivalent). Re-use; otherwise add a small helper inside `license_test.go`.
+`cmd/curlew/main_test.go` already has a `captureRun` pattern (or equivalent). Re-use; otherwise add a small helper inside `license_test.go`.
 
 #### Impact on Existing Tests
-- `cmd/apitest/main_test.go` — `TestPrintHelp` (or similar) may assert on the count of commands listed. **Action:** if it does, update the expected count by +1. Verify by running the test and reading the failure.
-- `cmd/apitest/main_test.go` — `TestRunUnknownCommand` should not break (we still hit the default branch for unknown commands, and `license` is now recognised).
+- `cmd/curlew/main_test.go` — `TestPrintHelp` (or similar) may assert on the count of commands listed. **Action:** if it does, update the expected count by +1. Verify by running the test and reading the failure.
+- `cmd/curlew/main_test.go` — `TestRunUnknownCommand` should not break (we still hit the default branch for unknown commands, and `license` is now recognised).
 
 ---
 
@@ -1025,26 +1025,26 @@ func TestLicenseHelp(t *testing.T) {
 echo "=== Offline License (M5-013) ==="
 
 # Set up an isolated config dir with a valid fixture license.
-LICENSE_CFG=$(mktemp -d /tmp/apitest_license_XXXXXX)
+LICENSE_CFG=$(mktemp -d /tmp/curlew_license_XXXXXX)
 "$PROJECT_ROOT/scripts/seed-license.sh" "$LICENSE_CFG"  # writes license.json with fixture token
-export APITEST_CONFIG_DIR="$LICENSE_CFG"
+export CURLEW_CONFIG_DIR="$LICENSE_CFG"
 
 echo "--- Offline VALID ---"
-APITEST_OFFLINE=1 ./apitest license --validate \
+CURLEW_OFFLINE=1 ./curlew license --validate \
   | grep -q "State: VALID" \
   && echo "PASS: offline valid" || { echo "FAIL"; exit 1; }
 
 echo "--- Offline GRACE_PERIOD (day 25) ---"
-SMOKE_OUT=$(APITEST_OFFLINE=1 APITEST_LAST_VALIDATION_OVERRIDE=25d ./apitest license --validate 2>&1)
+SMOKE_OUT=$(CURLEW_OFFLINE=1 CURLEW_LAST_VALIDATION_OVERRIDE=25d ./curlew license --validate 2>&1)
 echo "$SMOKE_OUT" | grep -q "5 days until grace period expires" \
   && echo "PASS: grace warning at day 25" || { echo "FAIL: $SMOKE_OUT"; exit 1; }
 
 echo "--- Offline GRACE_EXPIRED (day 31) ---"
-SMOKE_OUT=$(APITEST_OFFLINE=1 APITEST_LAST_VALIDATION_OVERRIDE=31d ./apitest license --validate 2>&1)
+SMOKE_OUT=$(CURLEW_OFFLINE=1 CURLEW_LAST_VALIDATION_OVERRIDE=31d ./curlew license --validate 2>&1)
 echo "$SMOKE_OUT" | grep -q "State: GRACE_EXPIRED" \
   && echo "PASS: grace expired at day 31" || { echo "FAIL: $SMOKE_OUT"; exit 1; }
 
-unset APITEST_CONFIG_DIR
+unset CURLEW_CONFIG_DIR
 rm -rf "$LICENSE_CFG"
 echo
 ```
@@ -1062,14 +1062,14 @@ Revised approach for the smoke section: read the test fixture from `internal/lic
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestPrintHelp` (if it asserts command count) | possibly breaks | bump expected count by 1 |
-| `cmd/apitest/main_test.go` | unknown-command test | no impact | — |
+| `cmd/curlew/main_test.go` | `TestPrintHelp` (if it asserts command count) | possibly breaks | bump expected count by 1 |
+| `cmd/curlew/main_test.go` | unknown-command test | no impact | — |
 | All other existing tests | — | no impact | — |
 
 ## Risks and Edge Cases
 
 - **Risk:** Embedding a fixture key in the production binary by mistake. → **Mitigation:** Document in `internal/license/keys/jwks.json` header comment that this is the *production* key; the *test* private key lives only under `testdata/` (excluded from the binary). Until a real key exists, the embedded JWKS *is* the test key — call out in the package doc that this is a placeholder until rotation strategy ships.
-- **Risk:** `os.UserConfigDir()` returns different paths per OS (macOS: `~/Library/Application Support/`, Linux: `~/.config/`). Spec says `~/.config/apitesttool/`. → **Mitigation:** Document this in the help text; `APITEST_CONFIG_DIR` lets users (and CI) override. Tests always set the override.
+- **Risk:** `os.UserConfigDir()` returns different paths per OS (macOS: `~/Library/Application Support/`, Linux: `~/.config/`). Spec says `~/.config/curlew/`. → **Mitigation:** Document this in the help text; `CURLEW_CONFIG_DIR` lets users (and CI) override. Tests always set the override.
 - **Risk:** Time-based tests are flaky around boundaries. → **Mitigation:** `Validator.Now` is a function field, injectable. State tests use a frozen `now`. The override env var also frees us from real-clock dependence in smoke.
 - **Risk:** Day-29-23h boundary (just under 30 days) — `int(elapsed/24h)` floors to 29, so `Decision.DaysUntilExpiry = 1`, but the user might expect 0. → **Mitigation:** Spec table says "Day 30: prominent warning; Days 31+: GRACE_EXPIRED" — our implementation enters `GRACE_EXPIRED` exactly at `elapsed >= 30 * 24h`. Document the floor semantics in the package doc. Adjust the day-29-23h test case expectation accordingly.
 - **Risk:** RSA exponent overflow when decoding. → **Mitigation:** `decodeRSA` rejects `e` > int64. Standard `e=65537` fits trivially.
@@ -1082,7 +1082,7 @@ Revised approach for the smoke section: read the test fixture from `internal/lic
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/license/...
 go test ./...
 ~/go/bin/golangci-lint run
@@ -1092,20 +1092,20 @@ go test ./...
 Observable verification (per task YAML):
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/license/...
 # Expected: ok  internal/license  (>=12 tests passing)
 
-APITEST_CONFIG_DIR=$(mktemp -d) cp internal/license/keys/testdata/license.json "$APITEST_CONFIG_DIR/" \
-  && APITEST_OFFLINE=1 ./apitest license --validate
+CURLEW_CONFIG_DIR=$(mktemp -d) cp internal/license/keys/testdata/license.json "$CURLEW_CONFIG_DIR/" \
+  && CURLEW_OFFLINE=1 ./curlew license --validate
 # Expected stdout:
 #   "Validating license offline..."
-#   "Key source: embedded JWKS (kid=apitest-2025-01)"
+#   "Key source: embedded JWKS (kid=curlew-2025-01)"
 #   "Tier: enterprise"
 #   "State: VALID"
 # exit 0
 
-APITEST_OFFLINE=1 APITEST_LAST_VALIDATION_OVERRIDE=25d ./apitest license --validate
+CURLEW_OFFLINE=1 CURLEW_LAST_VALIDATION_OVERRIDE=25d ./curlew license --validate
 # Expected: stderr contains "Warning: 5 days until grace period expires"
 # exit 0
 ```

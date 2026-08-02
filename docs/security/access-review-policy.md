@@ -18,9 +18,9 @@ CSV committed to the repository within 5 business days of the start date.
 ## Reviewer Role
 
 Access reviews are performed by an **Owner** or **Admin** of each organisation, as
-defined by the ApiTool RBAC model (see SPECIFICATION.md "RBAC Matrix"). The reviewer
+defined by the Curlew RBAC model (see SPECIFICATION.md "RBAC Matrix"). The reviewer
 must not be the sole Owner of the organisation being reviewed; where only one Owner
-exists, the review is escalated to an ApiTool platform administrator.
+exists, the review is escalated to an Curlew platform administrator.
 
 ---
 
@@ -85,12 +85,12 @@ documented in SPECIFICATION.md v4-3.
 
 ## Procedure
 
-1. Export the current membership and custom-role list from the ApiTool Admin panel
+1. Export the current membership and custom-role list from the Curlew Admin panel
    (or via the management API) as a CSV.
 2. Cross-reference against the organisation's HR deactivation list (provided by the
    Owner) for any personnel changes since the last review.
 3. Review each row against the reviewed surface criteria above.
-4. For any `deprovisioned` row: revoke access in the ApiTool Admin panel and record
+4. For any `deprovisioned` row: revoke access in the Curlew Admin panel and record
    the ticket reference in the CSV.
 5. For any `escalated` row: open a ticket and notify the platform administrator.
 6. Sign off the CSV by adding your name and the review date in the `reviewer` and

@@ -37,7 +37,7 @@ $ go test -run 'TestRegistry_FakerFile' -v ./internal/variable/...
 --- PASS: TestRegistry_FakerFile_Unseeded/faker.fileExtension (0.00s)
 --- PASS: TestRegistry_FakerFile_Unseeded/faker.mimeType (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/internal/variable  0.182s
+ok      github.com/weiqigod/curlew/internal/variable  0.182s
 
 $ go test -run 'TestRegistry_FakerImageUrl_Args' -v ./internal/variable/...
 === RUN   TestRegistry_FakerImageUrl_Args

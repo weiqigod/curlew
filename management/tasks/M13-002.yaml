@@ -8,7 +8,7 @@ track: go-cli
 dependencies:
   - M13-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_FakerPersonal' -v ./internal/variable/...
   # Expected: PASS — all 10 personal-data functions registered and
@@ -30,13 +30,13 @@ observable: |
   # with the produced SSN; the value is then redacted as `[REDACTED]`
   # in JSON output and in the markdown report.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a request body: {"name":"{{$faker.fullName}}","ssn":"{{$faker.ssn}}"}
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: name resolves to "First Last"; ssn appears in the rendered
   # body as a 9-digit hyphenated string but appears as "[REDACTED]"
   # in the captured request-body field of the JSON output.
-  apitest run collections/sample.yaml --dry-run --format markdown
+  curlew run collections/sample.yaml --dry-run --format markdown
   # Expected: ssn is "[REDACTED]" in the markdown report's request-body section.
 
   go test ./...

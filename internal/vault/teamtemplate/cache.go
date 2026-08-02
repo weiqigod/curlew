@@ -54,7 +54,7 @@ type Cache struct {
 	now    func() time.Time
 }
 
-// NewCache constructs a Cache rooted at cfgDir (typically ~/.config/apitesttool).
+// NewCache constructs a Cache rooted at cfgDir (typically ~/.config/curlew).
 func NewCache(cfgDir string) *Cache {
 	return &Cache{cfgDir: cfgDir, now: time.Now}
 }
@@ -192,7 +192,7 @@ func (c *Cache) Load(ctx context.Context, fetcher Fetcher, orgId, accessToken st
 }
 
 // Refresh always fetches (TTL-bypass) and persists. Used by --refresh-vault and
-// by apitest license --refresh after a successful /auth/refresh round-trip.
+// by curlew license --refresh after a successful /auth/refresh round-trip.
 // Errors are non-fatal for the caller — they may proceed with whatever cache
 // exists; warnW receives the error message.
 func (c *Cache) Refresh(ctx context.Context, fetcher Fetcher, orgId, accessToken string, warnW io.Writer) error {

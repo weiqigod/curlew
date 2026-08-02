@@ -23,7 +23,7 @@
 OK: client built; lock OK; keychain available=true; rfc7807 mapping OK
 ```
 
-Command: `APITEST_INTERNAL=1 ./apitest internal backend-probe --base http://127.0.0.1:0 --self-test`
+Command: `CURLEW_INTERNAL=1 ./curlew internal backend-probe --base http://127.0.0.1:0 --self-test`
 Expected: `OK: client built; lock OK; keychain available=<bool>; rfc7807 mapping OK`
 Result: MATCH (exit 0)
 
@@ -44,11 +44,11 @@ Result: MATCH (exit 0)
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | `go test ./internal/backend/... passes with >=14 tests` | 23 tests pass | PASS |
-| 2 | `apitest internal backend-probe --self-test` exits 0 with documented stdout | `OK: client built; lock OK; keychain available=true; rfc7807 mapping OK` | PASS |
+| 2 | `curlew internal backend-probe --self-test` exits 0 with documented stdout | `OK: client built; lock OK; keychain available=true; rfc7807 mapping OK` | PASS |
 | 3 | `ProblemDetails` exported with stable JSON tags; godoc explains Code-not-Status branching rule | `problem.go` doc comments + `doc.go` | PASS |
 | 4 | Storage fallback covered by test simulating "no keychain" on Linux | `TestStorage_NoKeychainFallsBackToFile` uses `keyring.MockInitWithError` | PASS |
 | 5 | flock contention covered by 2-goroutine test asserting ordering | `TestRefreshTokens_Concurrent_OnlyOneNetworkCall` with `handlerExitTime` ordering guard | PASS |
-| 6 | Help text adds `internal backend-probe` as hidden (gated behind `APITEST_INTERNAL=1`) | `TestPrintHelp_DoesNotMentionInternal` passes | PASS |
+| 6 | Help text adds `internal backend-probe` as hidden (gated behind `CURLEW_INTERNAL=1`) | `TestPrintHelp_DoesNotMentionInternal` passes | PASS |
 | 7 | `doc.go` cites `SPECIFICATION.md:7938–7951` + `:8195–8202` | All four spec line refs present in `doc.go` | PASS |
 
 ## Code Review
@@ -117,9 +117,9 @@ TDD pattern visible: `test(...)` commits appear before `feat(...)` commits ✓
 | `internal/backend/lock.go` | created |
 | `internal/backend/lock_test.go` | created |
 | `internal/backend/hints_init.go` | created |
-| `cmd/apitest/internal_cmd.go` | created |
-| `cmd/apitest/internal_cmd_test.go` | created |
-| `cmd/apitest/main.go` | modified |
+| `cmd/curlew/internal_cmd.go` | created |
+| `cmd/curlew/internal_cmd_test.go` | created |
+| `cmd/curlew/main.go` | modified |
 | `internal/errors/coverage_test.go` | modified |
 | `go.mod` | modified |
 | `go.sum` | modified |

@@ -23,7 +23,7 @@ Note: The E2E gate (`test-stack up`) requires Docker. Docker is not available in
 
 ## Observable Output
 
-The observable requires running `docker compose up` against the self-hosted bundle. This requires a Docker daemon. The observable verification is covered by `scripts/test-self-hosted.sh` (opt-in smoke, gated behind `APITEST_RUN_SELF_HOSTED=1`). The health endpoint itself is verified by the integration tests:
+The observable requires running `docker compose up` against the self-hosted bundle. This requires a Docker daemon. The observable verification is covered by `scripts/test-self-hosted.sh` (opt-in smoke, gated behind `CURLEW_RUN_SELF_HOSTED=1`). The health endpoint itself is verified by the integration tests:
 
 ```
 Passed ApiTool.Backend.Tests.Health.HealthEndpointTests.Health_returns_200_when_both_up [125 ms]
@@ -42,7 +42,7 @@ Result: MATCH (verified by integration tests)
 |---|----------|------|--------|
 | 1 | All four containers start and reach healthy state within 60s | `scripts/test-self-hosted.sh` (opt-in) | PASS (design-verified, smoke script present) |
 | 2 | GET /health returns 200 with db=connected, redis=connected | `Health_returns_200_when_both_up` | PASS |
-| 3 | GET / returns 200 with apitest login page HTML | `scripts/test-self-hosted.sh` (title check) | PASS (web title added, smoke verifies) |
+| 3 | GET / returns 200 with curlew login page HTML | `scripts/test-self-hosted.sh` (title check) | PASS (web title added, smoke verifies) |
 | 4 | POSTGRES_PASSWORD change picked up on first boot | README documented, postgres:16 image behavior | PASS (documented per plan) |
 | 5 | Volumes survive `docker compose down` (no -v) | `scripts/test-self-hosted.sh` (volume check) | PASS (smoke verifies volume persistence) |
 | 6 | `docker compose down -v` removes all volumes | `scripts/test-self-hosted.sh` (volumes removed) | PASS (smoke verifies volume deletion) |

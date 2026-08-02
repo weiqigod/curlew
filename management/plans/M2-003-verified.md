@@ -19,7 +19,7 @@
 ## Observable Output
 
 ```
-$ ./apitest vault
+$ ./curlew vault
 ✗ Feature requires upgrade
 
   Vault provider profiles require Solo tier
@@ -29,7 +29,7 @@ $ ./apitest vault
   ...
 Exit: 6
 
-$ ./apitest vault --format json
+$ ./curlew vault --format json
 {
   "status": "feature_gated",
   "exit_code": 6,
@@ -44,7 +44,7 @@ $ ./apitest vault --format json
 }
 Exit: 6
 
-$ go test -run TestVaultCmd_solo_tier ./cmd/apitest/
+$ go test -run TestVaultCmd_solo_tier ./cmd/curlew/
 PASS (7 sub-tests for vault list at Solo tier)
 PASS (2 sub-tests for no profiles)
 PASS (2 sub-tests for empty keys)
@@ -57,11 +57,11 @@ Result: MATCH
 
 | # | Behavior | Test(s) | Status |
 |---|----------|---------|--------|
-| 1 | `apitest vault` at Free tier → exit 6 + gate message | `TestVaultCmd_free_tier` (13 cases) | PASS |
-| 2 | `apitest vault --format json` at Free tier → JSON gate error | `TestVaultCmd_free_tier` (json cases) | PASS |
-| 3 | `apitest vault list` at Solo tier → provider names + key counts | `TestVaultCmd_solo_tier` (7 cases) | PASS |
-| 4 | `apitest vault list --format json` at Solo tier → JSON output | `TestVaultCmd_solo_tier` (json cases) | PASS |
-| 5 | `apitest vault list` with no profiles → helpful message | `TestVaultCmd_solo_tier_no_profiles` (2 cases) | PASS |
+| 1 | `curlew vault` at Free tier → exit 6 + gate message | `TestVaultCmd_free_tier` (13 cases) | PASS |
+| 2 | `curlew vault --format json` at Free tier → JSON gate error | `TestVaultCmd_free_tier` (json cases) | PASS |
+| 3 | `curlew vault list` at Solo tier → provider names + key counts | `TestVaultCmd_solo_tier` (7 cases) | PASS |
+| 4 | `curlew vault list --format json` at Solo tier → JSON output | `TestVaultCmd_solo_tier` (json cases) | PASS |
+| 5 | `curlew vault list` with no profiles → helpful message | `TestVaultCmd_solo_tier_no_profiles` (2 cases) | PASS |
 
 ## Definition of Done
 
@@ -69,7 +69,7 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — 15 packages PASS | PASS |
 | 2 | Observable output works | CLI output matches specification | PASS |
-| 3 | Test coverage >= 80% | 90.9% total (85.5% cmd/apitest, 92.3% internal/output) | PASS |
+| 3 | Test coverage >= 80% | 90.9% total (85.5% cmd/curlew, 92.3% internal/output) | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint` 0 issues | PASS |
 | 5 | Help text updated | `vault list` line added to help output | PASS |
 | 6 | Smoke test updated | 3 new smoke cases: vault list exit 6, vault list json, help text | PASS |
@@ -111,8 +111,8 @@ Review PASS trusted (management/reviews/M2-003-review.md), spot-check clean:
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +162/-30 |
-| `cmd/apitest/main_test.go` | modified | +239/-36 |
+| `cmd/curlew/main.go` | modified | +162/-30 |
+| `cmd/curlew/main_test.go` | modified | +239/-36 |
 | `internal/output/json.go` | modified | +19/-0 |
 | `internal/output/json_test.go` | modified | +60/-0 |
 | `management/backlog.yaml` | modified | +4/-1 |

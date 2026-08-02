@@ -30,7 +30,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 8 | Medium | Logical bug in `TestPrintPerfHelp_MentionsAllFlags` (line 156): `&&` instead of `\|\|` made the `--output report.json` examples assertion permanently dead — since `"apitest perf"` always appears in the usage line, the first operand was always `false`, making the entire `&&` condition always `false`. | Changed `&&` to `\|\|` so the assertion fires if either string is absent | ✓ tests pass |
+| 8 | Medium | Logical bug in `TestPrintPerfHelp_MentionsAllFlags` (line 156): `&&` instead of `\|\|` made the `--output report.json` examples assertion permanently dead — since `"curlew perf"` always appears in the usage line, the first operand was always `false`, making the entire `&&` condition always `false`. | Changed `&&` to `\|\|` so the assertion fires if either string is absent | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -40,12 +40,12 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/loadgen/report`) | 94.9% |
 | Coverage (`internal/loadgen`) | 96.2% |
-| Coverage (`cmd/apitest`) | 81.3% |
+| Coverage (`cmd/curlew`) | 81.3% |
 
 ## Fix Commits
 

@@ -7,7 +7,7 @@ phase: "M12: Foundational dynamic-function helpers"
 track: go-cli
 dependencies: []
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestDynPattern_ParensSyntax' -v ./internal/variable/...
   # Expected: PASS — regex matches `{{$fn(arg1, 'literal', {{var}})}}`

@@ -10,7 +10,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_DateAdd' -v ./internal/variable/...
   # Expected: PASS — using a frozen time.Now via a test clock injection,
@@ -28,9 +28,9 @@ observable: |
   # Expected: PASS — unit='fortnight' returns a structured error listing
   # the seven allowed units.
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a body field expires_at: "{{$dateAdd('7', 'day')}}"
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: expires_at is an ISO-8601 UTC string seven days in the future.
 
   go test ./...

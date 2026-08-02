@@ -7,15 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/output/events"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/runservice"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/output/events"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/runservice"
 )
 
 func TestEmitterSink_AllEventKinds(t *testing.T) {
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "t", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "t", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestEmitterSink_AllEventKinds(t *testing.T) {
 
 func TestEmitterSink_FailedOutcomeGetsAssertionSentinel(t *testing.T) {
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "t", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "t", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}

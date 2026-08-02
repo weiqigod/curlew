@@ -43,10 +43,10 @@ case "$MODE" in
       echo "$CHANGED" | sed 's/^/  /'
     fi
     echo
-    grep -qE '^src/ApiTool\.Backend'                                   <<<"$CHANGED" && run_backend=1 || true
+    grep -qE '^src/Curlew\.Backend'                                   <<<"$CHANGED" && run_backend=1 || true
     grep -qE '^web/'                                                    <<<"$CHANGED" && run_web=1     || true
     grep -qE '^(ui/|internal/uiserver/assets/)'                         <<<"$CHANGED" && run_ui=1      || true
-    grep -qE '^(src/ApiTool\.Backend|web/|scripts/(test-stack|seed-|test-token|fake-idp)|docker-compose\.test\.yml)' \
+    grep -qE '^(src/Curlew\.Backend|web/|scripts/(test-stack|seed-|test-token|fake-idp)|docker-compose\.test\.yml)' \
                                                                         <<<"$CHANGED" && run_e2e=1     || true
     # Running E2E implies the backend and web gates (the stack is already up).
     if (( run_e2e )); then run_backend=1; run_web=1; fi
@@ -105,12 +105,12 @@ go_pkgs() { go list ./... | grep -v '/node_modules/'; }
 
 # --- Go gate (always) ---
 step "go build"
-go build -o apitest ./cmd/apitest
+go build -o curlew ./cmd/curlew
 
 # M7-004: explicit named marker for the stream-discipline matrix so failures
 # show up under a unique header in CI logs (one grep away).
 step "go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate)"
-go test -run '^TestStreamDisciplineMatrix$' ./cmd/apitest/... -count=1
+go test -run '^TestStreamDisciplineMatrix$' ./cmd/curlew/... -count=1
 
 step "go test"
 go test $(go_pkgs)
@@ -126,7 +126,7 @@ step "golangci-lint"
 lint_cmd run
 
 step "M18-008: guard internal/telemetry must not import internal/backend (v4-11)"
-if grep -rn '"github.com/peterlindqvist/apitest/internal/backend"' internal/telemetry/ 2>/dev/null; then
+if grep -rn '"github.com/weiqigod/curlew/internal/backend"' internal/telemetry/ 2>/dev/null; then
   echo "FAIL: internal/telemetry imports internal/backend; this is forbidden by v4-11" >&2
   exit 1
 fi
@@ -193,8 +193,8 @@ if (( run_backend )); then
   done
 
   step "dotnet test"
-  APITOOL__STRIPE__APIBASE="http://localhost:12111" \
-  APITOOL__STRIPE__APIKEY="sk_test_123" \
+  CURLEW__STRIPE__APIBASE="http://localhost:12111" \
+  CURLEW__STRIPE__APIKEY="sk_test_123" \
     dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj
 fi
 
@@ -216,7 +216,7 @@ if (( run_web )); then
   ( cd web && npm run build )
 fi
 
-# --- apitest ui SPA gate (UI_SPECIFICATION.md §13.4) ---
+# --- curlew ui SPA gate (UI_SPECIFICATION.md §13.4) ---
 if (( run_ui )); then
   step "ui: npm ci"
   ( cd ui && npm ci )
@@ -239,26 +239,26 @@ if (( run_e2e )); then
   step "web: playwright install"
   ( cd web && npx playwright install --with-deps chromium )
 
-  export APITEST_BACKEND_URL="${APITEST_BACKEND_URL:-http://localhost:5000}"
+  export CURLEW_BACKEND_URL="${CURLEW_BACKEND_URL:-http://localhost:5000}"
 
   step "playwright: full-pipeline (owner token)"
-  APITEST_BACKEND_TOKEN="$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)" \
+  CURLEW_BACKEND_TOKEN="$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)" \
     bash -c 'cd web && npx playwright test tests/e2e/full-pipeline.spec.ts'
 
   step "playwright: enterprise-full (qa token)"
   QA_USER_ID="00000000-0000-0000-0000-000000000002" \
-  APITEST_BACKEND_TOKEN="$(./scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002)" \
+  CURLEW_BACKEND_TOKEN="$(./scripts/test-token.sh qa@acme.example 00000000-0000-0000-0000-000000000002)" \
     bash -c 'cd web && npx playwright test tests/e2e/enterprise-full.spec.ts'
 
   step "m16 happy-path e2e"
-  APITEST_BACKEND_TOKEN="$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)" \
+  CURLEW_BACKEND_TOKEN="$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)" \
     ./scripts/m16-e2e.sh
 
   step "m18 compliance e2e"
   ./scripts/m18-e2e.sh
 fi
 
-if [ "${APITEST_RUN_SELF_HOSTED:-0}" = "1" ]; then
+if [ "${CURLEW_RUN_SELF_HOSTED:-0}" = "1" ]; then
   step "self-hosted smoke"
   ./scripts/test-self-hosted.sh
 fi

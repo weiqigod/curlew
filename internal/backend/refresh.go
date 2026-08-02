@@ -7,14 +7,14 @@ import (
 
 var (
 	// ErrRefreshExpired is returned when the backend's AUTH_REFRESH_EXPIRED
-	// problem code surfaces. CLI exit code 4. Re-auth via `apitest login`.
+	// problem code surfaces. CLI exit code 4. Re-auth via `curlew login`.
 	ErrRefreshExpired = errors.New("backend: refresh token expired")
 	// ErrRefreshReused is returned for AUTH_REFRESH_REUSED. CLI exit code 5;
 	// the entire refresh-token family has been revoked for security.
 	ErrRefreshReused = errors.New("backend: refresh token reused — family revoked")
 	// ErrDeviceMismatch is returned for AUTH_DEVICE_MISMATCH or when the
 	// device_id sent does not match the family on the server. CLI exit code 7.
-	ErrDeviceMismatch = errors.New("backend: device mismatch — re-register via apitest login")
+	ErrDeviceMismatch = errors.New("backend: device mismatch — re-register via curlew login")
 )
 
 // refreshCodeToSentinel maps AUTH_* problem codes returned by /auth/refresh

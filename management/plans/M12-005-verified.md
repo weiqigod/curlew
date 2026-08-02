@@ -16,7 +16,7 @@
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage `internal/variable` | 96.4% | Meets >= 80% threshold |
 | Coverage `internal/runner` | 85.2% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 82.3% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 82.3% | Meets >= 80% threshold |
 | `./scripts/ci-local.sh` | PASS | All gates pass |
 
 ## Observable Output
@@ -34,14 +34,14 @@ go test -run 'TestRegistry_HmacSha256' -v ./internal/variable/...
     --- PASS: TestRegistry_HmacSha256/empty_payload_non-empty_key (0.00s)
     --- PASS: TestRegistry_HmacSha256/utf-8_payload_and_key (0.00s)
 ...
-PASS  ok  github.com/peterlindqvist/apitest/internal/variable  0.180s
+PASS  ok  github.com/weiqigod/curlew/internal/variable  0.180s
 
 go test -run 'TestRegistry_HmacSha256_KeyIsSensitive' -v ./internal/variable/...
 === RUN   TestRegistry_HmacSha256_KeyIsSensitive_HeuristicName
 --- PASS: TestRegistry_HmacSha256_KeyIsSensitive_HeuristicName (0.00s)
 === RUN   TestRegistry_HmacSha256_KeyIsSensitive_SecretsNamespace
 --- PASS: TestRegistry_HmacSha256_KeyIsSensitive_SecretsNamespace (0.00s)
-PASS  ok  github.com/peterlindqvist/apitest/internal/variable  (cached)
+PASS  ok  github.com/weiqigod/curlew/internal/variable  (cached)
 ```
 
 Expected: RFC fox vector = `f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8`; KeyIsSensitive tests pass.
@@ -120,7 +120,7 @@ Branch A: Review PASS trusted (from `management/reviews/M12-005-review.md`), spo
 | `internal/variable/variable_test.go` | modified — sensitivity tracking tests |
 | `internal/runner/runner.go` | modified — `RuntimeSensitive` on `Summary`, wires through `runtimeSensitive` |
 | `internal/runner/runner_test.go` | modified — integration + parallel tests |
-| `cmd/apitest/main.go` | modified — merges `RuntimeSensitive` into post-run redaction |
+| `cmd/curlew/main.go` | modified — merges `RuntimeSensitive` into post-run redaction |
 | `docs/MANUAL.md` | modified — §3.7 `$hmacSha256` row + callout block |
 
 ## Issues Found

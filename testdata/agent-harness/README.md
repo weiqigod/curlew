@@ -1,7 +1,7 @@
 # Agent Harness Fixtures
 
 This directory contains curated, deliberately-broken fixture collections used by
-the agent validation harness (`cmd/apitest-agent-harness/`). Each subdirectory is
+the agent validation harness (`cmd/curlew-agent-harness/`). Each subdirectory is
 a self-contained scenario with a fixture collection and an `expect.yaml` contract.
 
 ## Contract format (`expect.yaml`)
@@ -42,5 +42,5 @@ This allows the scenario to make real HTTP requests without hard-coding ports.
 
 ## Optional files
 
-- `args.txt` — extra CLI args passed to `apitest run`, one per line (`#` = comment)
+- `args.txt` — extra CLI args passed to `curlew run`, one per line (`#` = comment)
 - `env.txt` — environment variables `KEY=VALUE` per line (`#` = comment)

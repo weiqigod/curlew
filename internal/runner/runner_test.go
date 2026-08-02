@@ -18,24 +18,24 @@ import (
 	"testing"
 	"time"
 
-	apicel "github.com/peterlindqvist/apitest/internal/cel"
+	apicel "github.com/weiqigod/curlew/internal/cel"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/auth"
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/datadriven"
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/graphql"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/plugin/hooks"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/signer"
-	"github.com/peterlindqvist/apitest/internal/validator"
-	"github.com/peterlindqvist/apitest/internal/variable"
-	"github.com/peterlindqvist/apitest/internal/vault"
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
-	"github.com/peterlindqvist/apitest/internal/websocket"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/auth"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/datadriven"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/graphql"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/plugin/hooks"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/signer"
+	"github.com/weiqigod/curlew/internal/validator"
+	"github.com/weiqigod/curlew/internal/variable"
+	"github.com/weiqigod/curlew/internal/vault"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/websocket"
 )
 
 func makeCollection(names []string, stopOnFailure bool) *parser.Collection {
@@ -9450,7 +9450,7 @@ func TestRunner_OnlyCliff_SetupProducer(t *testing.T) {
 	if !strings.Contains(enriched.Error(), "pruned by --only") {
 		t.Errorf("expected error to mention pruning, got: %s", enriched.Error())
 	}
-	if !strings.Contains(enriched.Error(), "likely an apitest bug") {
+	if !strings.Contains(enriched.Error(), "likely an curlew bug") {
 		t.Errorf("expected error to flag as a likely bug, got: %s", enriched.Error())
 	}
 	// Must still wrap the original error for errors.Is.

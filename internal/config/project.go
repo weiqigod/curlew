@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/peterlindqvist/apitest/internal/auth"
-	"github.com/peterlindqvist/apitest/internal/output"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/vault"
+	"github.com/weiqigod/curlew/internal/auth"
+	"github.com/weiqigod/curlew/internal/output"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/vault"
 	"gopkg.in/yaml.v3"
 )
 
-// ErrInvalidProjectConfig is returned when apitest.yaml cannot be parsed.
+// ErrInvalidProjectConfig is returned when curlew.yaml cannot be parsed.
 var ErrInvalidProjectConfig = errors.New("invalid project config")
 
 // GraphQLErrorHandling holds configurable GraphQL error handling defaults.
@@ -34,14 +34,14 @@ type DefaultsConfig struct {
 	GraphQL *GraphQLDefaults  `yaml:"graphql,omitempty"`
 }
 
-// ConfigBlock is the shared config: block in apitest.yaml / collection files.
+// ConfigBlock is the shared config: block in curlew.yaml / collection files.
 // It holds cross-cutting settings (locale, and future knobs). The block is
 // optional and omitempty — absent means all fields are zero/default.
 type ConfigBlock struct {
 	Locale string `yaml:"locale,omitempty"`
 }
 
-// ProjectConfig holds the parsed contents of an apitest.yaml file.
+// ProjectConfig holds the parsed contents of an curlew.yaml file.
 type ProjectConfig struct {
 	ProjectName  string
 	Variables    map[string]string
@@ -49,11 +49,11 @@ type ProjectConfig struct {
 	AuthProfiles []auth.Profile // parsed from auth_profiles: block
 	Defaults     DefaultsConfig
 	Output       *output.Config // M8-003: project-level output default
-	UI           *UIConfig      // apitest ui server settings (UI_SPECIFICATION.md §11)
+	UI           *UIConfig      // curlew ui server settings (UI_SPECIFICATION.md §11)
 	Config       ConfigBlock    // M20-001: config: block (locale, etc.)
 }
 
-// UIConfig is the optional top-level ui: block in apitest.yaml.
+// UIConfig is the optional top-level ui: block in curlew.yaml.
 // Precedence per field: CLI flag > ui: block > built-in default.
 type UIConfig struct {
 	Port        int              `yaml:"port,omitempty"`         // 1024–65535; 0 reserved for the --port flag
@@ -63,7 +63,7 @@ type UIConfig struct {
 	History     *UIHistoryConfig `yaml:"history,omitempty"`
 }
 
-// UIHistoryConfig configures the apitest ui run-history store.
+// UIHistoryConfig configures the curlew ui run-history store.
 type UIHistoryConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty"`  // default true; false disables persistence even on Solo+
 	MaxRuns int   `yaml:"max_runs,omitempty"` // 0 = default (50); cap 500
@@ -88,7 +88,7 @@ type authProfileEntry struct {
 	RefreshOnFailure bool   `yaml:"refresh_on_failure,omitempty"`
 }
 
-// ParseProjectConfig reads and parses an apitest.yaml file at the given path.
+// ParseProjectConfig reads and parses an curlew.yaml file at the given path.
 // Returns ErrInvalidProjectConfig for parse failures.
 func ParseProjectConfig(path string) (*ProjectConfig, error) {
 	data, err := os.ReadFile(path)
@@ -173,7 +173,7 @@ func ParseProjectConfig(path string) (*ProjectConfig, error) {
 		cfg.Output = &oc
 	}
 
-	// Parse ui block if present (apitest ui server settings).
+	// Parse ui block if present (curlew ui server settings).
 	if pf.UI.Kind != 0 {
 		var ui UIConfig
 		if err := pf.UI.Decode(&ui); err != nil {
@@ -205,13 +205,13 @@ func ParseProjectConfig(path string) (*ProjectConfig, error) {
 	return cfg, nil
 }
 
-// FindProjectRoot walks up from startDir looking for apitest.yaml (or apitest.yml).
+// FindProjectRoot walks up from startDir looking for curlew.yaml (or curlew.yml).
 // Returns the directory containing the project config file and true,
 // or ("", false) if no project config is found up to the filesystem root.
 func FindProjectRoot(startDir string) (string, bool) {
 	dir := startDir
 	for {
-		for _, name := range []string{"apitest.yaml", "apitest.yml"} {
+		for _, name := range []string{"curlew.yaml", "curlew.yml"} {
 			if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
 				return dir, true
 			}
@@ -225,7 +225,7 @@ func FindProjectRoot(startDir string) (string, bool) {
 }
 
 // LoadProjectConfig finds the project root by walking up from startDir,
-// then parses apitest.yaml (or apitest.yml). Returns an empty ProjectConfig and
+// then parses curlew.yaml (or curlew.yml). Returns an empty ProjectConfig and
 // empty root string if no project config is found (not an error). Returns error
 // if the file exists but cannot be parsed.
 func LoadProjectConfig(startDir string) (*ProjectConfig, string, error) {
@@ -233,9 +233,9 @@ func LoadProjectConfig(startDir string) (*ProjectConfig, string, error) {
 	if !found {
 		return &ProjectConfig{Variables: map[string]string{}}, "", nil
 	}
-	name := "apitest.yaml"
+	name := "curlew.yaml"
 	if _, err := os.Stat(filepath.Join(root, name)); errors.Is(err, os.ErrNotExist) {
-		name = "apitest.yml"
+		name = "curlew.yml"
 	}
 	cfg, err := ParseProjectConfig(filepath.Join(root, name))
 	if err != nil {

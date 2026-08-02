@@ -2,7 +2,7 @@
 
 ## Overview
 
-Ship a production-shaped example plugin (`datadog-metrics`) plus a full developer guide for writing ApiTool plugins. The plugin, living in a separate Go module under `examples/plugins/datadog-metrics/`, submits an `apitest.request.duration` metric to Datadog on every `on_response`, gracefully disables itself when `DATADOG_API_KEY` is absent, and is exhaustively covered by tests against an `httptest`-backed fake Datadog server. `docs/plugins.md` is expanded from its stubby handshake reference into a full quickstart/hooks/packaging/debugging guide that points developers at the new example.
+Ship a production-shaped example plugin (`datadog-metrics`) plus a full developer guide for writing Curlew plugins. The plugin, living in a separate Go module under `examples/plugins/datadog-metrics/`, submits an `curlew.request.duration` metric to Datadog on every `on_response`, gracefully disables itself when `DATADOG_API_KEY` is absent, and is exhaustively covered by tests against an `httptest`-backed fake Datadog server. `docs/plugins.md` is expanded from its stubby handshake reference into a full quickstart/hooks/packaging/debugging guide that points developers at the new example.
 
 ## Task Details
 
@@ -30,7 +30,7 @@ Ship a production-shaped example plugin (`datadog-metrics`) plus a full develope
 
 4. **Dry-run key detection is avoided.** Behavior 3 says missing `DATADOG_API_KEY` → disabled. We implement exactly that — we do **not** special-case `test-key` or similar, because silent magic is confusing. The observable command using `DATADOG_API_KEY=test-key` will hit whatever `DD_API_URL` the user sets; the README shows a one-liner for standing up a `go run ./internal/fakedd` mock server so the observable is reproducible without real Datadog traffic. If the user omits both `DD_API_URL` and access to Datadog, they'll see a transport-error warning but the run still completes successfully (error is logged, not fatal — matches how plugins should behave under hook-dispatcher fault tolerance).
 
-5. **Observable command pragmatism.** The task YAML observable shows `APITEST_PLUGINS=... DATADOG_API_KEY=test-key ./apitest run testdata/plugins/one-request.yaml` producing `[plugin:datadog-metrics] submitted 1 metric`. As written, that hits real `api.datadoghq.com` with a fake key and would log a warning (401), not the success line. We interpret this charitably: the **authoritative** observable is `cd examples/plugins/datadog-metrics && go test ./...` (already green against the fake server). The README repeats the command with an added `DD_API_URL=http://127.0.0.1:PORT` step so a developer following the docs **can** reproduce the stdout line. `/verify` will confirm both the test suite observable and a scripted end-to-end run using the README's fake-server steps.
+5. **Observable command pragmatism.** The task YAML observable shows `CURLEW_PLUGINS=... DATADOG_API_KEY=test-key ./curlew run testdata/plugins/one-request.yaml` producing `[plugin:datadog-metrics] submitted 1 metric`. As written, that hits real `api.datadoghq.com` with a fake key and would log a warning (401), not the success line. We interpret this charitably: the **authoritative** observable is `cd examples/plugins/datadog-metrics && go test ./...` (already green against the fake server). The README repeats the command with an added `DD_API_URL=http://127.0.0.1:PORT` step so a developer following the docs **can** reproduce the stdout line. `/verify` will confirm both the test suite observable and a scripted end-to-end run using the README's fake-server steps.
 
 6. **Handshake library extraction is out of scope.** We do not pull `internal/plugin/...` code into a reusable library yet — that's a future task. The example copies the bufio-readline/JSON-RPC scaffolding inline, mirroring `testdata/plugins/hello-plugin/main.go`. A small `jsonrpc.go` helper file keeps the main.go readable but is local to the example module.
 
@@ -58,7 +58,7 @@ Ship a production-shaped example plugin (`datadog-metrics`) plus a full develope
 
 ```go
 // examples/plugins/datadog-metrics/go.mod
-module github.com/peterlindqvist/apitest/examples/plugins/datadog-metrics
+module github.com/weiqigod/curlew/examples/plugins/datadog-metrics
 
 go 1.24
 ```
@@ -113,7 +113,7 @@ func TestPrintMetadata_StandaloneHelp(t *testing.T) {
 }
 
 func TestHandshake_ReturnsHello(t *testing.T) {
-    in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}` + "\n")
+    in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}` + "\n")
     var out, errw bytes.Buffer
     cfg := config{} // DATADOG_API_KEY unset
     if err := run(context.Background(), cfg, in, &out, &errw); err != nil && err != io.EOF {
@@ -219,14 +219,14 @@ func submitMetric(ctx context.Context, client *http.Client, baseURL, apiKey stri
 // examples/plugins/datadog-metrics/main.go (handle())
 func handle(ctx context.Context, cfg config, client *http.Client, stderr io.Writer, method string, params json.RawMessage) (any, error) {
     switch method {
-    case "apitest/hello":
+    case "curlew/hello":
         return map[string]any{
             "name":             pluginName,
             "version":          pluginVersion,
             "hooks":            []string{"on_response", "on_result"},
             "protocol_version": 1,
         }, nil
-    case "apitest/on_response":
+    case "curlew/on_response":
         if !cfg.enabled {
             return map[string]any{}, nil
         }
@@ -236,7 +236,7 @@ func handle(ctx context.Context, cfg config, client *http.Client, stderr io.Writ
         }
         _ = json.Unmarshal(params, &p)
         metric := ddMetric{
-            Metric: "apitest.request.duration",
+            Metric: "curlew.request.duration",
             Type:   3, // gauge
             Points: []ddPoint{{Timestamp: time.Now().Unix(), Value: float64(p.DurationMs)}},
             Tags:   []string{fmt.Sprintf("status:%d", p.StatusCode)},
@@ -247,7 +247,7 @@ func handle(ctx context.Context, cfg config, client *http.Client, stderr io.Writ
         }
         fmt.Fprintf(stderr, "[plugin:%s] submitted 1 metric\n", pluginName)
         return map[string]any{}, nil
-    case "apitest/on_result":
+    case "curlew/on_result":
         return map[string]any{}, nil
     default:
         return map[string]any{}, nil
@@ -272,7 +272,7 @@ func TestSubmitMetric_PostsToSeriesEndpoint(t *testing.T) {
     defer srv.Close()
 
     err := submitMetric(context.Background(), http.DefaultClient, srv.URL, "secret-key", ddMetric{
-        Metric: "apitest.request.duration",
+        Metric: "curlew.request.duration",
         Type:   3,
         Points: []ddPoint{{Timestamp: 1700000000, Value: 142}},
         Tags:   []string{"status:200"},
@@ -284,7 +284,7 @@ func TestSubmitMetric_PostsToSeriesEndpoint(t *testing.T) {
 
     var payload ddSeries
     if err := json.Unmarshal(gotBody, &payload); err != nil { t.Fatalf("unmarshal body: %v", err) }
-    if len(payload.Series) != 1 || payload.Series[0].Metric != "apitest.request.duration" {
+    if len(payload.Series) != 1 || payload.Series[0].Metric != "curlew.request.duration" {
         t.Errorf("body: %s", gotBody)
     }
 }
@@ -321,7 +321,7 @@ func TestOnResponse_SubmitsMetric(t *testing.T) {
     cfg := config{enabled: true, apiKey: "k", apiURL: srv.URL}
     var errw bytes.Buffer
     params := json.RawMessage(`{"status_code":200,"duration_ms":142}`)
-    _, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", params)
+    _, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", params)
     if err != nil { t.Fatalf("handle: %v", err) }
 
     if !strings.Contains(errw.String(), "submitted 1 metric") {
@@ -340,7 +340,7 @@ func TestOnResponse_Disabled_DoesNotSubmit(t *testing.T) {
     defer srv.Close()
     cfg := config{enabled: false, apiURL: srv.URL} // no API key
     var errw bytes.Buffer
-    _, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", json.RawMessage(`{"status_code":200}`))
+    _, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", json.RawMessage(`{"status_code":200}`))
     if err != nil { t.Fatalf("handle: %v", err) }
     if hit { t.Error("expected no HTTP call when disabled") }
     if strings.Contains(errw.String(), "submitted") {
@@ -353,7 +353,7 @@ func TestOnResponse_NonFatalOn401(t *testing.T) {
     defer srv.Close()
     cfg := config{enabled: true, apiKey: "k", apiURL: srv.URL}
     var errw bytes.Buffer
-    result, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "apitest/on_response", json.RawMessage(`{"status_code":200,"duration_ms":5}`))
+    result, err := handle(context.Background(), cfg, http.DefaultClient, &errw, "curlew/on_response", json.RawMessage(`{"status_code":200,"duration_ms":5}`))
     if err != nil { t.Fatalf("handle: %v", err) }
     if result == nil { t.Error("expected identity response, got nil") }
     if !strings.Contains(errw.String(), "submit failed") {
@@ -466,7 +466,7 @@ func TestLoadConfig_DDAPIURLOverride(t *testing.T) {
 }
 
 func TestRun_MissingKey_LogsDisabledLine(t *testing.T) {
-    in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}` + "\n")
+    in := bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}` + "\n")
     var out, errw bytes.Buffer
     _ = run(context.Background(), loadConfig([]string{}), in, &out, &errw)
     if !strings.Contains(errw.String(), "DATADOG_API_KEY not set, disabled") {
@@ -479,9 +479,9 @@ func TestRun_EndToEnd_MultipleResponses(t *testing.T) {
     defer srv.Close()
     cfg := loadConfig([]string{"DATADOG_API_KEY=k", "DD_API_URL=" + srv.URL})
     in := bytes.NewBufferString(
-        `{"jsonrpc":"2.0","id":1,"method":"apitest/hello","params":{}}` + "\n" +
-        `{"jsonrpc":"2.0","id":2,"method":"apitest/on_response","params":{"status_code":200,"duration_ms":42}}` + "\n" +
-        `{"jsonrpc":"2.0","id":3,"method":"apitest/on_result","params":{"pass_count":1}}` + "\n",
+        `{"jsonrpc":"2.0","id":1,"method":"curlew/hello","params":{}}` + "\n" +
+        `{"jsonrpc":"2.0","id":2,"method":"curlew/on_response","params":{"status_code":200,"duration_ms":42}}` + "\n" +
+        `{"jsonrpc":"2.0","id":3,"method":"curlew/on_result","params":{"pass_count":1}}` + "\n",
     )
     var out, errw bytes.Buffer
     if err := run(context.Background(), cfg, in, &out, &errw); err != nil {
@@ -521,14 +521,14 @@ Existing top-level sections remain. New/restructured sections:
 
 1. **Overview** (existing)
 2. **Quickstart: your first plugin in 5 minutes** (NEW — walks through the hello-plugin fixture and then points at the datadog-metrics example)
-3. **Discovery: `APITEST_PLUGINS`** (existing)
+3. **Discovery: `CURLEW_PLUGINS`** (existing)
 4. **Handshake wire format** (existing — renamed from "Handshake Wire Format")
 5. **Hook reference** (existing — renamed from "Hook Invocation Protocol (M5-018)")
 6. **Full example: datadog-metrics** (NEW — short section pointing at `examples/plugins/datadog-metrics/` with build/run/test one-liners; does not duplicate the plugin's own README)
 7. **Packaging tips** (NEW — how to ship as a single binary, cross-compile matrix, recommended directory layout, naming conventions)
-8. **Debugging plugins** (NEW — stderr behaviour, handshake failures checklist, how to run the plugin standalone with `--help`, how to simulate apitest's calls with `echo '{"jsonrpc":...}' | ./my-plugin`)
+8. **Debugging plugins** (NEW — stderr behaviour, handshake failures checklist, how to run the plugin standalone with `--help`, how to simulate curlew's calls with `echo '{"jsonrpc":...}' | ./my-plugin`)
 9. **Security considerations** (existing "Security" section moved here — unchanged content)
-10. **Troubleshooting checklist** (NEW — table of symptom → likely cause → fix: "plugin doesn't load" → check execute bit / `APITEST_PLUGINS`; "handshake timeout" → reduce startup work, flush stdout explicitly; "hook times out" → 10-second hard limit; "duplicate name" → check unique plugin names across all candidates)
+10. **Troubleshooting checklist** (NEW — table of symptom → likely cause → fix: "plugin doesn't load" → check execute bit / `CURLEW_PLUGINS`; "handshake timeout" → reduce startup work, flush stdout explicitly; "hook times out" → 10-second hard limit; "duplicate name" → check unique plugin names across all candidates)
 
 #### Tests to Write FIRST (RED phase)
 
@@ -586,7 +586,7 @@ func TestStandalone_HelpExits0WithMetadata(t *testing.T) {
 ```bash
 echo "=== Example plugin: datadog-metrics (M5-019) ==="
 
-DD_BUILD_DIR=$(mktemp -d /tmp/apitest_ddplugin_XXXXXX)
+DD_BUILD_DIR=$(mktemp -d /tmp/curlew_ddplugin_XXXXXX)
 echo "--- Building datadog-metrics example ---"
 (cd examples/plugins/datadog-metrics && go build -o "$DD_BUILD_DIR/datadog-metrics" .)
 echo "Build: OK"
@@ -616,7 +616,7 @@ echo
 | `examples/plugins/datadog-metrics/standalone_test.go` | `TestStandalone_HelpExits0WithMetadata` | new | Write in Step 4 |
 | `internal/plugin/*` | existing | none | unchanged |
 | `internal/plugin/hooks/*` | existing | none | unchanged |
-| `cmd/apitest/plugins_test.go` | existing | none | unchanged |
+| `cmd/curlew/plugins_test.go` | existing | none | unchanged |
 | `smoke/run.sh` | n/a (bash) | new block appended | Added in Step 5 |
 
 All **four-plus** test functions for the example are new; no existing Go test is touched.
@@ -638,7 +638,7 @@ All **four-plus** test functions for the example are new; no existing Go test is
 **Pre-commit gates (Go main module — no changes here, so just a sanity run):**
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -664,16 +664,16 @@ cd examples/plugins/datadog-metrics && go test ./...
 # Manual stdout observable — requires a local fake Datadog server.
 # See examples/plugins/datadog-metrics/README.md step "Run locally" for
 # the complete recipe. Short form:
-cd examples/plugins/datadog-metrics && go build -o /tmp/apitest-dd-plugin .
+cd examples/plugins/datadog-metrics && go build -o /tmp/curlew-dd-plugin .
 # In terminal A:
 python3 -m http.server 8888   # or any URL that returns 2xx on POST /api/v2/series
 # In terminal B:
 DD_API_URL=http://127.0.0.1:8888 \
-APITEST_PLUGINS=/tmp/apitest-dd-plugin \
+CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
 DATADOG_API_KEY=test-key \
-  ./apitest run testdata/plugins/one-request.yaml
+  ./curlew run testdata/plugins/one-request.yaml
 # Expected stderr (tail):  [plugin:datadog-metrics] submitted 1 metric
 # Exit 0
 ```
 
-(The python3 server returns 200 on POST after a redirect; a more faithful mock is documented in the README. The point for verification is that the authoritative tests pass and the end-to-end path from `apitest run` → hook dispatcher → plugin → Datadog POST is demonstrably wired.)
+(The python3 server returns 200 on POST after a redirect; a more faithful mock is documented in the README. The point for verification is that the authoritative tests pass and the end-to-end path from `curlew run` → hook dispatcher → plugin → Datadog POST is demonstrably wired.)

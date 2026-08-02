@@ -22,16 +22,16 @@ import (
 	"slices"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
+	"github.com/weiqigod/curlew/internal/assertion"
 	"gopkg.in/yaml.v3"
 )
 
 // SentinelBeginPrefix is the literal prefix of the BEGIN sentinel line.
 // The full line carries id, slug, run attributes after this prefix.
-const SentinelBeginPrefix = "<!-- BEGIN apitest:response "
+const SentinelBeginPrefix = "<!-- BEGIN curlew:response "
 
 // SentinelEndPrefix is the literal prefix of the END sentinel line.
-const SentinelEndPrefix = "<!-- END apitest:response "
+const SentinelEndPrefix = "<!-- END curlew:response "
 
 // SentinelSuffix terminates both BEGIN and END sentinel lines.
 const SentinelSuffix = " -->"
@@ -39,7 +39,7 @@ const SentinelSuffix = " -->"
 // RunMDSentinelSlug is the reserved slug for the run.md index file.
 const RunMDSentinelSlug = "run"
 
-// Report is the complete dataset for one markdown render. The cmd/apitest
+// Report is the complete dataset for one markdown render. The cmd/curlew
 // builder converts []runner.RequestResult into a *Report; the markdown
 // package owns no runner types directly so the dependency graph stays
 // internal/output/* -> internal/runner (one-way only at the cmd layer).
@@ -174,14 +174,14 @@ func WriteReport(report *Report, dir string, opts WriteOptions) error {
 //  1. # <name>
 //  2. ## Notes
 //  3. (empty notes paragraph — placeholder for agent text)
-//  4. <!-- BEGIN apitest:response id=... slug=... run=... -->
+//  4. <!-- BEGIN curlew:response id=... slug=... run=... -->
 //  5. ## Response (deterministic)
 //  6. ### Request
 //  7. ### Response <status>
 //  8. ### Response metadata    (NEW: M9-003)
 //  9. ### Timing
 //  10. ### Assertions
-//  11. <!-- END apitest:response id=... slug=... run=... -->
+//  11. <!-- END curlew:response id=... slug=... run=... -->
 //
 // Plus ## Analysis below the END sentinel (agent-owned).
 func renderFullFile(entry *RequestEntry, runID string) []byte {

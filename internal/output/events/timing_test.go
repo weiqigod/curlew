@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/output/events"
+	"github.com/weiqigod/curlew/internal/output/events"
 )
 
 func TestSchemaVersion_Is13(t *testing.T) {
@@ -19,7 +19,7 @@ func int64p(v int64) *int64 { return &v }
 
 func TestEmitRequestEnd_TimingField(t *testing.T) {
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "test", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "test", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestEmitRequestEnd_TimingField(t *testing.T) {
 
 func TestEmitRequestEnd_NoTimingOmitted(t *testing.T) {
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "test", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "test", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestTimingInfoFromExec_ZeroAndReused(t *testing.T) {
 	// Distinguishing "0 µs" from "did not occur": pointer fields stay nil when
 	// the phase is absent, and a measured-but-fast phase serializes as 0.
 	var buf bytes.Buffer
-	em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "test", RunID: "r1"})
+	em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "test", RunID: "r1"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/backend/device"
+	"github.com/weiqigod/curlew/internal/backend/device"
 )
 
 func TestDeviceRoundTrip(t *testing.T) {

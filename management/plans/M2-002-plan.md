@@ -1,7 +1,7 @@
 # Implementation Plan: M2-002
 
 ## Overview
-Create the `internal/vault/` package with configuration types for vault provider profiles, parse the `secrets:` block from `apitest.yaml`, validate all five supported providers, support structured extraction syntax (`key#field`), and auto-mark all vault variables as sensitive. Feature-gate vault at Solo tier.
+Create the `internal/vault/` package with configuration types for vault provider profiles, parse the `secrets:` block from `curlew.yaml`, validate all five supported providers, support structured extraction syntax (`key#field`), and auto-mark all vault variables as sensitive. Feature-gate vault at Solo tier.
 
 ## Task Details
 - **ID:** M2-002
@@ -40,7 +40,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/peterlindqvist/apitest/internal/variable"
+    "github.com/weiqigod/curlew/internal/variable"
 )
 
 const (
@@ -390,7 +390,7 @@ func TestRun_VaultGate(t *testing.T) {
 
 ---
 
-### Step 5: Wire Into `cmd/apitest/main.go`
+### Step 5: Wire Into `cmd/curlew/main.go`
 
 **Rationale:** Final step — connects all pieces. Depends on all prior steps.
 
@@ -398,7 +398,7 @@ func TestRun_VaultGate(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Pass Secrets to runner, merge sensitive names |
+| `cmd/curlew/main.go` | modify | Pass Secrets to runner, merge sensitive names |
 | `smoke/run.sh` | modify | Add vault config smoke test |
 
 #### Current Code (main.go runCmd, VarSources construction)
@@ -463,14 +463,14 @@ if projectCfg.Secrets != nil {
 
 - **Risk:** Circular imports (`vault` → `variable`, `config` → `vault`, `runner` → `vault`) → **Mitigation:** No cycles exist: `variable` ← `vault` ← `config` and `variable` ← `vault` ← `runner`. Verified by import tracing.
 
-- **Edge case:** `validate` command and vault config → **Handling:** The validate command validates collection files, not project config. A `secrets:` block in `apitest.yaml` doesn't affect validate's collection validation. The observable "validate without errors" means the vault config doesn't interfere.
+- **Edge case:** `validate` command and vault config → **Handling:** The validate command validates collection files, not project config. A `secrets:` block in `curlew.yaml` doesn't affect validate's collection validation. The observable "validate without errors" means the vault config doesn't interfere.
 
 - **Risk:** Provider-specific required fields missed → **Mitigation:** Table-driven validation per provider with explicit test cases for each missing required field.
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -478,8 +478,8 @@ go test ./...
 
 Observable verification:
 ```bash
-# Create apitest.yaml with secrets block
-cat > /tmp/vault-test/apitest.yaml << 'EOF'
+# Create curlew.yaml with secrets block
+cat > /tmp/vault-test/curlew.yaml << 'EOF'
 project_name: vault-test
 secrets:
   provider: aws-secrets-manager
@@ -490,10 +490,10 @@ secrets:
 EOF
 
 # Validate collection (should parse without errors)
-apitest validate /tmp/vault-test/collection.yaml
+curlew validate /tmp/vault-test/collection.yaml
 
 # Run at Free tier — expect exit code 6
-apitest run /tmp/vault-test/collection.yaml; echo "Exit code: $?"
+curlew run /tmp/vault-test/collection.yaml; echo "Exit code: $?"
 
 # Unit tests
 go test ./internal/vault/...

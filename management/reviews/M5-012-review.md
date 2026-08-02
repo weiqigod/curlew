@@ -26,7 +26,7 @@ No findings. All prior findings resolved.
 ## Test Coverage
 - `internal/loadgen/report`: **94.9%** (above 80% threshold)
 - `internal/loadgen`: **96.2%** (above 80% threshold)
-- `cmd/apitest`: **81.3%** (above 80% threshold)
+- `cmd/curlew`: **81.3%** (above 80% threshold)
 
 Note: `percentile` shows 75% because the empty-slice guard (`return 0`) is unreachable through the public `Aggregator` API (early-return when `a.requests == 0`). This is a documented defensive invariant. Overall package coverage remains 94.9%.
 
@@ -45,4 +45,4 @@ Note: `percentile` shows 75% because the empty-slice guard (`return 0`) is unrea
 
 ## Summary
 
-Iteration 5 review after the single-character `&&` to `||` fix in `TestPrintPerfHelp_MentionsAllFlags` (line 156 of `perf_test.go`). All prior findings from iterations 1-4 are resolved. The implementation is architecturally sound: clean package boundary between `internal/loadgen/report` and `cmd/apitest/perf.go`, thread-safe `Aggregator`, documented percentile invariants, all 8 spec behaviors covered by tests, smoke tests green, and coverage above threshold in all three relevant packages.
+Iteration 5 review after the single-character `&&` to `||` fix in `TestPrintPerfHelp_MentionsAllFlags` (line 156 of `perf_test.go`). All prior findings from iterations 1-4 are resolved. The implementation is architecturally sound: clean package boundary between `internal/loadgen/report` and `cmd/curlew/perf.go`, thread-safe `Aggregator`, documented percentile invariants, all 8 spec behaviors covered by tests, smoke tests green, and coverage above threshold in all three relevant packages.

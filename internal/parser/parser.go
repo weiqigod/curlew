@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	graphqlfiles "github.com/peterlindqvist/apitest/internal/graphql/files"
-	"github.com/peterlindqvist/apitest/internal/httpbody"
-	wstemplates "github.com/peterlindqvist/apitest/internal/websocket/templates"
+	"github.com/weiqigod/curlew/internal/assertion"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	graphqlfiles "github.com/weiqigod/curlew/internal/graphql/files"
+	"github.com/weiqigod/curlew/internal/httpbody"
+	wstemplates "github.com/weiqigod/curlew/internal/websocket/templates"
 	"gopkg.in/yaml.v3"
 )
 

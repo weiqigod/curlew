@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/requtil"
-	"github.com/peterlindqvist/apitest/internal/retry"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/requtil"
+	"github.com/weiqigod/curlew/internal/retry"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // RequestOutcome holds the result of executing a single request within a wave.
@@ -81,7 +81,7 @@ type WebSocketFunc func(ctx context.Context, item parser.RequestItem, scope *var
 type RetryConfigFunc func(item parser.RequestItem) retry.Config
 
 // EndExtra carries the additive RequestEnd metadata introduced for mid-run
-// inspection (apitest ui, events schema v1.3). All fields are optional.
+// inspection (curlew ui, events schema v1.3). All fields are optional.
 type EndExtra struct {
 	RequestHeaders  map[string]string // interpolated request headers
 	ResponseHeaders http.Header       // nil on error/skip
@@ -97,7 +97,7 @@ type EventSink interface {
 	RequestStart(requestID, requestSlug, name, method, url, phase, sourceFile string, sourceLine, waveIndex int)
 	// RequestEnd fires after execution and assertion evaluation complete.
 	// extra may be nil; it carries the additive metadata introduced for
-	// mid-run inspection (apitest ui, events schema v1.3).
+	// mid-run inspection (curlew ui, events schema v1.3).
 	RequestEnd(requestID, requestSlug, outcome string, statusCode int, duration time.Duration, waveIndex int, reqBody, respBody []byte, err error, extra *EndExtra)
 	// AssertionResult fires once per individual assertion item.
 	AssertionResult(requestID, aType, expected, actual string, passed bool)

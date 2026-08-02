@@ -1,7 +1,7 @@
 # Implementation Plan: M5-010
 
 ## Overview
-Add a `--workers N` flag to `apitest run` that, when >1, delegates execution to a remote coordinator (M5-008 backend + M5-009 workers). The CLI shards requests locally, creates a coordinator job, waits for workers to join, polls for completion, and renders the aggregated shard results in the existing terminal format. When the flag is omitted the run proceeds through the existing single-process pipeline with zero behavioural change.
+Add a `--workers N` flag to `curlew run` that, when >1, delegates execution to a remote coordinator (M5-008 backend + M5-009 workers). The CLI shards requests locally, creates a coordinator job, waits for workers to join, polls for completion, and renders the aggregated shard results in the existing terminal format. When the flag is omitted the run proceeds through the existing single-process pipeline with zero behavioural change.
 
 ## Task Details
 - **ID:** M5-010
@@ -20,8 +20,8 @@ Add a `--workers N` flag to `apitest run` that, when >1, delegates execution to 
 ## Key Findings From Code Exploration
 
 ### Relevant existing files (read in full)
-- `cmd/apitest/main.go` (2876 lines) — command dispatch, `runCmd`, `runCmdInner`, `parseRunArgs`/`runFlags`, `printHelp` (line 2591). `run` commands route through `checkGraceExpired` → `runCmdInner` which calls `runner.Run` at line 660.
-- `cmd/apitest/worker.go` — the existing `apitest worker` subcommand wiring (M5-009). Shows the flag-parsing style, env-var fallback, and exit-code mapping (0/1/2/10) that `--workers` must align with.
+- `cmd/curlew/main.go` (2876 lines) — command dispatch, `runCmd`, `runCmdInner`, `parseRunArgs`/`runFlags`, `printHelp` (line 2591). `run` commands route through `checkGraceExpired` → `runCmdInner` which calls `runner.Run` at line 660.
+- `cmd/curlew/worker.go` — the existing `curlew worker` subcommand wiring (M5-009). Shows the flag-parsing style, env-var fallback, and exit-code mapping (0/1/2/10) that `--workers` must align with.
 - `internal/worker/worker.go` — `Config`, `Client`, sentinel errors, `WorkerRequest`, `ShardResponse`, `ClaimRequestBody`, `SubmitItem`, `SubmitResultBody`, `HeartbeatBody`. All wire shapes are already defined.
 - `internal/worker/client.go` — `Claim`, `SubmitResult`, `Heartbeat` with auth, retry and `ErrUnauthorized` / `ErrNetworkExhausted` sentinels.
 - `internal/worker/run.go` — the per-worker loop and `CoordinatorClient` interface we can reuse in the CLI orchestrator for `GET /jobs/{job_id}`-style polling (we'll add a new method for that).
@@ -37,19 +37,19 @@ Add a `--workers N` flag to `apitest run` that, when >1, delegates execution to 
 - `runner.Run` signature is **unchanged**. We do not alter `internal/runner` at the package boundary.
 - `parseRunArgs` gains two fields (`workers int`, `coordinatorURL string`). No caller breaks because `runFlags` is `main`-package internal and assigned as a struct literal in a single place.
 - `printHelp` gains two lines in the "Run Options" block plus an "Enterprise tier" section.
-- Existing `apitest worker` subcommand is untouched.
+- Existing `curlew worker` subcommand is untouched.
 
 ### Ambiguities resolved
 1. **How do shard payloads reach workers?** The M5-008 backend seeds every new shard with `RequestsJson = "[]"`; the worker fake in tests populates `RequestsJson` directly. Since this task is `track: go-cli` and backend changes are out of scope, we design the CLI to target the **existing M5-008 wire contract plus a forward-compatible extension field** (`shards` array on `CreateJobRequest`) that the production backend silently ignores today (System.Text.Json defaults to ignoring unknown properties). The observable command uses a local coordinator fake bound to `127.0.0.1:9000` which we extend to honour `shards` — matching the M5-009 observable style. Production rollout will require a follow-up backend task (tracked as M5-010-followup in the plan's "Risks" section) to persist the field. This keeps M5-010 strictly go-cli.
 2. **Which phases are sharded?** Only `main` phase requests. `setup` and `teardown` typically mutate shared state and are not safe to shard (setup may populate variables used by all shards). They are executed **locally** on the CLI host and the extracted variables are propagated to the coordinator job via a `variables` map on the CLI's extension body. This keeps M5-010 tractable; full pipeline sharding is deferred.
 3. **Feature-gating.** `--workers >1` requires Enterprise tier. We register a new feature `distributed_execution` in `DefaultRegistry()` and gate early (before any network call) so Free/Solo/Pro/Team users get a clean exit-6 gate error.
 4. **--workers 1 fallback.** Per behaviour, it emits a warning to stderr and continues on the local pipeline.
-5. **Coordinator URL precedence.** `--coordinator-url` > `APITEST_COORDINATOR_URL`. Missing both → exit 2 with the exact message from behaviour #6.
+5. **Coordinator URL precedence.** `--coordinator-url` > `CURLEW_COORDINATOR_URL`. Missing both → exit 2 with the exact message from behaviour #6.
 6. **Terminal rendering.** The distributed path converts the coordinator's aggregated `SubmitItem` rows into `runner.RequestResult` + `runner.Summary` so the existing terminal/json/tap/junit printers handle the output with no duplication.
 
 ## Implementation Steps
 
-Step ordering is smallest-blast-radius-first: (1) new `internal/runner/shard` package (pure function, no callers yet); (2) new `internal/runner/distributed` package that orchestrates against a `CoordinatorClient` interface (no callers yet); (3) wire through `cmd/apitest/main.go` + help + feature gate + smoke.
+Step ordering is smallest-blast-radius-first: (1) new `internal/runner/shard` package (pure function, no callers yet); (2) new `internal/runner/distributed` package that orchestrates against a `CoordinatorClient` interface (no callers yet); (3) wire through `cmd/curlew/main.go` + help + feature gate + smoke.
 
 ### Step 1: Add `distributed_execution` feature gate
 **Rationale:** Tiny registry edit with a focused test. Enables the early-gate path step 4 will call.
@@ -118,7 +118,7 @@ return r
 // Package shard splits a request list into N shards for distributed execution.
 package shard
 
-import "github.com/peterlindqvist/apitest/internal/parser"
+import "github.com/weiqigod/curlew/internal/parser"
 
 // Plan is the per-shard slice + original index map.
 type Plan struct {
@@ -191,15 +191,15 @@ import (
     "io"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/parser"
-    "github.com/peterlindqvist/apitest/internal/runner"
-    "github.com/peterlindqvist/apitest/internal/worker"
+    "github.com/weiqigod/curlew/internal/parser"
+    "github.com/weiqigod/curlew/internal/runner"
+    "github.com/weiqigod/curlew/internal/worker"
 )
 
 // Sentinel errors.
 var (
-    ErrCoordinatorURLMissing = errors.New("--workers requires APITEST_COORDINATOR_URL")
-    ErrTokenMissing          = errors.New("--workers requires APITEST_BACKEND_TOKEN")
+    ErrCoordinatorURLMissing = errors.New("--workers requires CURLEW_COORDINATOR_URL")
+    ErrTokenMissing          = errors.New("--workers requires CURLEW_BACKEND_TOKEN")
     ErrWorkerJoinTimeout     = errors.New("timed out waiting for workers to join")
 )
 
@@ -314,16 +314,16 @@ func TestRun_ContextCancellationStopsPolling(t *testing.T) {
 
 ---
 
-### Step 4: CLI wiring — `--workers` / `--coordinator-url` in `cmd/apitest/main.go`
+### Step 4: CLI wiring — `--workers` / `--coordinator-url` in `cmd/curlew/main.go`
 **Rationale:** Ties Steps 1–3 into the user-facing binary. This is the largest blast radius; it comes last.
 
 #### Files to Modify
 
 | File                                    | Action | Description                                                              |
 |-----------------------------------------|--------|--------------------------------------------------------------------------|
-| `cmd/apitest/main.go`                   | modify | Extend `runFlags`, `parseRunArgs`, dispatch in `runCmdInner`, help text. |
-| `cmd/apitest/run_test.go`               | modify | Add parse + dispatch tests (gate, missing URL, --workers 1 warning, happy path using fake). |
-| `cmd/apitest/testdata/distributed/*.yaml` | create | 12-request collection for the smoke/integration test. |
+| `cmd/curlew/main.go`                   | modify | Extend `runFlags`, `parseRunArgs`, dispatch in `runCmdInner`, help text. |
+| `cmd/curlew/run_test.go`               | modify | Add parse + dispatch tests (gate, missing URL, --workers 1 warning, happy path using fake). |
+| `cmd/curlew/testdata/distributed/*.yaml` | create | 12-request collection for the smoke/integration test. |
 
 #### Current Code (relevant extract)
 ```go
@@ -352,7 +352,7 @@ type runFlags struct {
 
     // M5-010: distributed execution
     workers        int    // 0 = single-process (default); 1 = warn+fallback; ≥2 = distributed
-    coordinatorURL string // --coordinator-url; falls back to APITEST_COORDINATOR_URL
+    coordinatorURL string // --coordinator-url; falls back to CURLEW_COORDINATOR_URL
 }
 
 // parseRunArgs additions:
@@ -393,15 +393,15 @@ case flags.workers >= 2:
     }
     coordURL := flags.coordinatorURL
     if coordURL == "" {
-        coordURL = os.Getenv("APITEST_COORDINATOR_URL")
+        coordURL = os.Getenv("CURLEW_COORDINATOR_URL")
     }
     if coordURL == "" {
-        _, _ = fmt.Fprintln(os.Stderr, "error: --workers requires APITEST_COORDINATOR_URL")
+        _, _ = fmt.Fprintln(os.Stderr, "error: --workers requires CURLEW_COORDINATOR_URL")
         return 2, nil
     }
-    token := os.Getenv("APITEST_BACKEND_TOKEN")
+    token := os.Getenv("CURLEW_BACKEND_TOKEN")
     if token == "" {
-        _, _ = fmt.Fprintln(os.Stderr, "error: --workers requires APITEST_BACKEND_TOKEN")
+        _, _ = fmt.Fprintln(os.Stderr, "error: --workers requires CURLEW_BACKEND_TOKEN")
         return 2, nil
     }
     if flags.org == "" {
@@ -432,20 +432,20 @@ Where `collectionSha(path)` is a new helper (sha256 of file bytes, hex-encoded) 
 #### `printHelp` additions (around line 2640)
 ```go
 fmt.Println("  --workers <N>       Distribute execution across N remote workers (Enterprise tier)")
-fmt.Println("  --coordinator-url <url>  Coordinator base URL (or set APITEST_COORDINATOR_URL)")
+fmt.Println("  --coordinator-url <url>  Coordinator base URL (or set CURLEW_COORDINATOR_URL)")
 fmt.Println()
 fmt.Println("Distributed Execution (Enterprise tier):")
 fmt.Println("  --workers N          Shards the main phase across N workers and aggregates results")
 fmt.Println("  --org <slug>         Required with --workers")
-fmt.Println("  Env vars:  APITEST_COORDINATOR_URL   Coordinator base URL")
-fmt.Println("             APITEST_BACKEND_TOKEN    Bearer token for the coordinator API")
+fmt.Println("  Env vars:  CURLEW_COORDINATOR_URL   Coordinator base URL")
+fmt.Println("             CURLEW_BACKEND_TOKEN    Bearer token for the coordinator API")
 fmt.Println("             (See docs/distributed.md for full setup.)")
 ```
 
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/run_test.go
+// cmd/curlew/run_test.go
 func TestParseRunArgs_Workers(t *testing.T) {
     tests := []struct {
         name    string
@@ -464,11 +464,11 @@ func TestParseRunArgs_Workers(t *testing.T) {
 }
 
 func TestRunCmd_WorkersMissingCoordinatorURL(t *testing.T) {
-    // APITEST_COORDINATOR_URL unset → exit 2 + exact error string.
+    // CURLEW_COORDINATOR_URL unset → exit 2 + exact error string.
 }
 
 func TestRunCmd_WorkersFeatureGate(t *testing.T) {
-    // APITEST_TIER=free → exit 6, "distributed_execution" in gate message.
+    // CURLEW_TIER=free → exit 6, "distributed_execution" in gate message.
 }
 
 func TestRunCmd_Workers1WarnsAndFallsBack(t *testing.T) {
@@ -506,24 +506,24 @@ func TestRunCmd_WorkersObservableE2E(t *testing.T) {
 echo "=== Run --workers (M5-010) ==="
 
 # --help mentions --workers
-RUN_HELP=$(./apitest --help 2>&1)
+RUN_HELP=$(./curlew --help 2>&1)
 echo "$RUN_HELP" | grep -q -- "--workers" \
   || { echo "FAIL: --help missing --workers"; exit 1; }
 echo "PASS: run --help documents --workers"
 
 # --workers with no coordinator URL → exit 2
-unset APITEST_COORDINATOR_URL
-SMOKE_OUT=$(./apitest run sample/hello.yaml --workers 4 --org acme 2>&1) || SMOKE_RC=$?
+unset CURLEW_COORDINATOR_URL
+SMOKE_OUT=$(./curlew run sample/hello.yaml --workers 4 --org acme 2>&1) || SMOKE_RC=$?
 if [ "$SMOKE_RC" -eq 2 ]; then
-  echo "PASS: --workers without APITEST_COORDINATOR_URL exits 2"
+  echo "PASS: --workers without CURLEW_COORDINATOR_URL exits 2"
 else
   echo "FAIL: expected exit 2, got $SMOKE_RC"; echo "$SMOKE_OUT"; exit 1
 fi
-echo "$SMOKE_OUT" | grep -q "APITEST_COORDINATOR_URL" \
-  || { echo "FAIL: error message missing APITEST_COORDINATOR_URL"; exit 1; }
+echo "$SMOKE_OUT" | grep -q "CURLEW_COORDINATOR_URL" \
+  || { echo "FAIL: error message missing CURLEW_COORDINATOR_URL"; exit 1; }
 
 # --workers 1 warns and falls back
-SMOKE_OUT=$(APITEST_COORDINATOR_URL=http://unused ./apitest run sample/hello.yaml --workers 1 2>&1) || true
+SMOKE_OUT=$(CURLEW_COORDINATOR_URL=http://unused ./curlew run sample/hello.yaml --workers 1 2>&1) || true
 echo "$SMOKE_OUT" | grep -q "falling back to local" \
   || { echo "FAIL: --workers 1 missing fallback warning"; exit 1; }
 echo "PASS: --workers 1 falls back to local"
@@ -541,9 +541,9 @@ echo "PASS: --workers 1 falls back to local"
 | `internal/auth/registry_test.go`                  | `TestDefaultRegistry`                | extend | Add `distributed_execution` row.     |
 | `internal/runner/shard/shard_test.go`             | `TestSplit*`                         | new    | Create — 6 table cases + round-trip. |
 | `internal/runner/distributed/distributed_test.go` | `TestRun_*` (6 funcs)                | new    | Create — join, aggregate, reassign, order, ctx. |
-| `cmd/apitest/run_test.go`                         | `TestParseRunArgs_Workers`           | new    | Parse-level flag coverage.           |
-| `cmd/apitest/run_test.go`                         | `TestRunCmd_Workers*`                | new    | Gate, missing URL, --workers 1, help, E2E. |
-| `cmd/apitest/main_test.go`                        | help-text assertions (if any)        | review | Ensure help includes --workers lines. |
+| `cmd/curlew/run_test.go`                         | `TestParseRunArgs_Workers`           | new    | Parse-level flag coverage.           |
+| `cmd/curlew/run_test.go`                         | `TestRunCmd_Workers*`                | new    | Gate, missing URL, --workers 1, help, E2E. |
+| `cmd/curlew/main_test.go`                        | help-text assertions (if any)        | review | Ensure help includes --workers lines. |
 
 **Coverage target:** distributed package ≥ 80% statements; shard package ≥ 95% (pure function); overall project coverage must not regress.
 
@@ -554,7 +554,7 @@ echo "PASS: --workers 1 falls back to local"
 - **Risk:** Terminal rendering divergence between local and distributed. → **Mitigation:** the distributed path converts per-shard `SubmitItem` into `runner.RequestResult` keyed by the original index map from `shard.Plan.OriginalIndex`, guaranteeing the same printer output as the local path for the same collection.
 - **Risk:** Polling never converges (runaway process). → **Mitigation:** Honour `ctx.Done()` and a hard per-job wall-clock ceiling (`Config.JobTimeout`, default 30m) — exit with a descriptive error if exceeded.
 - **Risk:** Output ordering across shards is non-deterministic. → **Mitigation:** aggregate into a slice indexed by `OriginalIndex` before printing; never print per-shard items as they arrive.
-- **Risk:** `APITEST_BACKEND_TOKEN` is sensitive and could leak in error messages. → **Mitigation:** `Client.doWithRetry` already only prints the URL and status; we don't echo headers. Add an assertion in a unit test that the token string is absent from captured stderr for the happy path.
+- **Risk:** `CURLEW_BACKEND_TOKEN` is sensitive and could leak in error messages. → **Mitigation:** `Client.doWithRetry` already only prints the URL and status; we don't echo headers. Add an assertion in a unit test that the token string is absent from captured stderr for the happy path.
 - **Edge case:** `--workers 4` but the collection has only 2 requests. → **Handling:** `shard.Split` produces two empty shards; the distributed runner creates them, the coordinator marks empty shards `completed` on first poll (workers simply see empty `requests_json`), and the aggregator reports `N/N pass` with N=2. Test covers this.
 - **Edge case:** Collection parse error happens before we know the distributed path is needed. → **Handling:** the existing `parser.ParseFileWithOptions` path runs first, returning exit 3; no change.
 - **Edge case:** `--workers` combined with `--parallel`. → **Handling:** distributed path ignores `--parallel` (workers aren't ours to parallelise). We emit a one-line warning: `"--parallel is ignored when --workers is set"` and proceed.
@@ -564,7 +564,7 @@ echo "PASS: --workers 1 falls back to local"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -573,12 +573,12 @@ go test ./...
 
 Observable verification (from the task YAML):
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/runner/... -run Distributed
 # Expected: ok  internal/runner/...  (≥6 distributed tests passing)
-APITEST_COORDINATOR_URL=http://127.0.0.1:9000 \
-APITEST_BACKEND_TOKEN=svc_token_dev \
-  ./apitest run testdata/team/e2e-collection.yaml --workers 4 --org acme
+CURLEW_COORDINATOR_URL=http://127.0.0.1:9000 \
+CURLEW_BACKEND_TOKEN=svc_token_dev \
+  ./curlew run testdata/team/e2e-collection.yaml --workers 4 --org acme
 # Expected stdout (against the repo's fake coordinator fixture):
 #   "Sharding 12 requests across 4 workers..."
 #   "Waiting for workers... 4/4 joined"
@@ -587,4 +587,4 @@ APITEST_BACKEND_TOKEN=svc_token_dev \
 # exit 0
 ```
 
-Note: the observable assumes a fake coordinator is already running on `127.0.0.1:9000`. The integration test in `cmd/apitest/run_test.go::TestRunCmd_WorkersObservableE2E` spins up this fake via `httptest.NewServer` and validates the same stdout contract, so the observable is fully reproducible by the `go test` invocation alone. A follow-on `management/plans/M5-010-verified.md` should record the test log excerpt for that specific test as the observable evidence.
+Note: the observable assumes a fake coordinator is already running on `127.0.0.1:9000`. The integration test in `cmd/curlew/run_test.go::TestRunCmd_WorkersObservableE2E` spins up this fake via `httptest.NewServer` and validates the same stdout contract, so the observable is fully reproducible by the `go test` invocation alone. A follow-on `management/plans/M5-010-verified.md` should record the test log excerpt for that specific test as the observable evidence.

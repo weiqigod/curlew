@@ -6,7 +6,7 @@ created: 2026-03-09
 phase: "M1: Core CLI"
 dependencies: [M1-009]
 observable: |
-  Run `./apitest run collection.yaml --var base_url=http://localhost:8080`.
+  Run `./curlew run collection.yaml --var base_url=http://localhost:8080`.
   Verify the CLI variable overrides collection-level variable.
 behaviors:
   - "Given --var base_url=http://localhost:8080, when collection uses {{base_url}}, then CLI value is used"

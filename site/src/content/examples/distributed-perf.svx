@@ -3,7 +3,7 @@ title: Distributed execution & load testing
 intent: Shard a huge suite across coordinated workers, then turn a single request into a sustained load test — with the safety rails on.
 group: automation
 features: [distributed, perf]
-command: apitest run 'collections/**/*.yaml' --workers 10 --coordinator-url $URL
+command: curlew run 'collections/**/*.yaml' --workers 10 --coordinator-url $URL
 order: 130
 runnable: false
 ---
@@ -12,7 +12,7 @@ runnable: false
 	import Callout from '$lib/components/Callout.svelte';
 </script>
 
-When a suite gets big enough that one process is the bottleneck, ApiTool shards the
+When a suite gets big enough that one process is the bottleneck, Curlew shards the
 main phase across a fleet of workers. And when you need to know how an endpoint holds
 up under pressure, the `perf` command turns one request file into a load test.
 
@@ -22,10 +22,10 @@ The coordinator hands shards of the main phase to workers; setup and teardown st
 run exactly once, locally. Extracted setup variables propagate to every worker.
 
 ```bash
-export APITEST_COORDINATOR_URL=https://coordinator.example.com
-export APITEST_BACKEND_TOKEN=<bearer>
+export CURLEW_COORDINATOR_URL=https://coordinator.example.com
+export CURLEW_BACKEND_TOKEN=<bearer>
 
-apitest run 'collections/**/*.yaml' \
+curlew run 'collections/**/*.yaml' \
   --workers 10 \
   --org acme
 ```
@@ -33,7 +33,7 @@ apitest run 'collections/**/*.yaml' \
 On each worker host:
 
 ```bash
-apitest worker --job <job-id>
+curlew worker --job <job-id>
 ```
 
 `--workers 1` falls back to plain local execution — a clean way to gate on pipeline
@@ -42,7 +42,7 @@ capacity. Unauthorized workers exit with code `10`.
 ## Load testing a hot path
 
 ```bash
-apitest perf requests/hot-path.yaml \
+curlew perf requests/hot-path.yaml \
   --vus 50 \
   --duration 2m \
   --ramp-up 30s \
@@ -59,7 +59,7 @@ apitest perf requests/hot-path.yaml \
 | `--output` | Destination — `stdout`, or a `.json` / `.html` report |
 
 ```
-apitest perf — hot-path.yaml
+curlew perf — hot-path.yaml
   VUs: 50  duration: 2m  target: 500 rps
 
   requests   58,420      errors  0 (0.00%)

@@ -22,7 +22,7 @@ The remaining weak audience is the **developer exploring an API in their editor*
 - No single-request execution (entire collection re-runs on every tweak).
 - Output is terminal-first; large response bodies render badly even with `-vv`.
 - No predictable, human-readable artifact for the VS Code pane the way `--events` is for the agent.
-- No canonical "how to use apitest" instructions for the agent — each agent freestyles.
+- No canonical "how to use curlew" instructions for the agent — each agent freestyles.
 
 This document proposes a coherent direction that closes these gaps and makes the `human → agent → CLI` loop a first-class workflow.
 
@@ -46,11 +46,11 @@ Both JSONL streams (`--events`, `--log`) are live and complementary. An earlier 
 
 ### 2.2 CLI entry points
 
-- `apitest exec <url>` or `apitest exec --stdin` — single-request, minimal, no assertions or extraction.
-- `apitest run <collection.yaml>` — full collection with setup/main/teardown, assertions, extraction.
-- `apitest watch <collection.yaml>` — auto-re-run on file change with 500 ms debounce.
-- `apitest init [name]` — scaffold `apitest.yaml`, `environments/dev.yaml`, `collections/sample.yaml`, `.env.example`, `.gitignore`.
-- `apitest validate <file>` — static validation against the embedded collection schema.
+- `curlew exec <url>` or `curlew exec --stdin` — single-request, minimal, no assertions or extraction.
+- `curlew run <collection.yaml>` — full collection with setup/main/teardown, assertions, extraction.
+- `curlew watch <collection.yaml>` — auto-re-run on file change with 500 ms debounce.
+- `curlew init [name]` — scaffold `curlew.yaml`, `environments/dev.yaml`, `collections/sample.yaml`, `.env.example`, `.gitignore`.
+- `curlew validate <file>` — static validation against the embedded collection schema.
 
 ### 2.3 Editor integration
 
@@ -71,21 +71,21 @@ Both JSONL streams (`--events`, `--log`) are live and complementary. An earlier 
 
 ### 3.1 Direct developer in VS Code (no agent)
 
-1. `apitest init` scaffolds a project.
+1. `curlew init` scaffolds a project.
 2. Developer opens `collections/explore.yaml`. **VS Code provides autocomplete, hover documentation, and inline validation** via a published JSON Schema mapped in `yaml.schemas`.
-3. Developer adds a request, saves. `apitest watch collections/explore.yaml --only "Get user"` re-runs that one request on every save.
+3. Developer adds a request, saves. `curlew watch collections/explore.yaml --only "Get user"` re-runs that one request on every save.
 4. A markdown response file opens in the right-hand split pane, showing the formatted request + response + assertions. Updates on every run.
 5. Developer iterates: tweak the YAML on the left, watch the markdown update on the right. Large response bodies render well because they are pretty-printed markdown, not truncated terminal dumps.
 
 ### 3.2 Agent-driven (Copilot / Claude Code / etc.)
 
 1. Human says *"run the users collection against staging."*
-2. Agent invokes `apitest run collections/users.yaml --env staging`. **Zero flags beyond env selection** — the collection YAML declares its own output mode (markdown reports + events stream).
-3. Agent reads `.apitest/run.ndjson` for structured results and `responses/*.md` for human-facing artifacts.
+2. Agent invokes `curlew run collections/users.yaml --env staging`. **Zero flags beyond env selection** — the collection YAML declares its own output mode (markdown reports + events stream).
+3. Agent reads `.curlew/run.ndjson` for structured results and `responses/*.md` for human-facing artifacts.
 4. Agent narrates in chat: "Three requests ran, one failed. See `responses/get-user.md` — the `email` field is null, your assertion expected it present."
 5. Human asks to fix it. Agent edits the YAML. Loop continues.
 
-**The key property:** one invocation contract (`apitest run <file>`), zero required flags. Everything else lives in the YAML or the skill.
+**The key property:** one invocation contract (`curlew run <file>`), zero required flags. Everything else lives in the YAML or the skill.
 
 ---
 
@@ -96,7 +96,7 @@ These shape every work item below.
 1. **Division of labor.**
    - **CLI**: execute requests; emit deterministic artifacts. Never hosts an LLM.
    - **YAML**: source of truth for what runs *and* what output it produces.
-   - **Skill** (`.claude/skills/apitest/SKILL.md`): teach the agent how to use the artifacts. User-editable.
+   - **Skill** (`.claude/skills/curlew/SKILL.md`): teach the agent how to use the artifacts. User-editable.
    - **Agent**: edit YAML, invoke CLI, read artifacts, narrate.
    - **Human**: collaborate with agent; edit YAML directly when wanted; open the markdown report alongside YAML in VS Code.
 
@@ -150,13 +150,13 @@ Also consider publishing to `schemastore.org` for discoverability outside this r
 
 **Status:** Shipped 2026-04-24 — M8-003 (PR #119). CLI > collection > project > built-in precedence implemented and tested.
 
-**What:** Add an `output:` section, valid at both `apitest.yaml` (project default) and collection file (override). Fields:
+**What:** Add an `output:` section, valid at both `curlew.yaml` (project default) and collection file (override). Fields:
 
 ```yaml
 output:
   format: markdown          # terminal | json | tap | junit | markdown | html
   report: responses/        # directory for per-request markdown, or file path for other formats
-  events: .apitest/run.ndjson   # omit to disable
+  events: .curlew/run.ndjson   # omit to disable
   verbosity: quiet          # quiet | normal | verbose | debug
 ```
 
@@ -175,7 +175,7 @@ Precedence: **CLI flag > collection > project > built-in default**.
 
 - Schema updated to accept `output:` at both levels.
 - Config precedence documented and tested end-to-end (flag overrides file, collection overrides project).
-- `init` scaffolds a default `output:` block in `apitest.yaml` appropriate for the target audience.
+- `init` scaffolds a default `output:` block in `curlew.yaml` appropriate for the target audience.
 - Validation errors for unknown formats or malformed paths.
 
 ---
@@ -184,7 +184,7 @@ Precedence: **CLI flag > collection > project > built-in default**.
 
 **Status:** Shipped 2026-04-24 — M8-004 (PR #120) and M8-005. Duplicate-name rejection from §8 question 2 was bundled into M8-004; events schema bumped to v1.1 with an additive `selection` field on `run.start`. The §8.3 V2 minimal-setup follow-up (transitive-closure of `{{variable}}` refs via `internal/parallel/analyze.go` + new `parallel.AncestorClosure` primitive) shipped in M8-005: setup is pruned to the transitive closure of variable references, pure-seeder items (no `extract:`) always run, and an analyzer-invalid fallback with a stderr diagnostic covers the structural failure modes.
 
-**What:** `apitest run collections/foo.yaml --only "Get user"` runs exactly that request, with its declared dependencies in the `setup:` phase. Multiple `--only` flags = union.
+**What:** `curlew run collections/foo.yaml --only "Get user"` runs exactly that request, with its declared dependencies in the `setup:` phase. Multiple `--only` flags = union.
 
 **Why:** The iteration loop is painfully slow when the whole collection re-runs on every tweak. This is the single biggest inner-loop improvement for both humans and agents. Also enables agents to respond precisely to *"re-run just the auth flow."*
 
@@ -218,7 +218,7 @@ Precedence: **CLI flag > collection > project > built-in default**.
 ## Notes
 <!-- agent or human can edit this freely; survives re-runs -->
 
-<!-- BEGIN apitest:response id=req-3 slug=get-user run=abc123 -->
+<!-- BEGIN curlew:response id=req-3 slug=get-user run=abc123 -->
 ## Response (deterministic)
 
 **Request**
@@ -246,7 +246,7 @@ Content-Type: application/json
 
 - [x] status == 200
 - [x] body.name is string
-<!-- END apitest:response id=req-3 slug=get-user run=abc123 -->
+<!-- END curlew:response id=req-3 slug=get-user run=abc123 -->
 
 ## Analysis
 <!-- agent writes here, survives re-runs -->
@@ -284,35 +284,35 @@ Content-Type: application/json
 ### W5 — Default Claude skill packaged with the tool
 **Status:** Shipped 2026-04-25 — M10-001 (PR #128, plumbing) + M10-002 (PR #129, real SKILL.md content + executable-spec test + docs).
 
-**What:** Ship a skill at `templates/skills/claude/apitest/SKILL.md` in the repo. `apitest init` gains `--skill claude` which copies the skill into `.claude/skills/apitest/SKILL.md` in the user's project.
+**What:** Ship a skill at `templates/skills/claude/curlew/SKILL.md` in the repo. `curlew init` gains `--skill claude` which copies the skill into `.claude/skills/curlew/SKILL.md` in the user's project.
 
 **Skill contents** (sketch, not final text):
 
 ```markdown
 ---
-name: apitest
-description: Run ApiTool collections and interpret results. Use when the user asks to run, test, or explore an API.
+name: curlew
+description: Run Curlew collections and interpret results. Use when the user asks to run, test, or explore an API.
 ---
 
-# ApiTool skill
+# Curlew skill
 
 ## When to invoke
-Triggered by phrases like "run the test", "hit that endpoint", "check the auth flow", "run apitest".
+Triggered by phrases like "run the test", "hit that endpoint", "check the auth flow", "run curlew".
 
 ## Invocation
-- Default: `apitest run <collection.yaml>` with no extra flags.
+- Default: `curlew run <collection.yaml>` with no extra flags.
 - Environment: append `--env <name>` if the user names one.
 - Single request: append `--only "<request name>"` if the user wants just one.
 
 ## Where results land
 The collection's `output:` block declares paths. Typical defaults:
 - Summary on stdout.
-- Structured events in `.apitest/run.ndjson`.
+- Structured events in `.curlew/run.ndjson`.
 - Per-request markdown in `responses/<request-name>.md`.
 
 ## How to narrate
 - Reference file paths ("see responses/get-user.md"). Do not paraphrase response bodies — the markdown file is the canonical view.
-- On failure, read `.apitest/run.ndjson` for structured error details; read the relevant response markdown for the rendered context.
+- On failure, read `.curlew/run.ndjson` for structured error details; read the relevant response markdown for the rendered context.
 
 ## Failure playbook by exit code
 - 0: All passed.
@@ -330,7 +330,7 @@ The collection's `output:` block declares paths. Typical defaults:
 
 **Why:**
 - Pins agent behavior in an editable, shareable, version-controlled file.
-- Fixes bugs in "how the agent uses apitest" once, globally.
+- Fixes bugs in "how the agent uses curlew" once, globally.
 - Users customize for their team's conventions.
 - Parallel `--skill copilot` becomes obvious once GitHub Copilot's skill format stabilizes.
 
@@ -341,8 +341,8 @@ The collection's `output:` block declares paths. Typical defaults:
 - Do not force-install. Opt-in via `init --skill claude` only.
 
 **Definition of done:**
-- `templates/skills/claude/apitest/SKILL.md` exists and is well-tested against representative scenarios.
-- `apitest init --skill claude` copies it to `.claude/skills/apitest/SKILL.md`.
+- `templates/skills/claude/curlew/SKILL.md` exists and is well-tested against representative scenarios.
+- `curlew init --skill claude` copies it to `.claude/skills/curlew/SKILL.md`.
 - Integration test: a mock agent loop that follows the skill and exercises the five failure exit codes.
 
 ---
@@ -356,13 +356,13 @@ Three identifiers, present in every artifact:
 - **`request_slug`**: human-readable identifier derived from the request name, used in filenames and sentinel tags. Added to the events schema as an additive field in v1.2 (M9-001). Not a correlation key — `request_id` is.
 
 **Appears in:**
-- Markdown sentinel: `<!-- BEGIN apitest:response id=<request_id> slug=<request_slug> run=<run_id> -->`
+- Markdown sentinel: `<!-- BEGIN curlew:response id=<request_id> slug=<request_slug> run=<run_id> -->`
 - Every `--events` NDJSON record (already does per M6).
 - Every `--log` JSONL entry from `exec` (W5 bonus — add the IDs to the existing schema). **Shipped (M11-004).**
 
 **Agent workflow this enables:**
 1. Agent reads stdout summary: "3 requests, 1 failed."
-2. Agent parses `.apitest/run.ndjson` for the failing `request_id`.
+2. Agent parses `.curlew/run.ndjson` for the failing `request_id`.
 3. Agent reads `responses/<slug>.md` for rendered context.
 4. All three reference the same IDs — no guessing which file corresponds to which event.
 
@@ -372,7 +372,7 @@ Three identifiers, present in every artifact:
 
 Decisions that should not be re-litigated when backlog items are written:
 
-- **No embedded LLM, no `apitest analyze` subcommand, no BYO-key provider config, no tier-gated AI analysis.** The agent lives in the user's AI tool. Our CLI never calls an LLM API.
+- **No embedded LLM, no `curlew analyze` subcommand, no BYO-key provider config, no tier-gated AI analysis.** The agent lives in the user's AI tool. Our CLI never calls an LLM API.
 - **No automatic `.gitignore` management.** User's responsibility. The CLI writes where it's told; git concerns are out of scope.
 - **No mandatory skill installation.** `init --skill claude` is opt-in.
 - **No per-request output overrides in the YAML in v1.** Project and collection levels only.
@@ -402,7 +402,7 @@ Decisions recorded on 2026-04-22 after a codebase audit. Treat these as settled 
    - **Resolution:** Yes. W4 emits `<report>/run.md` with run summary, environment, pass/fail counts, `run_id`, and a linked list of per-request files. Canonical landing file for humans in VS Code and agents narrating a run.
 
 5. **stdout/stderr discipline audit.**
-   - **Resolution:** Yes, as a standalone prerequisite task before W2. 97+ `Fprintln(os.Stderr)` calls across `cmd/apitest/` have never been audited for stream correctness. Fix before W2 codifies `output:` — `format: json` on stdout depends on strict discipline being correct by default. Add two regression gates: (a) `apitest run <collection> --format json | jq .` parses cleanly; (b) split-capture test asserts stdout contains only the declared format.
+   - **Resolution:** Yes, as a standalone prerequisite task before W2. 97+ `Fprintln(os.Stderr)` calls across `cmd/curlew/` have never been audited for stream correctness. Fix before W2 codifies `output:` — `format: json` on stdout depends on strict discipline being correct by default. Add two regression gates: (a) `curlew run <collection> --format json | jq .` parses cleanly; (b) split-capture test asserts stdout contains only the declared format.
    - **Tracked in:** `management/tasks/M7-001.yaml` through `M7-005.yaml` under the `output_discipline` capability group in `management/backlog.yaml`. Recon findings F1–F6 map to those five tasks; M7-001/002/003/005 are parallelizable and M7-004 is the consolidating CI gate.
    - **Status:** Shipped 2026-04-22 — all five M7 tasks done before W2 landed.
 
@@ -434,13 +434,13 @@ When converting this document to tasks:
 
 After all five work items ship, the end-to-end minimal flow looks like this:
 
-**`apitest.yaml`** (project default, written by `apitest init`):
+**`curlew.yaml`** (project default, written by `curlew init`):
 ```yaml
 name: my-api
 output:
   format: markdown
   report: responses/
-  events: .apitest/run.ndjson
+  events: .curlew/run.ndjson
 ```
 
 **`collections/users.yaml`**:
@@ -461,14 +461,14 @@ requests:
 
 **Developer in VS Code:** opens `collections/users.yaml`, gets autocomplete from W1's published schema, runs:
 ```
-apitest run collections/users.yaml --only "Get user"
+curlew run collections/users.yaml --only "Get user"
 ```
 Opens `responses/get-user.md` in the right pane (W4). Iterates.
 
 **Human driving Claude Code:** says *"run the users collection against staging."* Agent (guided by W5's skill) runs:
 ```
-apitest run collections/users.yaml --env staging
+curlew run collections/users.yaml --env staging
 ```
-Reads `.apitest/run.ndjson` and `responses/*.md`. Narrates the result. No flags beyond `--env`. No CLI surface the agent had to memorize.
+Reads `.curlew/run.ndjson` and `responses/*.md`. Narrates the result. No flags beyond `--env`. No CLI surface the agent had to memorize.
 
 That is the target experience. Every work item above is justified by its contribution to it.

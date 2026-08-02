@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // Paths holds all file paths that should be monitored for a collection run.
@@ -16,7 +16,7 @@ type Paths struct {
 	ExternalFiles []string // absolute paths to external request files
 	EnvFile       string   // absolute path to environment file (empty if not used)
 	DotEnv        string   // absolute path to .env file (empty if not found)
-	ProjectConfig string   // absolute path to apitest.yaml (empty if not found)
+	ProjectConfig string   // absolute path to curlew.yaml (empty if not found)
 }
 
 // All returns a deduplicated, sorted list of all non-empty file paths to watch.
@@ -101,7 +101,7 @@ func CollectPaths(collectionPath, envName string) (*Paths, error) {
 	// Locate project config.
 	projectRoot, found := config.FindProjectRoot(collectionDir)
 	if found {
-		for _, name := range []string{"apitest.yaml", "apitest.yml"} {
+		for _, name := range []string{"curlew.yaml", "curlew.yml"} {
 			cfgPath := filepath.Join(projectRoot, name)
 			if _, statErr := os.Stat(cfgPath); statErr == nil {
 				wp.ProjectConfig = cfgPath

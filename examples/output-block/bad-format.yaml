@@ -1,7 +1,7 @@
 # Intentionally invalid per M8-003 observable — do not add to TestSchema_examples walker.
 # This file exercises the "unknown output format" error path (exit 3).
 #
-# Run: apitest run examples/output-block/bad-format.yaml
+# Run: curlew run examples/output-block/bad-format.yaml
 # Expected: exit 3, stderr contains 'unknown output format "markdown"'
 name: Bad Format Demo
 output:

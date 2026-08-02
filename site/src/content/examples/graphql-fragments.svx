@@ -3,7 +3,7 @@ title: GraphQL with fragments & error modes
 intent: Test GraphQL as a first-class protocol — external queries, reusable fragments, typed variables, and explicit handling of partial errors.
 group: resilience
 features: [graphql, cel]
-command: apitest run collections/graphql.yaml
+command: curlew run collections/graphql.yaml
 order: 70
 runnable: false
 ---
@@ -12,7 +12,7 @@ runnable: false
 	import Callout from '$lib/components/Callout.svelte';
 </script>
 
-GraphQL shares ApiTool's request envelope — you just add `protocol: graphql` and a
+GraphQL shares Curlew's request envelope — you just add `protocol: graphql` and a
 `graphql:` block. Queries can live in their own `.graphql` files, fragments are
 composed and topologically ordered for you, and because a GraphQL server can return
 `200 OK` with an `errors` array, you choose explicitly how partial failures are
@@ -95,7 +95,7 @@ A GraphQL response has four shapes, and `error_handling` decides each verdict:
 ## Run it
 
 ```bash
-apitest run collections/graphql.yaml
+curlew run collections/graphql.yaml
 ```
 
 ```

@@ -33,7 +33,7 @@ test.describe('Team test results dashboard', () => {
 			route.fulfill({ status: 200, body: JSON.stringify({ results: [] }) })
 		);
 		await page.goto(`/org/${SEEDED_ORG_SLUG}/results`);
-		await expect(page.getByTestId('empty-state')).toContainText('Run apitest and upload results');
+		await expect(page.getByTestId('empty-state')).toContainText('Run curlew and upload results');
 		await expect(page.getByTestId('summary-total-runs')).toHaveCount(0);
 	});
 

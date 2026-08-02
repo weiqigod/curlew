@@ -12,8 +12,8 @@ dependencies:
   - M1-028
 
 observable: |
-  Run `apitest run --show-dependencies tests.yaml` to see the dependency graph.
-  Run `apitest run --show-dependencies --dry-run tests.yaml` to see execution waves.
+  Run `curlew run --show-dependencies tests.yaml` to see the dependency graph.
+  Run `curlew run --show-dependencies --dry-run tests.yaml` to see execution waves.
   Run `go test ./internal/parallel/...` to verify dependency analysis.
 
 behaviors:

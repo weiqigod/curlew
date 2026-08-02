@@ -13,11 +13,11 @@ observable: |
   operations that declare query parameters, required headers (e.g. `X-API-Key`),
   JSON request bodies with `$ref` schemas, and multiple response codes
   (200, 201, 404). Run
-  `./apitest import openapi testdata/openapi/petstore-full.yaml --output out.yaml`
+  `./curlew import openapi testdata/openapi/petstore-full.yaml --output out.yaml`
   and verify out.yaml contains: request headers derived from parameters,
   a JSON request body example matching the schema, and
   `assertions: { status: [200, 201, 404] }` (the union of all documented response
-  codes). Run `apitest validate out.yaml` and verify it parses cleanly.
+  codes). Run `curlew validate out.yaml` and verify it parses cleanly.
   Run `go test ./internal/openapi/...` and verify all pass.
 
 behaviors:

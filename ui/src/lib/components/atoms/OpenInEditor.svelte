@@ -26,7 +26,7 @@
       setFlash('editor');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'no_editor') {
-        const hint = err.hint ?? 'set ui.editor in apitest.yaml or $APITEST_EDITOR';
+        const hint = err.hint ?? 'set ui.editor in curlew.yaml or $CURLEW_EDITOR';
         toast(`${err.message} — ${hint}`, { kind: 'error' });
         return;
       }

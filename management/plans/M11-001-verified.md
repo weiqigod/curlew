@@ -14,13 +14,13 @@
 | `go test -race ./...` | PASS | No races detected (via ci-local.sh) |
 | `golangci-lint run` | PASS | No findings (via ci-local.sh) |
 | `./smoke/run.sh` | PASS | Smoke test clean |
-| Coverage | 81.6% | Meets >= 80% threshold (`cmd/apitest`) |
+| Coverage | 81.6% | Meets >= 80% threshold (`cmd/curlew`) |
 
 ## Observable Output
 
 ```
-go build ./cmd/apitest                              → Build OK
-go test -run 'TestRun_JUnitFormat_FreeTier' -v ./cmd/apitest/...
+go build ./cmd/curlew                              → Build OK
+go test -run 'TestRun_JUnitFormat_FreeTier' -v ./cmd/curlew/...
   === RUN   TestRun_JUnitFormat_FreeTier
   --- PASS: TestRun_JUnitFormat_FreeTier (0.00s)
   PASS
@@ -36,7 +36,7 @@ Result: MATCH
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
 | 1 | `internal/auth/registry.go` no longer registers `junit_xml` | `grep -c '"junit_xml"' internal/auth/registry.go` = 0 | PASS |
-| 2 | `cmd/apitest/main.go` no longer calls `auth.CheckFeature(reg, "junit_xml", ...)` | No matches in grep | PASS |
+| 2 | `cmd/curlew/main.go` no longer calls `auth.CheckFeature(reg, "junit_xml", ...)` | No matches in grep | PASS |
 | 3 | `TestRun_JUnitFormat_FreeTier` drives exit 0 + valid JUnit XML on free tier | `TestRun_JUnitFormat_FreeTier` | PASS |
 | 4 | Existing JUnit gating tests removed or rewritten | All 4 old gate tests absent; events test migrated to `--parallel 2` | PASS |
 | 5 | `docs/SPECIFICATION.md` and `docs/MANUAL.md` drop tier-gating language | No "Professional-tier gated" for JUnit in either doc | PASS |
@@ -51,7 +51,7 @@ Result: MATCH
 | 2 | JUnit gate registration removed | `grep -c '"junit_xml"' internal/auth/registry.go` = 0 | PASS |
 | 3 | `TestRun_JUnitFormat_FreeTier` passes | Verified above, explicit PASS | PASS |
 | 4 | `go test ./...` passes | All packages pass, 0 failures | PASS |
-| 5 | `go test -cover ./cmd/apitest/...` >= 80% | 81.6% | PASS |
+| 5 | `go test -cover ./cmd/curlew/...` >= 80% | 81.6% | PASS |
 | 6 | `golangci-lint run` passes with 0 issues | Clean (via ci-local.sh) | PASS |
 | 7 | `./smoke/run.sh` passes | All smoke checks passed | PASS |
 | 8 | `./scripts/ci-local.sh` passes | Exit 0 — "=== ci-local PASS ===" | PASS |
@@ -66,7 +66,7 @@ Result: MATCH
 | Code organization | PASS |
 | Test quality | PASS |
 
-Branch A: Review PASS trusted (iteration 3), spot-check clean — `grep -c '"junit_xml"' internal/auth/registry.go` = 0; `TestRun_JUnitFormat_FreeTier` has explicit `APITEST_TIER=free` pin, real httptest.Server, and XML unmarshaling assertion; no new exported symbols requiring doc comments.
+Branch A: Review PASS trusted (iteration 3), spot-check clean — `grep -c '"junit_xml"' internal/auth/registry.go` = 0; `TestRun_JUnitFormat_FreeTier` has explicit `CURLEW_TIER=free` pin, real httptest.Server, and XML unmarshaling assertion; no new exported symbols requiring doc comments.
 
 ## Commits
 
@@ -93,10 +93,10 @@ Branch A: Review PASS trusted (iteration 3), spot-check clean — `grep -c '"jun
 |------|--------|
 | `CHANGELOG.md` | modified — Added Changed entry |
 | `IMPROVEMENT.md` | modified — §2.4 bullet 3 + format table row updated |
-| `cmd/apitest/main.go` | modified — Removed two `CheckFeature("junit_xml", ...)` call sites |
-| `cmd/apitest/main_test.go` | modified — Added `TestRun_JUnitFormat_FreeTier`; removed 4 old gate tests |
-| `cmd/apitest/run_test.go` | modified — Removed tier elevation in JUnit tests |
-| `cmd/apitest/stream_discipline_matrix_test.go` | modified — JUnit gate cell migrated |
+| `cmd/curlew/main.go` | modified — Removed two `CheckFeature("junit_xml", ...)` call sites |
+| `cmd/curlew/main_test.go` | modified — Added `TestRun_JUnitFormat_FreeTier`; removed 4 old gate tests |
+| `cmd/curlew/run_test.go` | modified — Removed tier elevation in JUnit tests |
+| `cmd/curlew/stream_discipline_matrix_test.go` | modified — JUnit gate cell migrated |
 | `docs/MANUAL.md` | modified — JUnit tier-gating language removed |
 | `docs/SPECIFICATION.md` | modified — JUnit tier-gating language removed |
 | `internal/auth/gate_test.go` | modified — Removed `TestCheckFeature_junitXML` |

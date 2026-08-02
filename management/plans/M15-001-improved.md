@@ -1,6 +1,6 @@
 # Improvement Report: M15-001 (Iteration 2)
 
-**Task:** plugin_loading Enterprise gate enforced at APITEST_PLUGINS load sites
+**Task:** plugin_loading Enterprise gate enforced at CURLEW_PLUGINS load sites
 **Date:** 2026-05-07
 **Review:** management/reviews/M15-001-review.md
 
@@ -25,10 +25,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
-| Coverage (`cmd/apitest`) | 81.5% |
+| Coverage (`cmd/curlew`) | 81.5% |
 | Coverage (`internal/auth`) | 89.6% |
 | Coverage (total) | 87.3% |
 

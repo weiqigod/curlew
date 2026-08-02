@@ -28,7 +28,7 @@ func TestWriteHTML_ContainsRequiredElements(t *testing.T) {
 		desc    string
 		contain string
 	}{
-		{"title tag", "<title>apitest perf report</title>"},
+		{"title tag", "<title>curlew perf report</title>"},
 		{"Chart.js CDN", "cdn.jsdelivr.net/npm/chart.js"},
 		{"canvas id", "perf-latency-chart"},
 		{"p50_ms series data", `"p50_ms"`},
@@ -52,13 +52,13 @@ func TestWriteHTML_CustomTitle(t *testing.T) {
 }
 
 func TestWriteHTML_DefaultTitle(t *testing.T) {
-	// Empty title defaults to "apitest perf report"
+	// Empty title defaults to "curlew perf report"
 	m := Metrics{}
 	var buf bytes.Buffer
 	if err := WriteHTML(&buf, m, ""); err != nil {
 		t.Fatalf("WriteHTML() error = %v", err)
 	}
-	if !strings.Contains(buf.String(), "<title>apitest perf report</title>") {
+	if !strings.Contains(buf.String(), "<title>curlew perf report</title>") {
 		t.Error("WriteHTML() output missing default title in <title> tag")
 	}
 }

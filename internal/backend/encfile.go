@@ -26,7 +26,7 @@ var ErrEncryptedFileTampered = errors.New("backend: encrypted file tampered or w
 //
 //	magic[4] | version[1] | nonce[12] | ciphertext+tag[N]
 //
-// magic = "ATOK" (apitest opaque), version = 0x01.
+// magic = "ATOK" (curlew opaque), version = 0x01.
 type encryptedFile struct {
 	path    string
 	keySalt []byte // (deviceID || machineID) bytes
@@ -141,8 +141,8 @@ func deriveKey(salt []byte) ([]byte, error) {
 		return nil, errors.New("backend: empty key salt — machine-id resolution failed")
 	}
 	// ikm is a fixed product identifier; the entropy comes from salt.
-	ikm := []byte("apitool-cli/refresh-token/v1")
-	return hkdf.Key(sha256.New, ikm, salt, "apitool-encrypted-file", 32)
+	ikm := []byte("curlew-cli/refresh-token/v1")
+	return hkdf.Key(sha256.New, ikm, salt, "curlew-encrypted-file", 32)
 }
 
 // machineID returns a stable per-machine identifier as a byte string.
@@ -163,5 +163,5 @@ func machineID() ([]byte, error) {
 	// the encrypted-file path is only used when keychain is unavailable,
 	// and at-rest secrecy is bounded by file mode 0600 anyway.
 	host, _ := os.Hostname()
-	return []byte("apitool/fallback/" + runtime.GOOS + "/" + host), nil
+	return []byte("curlew/fallback/" + runtime.GOOS + "/" + host), nil
 }

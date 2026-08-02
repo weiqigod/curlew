@@ -62,7 +62,7 @@ No findings deferred. All iteration-5 findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (internal/signer/awssigv4) | 96.6% |

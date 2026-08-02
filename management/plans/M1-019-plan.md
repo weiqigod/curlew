@@ -200,8 +200,8 @@ import (
 	"strings"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // Printer renders test output to a writer with optional ANSI color support.
@@ -374,15 +374,15 @@ Tests that checked exact output strings (`TestPrintStructuredError`, `TestPrintR
 
 ---
 
-### Step 3: Update `cmd/apitest/main.go` — wire `Printer` and `--no-color`
+### Step 3: Update `cmd/curlew/main.go` — wire `Printer` and `--no-color`
 **Rationale:** After Steps 1–2 compile and all `output.Print*` package-level functions are removed, `main.go` won't compile. This step re-wires everything. Keeping it last for `main.go` minimises time in broken-build state.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `--no-color` flag, `shouldUseColor()`, construct `Printer`, replace 20 call sites, update help |
-| `cmd/apitest/main_test.go` | modify | Update `TestParseRunArgs` for new return value, add no-color tests |
+| `cmd/curlew/main.go` | modify | Add `--no-color` flag, `shouldUseColor()`, construct `Printer`, replace 20 call sites, update help |
+| `cmd/curlew/main_test.go` | modify | Update `TestParseRunArgs` for new return value, add no-color tests |
 
 #### Current Code (excerpt)
 
@@ -536,7 +536,7 @@ func TestIntegration_pipeStripANSI(t *testing.T) {
 
 ```bash
 echo "--- Running with --no-color flag (expect no ANSI codes) ---"
-OUTPUT=$(./apitest run sample/hello.yaml --no-color 2>&1)
+OUTPUT=$(./curlew run sample/hello.yaml --no-color 2>&1)
 if printf '%s' "$OUTPUT" | grep -qP '\x1b\['; then
   echo "FAIL: ANSI codes found with --no-color"
   exit 1
@@ -545,7 +545,7 @@ echo "PASS: no ANSI codes with --no-color"
 echo
 
 echo "--- Running with NO_COLOR env var (expect no ANSI codes) ---"
-OUTPUT=$(NO_COLOR=1 ./apitest run sample/hello.yaml 2>&1)
+OUTPUT=$(NO_COLOR=1 ./curlew run sample/hello.yaml 2>&1)
 if printf '%s' "$OUTPUT" | grep -qP '\x1b\['; then
   echo "FAIL: ANSI codes found with NO_COLOR=1"
   exit 1
@@ -554,7 +554,7 @@ echo "PASS: no ANSI codes with NO_COLOR=1"
 echo
 
 echo "--- Help text shows --no-color ---"
-HELP_OUTPUT=$(./apitest --help)
+HELP_OUTPUT=$(./curlew --help)
 echo "$HELP_OUTPUT" | grep -q "\-\-no-color" && echo "PASS: --no-color in help" || { echo "FAIL: Missing --no-color in help output"; exit 1; }
 echo
 ```
@@ -569,8 +569,8 @@ echo
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
 | `internal/output/terminal_test.go` | All `TestPrint*` functions | replaced | Rewrite using `Printer{color: false}` — same assertions, new call sites |
-| `cmd/apitest/main_test.go` | `TestParseRunArgs` | breaks | Add `noColor bool` to expected struct, add `false` to all existing cases |
-| `cmd/apitest/main_test.go` | New tests | new | `TestShouldUseColor`, `TestIntegration_noColorFlag`, `TestIntegration_NOCOLOREnv`, `TestHelpText_noColor` |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs` | breaks | Add `noColor bool` to expected struct, add `false` to all existing cases |
+| `cmd/curlew/main_test.go` | New tests | new | `TestShouldUseColor`, `TestIntegration_noColorFlag`, `TestIntegration_NOCOLOREnv`, `TestHelpText_noColor` |
 
 ---
 
@@ -597,7 +597,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -606,14 +606,14 @@ go test ./...
 Observable verification:
 ```bash
 # In terminal — see colored output
-./apitest run sample/hello.yaml
+./curlew run sample/hello.yaml
 
 # Piped — no ANSI codes
-./apitest run sample/hello.yaml | cat
+./curlew run sample/hello.yaml | cat
 
 # --no-color flag
-./apitest run sample/hello.yaml --no-color
+./curlew run sample/hello.yaml --no-color
 
 # NO_COLOR env var
-NO_COLOR=1 ./apitest run sample/hello.yaml
+NO_COLOR=1 ./curlew run sample/hello.yaml
 ```

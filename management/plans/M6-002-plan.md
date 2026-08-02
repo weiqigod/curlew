@@ -75,7 +75,7 @@ Additive change only; no existing output format behaviour changes.
 - `internal/parallel/executor.go` — add `SourceFile`, `SourceLine` to
   `RequestOutcome`; populate in `executeOneRequest` and in the runner's
   conversion from outcome to result.
-- `cmd/apitest/main.go` — no changes. The caller already passes the user-
+- `cmd/curlew/main.go` — no changes. The caller already passes the user-
   supplied collection path to `parser.ParseFileWithOptions`, and we record
   the absolute path inside the parser.
 
@@ -830,7 +830,7 @@ unlocks data_driven. The existing runner_test.go already imports `auth`,
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/parser/... ./internal/runner/... ./internal/parallel/...
 go test ./...
 ~/go/bin/golangci-lint run

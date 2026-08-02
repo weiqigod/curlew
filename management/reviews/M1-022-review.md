@@ -41,7 +41,7 @@ None.
 - `internal/output/terminal.go` (all new methods): **100%** ✓
 - `internal/output/verbosity.go:String`: **100%** ✓
 - `internal/runner`: **91.2%** ✓
-- `cmd/apitest`: **85.9%** ✓
+- `cmd/curlew`: **85.9%** ✓
 
 ## Summary
 

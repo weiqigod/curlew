@@ -39,7 +39,7 @@ No findings. All issues from the first review have been resolved.
 - `ExecuteWithRetry`: 100%, `buildAttemptDetail`: 100%, `executeParallelMain`: 90.9%
 
 ## Quality Gates
-- `go build ./cmd/apitest`: PASS
+- `go build ./cmd/curlew`: PASS
 - `go test ./...`: PASS
 - `go test -race ./...`: PASS
 - `golangci-lint run`: PASS (0 issues)

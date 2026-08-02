@@ -15,7 +15,7 @@ dependencies:                # Task IDs that must be done first
 
 observable: |
   Concrete, runnable verification. Use actual commands:
-  - `go build ./cmd/apitest && ./apitest <args>` with expected output
+  - `go build ./cmd/curlew && ./curlew <args>` with expected output
   - `go test ./internal/<package>/...` with expected pass count
   - Real CLI invocations with sample files
 
@@ -64,7 +64,7 @@ M1–M3 tasks omit `track:`; they are implicitly `go-cli`. M4+ tasks MUST set it
 
 ### Observable Examples by Task Type
 
-**CLI task:** `./apitest --flag` produces specific output
+**CLI task:** `./curlew --flag` produces specific output
 **Parser task:** `go test ./internal/parser/...` passes, binary parses sample file
 **HTTP task:** binary sends request to test server, prints response
 **Integration task:** end-to-end scenario with fixture files in `testdata/`

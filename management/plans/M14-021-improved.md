@@ -18,7 +18,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 4 | High | `testdata/m14/e2e-collection.yaml` line 11 uses `{{ env.GITHUB_MOCK_URL }}` — a dotted namespace the CLI variable resolver (`varPattern = [a-zA-Z_][a-zA-Z0-9_]*`) cannot match. The placeholder passed through unresolved, making the collection URL a literal string and causing exit 1 at E2E runtime. | Changed collection URL to `{{ GITHUB_MOCK_URL }}` (plain identifier). Added `'--env-var', 'GITHUB_MOCK_URL'` to the Playwright spec's CLI flags so the env var already in the process environment is imported into the variable scope. Removed the non-functional `APITEST_ENV_GITHUB_MOCK_URL` process env key. | ✓ build + tests + lint pass |
+| 4 | High | `testdata/m14/e2e-collection.yaml` line 11 uses `{{ env.GITHUB_MOCK_URL }}` — a dotted namespace the CLI variable resolver (`varPattern = [a-zA-Z_][a-zA-Z0-9_]*`) cannot match. The placeholder passed through unresolved, making the collection URL a literal string and causing exit 1 at E2E runtime. | Changed collection URL to `{{ GITHUB_MOCK_URL }}` (plain identifier). Added `'--env-var', 'GITHUB_MOCK_URL'` to the Playwright spec's CLI flags so the env var already in the process environment is imported into the variable scope. Removed the non-functional `CURLEW_ENV_GITHUB_MOCK_URL` process env key. | ✓ build + tests + lint pass |
 
 ## Out of Scope (Deferred)
 
@@ -28,7 +28,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage | 87.3% |

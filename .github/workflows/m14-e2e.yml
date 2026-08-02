@@ -18,7 +18,7 @@ jobs:
     env:
       BACKEND_URL: http://localhost:5000
       WEB_BASE_URL: http://localhost:3000
-      APITEST_BACKEND_URL: http://localhost:5000
+      CURLEW_BACKEND_URL: http://localhost:5000
       GITHUB_MOCK_URL: http://localhost:5099
 
     steps:
@@ -43,7 +43,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Build CLI
-        run: go build -o apitest ./cmd/apitest
+        run: go build -o curlew ./cmd/curlew
 
       - name: Run Go unit tests
         run: go test ./...
@@ -70,7 +70,7 @@ jobs:
         id: mint-token
         run: |
           TOKEN=$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)
-          echo "APITEST_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          echo "CURLEW_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
       - name: Run M14 revenue loop E2E spec
         working-directory: web

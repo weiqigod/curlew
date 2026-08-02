@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 const backendYAML = `team_secrets:

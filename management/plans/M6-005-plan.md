@@ -20,8 +20,8 @@ Wire the NDJSON `events` emitter (M6-004) into the `run` subcommand behind a new
 
 ## Key Architectural Decisions
 
-1. **Keep `internal/runner` agnostic of `internal/output/events`.** Introduce a narrow `runner.EventSink` interface (`RequestStart`, `RequestEnd`, `AssertionResult`) that `cmd/apitest/main.go` satisfies by adapting `*events.Emitter`. The runner never imports the events package, avoiding an import cycle and keeping the callback surface minimal and testable with a fake sink.
-2. **`run.start` / `run.end` / `run.error` live entirely in `cmd/apitest/main.go`.** These events frame the run and encode CLI state (args, collection file, env name, exit code). The runner has no ambient knowledge of exit codes or CLI args, so emitting them from `main` is the natural seam.
+1. **Keep `internal/runner` agnostic of `internal/output/events`.** Introduce a narrow `runner.EventSink` interface (`RequestStart`, `RequestEnd`, `AssertionResult`) that `cmd/curlew/main.go` satisfies by adapting `*events.Emitter`. The runner never imports the events package, avoiding an import cycle and keeping the callback surface minimal and testable with a fake sink.
+2. **`run.start` / `run.end` / `run.error` live entirely in `cmd/curlew/main.go`.** These events frame the run and encode CLI state (args, collection file, env name, exit code). The runner has no ambient knowledge of exit codes or CLI args, so emitting them from `main` is the natural seam.
 3. **Early writability validation.** Open the events file with `os.OpenFile(path, O_CREATE|O_WRONLY|O_TRUNC, 0o644)` *before* any HTTP execution, parser load, or runner dispatch so a bad path fails fast with a structured `[ERROR]` and exit 1 — satisfying "no partial file is created" and "exits with a clear error before executing any requests".
 4. **Parallel wave emission.** Extend `parallel.Config` with an optional `EventSink` (interface mirror of the runner's). The parallel executor invokes it inside each goroutine around the `exec` call so request IDs, `wave_index`, and ordering survive parallel execution. The emitter's internal atomic counter keeps event `id` strictly monotonic across goroutines (already covered by `TestEmitter_ConcurrentEmitMonotonicIDs`).
 5. **Request ID generation.** The adapter in `main.go` owns a `*atomic.Int64` and hands each request a stable string id (`req-NNN`) at `RequestStart`, stored alongside a closure that `RequestEnd` / `AssertionResult` dispatch to. For data-driven iterations, each iteration receives its own id.
@@ -45,7 +45,7 @@ Wire the NDJSON `events` emitter (M6-004) into the `run` subcommand behind a new
 // Added near top of runner.go (after Phase constants).
 
 // EventSink receives per-request lifecycle notifications from the runner so
-// callers (cmd/apitest) can translate them into an NDJSON event stream.
+// callers (cmd/curlew) can translate them into an NDJSON event stream.
 // Every method is non-blocking — implementations must not return errors that
 // halt execution; emission failures are logged to stderr by the adapter.
 //
@@ -98,7 +98,7 @@ type AssertionEvent struct {
 
     // OnEvent receives per-request lifecycle callbacks. When nil, the runner
     // incurs zero overhead. M6-005 adds this to support the --events NDJSON
-    // stream in cmd/apitest; no internal package imports output/events.
+    // stream in cmd/curlew; no internal package imports output/events.
     OnEvent EventSink
 ```
 
@@ -331,19 +331,19 @@ func TestExecuteWaves_EventSink_WaveIndexPropagates(t *testing.T) {
 
 ---
 
-### Step 4: Build the events emitter adapter in `cmd/apitest/main.go`
+### Step 4: Build the events emitter adapter in `cmd/curlew/main.go`
 **Rationale:** Central wiring point that converts `runner.EventSink` calls into concrete `events.Emitter` writes. Depends on Step 1–3 being in place so the method surface is stable. No flag parsing yet — this step builds the internal adapter type and a small helper that constructs it from a writer.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `eventsAdapter` type (unexported) satisfying `runner.EventSink`; add `newEventsAdapter(em *events.Emitter) *eventsAdapter` |
-| `cmd/apitest/main_test.go` | modify | Add `TestEventsAdapter_WiresToEmitter` covering RequestStart/End/Assertion |
+| `cmd/curlew/main.go` | modify | Add `eventsAdapter` type (unexported) satisfying `runner.EventSink`; add `newEventsAdapter(em *events.Emitter) *eventsAdapter` |
+| `cmd/curlew/main_test.go` | modify | Add `TestEventsAdapter_WiresToEmitter` covering RequestStart/End/Assertion |
 
 #### New Code (shape)
 ```go
-// cmd/apitest/main.go
+// cmd/curlew/main.go
 
 // eventsAdapter implements runner.EventSink by forwarding to an events.Emitter.
 // Emission errors are logged to stderr (non-fatal) — the run must still
@@ -391,7 +391,7 @@ func (a *eventsAdapter) AssertionResult(e runner.AssertionEvent) {
 ```go
 func TestEventsAdapter_WiresToEmitter(t *testing.T) {
     var buf bytes.Buffer
-    em, err := events.NewEmitter(&buf, events.Options{ApitestVersion: "test", RunID: "r"})
+    em, err := events.NewEmitter(&buf, events.Options{CurlewVersion: "test", RunID: "r"})
     if err != nil { t.Fatal(err) }
     a := newEventsAdapter(em, io.Discard)
     a.RequestStart(runner.RequestEvent{RequestID: "req-1", Name: "ping", Method: "GET", URL: "https://x"})
@@ -413,8 +413,8 @@ func TestEventsAdapter_WiresToEmitter(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `events string` field to `runFlags`; parse `--events <path>` in `parseRunArgs` |
-| `cmd/apitest/main_test.go` | modify | Extend `TestParseRunArgs` table with events cases; add `TestRunCmd_EventsFlag_UnwritablePath` |
+| `cmd/curlew/main.go` | modify | Add `events string` field to `runFlags`; parse `--events <path>` in `parseRunArgs` |
+| `cmd/curlew/main_test.go` | modify | Extend `TestParseRunArgs` table with events cases; add `TestRunCmd_EventsFlag_UnwritablePath` |
 
 #### New Code
 ```go
@@ -466,10 +466,10 @@ func TestRunCmd_EventsFlag_UnwritablePath(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Open events file early; build emitter; emit `run.start` before runner dispatch; emit `run.error` on every pre-run/runner-returned structured error branch; emit `run.end` at every exit path; close emitter via `defer` |
-| `cmd/apitest/run_test.go` | modify | Add `TestRunCmd_Events_HappyPath` and `TestRunCmd_Events_UndefinedVariable_EmitsRunError` using `captureRunCmd` and parsing the NDJSON file |
-| `cmd/apitest/main_test.go` | modify | Add a `runWithEventsBinary` e2e test that builds the real binary and asserts the events stream |
-| `cmd/apitest/main.go` | modify | Usage help line adds `[--events <path>]` |
+| `cmd/curlew/main.go` | modify | Open events file early; build emitter; emit `run.start` before runner dispatch; emit `run.error` on every pre-run/runner-returned structured error branch; emit `run.end` at every exit path; close emitter via `defer` |
+| `cmd/curlew/run_test.go` | modify | Add `TestRunCmd_Events_HappyPath` and `TestRunCmd_Events_UndefinedVariable_EmitsRunError` using `captureRunCmd` and parsing the NDJSON file |
+| `cmd/curlew/main_test.go` | modify | Add a `runWithEventsBinary` e2e test that builds the real binary and asserts the events stream |
+| `cmd/curlew/main.go` | modify | Usage help line adds `[--events <path>]` |
 
 #### New Code (shape — inserted into `runCmdInner` early, after `parseRunArgs` succeeds)
 ```go
@@ -488,7 +488,7 @@ if flags.events != "" {
         return 1, nil
     }
     eventsFile = f
-    em, emErr := events.NewEmitter(f, events.Options{ApitestVersion: version})
+    em, emErr := events.NewEmitter(f, events.Options{CurlewVersion: version})
     if emErr != nil {
         _ = f.Close()
         errOut := output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, flags.noColor))
@@ -621,10 +621,10 @@ func TestBinary_Run_EventsFlag(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/worker.go` | modify | In `parseWorkerArgs`, match `--events` explicitly and return rejection error |
-| `cmd/apitest/perf.go` | modify | In `parsePerfArgs`, match `--events` explicitly and return rejection error |
-| `cmd/apitest/main.go` | modify | In `parsePrCheckArgs`, match `--events` explicitly and return rejection error |
-| `cmd/apitest/worker_test.go`, `perf_test.go`, `main_test.go` (prcheck) | modify | Add `TestXxx_EventsFlagRejected` for each |
+| `cmd/curlew/worker.go` | modify | In `parseWorkerArgs`, match `--events` explicitly and return rejection error |
+| `cmd/curlew/perf.go` | modify | In `parsePerfArgs`, match `--events` explicitly and return rejection error |
+| `cmd/curlew/main.go` | modify | In `parsePrCheckArgs`, match `--events` explicitly and return rejection error |
+| `cmd/curlew/worker_test.go`, `perf_test.go`, `main_test.go` (prcheck) | modify | Add `TestXxx_EventsFlagRejected` for each |
 
 #### New Code (identical in each parser, slight message variation: mention the subcommand name)
 ```go
@@ -657,15 +657,15 @@ func TestPrCheckCmd_EventsFlagRejected(t *testing.T) { /* want exit 2 */ }
 
 | File | Action | Description |
 |------|--------|-------------|
-| `smoke/run.sh` | modify | New section: run a happy collection with `--events /tmp/apitest_smoke_events.jsonl`; assert first line is `run.start`, last line is `run.end`, `event_count` matches line count |
+| `smoke/run.sh` | modify | New section: run a happy collection with `--events /tmp/curlew_smoke_events.jsonl`; assert first line is `run.start`, last line is `run.end`, `event_count` matches line count |
 | `CHANGELOG.md` | modify | Add M6-005 entry under Unreleased/Added |
 | `docs/SPECIFICATION.md` | review only | No changes expected — M6 events surface already documented via `docs/events-schema/v0.1.json`. Confirm nothing in SPEC contradicts the new flag. |
 
 #### Smoke test excerpt
 ```bash
 echo "--- Events NDJSON stream (--events happy path) ---"
-EVENTS_COL=$(mktemp /tmp/apitest_events_col_XXXXXX.yaml)
-EVENTS_OUT=$(mktemp /tmp/apitest_events_out_XXXXXX.jsonl)
+EVENTS_COL=$(mktemp /tmp/curlew_events_col_XXXXXX.yaml)
+EVENTS_OUT=$(mktemp /tmp/curlew_events_out_XXXXXX.jsonl)
 cat > "$EVENTS_COL" << 'YAML'
 name: events-smoke
 requests:
@@ -676,7 +676,7 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run "$EVENTS_COL" --events "$EVENTS_OUT"
+./curlew run "$EVENTS_COL" --events "$EVENTS_OUT"
 HEAD_KIND=$(head -n 1 "$EVENTS_OUT" | jq -r .kind)
 TAIL_KIND=$(tail -n 1 "$EVENTS_OUT" | jq -r .kind)
 LINE_COUNT=$(wc -l < "$EVENTS_OUT" | tr -d ' ')
@@ -700,8 +700,8 @@ echo "PASS: --events stream shape"
 | `internal/runner/runner_test.go` | `TestRunner_RequestResultCarriesSourceLocation` | none | source plumbing untouched |
 | `internal/runner/runner_test.go` | `TestRun` table | none | `VarSources{}` zero-value includes nil OnEvent |
 | `internal/parallel/executor_test.go` | `TestExecuteWaves_*` | none | all existing cases leave EventSink nil |
-| `cmd/apitest/main_test.go` | `TestParseRunArgs` | extend | add `--events` rows |
-| `cmd/apitest/run_test.go` | existing run tests | none | no events flag, no events file created |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs` | extend | add `--events` rows |
+| `cmd/curlew/run_test.go` | existing run tests | none | no events flag, no events file created |
 | all `internal/output/events` tests | all | none | emitter package unchanged |
 
 ## Risks and Edge Cases
@@ -732,7 +732,7 @@ echo "PASS: --events stream shape"
 - **Edge case: Pre-run error AFTER run.start but BEFORE any request.start (e.g., feature gate in `buildScope`).**
   **Handling:** The deferred `run.end` emission still fires; the error path emits `run.error` in between. Expected stream: `run.start` → `run.error` → `run.end`. Verified by `TestRunCmd_Events_UndefinedVariable_EmitsRunError`.
 
-- **Edge case: `APITEST_VAULT_STUB=1` + shared template with `{{secrets.X}}` and `--events`.**
+- **Edge case: `CURLEW_VAULT_STUB=1` + shared template with `{{secrets.X}}` and `--events`.**
   **Handling:** Shared secrets are already redacted at the `RedactBody` stage; event bodies flow through the same redaction. Covered by passing the same redacted `results[i].RequestBody` / `results[i].Result.Body` to the emitter. The emission happens *before* redaction in the sequential path (redaction runs after `runner.Run`). **This is a bug seam.** Mitigation: emit the pre-redaction body is wrong for secrets; instead, run redaction on-the-fly in the adapter OR pipe the request/response body through the same sensitive-set redaction before handing to `EmitRequestEnd`. See Risk below.
 
 - **Risk: Request/response bodies in events can leak sensitive values because emission happens during execution, BEFORE the redaction pass in `runCmdInner`.**
@@ -744,7 +744,7 @@ echo "PASS: --events stream shape"
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -761,7 +761,7 @@ requests:
     assertions:
       status: 200
 YAML
-./apitest run /tmp/events-happy.yaml --events /tmp/events.jsonl
+./curlew run /tmp/events-happy.yaml --events /tmp/events.jsonl
 wc -l /tmp/events.jsonl
 
 cat > /tmp/events-fail.yaml <<'YAML'
@@ -771,7 +771,7 @@ requests:
     method: GET
     url: "{{MISSING}}"
 YAML
-./apitest run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl || true
+./curlew run /tmp/events-fail.yaml --events /tmp/events-fail.jsonl || true
 ```
 
 Expected after Step 8:

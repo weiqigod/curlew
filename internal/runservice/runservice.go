@@ -1,8 +1,8 @@
 // Package runservice is the extracted load-and-run pipeline shared by the CLI
-// run command and the apitest ui orchestrator. It owns the happy path —
+// run command and the curlew ui orchestrator. It owns the happy path —
 // parse → load environment → load project config → load .env → build the
 // pre-run sensitive set → runner.Run — plus the sensitive-set builders and the
-// events emitter sink that were previously inline in cmd/apitest.
+// events emitter sink that were previously inline in cmd/curlew.
 //
 // It deliberately excludes the CLI-only concerns that surround the pipeline in
 // runCmdInner: per-format error rendering, glob discovery, dry-run, team
@@ -17,10 +17,10 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/peterlindqvist/apitest/internal/config"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/runner"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/config"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/runner"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // ErrCollectionInvalid wraps parse/validation failures on the collection file

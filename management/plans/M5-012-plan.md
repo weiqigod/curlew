@@ -2,7 +2,7 @@
 
 ## Overview
 
-Turn the `apitest perf` subcommand into a real observability tool: per-request
+Turn the `curlew perf` subcommand into a real observability tool: per-request
 latency samples flowing from `internal/loadgen` into a new
 `internal/loadgen/report` subpackage that computes p50/p95/p99, error rate,
 throughput, and a one-second-resolution time series, then emits the result as a
@@ -88,7 +88,7 @@ open questions the Plan phase surfaced.
    note card.
 
 7. **Unsupported-extension error path.** Detected **before** the run starts
-   (fail fast), from `cmd/apitest/perf.go`. `cmd/apitest` stays the sole owner
+   (fail fast), from `cmd/curlew/perf.go`. `cmd/curlew` stays the sole owner
    of CLI exit codes; the report subpackage has no knowledge of `os.Exit`.
    The existing exit-code-2 path in `perf.go` is rewritten to call a new
    `reportFormatFromOutput(flag string) (report.Format, error)` helper so the
@@ -580,14 +580,14 @@ type jsonBucket struct {
     P95Ms    int64 `json:"p95_ms"`
 }
 
-// WriteJSON encodes the metrics as the apitest perf JSON report. Truncates w
+// WriteJSON encodes the metrics as the curlew perf JSON report. Truncates w
 // through the caller's os.WriteFile; this function is I/O-only.
 func WriteJSON(w io.Writer, m Metrics, title string) error {
     if m.Requests == 0 {
         // Still emit a valid (empty) JSON doc so downstream tools do not choke.
     }
     r := jsonReport{
-        Schema:             "apitest.perf.v1",
+        Schema:             "curlew.perf.v1",
         GeneratedAt:        time.Now().UTC().Format(time.RFC3339),
         Title:              title,
         SmallSampleWarning: m.SmallSampleWarning,
@@ -646,7 +646,7 @@ func TestSummaryLine_ErrorRateRounding(t *testing.T) {
 }
 
 func TestWriteJSON_SchemaAndFields(t *testing.T) {
-    // Round-trip: encode, decode into map, assert schema="apitest.perf.v1",
+    // Round-trip: encode, decode into map, assert schema="curlew.perf.v1",
     // metrics.requests, metrics.p95_ms, buckets[0].second, etc.
 }
 
@@ -685,12 +685,12 @@ pre-encoded JSON blob.
 
 #### Key assertions
 
-- `strings.Contains(out, "<title>apitest perf report</title>")` — matches observable
+- `strings.Contains(out, "<title>curlew perf report</title>")` — matches observable
 - `strings.Contains(out, "cdn.jsdelivr.net/npm/chart.js")` — Chart.js wired
 - `strings.Contains(out, "perf-latency-chart")` — canvas id present
 - `strings.Contains(out, `"p50_ms"`)` — series data inlined (JSON literal)
-- `strings.Contains(out, "<title>apitest perf report</title>")` — exact from observable
-- Title defaults to `"apitest perf report"` when the caller passes an empty
+- `strings.Contains(out, "<title>curlew perf report</title>")` — exact from observable
+- Title defaults to `"curlew perf report"` when the caller passes an empty
   title string; behaviour is enforced via a short helper
   `func titleOrDefault(t string) string`.
 
@@ -817,7 +817,7 @@ func TestRun_OnSampleReceivesOneCallPerRequest(t *testing.T) {
 
 ---
 
-### Step 6: CLI wiring in `cmd/apitest/perf.go`
+### Step 6: CLI wiring in `cmd/curlew/perf.go`
 
 **Rationale:** final integration; uses every previously landed piece.
 
@@ -825,8 +825,8 @@ func TestRun_OnSampleReceivesOneCallPerRequest(t *testing.T) {
 
 | File                            | Action | Description                                                                                 |
 |---------------------------------|--------|---------------------------------------------------------------------------------------------|
-| `cmd/apitest/perf.go`           | modify | Swap stdout-only branch for format dispatch; aggregator plumbing; summary + file write      |
-| `cmd/apitest/perf_test.go`      | modify | Add tests for `--output` json/html success paths, unsupported ext exit 2, overwrite behavior|
+| `cmd/curlew/perf.go`           | modify | Swap stdout-only branch for format dispatch; aggregator plumbing; summary + file write      |
+| `cmd/curlew/perf_test.go`      | modify | Add tests for `--output` json/html success paths, unsupported ext exit 2, overwrite behavior|
 | `testdata/perf/sample-request.yaml` | keep | already created by M5-011                                                                  |
 
 #### Current Code (`perf.go:67-74`)
@@ -874,7 +874,7 @@ fmt.Println(report.SummaryLine(metrics))
 switch format {
 case report.FormatJSON:
     if err := writeReportFile(outPath, func(w io.Writer) error {
-        return report.WriteJSON(w, metrics, "apitest perf")
+        return report.WriteJSON(w, metrics, "curlew perf")
     }); err != nil {
         _, _ = fmt.Fprintf(os.Stderr, "error: %v\n", err)
         return 1
@@ -882,7 +882,7 @@ case report.FormatJSON:
     fmt.Printf("Wrote %s\n", outPath)
 case report.FormatHTML:
     if err := writeReportFile(outPath, func(w io.Writer) error {
-        return report.WriteHTML(w, metrics, "apitest perf")
+        return report.WriteHTML(w, metrics, "curlew perf")
     }); err != nil {
         _, _ = fmt.Fprintf(os.Stderr, "error: %v\n", err)
         return 1
@@ -914,7 +914,7 @@ func TestPerfCmd_OutputJSON_WritesFile(t *testing.T) {
 }
 
 func TestPerfCmd_OutputHTML_WritesFile(t *testing.T) {
-    // assert output file contains "<title>apitest perf report</title>" and "chart.js"
+    // assert output file contains "<title>curlew perf report</title>" and "chart.js"
 }
 
 func TestPerfCmd_UnsupportedExtensionExitCode2(t *testing.T) {
@@ -964,47 +964,47 @@ against the inlined `python3 -m http.server` already used by M5-011.
 Smoke additions (placed right after the existing `Requests sent:` check):
 
 ```bash
-PERF_JSON="/tmp/apitest_perf_report_$$.json"
-APITEST_TIER=enterprise ./apitest perf "$PERF_COL" --vus 2 --duration 1s \
-  --output "$PERF_JSON" > /tmp/apitest_perf_stdout_$$.log 2>&1
-grep -q "Results: requests=" /tmp/apitest_perf_stdout_$$.log \
+PERF_JSON="/tmp/curlew_perf_report_$$.json"
+CURLEW_TIER=enterprise ./curlew perf "$PERF_COL" --vus 2 --duration 1s \
+  --output "$PERF_JSON" > /tmp/curlew_perf_stdout_$$.log 2>&1
+grep -q "Results: requests=" /tmp/curlew_perf_stdout_$$.log \
   && echo "PASS: perf --output json prints summary line" \
   || { echo "FAIL: missing Results line"; exit 1; }
 [ -s "$PERF_JSON" ] && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$PERF_JSON" \
   && echo "PASS: perf --output json produces valid JSON" \
   || { echo "FAIL: invalid or empty JSON"; cat "$PERF_JSON"; exit 1; }
-rm -f "$PERF_JSON" /tmp/apitest_perf_stdout_$$.log
+rm -f "$PERF_JSON" /tmp/curlew_perf_stdout_$$.log
 
-PERF_HTML="/tmp/apitest_perf_report_$$.html"
-APITEST_TIER=enterprise ./apitest perf "$PERF_COL" --vus 2 --duration 1s \
+PERF_HTML="/tmp/curlew_perf_report_$$.html"
+CURLEW_TIER=enterprise ./curlew perf "$PERF_COL" --vus 2 --duration 1s \
   --output "$PERF_HTML" > /dev/null 2>&1
-grep -q "<title>apitest perf report</title>" "$PERF_HTML" \
+grep -q "<title>curlew perf report</title>" "$PERF_HTML" \
   && echo "PASS: perf --output html wrote expected title" \
   || { echo "FAIL: perf html missing title"; exit 1; }
 rm -f "$PERF_HTML"
 
 # Unsupported extension -> exit 2
 SMOKE_RC=0
-APITEST_TIER=enterprise ./apitest perf "$PERF_COL" --vus 1 --duration 200ms \
-  --output "/tmp/x.xyz" > /dev/null 2>/tmp/apitest_perf_err_$$.txt || SMOKE_RC=$?
+CURLEW_TIER=enterprise ./curlew perf "$PERF_COL" --vus 1 --duration 200ms \
+  --output "/tmp/x.xyz" > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
 [ "$SMOKE_RC" -eq 2 ] && echo "PASS: unsupported extension exits 2" \
-  || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/apitest_perf_err_$$.txt; exit 1; }
-grep -qi "unsupported report format" /tmp/apitest_perf_err_$$.txt \
+  || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/curlew_perf_err_$$.txt; exit 1; }
+grep -qi "unsupported report format" /tmp/curlew_perf_err_$$.txt \
   && echo "PASS: stderr mentions unsupported format" \
   || { echo "FAIL: stderr missing message"; exit 1; }
-rm -f /tmp/apitest_perf_err_$$.txt
+rm -f /tmp/curlew_perf_err_$$.txt
 ```
 
 CHANGELOG:
 
 ```markdown
 ### Added
-- `apitest perf --output <path>` now supports `.json` and `.html` report
+- `curlew perf --output <path>` now supports `.json` and `.html` report
   formats in addition to the default summary-only stdout output: per-request
   latency samples are aggregated by a new `internal/loadgen/report` subpackage
   into p50/p95/p99 percentiles, error rate, throughput, and 1-second-resolution
   time-series buckets; the JSON report emits a machine-readable document with
-  schema `apitest.perf.v1`; the HTML report is self-contained with a CDN
+  schema `curlew.perf.v1`; the HTML report is self-contained with a CDN
   Chart.js latency-vs-time line chart and a metrics summary. Unsupported
   extensions (e.g. `.xyz`) fail fast with exit code 2 and the message
   `error: unsupported report format .xyz`. Small sample sets (<100 requests)
@@ -1025,13 +1025,13 @@ CHANGELOG:
 |------------------------------------------|-------------------------------------------|---------|------------------------------------------------------|
 | `internal/loadgen/run_test.go`           | all existing                              | none    | Still pass — `OnSample` defaults to nil              |
 | `internal/loadgen/run_test.go`           | new: `TestRun_OnSampleReceivesOneCallPerRequest` | create | Verifies sample emission                     |
-| `cmd/apitest/perf_test.go`               | `TestPerfCmd_UnsupportedOutputExitCode2`  | keeps behavior | Exit code 2 still correct for `--output html` (no ext). Update asserted message if added. |
-| `cmd/apitest/perf_test.go`               | `TestPrintPerfHelp_MentionsAllFlags`      | none    | Help still lists `--output`                           |
-| `cmd/apitest/perf_test.go`               | new: `TestPerfCmd_OutputJSON_WritesFile`  | create  | End-to-end JSON output via httptest server            |
-| `cmd/apitest/perf_test.go`               | new: `TestPerfCmd_OutputHTML_WritesFile`  | create  | End-to-end HTML output via httptest server            |
-| `cmd/apitest/perf_test.go`               | new: `TestPerfCmd_UnsupportedExtensionExitCode2` | create  | `.xyz` rejected with exit 2                        |
-| `cmd/apitest/perf_test.go`               | new: `TestPerfCmd_OutputJSON_Overwrites`  | create  | Second run truncates first                            |
-| `cmd/apitest/perf_test.go`               | new: `TestPerfCmd_SummaryLinePrintedToStdout` | create | `Results: requests=` present on stdout         |
+| `cmd/curlew/perf_test.go`               | `TestPerfCmd_UnsupportedOutputExitCode2`  | keeps behavior | Exit code 2 still correct for `--output html` (no ext). Update asserted message if added. |
+| `cmd/curlew/perf_test.go`               | `TestPrintPerfHelp_MentionsAllFlags`      | none    | Help still lists `--output`                           |
+| `cmd/curlew/perf_test.go`               | new: `TestPerfCmd_OutputJSON_WritesFile`  | create  | End-to-end JSON output via httptest server            |
+| `cmd/curlew/perf_test.go`               | new: `TestPerfCmd_OutputHTML_WritesFile`  | create  | End-to-end HTML output via httptest server            |
+| `cmd/curlew/perf_test.go`               | new: `TestPerfCmd_UnsupportedExtensionExitCode2` | create  | `.xyz` rejected with exit 2                        |
+| `cmd/curlew/perf_test.go`               | new: `TestPerfCmd_OutputJSON_Overwrites`  | create  | Second run truncates first                            |
+| `cmd/curlew/perf_test.go`               | new: `TestPerfCmd_SummaryLinePrintedToStdout` | create | `Results: requests=` present on stdout         |
 | `internal/loadgen/report/*_test.go`      | all new                                   | create  | >=6 tests total (meets observable)                    |
 
 ## Risks and Edge Cases
@@ -1092,7 +1092,7 @@ CHANGELOG:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1108,23 +1108,23 @@ go tool cover -func=coverage.out | tail -1
 Observable verification:
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/loadgen/report/...
 # Expected: ok  internal/loadgen/report  (>=6 tests passing)
 
-./apitest perf testdata/perf/sample-request.yaml \
+./curlew perf testdata/perf/sample-request.yaml \
   --vus 5 --duration 3s --output perf-report.json
 # Expected stdout (tail):
 #   Results: requests=N, p50=Xms, p95=Yms, p99=Zms, error_rate=0%
 #   Wrote perf-report.json
 
-./apitest perf testdata/perf/sample-request.yaml \
+./curlew perf testdata/perf/sample-request.yaml \
   --vus 5 --duration 3s --output perf-report.html
-# Expected: perf-report.html created; file contains <title>apitest perf report</title>
+# Expected: perf-report.html created; file contains <title>curlew perf report</title>
 ```
 
 Note: the observable commands require a server at `http://127.0.0.1:8080/`.
 The smoke test script handles this automatically via `python3 -m http.server`;
 running the observable manually requires the operator to provide a target
 server. Behavior 4 ("--output stdout (default)") is covered by the existing
-M5-011 smoke block, which runs `apitest perf` without `--output`.
+M5-011 smoke block, which runs `curlew perf` without `--output`.

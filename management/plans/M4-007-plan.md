@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a `pr-check` subcommand to the Go CLI that reads a local test results file, POSTs it to the backend results API, then POSTs a PR check status payload. Includes retry, dry-run, help, and error handling. All logic lives in a new `internal/prcheck` package with the thin CLI wiring in `cmd/apitest/main.go`.
+Add a `pr-check` subcommand to the Go CLI that reads a local test results file, POSTs it to the backend results API, then POSTs a PR check status payload. Includes retry, dry-run, help, and error handling. All logic lives in a new `internal/prcheck` package with the thin CLI wiring in `cmd/curlew/main.go`.
 
 ## Task Details
 - **ID:** M4-007
@@ -43,14 +43,14 @@ import (
 // Sentinel errors for well-known failure modes.
 var (
 	ErrBackendURLMissing = errors.New("backend URL not configured")
-	ErrUnauthorized      = errors.New("unauthorized: refresh APITEST_BACKEND_TOKEN")
+	ErrUnauthorized      = errors.New("unauthorized: refresh CURLEW_BACKEND_TOKEN")
 	ErrNetworkFailure    = errors.New("network error: backend unreachable after retries")
 )
 
 // Config holds the pr-check configuration derived from flags and env vars.
 type Config struct {
-	BackendURL   string // APITEST_BACKEND_URL
-	BackendToken string // APITEST_BACKEND_TOKEN
+	BackendURL   string // CURLEW_BACKEND_URL
+	BackendToken string // CURLEW_BACKEND_TOKEN
 	Org          string // --org
 	PR           int    // --pr
 	Repo         string // --repo
@@ -62,8 +62,8 @@ type Config struct {
 // Flags must be set separately by the caller.
 func ConfigFromEnv() Config {
 	return Config{
-		BackendURL:   os.Getenv("APITEST_BACKEND_URL"),
-		BackendToken: os.Getenv("APITEST_BACKEND_TOKEN"),
+		BackendURL:   os.Getenv("CURLEW_BACKEND_URL"),
+		BackendToken: os.Getenv("CURLEW_BACKEND_TOKEN"),
 	}
 }
 
@@ -73,7 +73,7 @@ func (c *Config) Validate() error {
 		return ErrBackendURLMissing
 	}
 	if c.BackendToken == "" {
-		return fmt.Errorf("APITEST_BACKEND_TOKEN is required")
+		return fmt.Errorf("CURLEW_BACKEND_TOKEN is required")
 	}
 	if c.Org == "" {
 		return fmt.Errorf("--org is required")
@@ -138,7 +138,7 @@ func TestConfigValidate(t *testing.T) {
 	}{
 		{"valid_config", Config{BackendURL: "http://localhost", BackendToken: "tok", Org: "acme", PR: 42, Repo: "acme/api", ResultsFile: "f.json"}, ""},
 		{"missing_backend_url", Config{BackendToken: "tok", Org: "acme", PR: 42, Repo: "acme/api", ResultsFile: "f.json"}, "backend URL not configured"},
-		{"missing_backend_token", Config{BackendURL: "http://x", Org: "acme", PR: 42, Repo: "acme/api", ResultsFile: "f.json"}, "APITEST_BACKEND_TOKEN"},
+		{"missing_backend_token", Config{BackendURL: "http://x", Org: "acme", PR: 42, Repo: "acme/api", ResultsFile: "f.json"}, "CURLEW_BACKEND_TOKEN"},
 		{"missing_org", Config{BackendURL: "http://x", BackendToken: "tok", PR: 42, Repo: "acme/api", ResultsFile: "f.json"}, "--org"},
 		{"zero_pr", Config{BackendURL: "http://x", BackendToken: "tok", Org: "acme", PR: 0, Repo: "acme/api", ResultsFile: "f.json"}, "--pr"},
 		{"missing_repo", Config{BackendURL: "http://x", BackendToken: "tok", Org: "acme", PR: 42, ResultsFile: "f.json"}, "--repo"},
@@ -528,13 +528,13 @@ func TestRun_BadResultsFile_Error(t *testing.T) {
 
 ### Step 5: Wire `pr-check` Subcommand into CLI
 
-**Rationale:** Now that the `internal/prcheck` package is complete and tested, wire it into `cmd/apitest/main.go` as a new subcommand. This touches existing code but the change is small and additive.
+**Rationale:** Now that the `internal/prcheck` package is complete and tested, wire it into `cmd/curlew/main.go` as a new subcommand. This touches existing code but the change is small and additive.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `case "pr-check"` to `run()` switch, add `prCheckCmd` function, update `printHelp` |
+| `cmd/curlew/main.go` | modify | Add `case "pr-check"` to `run()` switch, add `prCheckCmd` function, update `printHelp` |
 
 #### Current Code
 
@@ -618,7 +618,7 @@ New `printPrCheckHelp` function:
 
 ```go
 func printPrCheckHelp() {
-	fmt.Println("Usage: apitest pr-check [options]")
+	fmt.Println("Usage: curlew pr-check [options]")
 	fmt.Println()
 	fmt.Println("Upload test results to the backend and post a PR status check.")
 	fmt.Println()
@@ -631,8 +631,8 @@ func printPrCheckHelp() {
 	fmt.Println("  --help             Show this help message")
 	fmt.Println()
 	fmt.Println("Environment Variables:")
-	fmt.Println("  APITEST_BACKEND_URL    Backend API base URL (required)")
-	fmt.Println("  APITEST_BACKEND_TOKEN  Bearer token for authentication (required)")
+	fmt.Println("  CURLEW_BACKEND_URL    Backend API base URL (required)")
+	fmt.Println("  CURLEW_BACKEND_TOKEN  Bearer token for authentication (required)")
 }
 ```
 
@@ -642,17 +642,17 @@ func printPrCheckHelp() {
 func TestPrCheckCmd_Help(t *testing.T) {
 	// captureRun(t, "pr-check", "--help")
 	// Verify exit 0, stdout contains --org, --pr, --repo, --results, --dry-run,
-	// APITEST_BACKEND_URL, APITEST_BACKEND_TOKEN
+	// CURLEW_BACKEND_URL, CURLEW_BACKEND_TOKEN
 }
 
 func TestPrCheckCmd_MissingBackendURL(t *testing.T) {
-	// No APITEST_BACKEND_URL set
+	// No CURLEW_BACKEND_URL set
 	// Verify exit 2, stderr contains "backend URL not configured"
 }
 
 func TestPrCheckCmd_Unauthorized(t *testing.T) {
 	// httptest server returning 401
-	// Verify exit 2, stderr contains "unauthorized: refresh APITEST_BACKEND_TOKEN"
+	// Verify exit 2, stderr contains "unauthorized: refresh CURLEW_BACKEND_TOKEN"
 }
 
 func TestPrCheckCmd_SuccessAllPass(t *testing.T) {
@@ -797,9 +797,9 @@ echo "=== Smoke Test Complete ==="
 
 ```bash
 echo "--- PR check dry-run ---"
-SMOKE_OUT=$(APITEST_BACKEND_URL=http://localhost:99999 \
-  APITEST_BACKEND_TOKEN=fake-token \
-  ./apitest pr-check \
+SMOKE_OUT=$(CURLEW_BACKEND_URL=http://localhost:99999 \
+  CURLEW_BACKEND_TOKEN=fake-token \
+  ./curlew pr-check \
     --org acme \
     --pr 42 \
     --repo acme/api \
@@ -836,8 +836,8 @@ echo "=== Smoke Test Complete ==="
 | `internal/prcheck/prcheck_test.go` | all | new | write from scratch |
 | `internal/prcheck/client_test.go` | all | new | write from scratch |
 | `internal/prcheck/run_test.go` | all | new | write from scratch |
-| `cmd/apitest/main_test.go` | `TestPrCheck*` | new | add new test functions |
-| `cmd/apitest/main_test.go` | existing help tests | none/minor | may need update if help text is checked exactly |
+| `cmd/curlew/main_test.go` | `TestPrCheck*` | new | add new test functions |
+| `cmd/curlew/main_test.go` | existing help tests | none/minor | may need update if help text is checked exactly |
 
 ## Risks and Edge Cases
 
@@ -858,8 +858,8 @@ echo "=== Smoke Test Complete ==="
 ## Verification
 
 ```bash
-go build ./cmd/apitest
-go test ./internal/prcheck/... ./cmd/apitest/... -run 'PrCheck' -count=1
+go build ./cmd/curlew
+go test ./internal/prcheck/... ./cmd/curlew/... -run 'PrCheck' -count=1
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -867,13 +867,13 @@ go test ./...
 
 Observable verification:
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 # Start a local mock of the backend results endpoint
 ./testdata/team/mock-backend.sh &
 MOCK_PID=$!
-APITEST_BACKEND_URL=http://localhost:18080 \
-APITEST_BACKEND_TOKEN=dev-token \
-  ./apitest pr-check \
+CURLEW_BACKEND_URL=http://localhost:18080 \
+CURLEW_BACKEND_TOKEN=dev-token \
+  ./curlew pr-check \
     --org acme \
     --pr 42 \
     --repo acme/api \
@@ -882,6 +882,6 @@ APITEST_BACKEND_TOKEN=dev-token \
 # Exit 0. Mock log shows POST /api/v1/organizations/acme/results then
 # POST /api/v1/organizations/acme/pr-checks with pr=42.
 kill $MOCK_PID
-go test ./internal/prcheck/... ./cmd/apitest/... -run 'PrCheck' -count=1
+go test ./internal/prcheck/... ./cmd/curlew/... -run 'PrCheck' -count=1
 # Expected: ok, >=7 tests
 ```

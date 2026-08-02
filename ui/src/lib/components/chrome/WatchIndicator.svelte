@@ -9,7 +9,7 @@
 </script>
 
 {#if socketUp}
-  <div class="wi" title="apitest is watching the repo for file changes">
+  <div class="wi" title="curlew is watching the repo for file changes">
     {#key $watchEvent?.seq}
       <span class="dot" class:active></span>
     {/key}

@@ -12,21 +12,21 @@ observable: |
   # The harness runs a set of deliberately-broken fixture collections,
   # consumes the resulting event streams, and asserts each failure is
   # diagnosable from the stream alone.
-  go test ./cmd/apitest-agent-harness/...
+  go test ./cmd/curlew-agent-harness/...
   # Expected: PASS for every scenario:
   #   missing-variable, bad-yaml, failing-assertion, unreachable-host,
   #   auth-missing, feature-gate-denied, circular-include.
   # Each scenario's assertion: every failure event has non-empty
   # (category, code, file, line, hint) and the hint names a concrete action.
 behaviors:
-  - "Given the fixture testdata/agent-harness/missing-variable.yaml, when apitest run is invoked with --events, then the stream contains a run.error with category=input, code=VAR_UNDEFINED, a hint that names --var or the environment file, and file+line pointing into the fixture."
-  - "Given the fixture testdata/agent-harness/bad-yaml.yaml, when apitest run is invoked with --events, then the stream contains a run.error with category=parse, code=PARSE_INVALID_YAML, and file+line pointing at the offending YAML line."
-  - "Given the fixture testdata/agent-harness/failing-assertion.yaml, when apitest run is invoked with --events, then the stream contains an assertion.result with passed=false and a request.end with outcome=failed carrying an error object with category=assertion and a concrete Hint."
-  - "Given the fixture testdata/agent-harness/unreachable-host.yaml, when apitest run is invoked with --events, then the stream contains a request.end with error.category=network and a specific network Code."
+  - "Given the fixture testdata/agent-harness/missing-variable.yaml, when curlew run is invoked with --events, then the stream contains a run.error with category=input, code=VAR_UNDEFINED, a hint that names --var or the environment file, and file+line pointing into the fixture."
+  - "Given the fixture testdata/agent-harness/bad-yaml.yaml, when curlew run is invoked with --events, then the stream contains a run.error with category=parse, code=PARSE_INVALID_YAML, and file+line pointing at the offending YAML line."
+  - "Given the fixture testdata/agent-harness/failing-assertion.yaml, when curlew run is invoked with --events, then the stream contains an assertion.result with passed=false and a request.end with outcome=failed carrying an error object with category=assertion and a concrete Hint."
+  - "Given the fixture testdata/agent-harness/unreachable-host.yaml, when curlew run is invoked with --events, then the stream contains a request.end with error.category=network and a specific network Code."
   - "Given every fixture in the harness, when the stream is consumed, then every failure-carrying event satisfies: non-empty category, non-empty code, non-empty file, non-zero line (or explicit line=0 with category=network), and a Hint that contains at least one concrete-action marker (imperative verb: Set, Add, Pass, Verify, Remove, Run, Define, Refresh, Check)."
   - "Given the harness passes, when the maintainer is ready, then EVENTS_SCHEMA can be bumped to v1.0 (this task explicitly updates SchemaVersion constants, JSON Schema filename, and doc)."
 scope: |
-  New cmd/apitest-agent-harness/ — Go test binary, excluded from release
+  New cmd/curlew-agent-harness/ — Go test binary, excluded from release
   builds by a build tag.
 
   Fixtures under testdata/agent-harness/: one collection (and any supporting
@@ -35,7 +35,7 @@ scope: |
   event (category, code pattern, hint contains-any).
 
   harness logic:
-    - For each fixture: spawn ./apitest run <fixture> --events <tmp>
+    - For each fixture: spawn ./curlew run <fixture> --events <tmp>
     - Read the NDJSON stream.
     - Assert the expectations in the paired expected-output YAML.
     - Fail with a diff-style message pointing at the field that didn't match.
@@ -51,7 +51,7 @@ scope: |
   is an intentional commitment.
 definition_of_done:
   - "All behavior tests pass"
-  - "go test ./cmd/apitest-agent-harness/... passes for every canonical fixture"
+  - "go test ./cmd/curlew-agent-harness/... passes for every canonical fixture"
   - "Harness fails loudly when a fixture's expected-output contract is unmet (negative test included)"
   - "golangci-lint run passes with 0 issues"
   - "SchemaVersion bumped to 1.0 in code and docs; v0.1 artefacts retained for history"

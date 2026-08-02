@@ -8,7 +8,7 @@ track: go-cli
 observable: |
   # Given an unknown top-level command, stderr carries both the error
   # and a one-line Usage synopsis; stdout is empty.
-  ./apitest unknown-command > /tmp/out.txt 2> /tmp/err.txt || true
+  ./curlew unknown-command > /tmp/out.txt 2> /tmp/err.txt || true
   wc -c /tmp/out.txt
   # Expected: 0 (stdout empty on error path).
   grep -c "Usage:" /tmp/err.txt
@@ -17,19 +17,19 @@ observable: |
   # Expected: 1 (error message on stderr).
 
   # Given explicit --help, stdout carries the full help; stderr is empty.
-  ./apitest --help > /tmp/out.txt 2> /tmp/err.txt
+  ./curlew --help > /tmp/out.txt 2> /tmp/err.txt
   wc -c /tmp/err.txt
   # Expected: 0 (stderr empty on --help path).
   grep -c "Commands:" /tmp/out.txt
   # Expected: 1 (full help on stdout).
 behaviors:
-  - "Given apitest <unknown-command>, when invoked, then stderr contains the unknown-command error AND a one-line 'Usage: apitest <command> [arguments]' synopsis; stdout is empty."
-  - "Given apitest plugins <unknown-subcommand>, when invoked, then stderr contains the unknown-subcommand error AND a one-line 'Usage: apitest plugins <subcommand>' synopsis; stdout is empty."
-  - "Given apitest perf with a malformed flag, when invoked, then stderr contains the parse error AND a one-line 'Usage: apitest perf <request-file> [options]' synopsis; stdout is empty."
-  - "Given apitest worker with a malformed flag, when invoked, then stderr contains the parse error AND a one-line 'Usage: apitest worker [options]' synopsis; stdout is empty."
-  - "Given apitest import with no arguments, when invoked, then stderr contains a one-line 'Usage: apitest import <format> <spec-path>' synopsis; stdout is empty."
-  - "Given apitest --help (explicit), when invoked, then stdout contains the full help text and stderr is empty; exit code is 0."
-  - "Given apitest plugins --help and apitest perf --help (explicit), when invoked, then stdout contains the full subcommand help text and stderr is empty; exit code is 0."
+  - "Given curlew <unknown-command>, when invoked, then stderr contains the unknown-command error AND a one-line 'Usage: curlew <command> [arguments]' synopsis; stdout is empty."
+  - "Given curlew plugins <unknown-subcommand>, when invoked, then stderr contains the unknown-subcommand error AND a one-line 'Usage: curlew plugins <subcommand>' synopsis; stdout is empty."
+  - "Given curlew perf with a malformed flag, when invoked, then stderr contains the parse error AND a one-line 'Usage: curlew perf <request-file> [options]' synopsis; stdout is empty."
+  - "Given curlew worker with a malformed flag, when invoked, then stderr contains the parse error AND a one-line 'Usage: curlew worker [options]' synopsis; stdout is empty."
+  - "Given curlew import with no arguments, when invoked, then stderr contains a one-line 'Usage: curlew import <format> <spec-path>' synopsis; stdout is empty."
+  - "Given curlew --help (explicit), when invoked, then stdout contains the full help text and stderr is empty; exit code is 0."
+  - "Given curlew plugins --help and curlew perf --help (explicit), when invoked, then stdout contains the full subcommand help text and stderr is empty; exit code is 0."
 scope: |
   Parameterize each print*Help function on an io.Writer so the caller
   picks the stream:
@@ -39,7 +39,7 @@ scope: |
     - printWorkerHelp() at worker.go:141 → printWorkerHelp(w io.Writer)
 
   Introduce usageSynopsis(cmd string) string in main.go returning a
-  one-line "Usage: apitest <cmd> [arguments]" string. The synopsis
+  one-line "Usage: curlew <cmd> [arguments]" string. The synopsis
   should match the first Usage line each print*Help currently emits.
 
   At each error-recovery site, replace the pattern
@@ -61,14 +61,14 @@ scope: |
   to call print*Help(os.Stdout) so stdout remains the result stream
   when help is the intended result.
 
-  Regression test: cmd/apitest/stream_help_test.go (new). Matrix of
+  Regression test: cmd/curlew/stream_help_test.go (new). Matrix of
   (command × invocation-style) asserting the correct stream split for
   both explicit --help and error-path invocations.
 
   Exit codes remain unchanged; only stream routing changes.
 definition_of_done:
   - "All behavior tests pass"
-  - "cmd/apitest/stream_help_test.go exercises both explicit --help and error-path invocations across main, plugins, perf, worker, import"
+  - "cmd/curlew/stream_help_test.go exercises both explicit --help and error-path invocations across main, plugins, perf, worker, import"
   - "Each of the four print*Help functions takes an io.Writer parameter"
   - "usageSynopsis helper exists in main.go and is reused by every error-recovery site"
   - "Explicit --help invocations continue to write to stdout; error-recovery writes synopsis to stderr"

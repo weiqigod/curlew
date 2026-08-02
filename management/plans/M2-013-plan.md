@@ -83,8 +83,8 @@ import (
 	"strconv"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // Outcome holds the result of a retried execution.
@@ -267,7 +267,7 @@ type RequestItem struct {
 
 #### New Code
 ```go
-import "github.com/peterlindqvist/apitest/internal/retry"
+import "github.com/weiqigod/curlew/internal/retry"
 
 type Collection struct {
 	Name          string        `yaml:"name"`
@@ -503,7 +503,7 @@ func TestRun_retryCountInResult(t *testing.T) {
 | `internal/output/terminal_test.go` | modify | Test retry count display |
 | `internal/output/json.go` | modify | Add `RetryCount` to `JSONRequest` |
 | `internal/output/tap.go` | modify | Add `RetryCount` to `TAPResult` |
-| `cmd/apitest/main.go` | modify | Wire RetryCount from RequestResult to output structs |
+| `cmd/curlew/main.go` | modify | Wire RetryCount from RequestResult to output structs |
 
 #### Current Code (terminal.go:34)
 ```go
@@ -579,7 +579,7 @@ func TestJSONRequest_retryCountPresent(t *testing.T) {
 | `internal/output/terminal_test.go` | `TestResult*` | signature change | Add `, 0` to `Result()` calls |
 | `internal/parser/parser_test.go` | `TestParseFile*` | none | Zero-value Retry on existing tests |
 | `internal/auth/gate_test.go` | existing gate tests | none | Additive registration |
-| `cmd/apitest/main.go` | `out.Result()` calls | signature change | Add `, r.RetryCount` |
+| `cmd/curlew/main.go` | `out.Result()` calls | signature change | Add `, r.RetryCount` |
 
 ## Risks and Edge Cases
 
@@ -613,7 +613,7 @@ func TestJSONRequest_retryCountPresent(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -636,7 +636,7 @@ requests:
       status: 503
 EOF
 
-apitest run /tmp/retry_test.yaml
+curlew run /tmp/retry_test.yaml
 # Confirm retries occur (visible in output as retry count)
 
 go test ./internal/retry/... -v

@@ -59,7 +59,7 @@ are recorded here so reviewers do not have to reverse-engineer them.
      (deterministic-mode tests pin `run_id` to make goldens stable). Empty
      string means "generate via crypto/rand", matching `events.newRunID`.
 
-3. **Run-level `runID` is generated once in `cmd/apitest/runCmdInner` and
+3. **Run-level `runID` is generated once in `cmd/curlew/runCmdInner` and
    threaded through both events and markdown.** A new helper
    `newRunID()` in `main.go` wraps the same crypto/rand-based pattern as
    `events.newRunID` (32-char lowercase hex). The helper is shared via
@@ -69,13 +69,13 @@ are recorded here so reviewers do not have to reverse-engineer them.
    markdown sentinels — by construction.
 
 4. **Sentinel format is exact and parser-stable.** Opening:
-   `<!-- BEGIN apitest:response id=<request_id> slug=<request_slug> run=<run_id> -->`.
-   Closing: `<!-- END apitest:response id=<request_id> slug=<request_slug> run=<run_id> -->`.
+   `<!-- BEGIN curlew:response id=<request_id> slug=<request_slug> run=<run_id> -->`.
+   Closing: `<!-- END curlew:response id=<request_id> slug=<request_slug> run=<run_id> -->`.
    Both lines are LF-terminated. The parser anchors on the literal prefix
-   `<!-- BEGIN apitest:response ` / `<!-- END apitest:response ` — the
+   `<!-- BEGIN curlew:response ` / `<!-- END curlew:response ` — the
    whitespace and attribute order are part of the contract. Test
    `TestMarkdown_SentinelExactFormat` pins this with a byte-for-byte regex
-   match against `^<!-- BEGIN apitest:response id=req-\d+ slug=[a-z0-9-]+ run=[0-9a-f]{32} -->$`.
+   match against `^<!-- BEGIN curlew:response id=req-\d+ slug=[a-z0-9-]+ run=[0-9a-f]{32} -->$`.
 
 5. **Splice decision matrix lives in `splice.go` and is exhaustively tested.**
    Six cases enumerated in the task behaviors:
@@ -425,16 +425,16 @@ import (
     "strings"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/assertion"
-    "github.com/peterlindqvist/apitest/internal/httpexec"
+    "github.com/weiqigod/curlew/internal/assertion"
+    "github.com/weiqigod/curlew/internal/httpexec"
 )
 
 // SentinelBeginPrefix is the literal prefix of the BEGIN sentinel line.
 // The full line carries id, slug, run attributes after this prefix.
-const SentinelBeginPrefix = "<!-- BEGIN apitest:response "
+const SentinelBeginPrefix = "<!-- BEGIN curlew:response "
 
 // SentinelEndPrefix is the literal prefix of the END sentinel line.
-const SentinelEndPrefix = "<!-- END apitest:response "
+const SentinelEndPrefix = "<!-- END curlew:response "
 
 // SentinelSuffix terminates both BEGIN and END sentinel lines.
 const SentinelSuffix = " -->"
@@ -445,14 +445,14 @@ const RunMDSentinelSlug = "run"
 // sentinelLineRE matches a complete sentinel line (BEGIN or END).
 // Captures: 1=marker (BEGIN|END), 2=request_id, 3=slug, 4=run_id.
 var sentinelLineRE = regexp.MustCompile(
-    `^<!-- (BEGIN|END) apitest:response id=([^ ]+) slug=([a-z0-9-]+) run=([0-9a-f]{32}|run|[a-z0-9-]+) -->$`,
+    `^<!-- (BEGIN|END) curlew:response id=([^ ]+) slug=([a-z0-9-]+) run=([0-9a-f]{32}|run|[a-z0-9-]+) -->$`,
 )
 ```
 
 #### Report Type
 
 ```go
-// Report is the complete dataset for one markdown render. The cmd/apitest
+// Report is the complete dataset for one markdown render. The cmd/curlew
 // builder converts []runner.RequestResult into a *Report; the markdown
 // package owns no runner types directly so the dependency graph stays
 // internal/output/* -> internal/runner (one-way only at the cmd layer).
@@ -528,13 +528,13 @@ type WriteOptions struct {
 //   1. # <name>
 //   2. ## Notes
 //   3. (empty notes paragraph - placeholder for agent text)
-//   4. <!-- BEGIN apitest:response id=... slug=... run=... -->
+//   4. <!-- BEGIN curlew:response id=... slug=... run=... -->
 //   5. ## Response (deterministic)
 //   6. ### Request
 //   7. ### Response <status>
 //   8. ### Timing
 //   9. ### Assertions
-//  10. <!-- END apitest:response id=... slug=... run=... -->
+//  10. <!-- END curlew:response id=... slug=... run=... -->
 //  + ## Analysis (below the END sentinel; agent-owned)
 func renderSentinelBlock(entry *RequestEntry, runID string) []byte { ... }
 
@@ -747,7 +747,7 @@ func TestMarkdown_Newlines(t *testing.T) {
 
 func TestMarkdown_SentinelExactFormat(t *testing.T) {
     // Regex-match the BEGIN line bytes against:
-    // ^<!-- BEGIN apitest:response id=req-1 slug=get-user run=[0-9a-f]{32} -->$
+    // ^<!-- BEGIN curlew:response id=req-1 slug=get-user run=[0-9a-f]{32} -->$
 }
 
 // splice_test.go
@@ -907,17 +907,17 @@ case at the existing format switch ladder.
 
 | File                                          | Action | Description                                                                            |
 |-----------------------------------------------|--------|----------------------------------------------------------------------------------------|
-| `cmd/apitest/main.go`                         | modify | (a) Line 567 early format check: add `format != "markdown"` to the allowed list. (b) Generate `runID` once after parseRunArgs (always), store in `runID` local; pass via `events.Options{RunID: runID}` and `vars.RunID`. (c) After CLI-set gate (~line 663) and after YAML-resolved (~line 1042): add markdown-requires-report check returning exit 3. (d) Insert `format == "markdown"` switch case between html (line 1546) and terminal default (line 1588). The case calls `buildMarkdownReport(...)` and `markdown.WriteReport(...)`. |
-| `cmd/apitest/main.go`                         | modify | Add `buildMarkdownReport` helper near `buildHTMLReport` (line 2250). Shape mirrors that function. |
-| `cmd/apitest/run_test.go`                     | modify | Add `TestRun_MarkdownFormat_HappyPath`, `TestRun_MarkdownFormat_RequiresReport`, `TestRun_MarkdownFormat_SpliceOnRerun`. |
-| `cmd/apitest/output_precedence_test.go`       | modify | Extend `TestOutputPrecedence` table with a row for `markdown` (CLI > collection > project). |
-| `internal/output/markdown/integration_test.go`| create | Optional cross-package integration test exercising `runCmdInner` end-to-end; observable assertions match the task YAML's grep commands. (Could also live in `cmd/apitest/run_test.go` — final placement decided during execute.) |
+| `cmd/curlew/main.go`                         | modify | (a) Line 567 early format check: add `format != "markdown"` to the allowed list. (b) Generate `runID` once after parseRunArgs (always), store in `runID` local; pass via `events.Options{RunID: runID}` and `vars.RunID`. (c) After CLI-set gate (~line 663) and after YAML-resolved (~line 1042): add markdown-requires-report check returning exit 3. (d) Insert `format == "markdown"` switch case between html (line 1546) and terminal default (line 1588). The case calls `buildMarkdownReport(...)` and `markdown.WriteReport(...)`. |
+| `cmd/curlew/main.go`                         | modify | Add `buildMarkdownReport` helper near `buildHTMLReport` (line 2250). Shape mirrors that function. |
+| `cmd/curlew/run_test.go`                     | modify | Add `TestRun_MarkdownFormat_HappyPath`, `TestRun_MarkdownFormat_RequiresReport`, `TestRun_MarkdownFormat_SpliceOnRerun`. |
+| `cmd/curlew/output_precedence_test.go`       | modify | Extend `TestOutputPrecedence` table with a row for `markdown` (CLI > collection > project). |
+| `internal/output/markdown/integration_test.go`| create | Optional cross-package integration test exercising `runCmdInner` end-to-end; observable assertions match the task YAML's grep commands. (Could also live in `cmd/curlew/run_test.go` — final placement decided during execute.) |
 
-#### New Code (cmd/apitest/main.go)
+#### New Code (cmd/curlew/main.go)
 
 ```go
 // imports
-import "github.com/peterlindqvist/apitest/internal/output/markdown"
+import "github.com/weiqigod/curlew/internal/output/markdown"
 ```
 
 Inside `runCmdInner`, after `parseRunArgs` succeeds:
@@ -931,12 +931,12 @@ runID := newRunID()
 (Helper `newRunID()` is added in this file or imported from runner; the
 canonical version lives in `internal/runner/runner.go` per Step 1.)
 
-Replace the `events.NewEmitter(... Options{ApitestVersion: version})` call
+Replace the `events.NewEmitter(... Options{CurlewVersion: version})` call
 to also pass `RunID: runID`:
 
 ```go
 em, emErr := events.NewEmitter(evF, events.Options{
-    ApitestVersion: version,
+    CurlewVersion: version,
     RunID:          runID,
 })
 ```
@@ -1088,7 +1088,7 @@ public form of the internal `ensureReportDir`); the cmd layer needs it.
 #### Tests to Write FIRST (RED phase)
 
 ```go
-// cmd/apitest/run_test.go
+// cmd/curlew/run_test.go
 
 func TestRun_MarkdownFormat_HappyPath(t *testing.T) {
     srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1120,7 +1120,7 @@ func TestRun_MarkdownFormat_HappyPath(t *testing.T) {
     }
 
     // Sentinel format
-    re := regexp.MustCompile(`<!-- BEGIN apitest:response id=req-\d+ slug=get-user run=[0-9a-f]{32} -->`)
+    re := regexp.MustCompile(`<!-- BEGIN curlew:response id=req-\d+ slug=get-user run=[0-9a-f]{32} -->`)
     if !re.Match(body) {
         t.Errorf("BEGIN sentinel not found or malformed: %s", body)
     }
@@ -1171,9 +1171,9 @@ func TestRun_MarkdownFormat_MalformedSentinelWritesDotNew(t *testing.T) {
 | `internal/output/markdown/writer_test.go`                     | `TestMarkdown_Concurrent`                      | new               | New package suite.                                                 |
 | `internal/output/markdown/run_md_test.go`                     | `TestMarkdown_RunMD`                           | new               | New package suite.                                                 |
 | `internal/output/markdown/regression_test.go`                 | `TestMarkdown_DeterminismRegression`           | new               | New package suite.                                                 |
-| `cmd/apitest/run_test.go`                                     | `TestRun_MarkdownFormat_*` (5 new)             | new               | End-to-end via runCmdInner.                                        |
-| `cmd/apitest/run_test.go`                                     | `TestRun_BadFormat` (existing)                 | breaks            | Update wantStderr to include `markdown` in the supported list.     |
-| `cmd/apitest/output_precedence_test.go`                       | `TestOutputPrecedence` (existing)              | extends           | Add markdown row.                                                  |
+| `cmd/curlew/run_test.go`                                     | `TestRun_MarkdownFormat_*` (5 new)             | new               | End-to-end via runCmdInner.                                        |
+| `cmd/curlew/run_test.go`                                     | `TestRun_BadFormat` (existing)                 | breaks            | Update wantStderr to include `markdown` in the supported list.     |
+| `cmd/curlew/output_precedence_test.go`                       | `TestOutputPrecedence` (existing)              | extends           | Add markdown row.                                                  |
 | `internal/parallel/executor_test.go`                          | parallel sink tests                            | none              | Sequence preserved.                                                |
 
 ## Risks and Edge Cases
@@ -1225,7 +1225,7 @@ func TestRun_MarkdownFormat_MalformedSentinelWritesDotNew(t *testing.T) {
   cleanly; `renderRunMD` emits a "no requests executed" note inside the
   sentinel block.
 
-- **Edge case: race between two `apitest run` invocations writing to the
+- **Edge case: race between two `curlew run` invocations writing to the
   same `--report dir`.** Atomic writes (O_EXCL temp + rename) prevent
   byte-level corruption. The "last writer wins" semantics for the file
   contents is acceptable per M9 design (different runs may legitimately
@@ -1261,7 +1261,7 @@ func TestRun_MarkdownFormat_MalformedSentinelWritesDotNew(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1271,33 +1271,33 @@ go test ./...
 Observable verification (matches task YAML):
 
 ```bash
-./apitest run collections/sample.yaml --format markdown --report /tmp/resp
+./curlew run collections/sample.yaml --format markdown --report /tmp/resp
 ls /tmp/resp/
 # Expected: run.md get-user.md list-posts.md
 
 # Section count
-grep -c -E '^(# |## Notes$|<!-- BEGIN apitest:response|## Response \(deterministic\)$|### Request$|### Response |### Timing$|### Assertions$|<!-- END apitest:response|## Analysis$)' /tmp/resp/get-user.md
+grep -c -E '^(# |## Notes$|<!-- BEGIN curlew:response|## Response \(deterministic\)$|### Request$|### Response |### Timing$|### Assertions$|<!-- END curlew:response|## Analysis$)' /tmp/resp/get-user.md
 # Expected: 10
 
 # Sentinel format
-grep -Eo 'BEGIN apitest:response id=req-[0-9]+ slug=[a-z0-9-]+ run=[0-9a-f]{32}' /tmp/resp/get-user.md
+grep -Eo 'BEGIN curlew:response id=req-[0-9]+ slug=[a-z0-9-]+ run=[0-9a-f]{32}' /tmp/resp/get-user.md
 # Expected: one match per file
 
 # Splice preserves outside content
 printf '\nAGENT NOTE: hypothesis X\n' >> /tmp/resp/get-user.md
-./apitest run collections/sample.yaml --format markdown --report /tmp/resp
+./curlew run collections/sample.yaml --format markdown --report /tmp/resp
 grep 'AGENT NOTE' /tmp/resp/get-user.md
 # Expected: AGENT NOTE preserved
 
 # Malformed sentinel writes .new
-printf '# Existing\n<!-- BEGIN apitest:response id=req-1 slug=ghost run=0 -->\n' > /tmp/resp/ghost.md
-./apitest run collections/with-ghost-slug.yaml --format markdown --report /tmp/resp 2>err.log
+printf '# Existing\n<!-- BEGIN curlew:response id=req-1 slug=ghost run=0 -->\n' > /tmp/resp/ghost.md
+./curlew run collections/with-ghost-slug.yaml --format markdown --report /tmp/resp 2>err.log
 ls /tmp/resp/ghost.md /tmp/resp/ghost.md.new
 grep 'malformed sentinel' err.log
 
 # No-sentinel writes .new
 printf '# User handwrote this\n' > /tmp/resp/handwritten.md
-./apitest run collections/that-matches-handwritten-slug.yaml --format markdown --report /tmp/resp 2>err.log
+./curlew run collections/that-matches-handwritten-slug.yaml --format markdown --report /tmp/resp 2>err.log
 ls /tmp/resp/handwritten.md /tmp/resp/handwritten.md.new
 grep 'no sentinel pair' err.log
 
@@ -1305,11 +1305,11 @@ grep 'no sentinel pair' err.log
 grep -cE '\.md\)$' /tmp/resp/run.md
 
 # Schema accepts markdown
-./apitest schema | jq -r '.properties.output.properties.format.enum' | grep -o markdown
-./apitest schema --project | jq -r '.properties.output.properties.format.enum' | grep -o markdown
+./curlew schema | jq -r '.properties.output.properties.format.enum' | grep -o markdown
+./curlew schema --project | jq -r '.properties.output.properties.format.enum' | grep -o markdown
 
 # Missing --report exits 3
-./apitest run collections/sample.yaml --format markdown 2>err.log; echo $?
+./curlew run collections/sample.yaml --format markdown 2>err.log; echo $?
 # Expected: 3
 
 # Full unit + integration suite

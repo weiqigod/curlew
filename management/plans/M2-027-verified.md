@@ -18,7 +18,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run sample/hello.yaml --format html --report /tmp/test.html
+$ ./curlew run sample/hello.yaml --format html --report /tmp/test.html
 [ERROR] HTML report generation requires Professional tier ($19/month)
 Exit: 6
 ```
@@ -105,8 +105,8 @@ Review PASS trusted (Iteration 3, management/reviews/M2-027-review.md). Spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +161/-0 |
-| `cmd/apitest/main_test.go` | modified | +314/-0 |
+| `cmd/curlew/main.go` | modified | +161/-0 |
+| `cmd/curlew/main_test.go` | modified | +314/-0 |
 | `internal/auth/gate_test.go` | modified | +29/-0 |
 | `internal/auth/registry.go` | modified | +6/-0 |
 | `internal/output/html.go` | created | +172/-0 |

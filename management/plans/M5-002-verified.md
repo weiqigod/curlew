@@ -38,7 +38,7 @@ covered by the integration test suite using `FakeOidcHandler`.
 | 1 | Owner PUT sso/oidc returns 200, sso_provider=oidc persisted | `Put_oidc_config_returns_200_and_persists_sso_enabled_true_provider_oidc` | PASS |
 | 2 | Unreachable issuer_url on PUT returns 400 oidc_discovery_failed | `Put_oidc_config_with_unreachable_issuer_returns_400_oidc_discovery_failed` | PASS |
 | 3 | GET /sso/oidc/{org}/login returns 302 to IdP /authorize with client_id, state, nonce | `Get_login_returns_302_with_authorize_url_containing_client_id_and_state` | PASS |
-| 4 | Callback with valid code exchanges id_token, sets session cookie, redirects | `Get_callback_success_issues_apitool_session_cookie_and_redirects` | PASS |
+| 4 | Callback with valid code exchanges id_token, sets session cookie, redirects | `Get_callback_success_issues_curlew_session_cookie_and_redirects` | PASS |
 | 5 | Callback with state mismatch returns 400 oidc_state_mismatch | `Get_callback_with_bad_state_returns_400_oidc_state_mismatch` | PASS |
 | 6 | Callback with email not in org returns 403 sso_user_not_member | `Get_callback_with_unknown_email_returns_403_sso_user_not_member` | PASS |
 | 7 | Non-owner PUT returns 403 permission_denied | `Put_oidc_config_as_non_owner_returns_403_permission_denied` | PASS |

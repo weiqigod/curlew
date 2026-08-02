@@ -15,7 +15,7 @@
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Smoke test clean |
 | Coverage `internal/variable` | 96.7% | Meets >= 80% threshold |
-| Coverage `cmd/apitest` | 81.7% | Meets >= 80% threshold |
+| Coverage `cmd/curlew` | 81.7% | Meets >= 80% threshold |
 | Coverage total | 86.7% | Meets >= 80% threshold |
 
 ## Observable Output
@@ -34,7 +34,7 @@
     --- PASS: TestRedact_BodyAcrossFormats/junit_format (0.00s)
     --- PASS: TestRedact_BodyAcrossFormats/allow_sensitive_shows_secret (0.00s)
 PASS
-ok      github.com/peterlindqvist/apitest/cmd/apitest   0.351s
+ok      github.com/weiqigod/curlew/cmd/curlew   0.351s
 ```
 
 Expected: PASS with all subtests passing and secret "hunter2" absent from non-allow-sensitive runs
@@ -107,8 +107,8 @@ TDD pattern visible: `test(...)` commits precede corresponding `feat(...)` commi
 | `internal/variable/sensitive_test.go` | modified | Added `TestSensitiveSet_ValueTracking`, `TestSensitiveSet_MergeValues`, `TestSensitiveSet_ZeroValue`, `TestSensitiveSet_NilSafe` extensions |
 | `internal/variable/redact.go` | created | `RedactBody` with JSON-walk and plain-text fallback |
 | `internal/variable/redact_test.go` | created | Table-driven tests: `TestRedactBody`, `TestRedactBody_EmptySet`, `TestRedactBody_NilSet`, `TestRedactBody_LongestValueFirst` |
-| `cmd/apitest/main.go` | modified | `addSensitiveValues` helper, `AddValue` population loop, `RedactBody` calls for request and response bodies |
-| `cmd/apitest/main_test.go` | modified | `TestRedact_BodyAcrossFormats` with 5 subtests |
+| `cmd/curlew/main.go` | modified | `addSensitiveValues` helper, `AddValue` population loop, `RedactBody` calls for request and response bodies |
+| `cmd/curlew/main_test.go` | modified | `TestRedact_BodyAcrossFormats` with 5 subtests |
 
 ## Issues Found
 

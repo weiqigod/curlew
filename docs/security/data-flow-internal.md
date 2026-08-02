@@ -6,7 +6,7 @@
 **Next review:** at the next cryptographic-surface change
 
 This diagram enumerates every internal path that carries cryptographic key
-material, encrypted secrets, or authentication artefacts within the ApiTool
+material, encrypted secrets, or authentication artefacts within the Curlew
 backend boundary. Customer-PII data flows are documented separately in
 [`data-flow-customer.md`](data-flow-customer.md).
 
@@ -36,8 +36,8 @@ flowchart LR
         ScheduleKEK["KEK: schedule-env ring"]
     end
 
-    subgraph CLI["CLI\n(cmd/apitest/)"]
-        Keychain["OS keychain / file\n~/.config/apitesttool/"]
+    subgraph CLI["CLI\n(cmd/curlew/)"]
+        Keychain["OS keychain / file\n~/.config/curlew/"]
     end
 
     SigningKeyProvider -- "wrap/unwrap private_key" --> SigningKEK
@@ -93,7 +93,7 @@ flowchart LR
 - **Codepath:** `src/ApiTool.Backend/Auth/RefreshTokenService.cs`.
 - **Data flow:** opaque refresh tokens are emitted to the CLI and hashed with
   argon2id before storage in `refresh_tokens.token_hash`. The cleartext token
-  exists only in the client (CLI keychain or `~/.config/apitesttool/`); the
+  exists only in the client (CLI keychain or `~/.config/curlew/`); the
   backend never re-derives or stores the cleartext.
 - **Encryption-at-rest:** one-way hash (argon2id) in the database; cleartext in
   OS keychain (macOS Keychain / Linux Secret Service / Windows DPAPI) or
@@ -103,7 +103,7 @@ flowchart LR
 
 | Diagram node | Filesystem path | Purpose |
 | --- | --- | --- |
-| CLI | `cmd/apitest/` | Go CLI entry point and subcommands |
+| CLI | `cmd/curlew/` | Go CLI entry point and subcommands |
 | Backend | `src/ApiTool.Backend/` | C# .NET backend (auth, billing, vault, schedules) |
 | Web portal | `web/` | SvelteKit web UI |
 | KMS | Google Cloud KMS (production) or `FileKeyProvider` (self-hosted opt-out per v4-13) | Key-encryption-key custody |

@@ -24,7 +24,7 @@ No findings deferred. All findings resolved.
 |-------|--------|
 | `dotnet build src/ApiTool.Backend` | PASS |
 | `dotnet test src/ApiTool.Backend.Tests` | PASS |
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | M18-009 specific tests | 35 passing (up from 30) |

@@ -1,5 +1,5 @@
 id: M16-011
-title: "apitest worker --schedule-pull mode with file: collection ref and pending-uploads queue"
+title: "curlew worker --schedule-pull mode with file: collection ref and pending-uploads queue"
 status: done
 priority: 3
 created: 2026-05-07
@@ -11,21 +11,21 @@ dependencies:
 track: go-cli
 
 observable: |
-  With the backend stack running and a Team-tier org seeded with a schedule whose `collection_ref = file:./testdata/api.yaml`, build the CLI with `go build -o ./apitest ./cmd/apitest`. Run `./apitest worker --schedule-pull --backend http://localhost:5000` in a working directory that contains the YAML. Observe stdout: `claimed run <run_id>; executing collection file:./testdata/api.yaml`, then `posted result for <run_id> (pass=…, fail=…)`. The corresponding `scheduled_runs` row transitions to `completed` with `result_id` populated. Stop the backend mid-run and re-run; observe a JSON file written to `~/.config/apitesttool/pending-uploads/<run_id>.json` and stderr `backend unreachable; queued result locally`. Run `go test ./cmd/apitest/... ./internal/backend/... ./internal/worker/...` — all pass. Verify help: `./apitest worker --help | grep schedule-pull`.
+  With the backend stack running and a Team-tier org seeded with a schedule whose `collection_ref = file:./testdata/api.yaml`, build the CLI with `go build -o ./curlew ./cmd/curlew`. Run `./curlew worker --schedule-pull --backend http://localhost:5000` in a working directory that contains the YAML. Observe stdout: `claimed run <run_id>; executing collection file:./testdata/api.yaml`, then `posted result for <run_id> (pass=…, fail=…)`. The corresponding `scheduled_runs` row transitions to `completed` with `result_id` populated. Stop the backend mid-run and re-run; observe a JSON file written to `~/.config/curlew/pending-uploads/<run_id>.json` and stderr `backend unreachable; queued result locally`. Run `go test ./cmd/curlew/... ./internal/backend/... ./internal/worker/...` — all pass. Verify help: `./curlew worker --help | grep schedule-pull`.
 
 behaviors:
-  - "Given `apitest worker --schedule-pull` starts, when the worker has a valid Access token, then it polls GET /api/v1/schedules/next-run on the configured interval (default 30s) and logs the polling cycle"
-  - "Given the poll returns 200 with a claim, when the worker resolves collection_ref starting with `file:`, then it reads the YAML from the worker's working directory and proceeds to execute it locally via the existing apitest run engine"
+  - "Given `curlew worker --schedule-pull` starts, when the worker has a valid Access token, then it polls GET /api/v1/schedules/next-run on the configured interval (default 30s) and logs the polling cycle"
+  - "Given the poll returns 200 with a claim, when the worker resolves collection_ref starting with `file:`, then it reads the YAML from the worker's working directory and proceeds to execute it locally via the existing curlew run engine"
   - "Given collection_ref starts with `git:`, when the worker resolves it, then the CLI emits a clear stderr message `git: collection refs are not yet supported in M16; please clone the repo on the worker host` and posts a result with status = failed (per Open Decision 4)"
   - "Given the worker is mid-run, when 30s elapses, then it sends POST /heartbeat with the claim_token; on 409 (claim reaped) it abandons the run cleanly without posting"
   - "Given the worker completes a run, when posting POST /api/v1/schedules/runs/{run_id}/result fails with a transient backend error, then it retries with exponential backoff up to 1 hour"
-  - "Given the worker exhausts retries, when the result still cannot be posted, then it writes the payload to ~/.config/apitesttool/pending-uploads/<run_id>.json and logs the path; on next successful poll it drains the queue first"
+  - "Given the worker exhausts retries, when the result still cannot be posted, then it writes the payload to ~/.config/curlew/pending-uploads/<run_id>.json and logs the path; on next successful poll it drains the queue first"
   - "Given the worker boots, when fetching the Layer 4 shared vault config from /api/v1/organizations/{orgId}/vault-config (per M16-018), then it caches the template with a 5-min TTL and uses the same cache for {{secrets.*}} resolution during runs"
   - "Given `--schedule-pull` is combined with `--perf-pull`, when the worker runs, then it polls both queues concurrently per the existing `--all-modes` shape from M11"
-  - "Given `apitest worker --help` is invoked, when help text renders, then it documents `--schedule-pull` with a one-line description and references the spec section"
+  - "Given `curlew worker --help` is invoked, when help text renders, then it documents `--schedule-pull` with a one-line description and references the spec section"
 
 scope: |
-  Extend `cmd/apitest/worker.go` (or add the file if it does not yet exist; the M11 perf worker is the structural template) with a new `--schedule-pull` flag and the corresponding poll loop. New package `internal/worker/schedule/` implementing the claim/heartbeat/post lifecycle, reusing the existing `internal/backend.Client` for HTTP. Add `backend.Client.PollNextScheduleRun(ctx)`, `Heartbeat(ctx, runId, claimToken)`, `PostScheduleResult(ctx, runId, payload)`. Resolve `collection_ref` using the file: scheme only (per Open Decision 4); explicitly reject `git:` with a clear error message and a documented future-extension comment. Reuse existing run engine (`internal/runner/`) to execute the YAML locally. On post failure, queue to `~/.config/apitesttool/pending-uploads/` (existing pattern). M16-018 supplies the team-vault fetch — for this slice, gracefully handle the absence of M16-018 by skipping vault enrichment when the endpoint returns 404.
+  Extend `cmd/curlew/worker.go` (or add the file if it does not yet exist; the M11 perf worker is the structural template) with a new `--schedule-pull` flag and the corresponding poll loop. New package `internal/worker/schedule/` implementing the claim/heartbeat/post lifecycle, reusing the existing `internal/backend.Client` for HTTP. Add `backend.Client.PollNextScheduleRun(ctx)`, `Heartbeat(ctx, runId, claimToken)`, `PostScheduleResult(ctx, runId, payload)`. Resolve `collection_ref` using the file: scheme only (per Open Decision 4); explicitly reject `git:` with a clear error message and a documented future-extension comment. Reuse existing run engine (`internal/runner/`) to execute the YAML locally. On post failure, queue to `~/.config/curlew/pending-uploads/` (existing pattern). M16-018 supplies the team-vault fetch — for this slice, gracefully handle the absence of M16-018 by skipping vault enrichment when the endpoint returns 404.
 
 definition_of_done:
   - "All behavior tests pass"

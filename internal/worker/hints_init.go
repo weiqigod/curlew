@@ -1,18 +1,18 @@
 package worker
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("worker",
 		apierrors.RegisteredError{
 			Name: "ErrCoordinatorURLMissing",
 			Err:  ErrCoordinatorURLMissing,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInput, Code: "WORKER_COORDINATOR_URL_MISSING", Hint: "Set APITEST_COORDINATOR_URL or pass --coordinator-url."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInput, Code: "WORKER_COORDINATOR_URL_MISSING", Hint: "Set CURLEW_COORDINATOR_URL or pass --coordinator-url."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrTokenMissing",
 			Err:  ErrTokenMissing,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInput, Code: "WORKER_TOKEN_MISSING", Hint: "Set APITEST_BACKEND_TOKEN or pass --token."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInput, Code: "WORKER_TOKEN_MISSING", Hint: "Set CURLEW_BACKEND_TOKEN or pass --token."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrUnauthorized",

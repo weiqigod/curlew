@@ -18,14 +18,14 @@ No findings.
 | Error Handling | PASS | Guard rail uses counter mechanism (no new error paths). Existing error wrapping with `%w` preserved. No swallowed errors. |
 | Input Validation | PASS | Counter check `*counter >= maxRequests` correctly prevents execution beyond limit. Boundary condition (exactly 1000) correctly handled via `counter >= MaxRequests && total > counter`. |
 | Naming | PASS | `MaxRequests`, `LimitExceeded`, `RequestsExecuted`, `GuardRailJSON` — clear, no stuttering. Doc comments on all exported symbols. |
-| Code Organization | PASS | Guard rail logic scoped to `runner` package (counter + limit check). Output formatting in `output` package. CLI wiring in `cmd/apitest`. Clean separation. |
+| Code Organization | PASS | Guard rail logic scoped to `runner` package (counter + limit check). Output formatting in `output` package. CLI wiring in `cmd/curlew`. Clean separation. |
 | Correctness | PASS | Counter shared across all phases (setup/main/teardown). Skipped requests don't increment counter. `LimitExceeded` only set when requests were actually blocked (not when exactly N requests fit the limit). Exit code 2 takes precedence over assertion/network failures. Race detector passes. |
 | Test Quality | PASS | Table-driven tests with `t.Run()`. Boundary cases (999, 1000, 1001). Multi-phase counting. Small limit for easy testing. Integration tests across all 3 output formats (terminal, JSON, TAP). `MaxRequests` save/restore via `t.Cleanup()`. |
 
 ## Test Coverage
 - `internal/runner`: 91.7%
 - `internal/output`: 92.2%
-- `cmd/apitest`: 85.3%
+- `cmd/curlew`: 85.3%
 - `GuardRail()` method: 100%
 - `Run()` function: 88.9%
 - `executePhase()`: 92.3%

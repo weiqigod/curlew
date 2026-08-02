@@ -53,7 +53,7 @@ func TestExpand(t *testing.T) {
 		{
 			name:    "matches all yaml recursively excluding ignored",
 			pattern: "**/*.yaml",
-			// drafts/d.yaml is excluded by .apitestignore
+			// drafts/d.yaml is excluded by .curlewignore
 			wantPaths: []string{"a.yaml", "b.yaml", "sub/c.yaml"},
 		},
 		{
@@ -148,7 +148,7 @@ func TestLoadIgnore(t *testing.T) {
 	t.Run("skips blank and comment lines", func(t *testing.T) {
 		dir := t.TempDir()
 		content := "# comment\n\n**/drafts/*.yaml\n\n"
-		if err := os.WriteFile(filepath.Join(dir, ".apitestignore"), []byte(content), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, ".curlewignore"), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		patterns, err := LoadIgnore(dir)
@@ -171,7 +171,7 @@ func TestLoadIgnore(t *testing.T) {
 		}
 	})
 
-	t.Run("reads testdata .apitestignore", func(t *testing.T) {
+	t.Run("reads testdata .curlewignore", func(t *testing.T) {
 		root := testdataRoot(t)
 		patterns, err := LoadIgnore(root)
 		if err != nil {

@@ -18,7 +18,7 @@ No findings. Code meets all standards.
 | Error Handling | PASS | No new error-returning production code in changed files. Test helpers use `t.Fatal` for file-write errors (correct pattern). |
 | Input Validation | PASS | No new public functions accepting external input. |
 | Naming | PASS | All exported symbols have doc comments. `writePlaybookNamedCollection` avoids collision with unrelated helpers in other test files. No stuttering. |
-| Code Organization | PASS | All new code confined to `cmd/apitest/` (test file) and `templates/` (template content). No `internal/` package boundaries crossed. |
+| Code Organization | PASS | All new code confined to `cmd/curlew/` (test file) and `templates/` (template content). No `internal/` package boundaries crossed. |
 | Correctness | PASS | Previous finding #1 (snapshot test was version-sensitive at line 127) resolved: two `bytes.ReplaceAll` calls now cover both the version-comment line and the bold `**version**` form in the Notes section. Golden file verified stable at both positions. |
 | Test Quality | PASS | Previous findings #2 and #3 resolved: all three NDJSON helpers now log read errors via `t.Logf` before returning false; MANUAL.md §4.9 corrected to "The following are created or modified in addition to the standard scaffold:" with per-item annotations. |
 
@@ -40,14 +40,14 @@ No findings. Code meets all standards.
 | Each sub-test: scenario + run + exit-code assert + artifact assert | All 10 sub-tests pass; artifacts asserted per-playbook-row | PASS |
 | Exit 9 uses grace-expired fixture (LAST_VALIDATION_OVERRIDE=31d) | `testPlaybookExit9` matches existing `TestRunCmd_GraceExpired_ExitsNine` pattern | PASS |
 | SPECIFICATION.md `#### --skill <name> flag` subsection | Present at line 3020; TOC entry at line 142 | PASS |
-| MANUAL.md `### 4.9 Driving apitest with Claude Code` with worked example | Present at line 1492; TOC entry at line 48 | PASS |
+| MANUAL.md `### 4.9 Driving curlew with Claude Code` with worked example | Present at line 1492; TOC entry at line 48 | PASS |
 | CHANGELOG.md `[Unreleased]` `- Added: --skill claude` entry | Present; `awk/grep` observable matched | PASS |
 | IMPROVEMENT.md §3 status header flipped to Shipped | Line 3: "Shipped — W1…W5 complete (2026-04-25)" | PASS |
 | IMPROVEMENT.md §5 W5 block references M10-001 PR #128 + M10-002 PR #pending | Line 279 confirmed | PASS |
 | No live "W5 pending" or "blocked on W4" in tracked docs | `git grep` returns exit 1 (zero matches) | PASS |
 
 ## Test Coverage
-- Coverage: 81.4% (cmd/apitest) — exceeds the 80% requirement.
+- Coverage: 81.4% (cmd/curlew) — exceeds the 80% requirement.
 - All 10 sub-tests of `TestSkillClaude_PlaybookMatchesBinary` pass.
 - `TestSkillClaude_SkillFileSnapshot` passes with stable golden.
 - `./scripts/ci-local.sh --go` passes: build, test, race, coverage, lint, smoke.

@@ -1,7 +1,7 @@
 # Implementation Plan: M4-003
 
 ## Overview
-Bootstrap the ApiTool backend service (ASP.NET Core 9 minimal API + EF Core) and ship the organization + seat RBAC data model with the first three endpoints (`GET /organizations`, `POST /organizations`, `GET /organizations/{id}`) behind JWT bearer auth, plus a dev-mode token helper script.
+Bootstrap the Curlew backend service (ASP.NET Core 9 minimal API + EF Core) and ship the organization + seat RBAC data model with the first three endpoints (`GET /organizations`, `POST /organizations`, `GET /organizations/{id}`) behind JWT bearer auth, plus a dev-mode token helper script.
 
 ## Task Details
 - **ID:** M4-003
@@ -30,7 +30,7 @@ Additional decisions made here (not pinned by the task YAML) — chosen for the 
 runnable slice and documented so reviewers know they were deliberate:
 
 1. **Database provider:** EF Core with **SQLite**. Dev runtime uses a file at
-   `data/apitool-dev.db` (auto-created, migrations applied on startup via
+   `data/curlew-dev.db` (auto-created, migrations applied on startup via
    `db.Database.Migrate()` when `ASPNETCORE_ENVIRONMENT=Development`). Tests use
    `Microsoft.Data.Sqlite` with `DataSource=:memory:` held open per test. Rationale:
    no external infra required — honours the always-runnable contract. Postgres can
@@ -90,7 +90,7 @@ creates new files only and touches no existing code.
 | `src/ApiTool.Backend/ApiTool.Backend.csproj` | create | ASP.NET Core 9 web project (minimal API). References: `Microsoft.AspNetCore.Authentication.JwtBearer`, `Microsoft.EntityFrameworkCore`, `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.EntityFrameworkCore.Design`, `Swashbuckle.AspNetCore`, `Meziantou.Analyzers`. Nullable + implicit usings + `TreatWarningsAsErrors=true`. |
 | `src/ApiTool.Backend/Program.cs` | create | Minimal API bootstrap. Builds `WebApplication`, wires services, maps endpoints (real endpoints added in step 5). Exposes `partial class Program` so `WebApplicationFactory<Program>` can reach it. |
 | `src/ApiTool.Backend/appsettings.json` | create | Empty defaults + `Logging` block. |
-| `src/ApiTool.Backend/appsettings.Development.json` | create | Dev Jwt secret placeholder, `ConnectionStrings:Default=Data Source=data/apitool-dev.db`. |
+| `src/ApiTool.Backend/appsettings.Development.json` | create | Dev Jwt secret placeholder, `ConnectionStrings:Default=Data Source=data/curlew-dev.db`. |
 | `src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj` | create | xUnit project. References: `Microsoft.NET.Test.Sdk`, `xunit`, `xunit.runner.visualstudio`, `FluentAssertions`, `Microsoft.AspNetCore.Mvc.Testing`, `Microsoft.EntityFrameworkCore.Sqlite`, `Meziantou.Analyzers`. ProjectReference to `ApiTool.Backend`. Nullable enabled. |
 | `src/ApiTool.Backend.Tests/GlobalUsings.cs` | create | `global using Xunit; global using FluentAssertions;` |
 | `.gitignore` | modify | Append `bin/`, `obj/`, `data/*.db*` if not already ignored. |
@@ -548,10 +548,10 @@ curl demo once the service is up. No other code depends on it.
 set -euo pipefail
 
 EMAIL="${1:-owner@example.com}"
-SECRET="${APITOOL_JWT_SIGNING_KEY:-development-signing-key-change-me-32-bytes-minimum}"
-ISSUER="${APITOOL_JWT_ISSUER:-apitool-dev}"
-AUDIENCE="${APITOOL_JWT_AUDIENCE:-apitool-dev}"
-SUB="${APITOOL_TEST_USER_ID:-$(uuidgen | tr '[:upper:]' '[:lower:]')}"
+SECRET="${CURLEW_JWT_SIGNING_KEY:-development-signing-key-change-me-32-bytes-minimum}"
+ISSUER="${CURLEW_JWT_ISSUER:-curlew-dev}"
+AUDIENCE="${CURLEW_JWT_AUDIENCE:-curlew-dev}"
+SUB="${CURLEW_TEST_USER_ID:-$(uuidgen | tr '[:upper:]' '[:lower:]')}"
 
 now=$(date +%s)
 exp=$((now + 3600))
@@ -568,7 +568,7 @@ sig=$(printf '%s.%s' "$h" "$p" | openssl dgst -sha256 -hmac "$SECRET" -binary | 
 printf '%s.%s.%s\n' "$h" "$p" "$sig"
 ```
 
-The script is fully deterministic given `APITOOL_TEST_USER_ID`, so smoke runs can
+The script is fully deterministic given `CURLEW_TEST_USER_ID`, so smoke runs can
 reuse the same user id across invocations (important for GET-after-POST flows).
 
 #### Tests to Write FIRST (RED phase)

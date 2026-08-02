@@ -150,7 +150,7 @@ export async function startRun(params: StartParams): Promise<void> {
       return;
     }
     dispatchRun({ type: 'start_network_error' });
-    toast('could not reach the apitest ui server', { kind: 'error' });
+    toast('could not reach the curlew ui server', { kind: 'error' });
     serverReachable.set(false);
   }
 }
@@ -179,7 +179,7 @@ function handleStartError(err: ApiError): void {
       break;
     case 'network_error':
       dispatchRun({ type: 'start_network_error' });
-      toast('could not reach the apitest ui server', { kind: 'error' });
+      toast('could not reach the curlew ui server', { kind: 'error' });
       serverReachable.set(false);
       break;
     default:

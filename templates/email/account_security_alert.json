@@ -1,6 +1,6 @@
 {
   "slug": "account_security_alert",
-  "subject": "Security alert on your ApiTool account",
+  "subject": "Security alert on your Curlew account",
   "variables": {
     "first_name":  "string",
     "event_time":  "string (e.g. '2026-05-05T14:30:00Z')",

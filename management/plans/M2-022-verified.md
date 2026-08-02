@@ -104,8 +104,8 @@ Review PASS trusted (iteration 3, all 12 prior findings resolved). Spot-check cl
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +62/-0 |
-| `cmd/apitest/main_test.go` | modified | +42/-0 |
+| `cmd/curlew/main.go` | modified | +62/-0 |
+| `cmd/curlew/main_test.go` | modified | +42/-0 |
 | `internal/datadriven/chunked.go` | created | +73 |
 | `internal/datadriven/chunked_test.go` | created | +106 |
 | `internal/datadriven/datadriven.go` | modified | +41/-0 |

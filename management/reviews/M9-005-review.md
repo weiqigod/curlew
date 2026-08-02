@@ -27,13 +27,13 @@ No findings. All five findings from iteration 1 are verified resolved:
 | Error Handling | PASS | All error returns wrapped with `fmt.Errorf("context: %w", err)`. `initCmdOut` uses exit code 3 for invalid --output, exit 1 for I/O errors. No swallowed errors. Sentinel `ErrProjectExists` used correctly. |
 | Input Validation | PASS | Unknown `--output` values validated before any file is written. `--output` without a value produces an error. Empty string treated as no-flag-passed (documented). |
 | Naming | PASS | No stuttering. All exported symbols have doc comments (`Options`, `Init`, `ErrProjectExists`, `outputBlock`, `printInitHelpTo`). Package names are lowercase single-word. |
-| Code Organization | PASS | `internal/scaffold` remains leaf-level. Validation stays in caller (`cmd/apitest`). `outputBlock()` is a clean pure function. `internal/schema` test-package imports `internal/scaffold` — no circular import (scaffold does not import schema). |
+| Code Organization | PASS | `internal/scaffold` remains leaf-level. Validation stays in caller (`cmd/curlew`). `outputBlock()` is a clean pure function. `internal/schema` test-package imports `internal/scaffold` — no circular import (scaffold does not import schema). |
 | Correctness | PASS | All six supported formats produce the correct scaffold content validated against the project schema. Exit codes match conventions. Defensive default branch in `outputBlock` falls back to terminal and is now tested. Spec and implementation are aligned on bare-init behavior. |
 | Test Quality | PASS | All five task behaviors are covered: `TestInit_OutputMarkdownFlag`, `TestInit_OutputAllFormats`, `TestInit_DefaultUnchanged`, `TestInit_OutputUnknownFormat`, `TestInit_Help_DocumentsOutputFlag`, `TestInit_OutputMarkdown_FullPipeline`, `TestOutputBlock_DefaultFallback`, `TestSchema_scaffolded_all_output_formats_validate`, `TestSchema_accepts_output` (with markdown fixture), `TestSchema_AcceptsMarkdownFormat`. Table-driven tests used throughout. |
 
 ## Test Coverage
 - Coverage `internal/scaffold`: 83.9% (above 80% threshold)
-- Coverage `cmd/apitest`: 81.3% (above 80% threshold)
+- Coverage `cmd/curlew`: 81.3% (above 80% threshold)
 - `outputBlock` default branch: 100% (finding #3 resolved)
 
 ## DoD Verification
@@ -53,7 +53,7 @@ No findings. All five findings from iteration 1 are verified resolved:
 | IMPROVEMENT.md §6 request_slug paragraph references v1.2 | PASS (line 351) |
 | IMPROVEMENT.md §8.1 extended with v1.2 note | PASS (line 385) |
 | go test ./... passes with no regressions | PASS |
-| go test -cover ./internal/scaffold/... ./cmd/apitest/... >= 80% | PASS (83.9%, 81.3%) |
+| go test -cover ./internal/scaffold/... ./cmd/curlew/... >= 80% | PASS (83.9%, 81.3%) |
 | golangci-lint run passes with 0 issues | PASS |
 | ./smoke/run.sh passes | PASS |
 | ./scripts/ci-local.sh passes | PASS |

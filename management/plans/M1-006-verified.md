@@ -18,7 +18,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run sample/hello.yaml
+$ ./curlew run sample/hello.yaml
 Collection: Hello API
   ✓ Get httpbin  200  442ms
   ✓ Post with JSON body  200  120ms
@@ -45,7 +45,7 @@ Result: MATCH
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test -v -run` for all 6 behaviors | PASS |
-| 2 | Observable output works | `./apitest run sample/hello.yaml` with header+timing assertions | PASS |
+| 2 | Observable output works | `./curlew run sample/hello.yaml` with header+timing assertions | PASS |
 | 3 | Test coverage >= 80% | 93.0% overall | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint run` 0 issues | PASS |
 | 5 | Help text updated (if user-facing) | No new user-facing commands added | N/A |

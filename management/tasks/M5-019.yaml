@@ -9,11 +9,11 @@ dependencies:
   - M5-018
 observable: |
   # Build the example plugin per docs:
-  cd examples/plugins/datadog-metrics && go build -o /tmp/apitest-dd-plugin .
+  cd examples/plugins/datadog-metrics && go build -o /tmp/curlew-dd-plugin .
   # Run the guide's sample flow:
-  APITEST_PLUGINS=/tmp/apitest-dd-plugin \
+  CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
   DATADOG_API_KEY=test-key \
-    ./apitest run testdata/plugins/one-request.yaml
+    ./curlew run testdata/plugins/one-request.yaml
   # Expected stdout (tail):
   #   "[plugin:datadog-metrics] submitted 1 metric"
   # exit 0
@@ -22,12 +22,12 @@ observable: |
   # Expected: ok  examples/plugins/datadog-metrics  (>=4 tests passing)
 behaviors:
   - "Given examples/plugins/datadog-metrics/main.go exists, when it is built with go build, then the resulting binary runs the handshake and declares on_response + on_result"
-  - "Given the plugin is loaded with DATADOG_API_KEY set, when on_response fires, then a metric apitest.request.duration is recorded (verified against a fake Datadog HTTP server in tests)"
+  - "Given the plugin is loaded with DATADOG_API_KEY set, when on_response fires, then a metric curlew.request.duration is recorded (verified against a fake Datadog HTTP server in tests)"
   - "Given DATADOG_API_KEY is missing, when the plugin starts, then it responds to the handshake but disables metric submission and logs 'datadog-metrics: DATADOG_API_KEY not set, disabled'"
   - "Given docs/plugins.md exists, when a developer reads it, then they find: the handshake protocol, the hook schemas, a full Go example, and a troubleshooting checklist"
   - "Given examples/plugins/README.md exists, when read, then it lists the datadog-metrics plugin with build and run instructions"
   - "Given the example's tests run, when go test is invoked, then all pass and cover the happy path + missing-env path"
-  - "Given the example binary runs standalone with --help, when invoked directly (not via apitest), then it prints its plugin metadata and exits 0"
+  - "Given the example binary runs standalone with --help, when invoked directly (not via curlew), then it prints its plugin metadata and exits 0"
 scope: |
   New examples/plugins/datadog-metrics/ directory: main.go, go.mod (separate
   module), README.md, and a tabletop fake Datadog server in tests/. docs/plugins.md

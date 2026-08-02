@@ -1,6 +1,6 @@
 # Improvement Report: M1-024
 
-**Task:** Init command (apitest init)
+**Task:** Init command (curlew init)
 **Date:** 2026-03-17
 **Review:** management/reviews/M1-024-review.md
 
@@ -19,11 +19,11 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/scaffold`) | 80.9% |
-| Coverage (`cmd/apitest`) | 86.5% |
+| Coverage (`cmd/curlew`) | 86.5% |
 | Coverage (total) | 91.8% |
 
 ## Fix Commits

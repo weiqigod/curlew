@@ -16,13 +16,13 @@ observable: |
   curl -sS http://localhost:5000/health
   # Expected HTTP 200, body: {"status":"healthy","db":"connected","redis":"connected"}
   curl -sS http://localhost:3000/
-  # Expected HTTP 200, HTML body contains <title>apitest</title>
+  # Expected HTTP 200, HTML body contains <title>curlew</title>
   docker compose down -v
   # Expected: all containers stop and volumes removed
 behaviors:
   - "Given a fresh checkout, when docker compose up is run with the self-hosted bundle, then postgres, redis, backend, and web containers start and all reach healthy state within 60 seconds"
   - "Given the backend container is healthy, when curl GET /health is called, then the response is 200 with db=connected and redis=connected"
-  - "Given the web container is healthy, when curl GET / is called, then the response is 200 with the apitest login page HTML"
+  - "Given the web container is healthy, when curl GET / is called, then the response is 200 with the curlew login page HTML"
   - "Given .env.example is copied to .env and POSTGRES_PASSWORD is changed, when docker compose up is re-run, then the backend picks up the new password on first boot"
   - "Given the bundle uses persistent volumes, when docker compose down is run without -v, then data survives and a restart retrieves the same state"
   - "Given docker compose down -v is run, when invoked, then all containers stop and both pg_data and redis_data volumes are removed"

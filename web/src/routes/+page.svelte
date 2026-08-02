@@ -2,7 +2,7 @@
 </script>
 
 <svelte:head>
-	<title>apitest</title>
+	<title>curlew</title>
 </svelte:head>
 
-<h1>ApiTool</h1>
+<h1>Curlew</h1>

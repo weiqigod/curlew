@@ -10,7 +10,7 @@ track: go-cli
 dependencies:
   - M12-001
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
 
   go test -run 'TestRegistry_Sha256' -v ./internal/variable/...
   # Expected: PASS — $sha256('hello') returns
@@ -21,9 +21,9 @@ observable: |
   # Expected: PASS — $md5('hello') returns
   # '5d41402abc4b2a76b9719d911017c592' (lowercase 32-char hex).
 
-  TMP=$(mktemp -d); cd "$TMP"; apitest init demo && cd demo
+  TMP=$(mktemp -d); cd "$TMP"; curlew init demo && cd demo
   # Add a header X-Body-Hash: "{{$sha256('{{body}}')}}"
-  apitest run collections/sample.yaml --dry-run --format json
+  curlew run collections/sample.yaml --dry-run --format json
   # Expected: rendered header value is the hex SHA-256 of the resolved body.
 
   go test ./...

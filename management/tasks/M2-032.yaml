@@ -12,7 +12,7 @@ dependencies:
 
 observable: |
   Create a collection with `protocol: websocket` and steps (send, expect, close).
-  Run `apitest run ws_tests.yaml` and confirm the WebSocket connection lifecycle works.
+  Run `curlew run ws_tests.yaml` and confirm the WebSocket connection lifecycle works.
   Run `go test ./internal/websocket/...` for WebSocket adapter tests.
 
 behaviors:

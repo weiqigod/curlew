@@ -14,7 +14,7 @@
 | `go test -race ./...` | PASS | No races detected |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | Smoke test clean |
-| Coverage (`cmd/apitest`) | 81.7% | Meets >= 80% threshold |
+| Coverage (`cmd/curlew`) | 81.7% | Meets >= 80% threshold |
 | Coverage (`internal/output`) | 93.9% | Meets >= 80% threshold |
 | Coverage (total) | 86.9% | |
 
@@ -60,7 +60,7 @@ Result: MATCH
 | 3 | `DataDrivenJSON.Iterations` populated for data-driven runs | Observable: lengths match; iteration fields present | PASS |
 | 4 | Existing JSON snapshot tests updated to expect new shapes | `TestBuildJSONOutput`, `TestBuildDataDrivenJSON`, `TestRunCmdDirect_DataDriven_JSONFormat` extended | PASS |
 | 5 | `go test ./...` passes | All packages green | PASS |
-| 6 | `go test -cover ./internal/output/... ./cmd/apitest/... >= 80%` | 81.7% and 93.9% | PASS |
+| 6 | `go test -cover ./internal/output/... ./cmd/curlew/... >= 80%` | 81.7% and 93.9% | PASS |
 | 7 | `golangci-lint run` passes with 0 issues | 0 issues | PASS |
 | 8 | `./smoke/run.sh` passes | Smoke test clean | PASS |
 | 9 | `./scripts/ci-local.sh` passes | `=== ci-local PASS ===` | PASS |
@@ -110,11 +110,11 @@ Branch A: Review PASS trusted (iteration 3, final). Spot-check clean:
 | File | Action |
 |------|--------|
 | `internal/output/json.go` | modified — added `SummaryJSON`, `DataDrivenIterationJSON`, `JSONOutput.Summary`, `DataDrivenJSON.Iterations` |
-| `cmd/apitest/main.go` | modified — added `buildSummaryJSON`, `buildDataDrivenIterations`, wired into `buildJSONOutput` and `buildDataDrivenJSON` |
-| `cmd/apitest/main_test.go` | modified — added `TestJSONOutput_Summary`, `TestJSONOutput_DataDrivenIterations`, extended existing tests |
+| `cmd/curlew/main.go` | modified — added `buildSummaryJSON`, `buildDataDrivenIterations`, wired into `buildJSONOutput` and `buildDataDrivenJSON` |
+| `cmd/curlew/main_test.go` | modified — added `TestJSONOutput_Summary`, `TestJSONOutput_DataDrivenIterations`, extended existing tests |
 | `internal/output/json_test.go` | modified — added `TestWriteJSON_Summary`, `TestWriteJSON_DataDrivenIterations` |
-| `cmd/apitest/testdata/datadriven_simple.yaml` | created |
-| `cmd/apitest/testdata/datadriven_simple.csv` | created |
+| `cmd/curlew/testdata/datadriven_simple.yaml` | created |
+| `cmd/curlew/testdata/datadriven_simple.csv` | created |
 | `docs/SPECIFICATION.md` | modified |
 | `docs/MANUAL.md` | modified |
 | `CHANGELOG.md` | modified |

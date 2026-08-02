@@ -1,18 +1,18 @@
 package prcheck
 
-import apierrors "github.com/peterlindqvist/apitest/internal/errors"
+import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
 	apierrors.RegisterPackage("prcheck",
 		apierrors.RegisteredError{
 			Name: "ErrBackendURLMissing",
 			Err:  ErrBackendURLMissing,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInput, Code: "PRCHECK_BACKEND_URL_MISSING", Hint: "Configure the backend URL via APITEST_BACKEND_URL or project config."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInput, Code: "PRCHECK_BACKEND_URL_MISSING", Hint: "Configure the backend URL via CURLEW_BACKEND_URL or project config."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrUnauthorized",
 			Err:  ErrUnauthorized,
-			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "PRCHECK_UNAUTHORIZED", Hint: "Refresh APITEST_BACKEND_TOKEN."},
+			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryAuth, Code: "PRCHECK_UNAUTHORIZED", Hint: "Refresh CURLEW_BACKEND_TOKEN."},
 		},
 		apierrors.RegisteredError{
 			Name: "ErrNetworkFailure",

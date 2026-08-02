@@ -25,7 +25,7 @@
 {#if $wsStatus === 'reconnecting'}
   <div class="at-banner warn banner" aria-live="polite">
     <span class="at-spin"></span>
-    <span>reconnecting to apitest…</span>
+    <span>reconnecting to curlew…</span>
     {#if runLive}<span class="dim">run continues — events will catch up</span>{/if}
   </div>
 {:else if flash}

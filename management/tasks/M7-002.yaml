@@ -8,10 +8,10 @@ track: go-cli
 observable: |
   # For each affected subcommand, piping stdout to a file captures only
   # the result payload — progress lines appear on stderr.
-  ./apitest exec --dry-run https://example.com > /tmp/out.txt 2> /tmp/err.txt
+  ./curlew exec --dry-run https://example.com > /tmp/out.txt 2> /tmp/err.txt
   # Expected: /tmp/out.txt contains the formatted request rendered via
   # output.Printer (method, URL, headers) — no raw fmt.Fprintln bypass.
-  go test -run TestStreamProgress ./cmd/apitest/...
+  go test -run TestStreamProgress ./cmd/curlew/...
   # Expected: PASS — perf, license, worker, exec --dry-run all show
   # stdout containing only result content and progress on stderr.
 
@@ -20,24 +20,24 @@ observable: |
   # Expected: every warning: match is inside a Fprintf that targets
   # os.Stderr or the cfg.Stderr writer — never cfg.Stdout.
 behaviors:
-  - "Given apitest perf --duration 1s --vus 1 <req>, when stdout is piped, then stdout contains only the SummaryLine metrics output; the progress lines ('Load test:', 'Running...', 'Wrote %s') appear on stderr."
-  - "Given apitest license --validate, when stdout is piped, then stdout contains only the Key source / Tier / State result lines; the 'Validating license...' progress line appears on stderr."
-  - "Given apitest license with export or other progress-emitting flags, when stdout is piped, then stdout contains only the documented result; every progress/confirmation line appears on stderr."
+  - "Given curlew perf --duration 1s --vus 1 <req>, when stdout is piped, then stdout contains only the SummaryLine metrics output; the progress lines ('Load test:', 'Running...', 'Wrote %s') appear on stderr."
+  - "Given curlew license --validate, when stdout is piped, then stdout contains only the Key source / Tier / State result lines; the 'Validating license...' progress line appears on stderr."
+  - "Given curlew license with export or other progress-emitting flags, when stdout is piped, then stdout contains only the documented result; every progress/confirmation line appears on stderr."
   - "Given the worker subcommand running against a mocked coordinator, when stdout is piped, then stdout is empty; every progress line (Claimed shard, Completed, warnings) appears on stderr."
   - "Given the submit-failure warning path in internal/worker/run.go:133, when a submit fails, then the warning is written to stderr — matching sibling warnings at run.go:251 and client.go:110 — never stdout."
-  - "Given apitest exec --dry-run <url>, when rendered, then the DRY RUN output uses output.Printer methods (Result / RequestDetail) — no raw fmt.Fprintln bypass remains."
+  - "Given curlew exec --dry-run <url>, when rendered, then the DRY RUN output uses output.Printer methods (Result / RequestDetail) — no raw fmt.Fprintln bypass remains."
 scope: |
   Three narrow relocations plus one small printer-refactor, all in
   service of the single contract: stdout contains only the declared
   result payload for every subcommand.
 
-  cmd/apitest/perf.go — lines 93-99, 126, 131, 142, 150: redirect
+  cmd/curlew/perf.go — lines 93-99, 126, 131, 142, 150: redirect
   progress lines ('Load test: ...', 'Running...', 'Wrote %s') to
   stderr via fmt.Fprintln(os.Stderr, ...). The final metrics line at
   report.SummaryLine (perf.go:131) stays on stdout — it IS the result
   when --output is stdout (default).
 
-  cmd/apitest/license.go — lines 57, 59, 154, 173, 175: redirect
+  cmd/curlew/license.go — lines 57, 59, 154, 173, 175: redirect
   'Validating license...', 'Exporting license bundle...', 'Included:
   ...', 'Wrote ...' progress lines to stderr. The Key source / Tier /
   State triple (license.go:85-87) stays on stdout as the --validate
@@ -49,13 +49,13 @@ scope: |
   far enough). Fix line 133 explicitly — a warning that landed on
   stdout while every sibling warning in the same package uses stderr.
 
-  cmd/apitest/main.go:2794-2798 (execCmd --dry-run branch): replace
+  cmd/curlew/main.go:2794-2798 (execCmd --dry-run branch): replace
   the raw fmt.Fprintln(os.Stdout, 'DRY RUN') and fmt.Fprintf calls
   with output.NewPrinter(os.Stdout, useColor, opts.Verbosity) and
   the printer's RequestDetail / Result methods. The existing terminal
   Printer already handles this shape; no new Printer methods needed.
 
-  Regression test: cmd/apitest/stream_progress_test.go (new). Spawn
+  Regression test: cmd/curlew/stream_progress_test.go (new). Spawn
   each affected subcommand via exec.Command, split stdout/stderr,
   golden-file stdout, assert each known-progress string appears on
   stderr only.
@@ -63,7 +63,7 @@ scope: |
   No public API changes; pure stream-routing fixes.
 definition_of_done:
   - "All behavior tests pass"
-  - "cmd/apitest/stream_progress_test.go covers perf, license, worker, and exec --dry-run"
+  - "cmd/curlew/stream_progress_test.go covers perf, license, worker, and exec --dry-run"
   - "grep for 'Running...' in perf.go, 'Validating license' in license.go, and 'Claimed shard' in internal/worker/run.go finds those strings only in stderr-targeted Fprintln/Fprintf calls"
   - "exec --dry-run output is produced via output.Printer methods — no raw fmt.Fprintln(os.Stdout, ...) in the dry-run branch"
   - "go test ./... passes with no regressions"

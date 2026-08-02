@@ -14,7 +14,7 @@
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All checks pass including `--no-color` and `NO_COLOR` sections |
 | Coverage `internal/output` | 100.0% | Every function 100% |
-| Coverage `cmd/apitest` | 86.6% | Meets ≥80% threshold |
+| Coverage `cmd/curlew` | 86.6% | Meets ≥80% threshold |
 | Coverage total | 93.2% | Meets ≥80% threshold |
 
 ## Observable Output
@@ -45,7 +45,7 @@ Result: MATCH
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `go test ./...` — all 10 packages PASS | PASS |
 | 2 | Observable output works as specified | Smoke test + integration tests verify no ANSI in non-TTY | PASS |
-| 3 | Test coverage >= 80% | `internal/output` 100%, `cmd/apitest` 86.6%, total 93.2% | PASS |
+| 3 | Test coverage >= 80% | `internal/output` 100%, `cmd/curlew` 86.6%, total 93.2% | PASS |
 | 4 | No build warnings or lint errors | `go build` clean, `golangci-lint` 0 issues | PASS |
 | 5 | Help text updated | `--no-color` documented in help; `TestHelpText_noColor` verifies | PASS |
 | 6 | Smoke test updated | `--no-color` and `NO_COLOR` sections added to `smoke/run.sh` | PASS |
@@ -95,8 +95,8 @@ TDD pattern visible: `test(...)` commits precede each `feat(...)` commit through
 | `internal/output/color_test.go` | added |
 | `internal/output/terminal.go` | added (`Printer` struct and methods) |
 | `internal/output/terminal_test.go` | added |
-| `cmd/apitest/main.go` | modified (`--no-color` flag, `shouldUseColor`, Printer wiring) |
-| `cmd/apitest/main_test.go` | modified |
+| `cmd/curlew/main.go` | modified (`--no-color` flag, `shouldUseColor`, Printer wiring) |
+| `cmd/curlew/main_test.go` | modified |
 | `smoke/run.sh` | modified (added `--no-color` and `NO_COLOR` smoke sections) |
 
 ## Issues Found

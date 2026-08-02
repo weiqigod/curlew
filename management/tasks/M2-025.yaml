@@ -13,7 +13,7 @@ dependencies:
 observable: |
   Run a collection with retries and parallel execution and confirm retry happens within wave.
   Run data-driven with retries and confirm per-iteration retry behavior.
-  Run `apitest run tests.yaml -v` with retries and confirm retry attempt details in output.
+  Run `curlew run tests.yaml -v` with retries and confirm retry attempt details in output.
   Run `go test ./internal/retry/...` for integration tests.
 
 behaviors:

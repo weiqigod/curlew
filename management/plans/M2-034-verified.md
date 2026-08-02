@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | 24 packages, all pass |
 | `golangci-lint run` | PASS | 0 issues |
 | `./smoke/run.sh` | PASS | All smoke scenarios pass including WS reconnect/heartbeat/URL-detection checks |
@@ -33,7 +33,7 @@ go test ./internal/websocket/... -v -run "TestExecute_reconnect|TestReconnectSta
 --- PASS: TestExecute_reconnect_succeedsAfterDrop (0.00s)
 --- PASS: TestExecute_reconnect_exhaustsAttempts (0.00s)
 --- PASS: TestExecute_reconnect_disabledLeavesBehaviourUnchanged (0.00s)
-PASS ok  github.com/peterlindqvist/apitest/internal/websocket  0.422s
+PASS ok  github.com/weiqigod/curlew/internal/websocket  0.422s
 
 Smoke: "WebSocket reconnect config parses without error" → PASS
 Smoke: "WebSocket heartbeat config parses without error" → PASS

@@ -18,7 +18,7 @@
 
 ## Observable Output
 
-### Terminal output (`./apitest vault`)
+### Terminal output (`./curlew vault`)
 ```
 ✗ Feature requires upgrade
 
@@ -37,7 +37,7 @@
 ```
 Exit code: 6
 
-### JSON output (`./apitest vault --format json`)
+### JSON output (`./curlew vault --format json`)
 ```json
 {
   "status": "feature_gated",
@@ -133,8 +133,8 @@ Review PASS trusted (management/reviews/M1-028-review.md), spot-check clean.
 | `internal/output/terminal_test.go` | modified | +110 |
 | `internal/output/json.go` | modified | +21 |
 | `internal/output/json_test.go` | modified | +83 |
-| `cmd/apitest/main.go` | modified | +67 |
-| `cmd/apitest/main_test.go` | modified | +91 |
+| `cmd/curlew/main.go` | modified | +67 |
+| `cmd/curlew/main_test.go` | modified | +91 |
 | `smoke/run.sh` | modified | +23 |
 
 ## Issues Found

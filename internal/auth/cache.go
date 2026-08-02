@@ -42,14 +42,14 @@ type CacheStore interface {
 	Invalidate(profileName string) error
 }
 
-// FileCacheStore is a CacheStore backed by JSON files in .apitest/cache/.
+// FileCacheStore is a CacheStore backed by JSON files in .curlew/cache/.
 type FileCacheStore struct {
 	dir string
 }
 
-// NewFileCacheStore creates a FileCacheStore rooted at projectRoot/.apitest/cache/.
+// NewFileCacheStore creates a FileCacheStore rooted at projectRoot/.curlew/cache/.
 func NewFileCacheStore(projectRoot string) *FileCacheStore {
-	return &FileCacheStore{dir: filepath.Join(projectRoot, ".apitest", "cache")}
+	return &FileCacheStore{dir: filepath.Join(projectRoot, ".curlew", "cache")}
 }
 
 // Load retrieves a cached entry by profile name.

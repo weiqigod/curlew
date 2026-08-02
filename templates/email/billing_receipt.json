@@ -1,6 +1,6 @@
 {
   "slug": "billing_receipt",
-  "subject": "Your ApiTool receipt for {{billing_period}}",
+  "subject": "Your Curlew receipt for {{billing_period}}",
   "variables": {
     "first_name":     "string",
     "billing_period": "string (e.g. 'May 2026')",

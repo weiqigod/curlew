@@ -218,15 +218,15 @@ func TestScope_Interpolate_dynamic(t *testing.T) {
 
 ---
 
-### Step 3: Add `--seed` flag parsing in `cmd/apitest/main.go`
+### Step 3: Add `--seed` flag parsing in `cmd/curlew/main.go`
 **Rationale:** CLI-only change; doesn't touch runner until Step 4.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add --seed to parseRunArgs, update runCmd, update help text |
-| `cmd/apitest/main_test.go` | modify | Add seed parsing test cases |
+| `cmd/curlew/main.go` | modify | Add --seed to parseRunArgs, update runCmd, update help text |
+| `cmd/curlew/main_test.go` | modify | Add seed parsing test cases |
 
 #### Current Code
 
@@ -350,14 +350,14 @@ func TestRun_dynamic_override_by_cli_var(t *testing.T) { ... }
 
 ---
 
-### Step 5: Integration test in `cmd/apitest/main_test.go`
+### Step 5: Integration test in `cmd/curlew/main_test.go`
 **Rationale:** End-to-end verification of seed determinism using the real binary.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main_test.go` | modify | Add binary-level integration tests for dynamic functions and --seed |
+| `cmd/curlew/main_test.go` | modify | Add binary-level integration tests for dynamic functions and --seed |
 
 #### Tests to Write FIRST (RED phase)
 
@@ -416,8 +416,8 @@ Note: Timestamp functions (`$timestamp`, `$isoTimestamp`, `$timestampMs`) always
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestParseRunArgs` | breaks | Add `seed *int64` to all table entries |
-| `cmd/apitest/main_test.go` | all callers of `parseRunArgs` | breaks | Capture new return value |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs` | breaks | Add `seed *int64` to all table entries |
+| `cmd/curlew/main_test.go` | all callers of `parseRunArgs` | breaks | Capture new return value |
 | `internal/variable/variable_test.go` | all | none | No changes needed |
 | `internal/runner/runner_test.go` | all | none | `VarSources{}` zero value still valid |
 
@@ -438,7 +438,7 @@ Note: Timestamp functions (`$timestamp`, `$isoTimestamp`, `$timestampMs`) always
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -455,11 +455,11 @@ requests:
 EOF
 
 # Run twice with same seed — output must be identical
-./apitest run /tmp/dynamic-test.yaml --seed 42 > /tmp/run1.txt
-./apitest run /tmp/dynamic-test.yaml --seed 42 > /tmp/run2.txt
+./curlew run /tmp/dynamic-test.yaml --seed 42 > /tmp/run1.txt
+./curlew run /tmp/dynamic-test.yaml --seed 42 > /tmp/run2.txt
 diff /tmp/run1.txt /tmp/run2.txt  # should produce no output (identical)
 
 # Run without seed — UUIDs should differ
-./apitest run /tmp/dynamic-test.yaml 2>&1 | grep -o 'id=[^ &]*'
-./apitest run /tmp/dynamic-test.yaml 2>&1 | grep -o 'id=[^ &]*'
+./curlew run /tmp/dynamic-test.yaml 2>&1 | grep -o 'id=[^ &]*'
+./curlew run /tmp/dynamic-test.yaml 2>&1 | grep -o 'id=[^ &]*'
 ```

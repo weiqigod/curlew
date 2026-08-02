@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/httpexec"
-	"github.com/peterlindqvist/apitest/internal/signer"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/signer"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // defaultParams returns minimal valid params.

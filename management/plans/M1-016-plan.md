@@ -417,7 +417,7 @@ func TestPrintSectionHeader(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Render section headers on phase transitions; exclude teardown from exit code determination |
+| `cmd/curlew/main.go` | modify | Render section headers on phase transitions; exclude teardown from exit code determination |
 
 #### Current Code (result rendering loop)
 ```go
@@ -516,7 +516,7 @@ Per-item `variables:` blocks create child scopes (precedence 8) within each item
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
@@ -527,6 +527,6 @@ go tool cover -func=coverage.out
 Observable verification:
 ```bash
 # Create smoke collection, run it, verify setup/main/teardown order in output
-./apitest run smoke/collections/setup_teardown.yaml
+./curlew run smoke/collections/setup_teardown.yaml
 # Expected: "Setup:" header → setup results → main results → "Teardown:" header → teardown results
 ```

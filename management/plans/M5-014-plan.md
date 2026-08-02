@@ -2,7 +2,7 @@
 
 ## Overview
 
-Deliver the `apitest license export --output <file>` subcommand and the supporting `internal/license/export` package: a gzipped tarball bundle (`license.json`, `jwks.json`, `README.txt`) that lets operators move a validated license onto an air-gapped machine and continue validating offline. Extend `internal/license` so the key resolver and store honor the new `APITEST_LICENSE_BUNDLE` env var when it points at an extracted bundle, and add a bundle-age grace warning.
+Deliver the `curlew license export --output <file>` subcommand and the supporting `internal/license/export` package: a gzipped tarball bundle (`license.json`, `jwks.json`, `README.txt`) that lets operators move a validated license onto an air-gapped machine and continue validating offline. Extend `internal/license` so the key resolver and store honor the new `CURLEW_LICENSE_BUNDLE` env var when it points at an extracted bundle, and add a bundle-age grace warning.
 
 ## Task Details
 
@@ -28,25 +28,25 @@ These resolve open questions before implementation — the executor should follo
 1. **Package layout.** New package `internal/license/export`. Exports three symbols: `Bundle` (struct describing the artifacts), `Writer.Write(ctx, dst) error` to produce a tarball, `Reader.Read(src) (*Bundle, error)` to open an extracted directory. The gzip-tar I/O is a small file `archive.go`; high-level orchestration lives in `export.go`. No sub-sub-package needed.
 2. **No external dependencies.** Uses only `archive/tar`, `compress/gzip`, `io`, `os`, `path/filepath`, `time`. Matches `docs/TECH_CHOICES.md` ("standard library first"). No tarball library.
 3. **Bundle format.** A single gzipped tarball. Members (top-level, no directory prefix):
-   - `license.json` — byte-for-byte copy of `~/.config/apitesttool/license.json`.
+   - `license.json` — byte-for-byte copy of `~/.config/curlew/license.json`.
    - `jwks.json` — the JWKS used to verify the cached token. For M5-014 we export the embedded JWKS (`keys.EmbeddedJWKS`), not `jwks_cache.json`. Rationale: the kid used by the token must resolve on import; the embedded JWKS is authoritative and always contains the kid the token was signed with in the current shipping build. A follow-up can add the cached JWKS if kid rotation becomes a concern.
-   - `README.txt` — short text explaining: what the bundle is, which files it contains, the single-line env command to activate it on the target machine (`export APITEST_LICENSE_BUNDLE=./extracted && apitest license --validate`), and the 30-day bundle grace window.
-4. **Bundle-age grace.** Bundle age is derived from `license.json`'s `last_validated_at`, not from the tarball mtime — users routinely re-download/copy files. Within 30 days: validate normally. After 30 days (`LastValidatedAt < now - 30d`): print stderr warning `"Bundle grace period expires in N days"` until day 60, then still fall through to the standard GRACE_EXPIRED path from M5-013 (exit 0 for `license --validate`, exit 9 for premium commands). The task YAML's behavior 3 says "Bundle is older than 30 days… still validates if within window" — that window aligns with the existing 30-day grace from M5-013, so implement: if `APITEST_LICENSE_BUNDLE` is set and `elapsed > 30d`, the validator prints the bundle-specific warning *in addition to* the normal grace warning. The executor must not extend the state machine to 60 days; it reuses the existing `GraceWindow`.
-5. **Import wiring.** `APITEST_LICENSE_BUNDLE=/path/to/extracted` makes the license system read from the bundle instead of `~/.config/apitesttool/`. Implementation: new helper `license.ResolveConfigDir() string` in `internal/license/paths.go` that returns `APITEST_LICENSE_BUNDLE` if set (and the directory contains `license.json`), otherwise falls back to `APITEST_CONFIG_DIR` / `os.UserConfigDir()`. The existing `licenseConfigDir()` in `cmd/apitest/license.go` moves its logic into this helper so the bundle env var is respected by every license-aware command. The bundle path is *read-only*: `Save`/`MarkValidated` from a bundle-backed store must refuse to write (new `ErrReadOnlyBundle`). This is critical — mutating a bundle directory could corrupt an operator's reference copy.
-6. **Bundle JWKS loading.** The `KeyResolver` gains a second optional source: if a `jwks.json` exists in the bundle dir, parse it and consult it *before* the regular cached JWKS. The new precedence is: embedded → bundle → cached → online. The bundle JWKS lives in the resolver via a new `bundlePath string` field, nil by default. `NewKeyResolver` gains an optional variadic functional option `WithBundleJWKS(path string)` to keep the existing signature backward-compatible; `NewValidator` wires it when `APITEST_LICENSE_BUNDLE` is set.
+   - `README.txt` — short text explaining: what the bundle is, which files it contains, the single-line env command to activate it on the target machine (`export CURLEW_LICENSE_BUNDLE=./extracted && curlew license --validate`), and the 30-day bundle grace window.
+4. **Bundle-age grace.** Bundle age is derived from `license.json`'s `last_validated_at`, not from the tarball mtime — users routinely re-download/copy files. Within 30 days: validate normally. After 30 days (`LastValidatedAt < now - 30d`): print stderr warning `"Bundle grace period expires in N days"` until day 60, then still fall through to the standard GRACE_EXPIRED path from M5-013 (exit 0 for `license --validate`, exit 9 for premium commands). The task YAML's behavior 3 says "Bundle is older than 30 days… still validates if within window" — that window aligns with the existing 30-day grace from M5-013, so implement: if `CURLEW_LICENSE_BUNDLE` is set and `elapsed > 30d`, the validator prints the bundle-specific warning *in addition to* the normal grace warning. The executor must not extend the state machine to 60 days; it reuses the existing `GraceWindow`.
+5. **Import wiring.** `CURLEW_LICENSE_BUNDLE=/path/to/extracted` makes the license system read from the bundle instead of `~/.config/curlew/`. Implementation: new helper `license.ResolveConfigDir() string` in `internal/license/paths.go` that returns `CURLEW_LICENSE_BUNDLE` if set (and the directory contains `license.json`), otherwise falls back to `CURLEW_CONFIG_DIR` / `os.UserConfigDir()`. The existing `licenseConfigDir()` in `cmd/curlew/license.go` moves its logic into this helper so the bundle env var is respected by every license-aware command. The bundle path is *read-only*: `Save`/`MarkValidated` from a bundle-backed store must refuse to write (new `ErrReadOnlyBundle`). This is critical — mutating a bundle directory could corrupt an operator's reference copy.
+6. **Bundle JWKS loading.** The `KeyResolver` gains a second optional source: if a `jwks.json` exists in the bundle dir, parse it and consult it *before* the regular cached JWKS. The new precedence is: embedded → bundle → cached → online. The bundle JWKS lives in the resolver via a new `bundlePath string` field, nil by default. `NewKeyResolver` gains an optional variadic functional option `WithBundleJWKS(path string)` to keep the existing signature backward-compatible; `NewValidator` wires it when `CURLEW_LICENSE_BUNDLE` is set.
 7. **Exit codes.**
    - `0` — successful export (bundle written).
    - `2` — no license on disk / output parent directory missing.
    - `6` — tampered token on import (`signature_invalid`) — existing behavior via Validator.
    - `1` — unexpected internal errors (disk full, permission denied, gzip failure).
 8. **Tar tamper detection.** Behavior 6 ("signature tampered after export, imported and validated, exit 6 signature_invalid") is already covered by M5-013: the Validator re-runs `VerifyRS256` on every validate call. The exporter does not need an extra tamper check — tampering with `license.json` inside the extracted directory will fail signature verification on the next `license --validate`. This is the correct layering.
-9. **Output size format.** The observable requires `"Wrote bundle.tar.gz (2.1 KB)"`. Implement a tiny `humanBytes(n int64) string` helper in `cmd/apitest/license.go`. Units: B, KB, MB (binary 1024 base, rounded to 1 decimal). No third-party formatter.
+9. **Output size format.** The observable requires `"Wrote bundle.tar.gz (2.1 KB)"`. Implement a tiny `humanBytes(n int64) string` helper in `cmd/curlew/license.go`. Units: B, KB, MB (binary 1024 base, rounded to 1 decimal). No third-party formatter.
 10. **JWKS key-count reporting.** The observable requires `"Included: license token (valid until 2027-04-18), JWKS (2 keys)"`. The "valid until" date is taken from the JWT `exp` claim, formatted as `YYYY-MM-DD`. The "(N keys)" count is the length of the JWKS `keys` array. Both are derived at export time, printed to stdout.
-11. **Help text and command dispatch.** `licenseCmd` grows a new subcommand branch: `case "export":`. Dispatch to a new `licenseExport(args []string) int` that parses `--output <file>`. `printLicenseHelp()` gets three extra lines documenting `export`, `--output`, and `APITEST_LICENSE_BUNDLE`. The top-level `printHelp()` comment for the `license` command already says "Manage license state" — no change needed there.
-12. **Smoke test.** A new section at the end of `smoke/run.sh`: export to a temp file, untar it, re-validate with `APITEST_LICENSE_BUNDLE` pointed at the extracted dir, assert `State: VALID`. This is the end-to-end proof demanded by the task's Definition of Done.
+11. **Help text and command dispatch.** `licenseCmd` grows a new subcommand branch: `case "export":`. Dispatch to a new `licenseExport(args []string) int` that parses `--output <file>`. `printLicenseHelp()` gets three extra lines documenting `export`, `--output`, and `CURLEW_LICENSE_BUNDLE`. The top-level `printHelp()` comment for the `license` command already says "Manage license state" — no change needed there.
+12. **Smoke test.** A new section at the end of `smoke/run.sh`: export to a temp file, untar it, re-validate with `CURLEW_LICENSE_BUNDLE` pointed at the extracted dir, assert `State: VALID`. This is the end-to-end proof demanded by the task's Definition of Done.
 13. **Sentinel errors.** Export package exports: `ErrNoLicenseToExport`, `ErrOutputParentMissing`, `ErrBundleIncomplete` (missing required member on import), `ErrReadOnlyBundle` (attempt to Save/MarkValidated from a bundle-backed store).
 14. **Context.** `Writer.Write(ctx context.Context, dst io.Writer) error` accepts `context.Context` per project standard, though for file I/O we only check cancellation between tar members.
-15. **Do not change the `LicenseStore` interface.** Instead, introduce `license.ReadOnlyStore` that wraps the underlying `*Store` and returns `ErrReadOnlyBundle` on `Save`/`MarkValidated`. `NewValidator` selects which implementation based on whether `APITEST_LICENSE_BUNDLE` is set. This preserves all existing callers of `LicenseStore`.
+15. **Do not change the `LicenseStore` interface.** Instead, introduce `license.ReadOnlyStore` that wraps the underlying `*Store` and returns `ErrReadOnlyBundle` on `Save`/`MarkValidated`. `NewValidator` selects which implementation based on whether `CURLEW_LICENSE_BUNDLE` is set. This preserves all existing callers of `LicenseStore`.
 
 ## Implementation Steps
 
@@ -310,9 +310,9 @@ import (
     "path/filepath"
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/license"
-    "github.com/peterlindqvist/apitest/internal/license/jwks"
-    "github.com/peterlindqvist/apitest/internal/license/keys"
+    "github.com/weiqigod/curlew/internal/license"
+    "github.com/weiqigod/curlew/internal/license/jwks"
+    "github.com/weiqigod/curlew/internal/license/keys"
 )
 
 // Report is the post-export summary printed by the CLI.
@@ -426,16 +426,16 @@ func TestWrite_ContextCanceled(t *testing.T) {
 #### Current Code
 
 ```go
-// cmd/apitest/license.go — moves into internal/license/paths.go
+// cmd/curlew/license.go — moves into internal/license/paths.go
 func licenseConfigDir() (string, error) {
-    if override := os.Getenv("APITEST_CONFIG_DIR"); override != "" {
+    if override := os.Getenv("CURLEW_CONFIG_DIR"); override != "" {
         return override, nil
     }
     base, err := os.UserConfigDir()
     if err != nil {
         return "", fmt.Errorf("locate config dir: %w", err)
     }
-    return filepath.Join(base, "apitesttool"), nil
+    return filepath.Join(base, "curlew"), nil
 }
 ```
 
@@ -457,16 +457,16 @@ import (
 )
 
 // BundleEnv is the env var pointing at an extracted license bundle directory.
-const BundleEnv = "APITEST_LICENSE_BUNDLE"
+const BundleEnv = "CURLEW_LICENSE_BUNDLE"
 
-// ConfigEnv overrides the default ~/.config/apitesttool directory.
-const ConfigEnv = "APITEST_CONFIG_DIR"
+// ConfigEnv overrides the default ~/.config/curlew directory.
+const ConfigEnv = "CURLEW_CONFIG_DIR"
 
 // ResolveConfigDir returns the directory to use for license state files and
 // whether it is a read-only bundle directory. Precedence:
-//   1. APITEST_LICENSE_BUNDLE (fromBundle=true, read-only)
-//   2. APITEST_CONFIG_DIR
-//   3. os.UserConfigDir()/apitesttool
+//   1. CURLEW_LICENSE_BUNDLE (fromBundle=true, read-only)
+//   2. CURLEW_CONFIG_DIR
+//   3. os.UserConfigDir()/curlew
 func ResolveConfigDir() (dir string, fromBundle bool, err error) {
     if b := os.Getenv(BundleEnv); b != "" {
         return b, true, nil
@@ -478,21 +478,21 @@ func ResolveConfigDir() (dir string, fromBundle bool, err error) {
     if err != nil {
         return "", false, fmt.Errorf("locate config dir: %w", err)
     }
-    return filepath.Join(base, "apitesttool"), false, nil
+    return filepath.Join(base, "curlew"), false, nil
 }
 ```
 
 ```go
 // internal/license/store.go — addition
 // ReadOnlyStore wraps a LicenseStore to refuse mutating operations. Used when
-// reading from an APITEST_LICENSE_BUNDLE directory.
+// reading from an CURLEW_LICENSE_BUNDLE directory.
 type ReadOnlyStore struct{ Inner LicenseStore }
 
 func (r *ReadOnlyStore) Load() (*LicenseRecord, error) { return r.Inner.Load() }
 func (r *ReadOnlyStore) Save(*LicenseRecord) error     { return ErrReadOnlyBundle }
 func (r *ReadOnlyStore) MarkValidated(*LicenseRecord, time.Time) error { return ErrReadOnlyBundle }
 
-// ErrReadOnlyBundle is returned when mutating an APITEST_LICENSE_BUNDLE-backed store.
+// ErrReadOnlyBundle is returned when mutating an CURLEW_LICENSE_BUNDLE-backed store.
 var ErrReadOnlyBundle = errors.New("license: bundle is read-only")
 ```
 
@@ -550,7 +550,7 @@ func NewValidator(cfgDir string) (*Validator, error) { // keep existing signatur
 }
 ```
 
-And `cmd/apitest/license.go`'s `licenseConfigDir()` becomes a one-liner:
+And `cmd/curlew/license.go`'s `licenseConfigDir()` becomes a one-liner:
 
 ```go
 func licenseConfigDir() (string, error) {
@@ -572,7 +572,7 @@ func TestResolveConfigDir(t *testing.T) {
     }{
         {"bundle wins", "/b", "/c", "/b", true},
         {"config when no bundle", "", "/c", "/c", false},
-        {"fallback to userconfigdir", "", "", "apitesttool", false},
+        {"fallback to userconfigdir", "", "", "curlew", false},
     }
     // t.Setenv for each; assert.
 }
@@ -588,10 +588,10 @@ func TestReadOnlyStore_RefusesWrites(t *testing.T) {
 func TestKeyResolver_BundleJWKS(t *testing.T) {
     bundleDir := t.TempDir()
     cfgDir := t.TempDir()
-    // copy jwks_extra.json (kid=apitest-2025-02) into bundleDir/jwks.json
+    // copy jwks_extra.json (kid=curlew-2025-02) into bundleDir/jwks.json
     res, _ := NewKeyResolver(cfgDir, nil, func() bool { return true },
         WithBundleJWKS(filepath.Join(bundleDir, "jwks.json")))
-    _, src, err := res.Resolve("apitest-2025-02")
+    _, src, err := res.Resolve("curlew-2025-02")
     if err != nil { t.Fatal(err) }
     if src != SourceBundle { t.Errorf("src=%s want bundle", src) }
 }
@@ -606,11 +606,11 @@ func TestKeyResolver_BundleJWKS(t *testing.T) {
 | `TestKeyResolver_OfflineFails` | None. | No change. |
 | `TestKeyResolver_OnlineFetcherCachesResult` | None. | No change. |
 | `TestKeyResolver_SaveCached` | None. | No change. |
-| All tests in `cmd/apitest/license_test.go` that use `APITEST_CONFIG_DIR` | None — `ResolveConfigDir` preserves existing precedence. Add a clear-env: `t.Setenv("APITEST_LICENSE_BUNDLE", "")` in licenseTestSetup helper to avoid cross-test pollution. | Audit + add a safety line (see Test Impact Summary). |
+| All tests in `cmd/curlew/license_test.go` that use `CURLEW_CONFIG_DIR` | None — `ResolveConfigDir` preserves existing precedence. Add a clear-env: `t.Setenv("CURLEW_LICENSE_BUNDLE", "")` in licenseTestSetup helper to avoid cross-test pollution. | Audit + add a safety line (see Test Impact Summary). |
 
 ---
 
-### Step 5: `apitest license export --output` CLI wiring
+### Step 5: `curlew license export --output` CLI wiring
 
 **Rationale:** With the library in place, this is pure string-parsing + orchestration. One observable is unlocked by this step.
 
@@ -618,8 +618,8 @@ func TestKeyResolver_BundleJWKS(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/license.go` | modify | New `licenseExport(args []string) int`; register under `case "export":`; update `printLicenseHelp()` |
-| `cmd/apitest/license_test.go` | modify | Add export happy-path + error-path tests using `captureRun` |
+| `cmd/curlew/license.go` | modify | New `licenseExport(args []string) int`; register under `case "export":`; update `printLicenseHelp()` |
+| `cmd/curlew/license_test.go` | modify | Add export happy-path + error-path tests using `captureRun` |
 
 #### Current Code
 
@@ -656,7 +656,7 @@ default:
 ```
 
 ```go
-// licenseExport implements `apitest license export --output <file>`.
+// licenseExport implements `curlew license export --output <file>`.
 // Exit codes: 0 success; 2 no license / parent dir missing; 1 I/O error.
 func licenseExport(args []string) int {
     var output string
@@ -693,7 +693,7 @@ func licenseExport(args []string) int {
     rep, err := export.Write(context.Background(), cfgDir, f, time.Now)
     if err != nil {
         if errors.Is(err, export.ErrNoLicenseToExport) {
-            _, _ = fmt.Fprintln(os.Stderr, "error: no license to export; run `apitest login` first")
+            _, _ = fmt.Fprintln(os.Stderr, "error: no license to export; run `curlew login` first")
             return 2
         }
         _, _ = fmt.Fprintf(os.Stderr, "error: export failed: %v\n", err)
@@ -722,13 +722,13 @@ And `printLicenseHelp()` gains:
   export --output <file>   Export the cached license and embedded JWKS as a
                            gzipped tarball (license.json, jwks.json, README.txt)
                            for air-gapped use. On the target machine set
-                           APITEST_LICENSE_BUNDLE=<extracted-dir> to validate.
+                           CURLEW_LICENSE_BUNDLE=<extracted-dir> to validate.
 ```
 
 Plus an env-var block addition:
 
 ```
-  APITEST_LICENSE_BUNDLE=dir   Read license+JWKS from an extracted bundle (read-only)
+  CURLEW_LICENSE_BUNDLE=dir   Read license+JWKS from an extracted bundle (read-only)
 ```
 
 #### Tests to Write FIRST (RED phase)
@@ -737,8 +737,8 @@ Plus an env-var block addition:
 func TestLicenseExport_HappyPath(t *testing.T) {
     // setup cfg dir with valid license.json fixture
     out := filepath.Join(t.TempDir(), "bundle.tar.gz")
-    t.Setenv("APITEST_CONFIG_DIR", cfgDir)
-    t.Setenv("APITEST_LICENSE_BUNDLE", "")
+    t.Setenv("CURLEW_CONFIG_DIR", cfgDir)
+    t.Setenv("CURLEW_LICENSE_BUNDLE", "")
     stdout, _, rc := captureRun(t, "license", "export", "--output", out)
     if rc != 0 { t.Fatalf("rc=%d", rc) }
     if !strings.Contains(stdout, "Exporting license bundle...") { t.Error("missing header") }
@@ -748,16 +748,16 @@ func TestLicenseExport_HappyPath(t *testing.T) {
 }
 
 func TestLicenseExport_NoLicense(t *testing.T) {
-    t.Setenv("APITEST_CONFIG_DIR", t.TempDir())
+    t.Setenv("CURLEW_CONFIG_DIR", t.TempDir())
     _, stderr, rc := captureRun(t, "license", "export", "--output", filepath.Join(t.TempDir(), "x.tgz"))
     if rc != 2 { t.Fatalf("rc=%d", rc) }
     if !strings.Contains(stderr, "no license to export") { t.Error("missing message") }
-    if !strings.Contains(stderr, "apitest login") { t.Error("missing hint") }
+    if !strings.Contains(stderr, "curlew login") { t.Error("missing hint") }
 }
 
 func TestLicenseExport_OutputParentMissing(t *testing.T) {
     cfg := setupValidLicense(t)
-    t.Setenv("APITEST_CONFIG_DIR", cfg)
+    t.Setenv("CURLEW_CONFIG_DIR", cfg)
     _, stderr, rc := captureRun(t, "license", "export", "--output", "/nonexistent/dir/x.tgz")
     if rc != 2 { t.Fatalf("rc=%d", rc) }
     if !strings.Contains(stderr, "output directory does not exist") { t.Error(stderr) }
@@ -772,13 +772,13 @@ func TestLicenseExport_MissingOutputFlag(t *testing.T) {
 func TestLicenseHelp_DocumentsExport(t *testing.T) {
     stdout, _, rc := captureRun(t, "license", "--help")
     if rc != 0 || !strings.Contains(stdout, "export --output") { t.Error("missing export doc") }
-    if !strings.Contains(stdout, "APITEST_LICENSE_BUNDLE") { t.Error("missing env var doc") }
+    if !strings.Contains(stdout, "CURLEW_LICENSE_BUNDLE") { t.Error("missing env var doc") }
 }
 ```
 
 #### Impact on Existing Tests
-- `TestLicenseHelp` already asserts `--validate` and `APITEST_OFFLINE`. It keeps passing because we only *add* lines to help text. New test `TestLicenseHelp_DocumentsExport` covers the new content.
-- All `cmd/apitest/license_test.go` tests must ensure `APITEST_LICENSE_BUNDLE` is unset (or test-local) to avoid the bundle path leaking between tests. Add `t.Setenv("APITEST_LICENSE_BUNDLE", "")` to the shared setup block of existing tests (behavior-preserving).
+- `TestLicenseHelp` already asserts `--validate` and `CURLEW_OFFLINE`. It keeps passing because we only *add* lines to help text. New test `TestLicenseHelp_DocumentsExport` covers the new content.
+- All `cmd/curlew/license_test.go` tests must ensure `CURLEW_LICENSE_BUNDLE` is unset (or test-local) to avoid the bundle path leaking between tests. Add `t.Setenv("CURLEW_LICENSE_BUNDLE", "")` to the shared setup block of existing tests (behavior-preserving).
 
 ---
 
@@ -790,8 +790,8 @@ func TestLicenseHelp_DocumentsExport(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/license_test.go` | modify | `TestLicenseExportThenValidate`, `TestLicenseBundleGraceWarning` |
-| `cmd/apitest/license.go` | modify | In `licenseValidate()`, when `APITEST_LICENSE_BUNDLE` is set and the elapsed time since `LastValidatedAt` exceeds 30d, also print `"Bundle grace period expires in N days"` before exiting. |
+| `cmd/curlew/license_test.go` | modify | `TestLicenseExportThenValidate`, `TestLicenseBundleGraceWarning` |
+| `cmd/curlew/license.go` | modify | In `licenseValidate()`, when `CURLEW_LICENSE_BUNDLE` is set and the elapsed time since `LastValidatedAt` exceeds 30d, also print `"Bundle grace period expires in N days"` before exiting. |
 | `internal/license/validator.go` | modify | Add `FromBundle bool` to `Result` so the CLI can branch on it without re-reading env. |
 
 #### Current Code
@@ -810,7 +810,7 @@ type Result struct {
 type Result struct {
     State     State
     ...
-    FromBundle bool // true when loaded via APITEST_LICENSE_BUNDLE
+    FromBundle bool // true when loaded via CURLEW_LICENSE_BUNDLE
 }
 
 // Validator gains a FromBundle field populated by NewValidator.
@@ -824,7 +824,7 @@ type Validator struct {
 
 `Validate` sets `res.FromBundle = v.FromBundle`.
 
-`cmd/apitest/license.go` addition in `licenseValidate`:
+`cmd/curlew/license.go` addition in `licenseValidate`:
 
 ```go
 if res.FromBundle && (res.State == license.StateGracePeriod || res.State == license.StateGraceExpired) {
@@ -838,16 +838,16 @@ if res.FromBundle && (res.State == license.StateGracePeriod || res.State == lice
 
 ```go
 func TestLicenseExportThenValidate_RoundTrip(t *testing.T) {
-    // 1. set up a valid license in cfgA, APITEST_CONFIG_DIR=cfgA
+    // 1. set up a valid license in cfgA, CURLEW_CONFIG_DIR=cfgA
     // 2. run `license export --output /tmp/X/bundle.tgz`
     // 3. tar -xzf /tmp/X/bundle.tgz -C /tmp/Y   (or use readTarGz to extract)
-    // 4. unset APITEST_CONFIG_DIR; set APITEST_LICENSE_BUNDLE=/tmp/Y
+    // 4. unset CURLEW_CONFIG_DIR; set CURLEW_LICENSE_BUNDLE=/tmp/Y
     // 5. run `license --validate`; expect exit 0, State: VALID, stdout key source "bundle JWKS" OR "embedded JWKS" (embedded wins; acceptable).
     //    Accept either; primary assertion is exit 0 + State: VALID.
 }
 
 func TestLicenseBundleGraceWarning(t *testing.T) {
-    // same setup as above; additionally APITEST_LAST_VALIDATION_OVERRIDE=25d
+    // same setup as above; additionally CURLEW_LAST_VALIDATION_OVERRIDE=25d
     // assert stderr contains "Bundle grace period expires in 5 days"
     // assert exit 0
 }
@@ -879,29 +879,29 @@ func TestLicenseBundleGraceWarning(t *testing.T) {
 ```bash
 echo "=== License Bundle Export (M5-014) ==="
 
-BUNDLE_DIR=$(mktemp -d /tmp/apitest_bundle_XXXXXX)
+BUNDLE_DIR=$(mktemp -d /tmp/curlew_bundle_XXXXXX)
 BUNDLE_FILE="$BUNDLE_DIR/bundle.tar.gz"
 
 # Export using the same fixture license dir as the offline tests.
-export APITEST_CONFIG_DIR="$LICENSE_CFG"
-unset APITEST_LICENSE_BUNDLE
-OUT=$(./apitest license export --output "$BUNDLE_FILE" 2>&1)
+export CURLEW_CONFIG_DIR="$LICENSE_CFG"
+unset CURLEW_LICENSE_BUNDLE
+OUT=$(./curlew license export --output "$BUNDLE_FILE" 2>&1)
 echo "$OUT" | grep -q "Wrote $BUNDLE_FILE" \
   && echo "PASS: bundle exported" || { echo "FAIL: export — $OUT"; exit 1; }
 
 # Extract and validate offline on a "fresh machine" (empty config dir).
-EXTRACT_DIR=$(mktemp -d /tmp/apitest_extract_XXXXXX)
+EXTRACT_DIR=$(mktemp -d /tmp/curlew_extract_XXXXXX)
 tar -xzf "$BUNDLE_FILE" -C "$EXTRACT_DIR"
 [ -f "$EXTRACT_DIR/license.json" ] && [ -f "$EXTRACT_DIR/jwks.json" ] && [ -f "$EXTRACT_DIR/README.txt" ] \
   && echo "PASS: bundle contains all 3 files" || { echo "FAIL: missing bundle members"; exit 1; }
 
-unset APITEST_CONFIG_DIR
-export APITEST_LICENSE_BUNDLE="$EXTRACT_DIR"
-OUT=$(APITEST_OFFLINE=1 APITEST_LAST_VALIDATION_OVERRIDE=1h ./apitest license --validate 2>&1)
+unset CURLEW_CONFIG_DIR
+export CURLEW_LICENSE_BUNDLE="$EXTRACT_DIR"
+OUT=$(CURLEW_OFFLINE=1 CURLEW_LAST_VALIDATION_OVERRIDE=1h ./curlew license --validate 2>&1)
 echo "$OUT" | grep -q "State: VALID" \
   && echo "PASS: bundle validates offline" || { echo "FAIL: bundle validate — $OUT"; exit 1; }
 
-unset APITEST_LICENSE_BUNDLE
+unset CURLEW_LICENSE_BUNDLE
 ```
 
 #### Impact on Existing Tests
@@ -916,8 +916,8 @@ unset APITEST_LICENSE_BUNDLE
 | `internal/license/resolver_test.go` | existing 5 tests | none (variadic opts preserve signature) | no change |
 | `internal/license/store_test.go` | existing tests | none | add `TestReadOnlyStore_RefusesWrites` (new) |
 | `internal/license/validator_test.go` | existing tests | none (new field defaults to false) | audit — likely no change |
-| `cmd/apitest/license_test.go` | existing 10 tests | minor — bundle env must be explicitly cleared | prepend `t.Setenv("APITEST_LICENSE_BUNDLE", "")` in existing tests that set `APITEST_CONFIG_DIR` |
-| `cmd/apitest/license_test.go` | new tests | — | add 7 new tests (Step 5 x5, Step 6 x2) |
+| `cmd/curlew/license_test.go` | existing 10 tests | minor — bundle env must be explicitly cleared | prepend `t.Setenv("CURLEW_LICENSE_BUNDLE", "")` in existing tests that set `CURLEW_CONFIG_DIR` |
+| `cmd/curlew/license_test.go` | new tests | — | add 7 new tests (Step 5 x5, Step 6 x2) |
 | `internal/license/paths_test.go` | new file | — | 3 table cases |
 | `internal/license/export/*_test.go` | new files | — | archive_test (3 cases), bundle_test (4 cases), export_test (3 cases) = **10 tests** — hits the ≥6 bar |
 | `smoke/run.sh` | new section | none (additive) | ensure `EXTRACT_DIR`/`BUNDLE_*` cleanup on success |
@@ -925,25 +925,25 @@ unset APITEST_LICENSE_BUNDLE
 ## Risks and Edge Cases
 
 - **Risk:** Changing `NewKeyResolver` signature breaks callers. → **Mitigation:** Add options via variadic, keep the three positional params identical. All existing call sites compile unchanged.
-- **Risk:** `APITEST_LICENSE_BUNDLE` leaks across tests in the same package via `os.Setenv`. → **Mitigation:** Always use `t.Setenv`, and prepend an explicit `t.Setenv("APITEST_LICENSE_BUNDLE", "")` to existing tests that rely on `APITEST_CONFIG_DIR`.
+- **Risk:** `CURLEW_LICENSE_BUNDLE` leaks across tests in the same package via `os.Setenv`. → **Mitigation:** Always use `t.Setenv`, and prepend an explicit `t.Setenv("CURLEW_LICENSE_BUNDLE", "")` to existing tests that rely on `CURLEW_CONFIG_DIR`.
 - **Risk:** The tarball is not reproducible byte-for-byte (ModTime differs). → **Mitigation:** Bundle reproducibility is not in scope. If we need it later, the `Bundle.Created` field gives us one knob to fix it.
 - **Edge case:** `--output` path has no parent (e.g. `bundle.tar.gz` with cwd-relative). → **Handling:** We skip the parent-existence check when `filepath.Dir(output)` is `"."` or empty.
-- **Edge case:** The license file on disk is a *bundle* copy (user sets `APITEST_LICENSE_BUNDLE` then runs `license export`). → **Handling:** Allowed — `Write` reads by path, so re-exporting an imported bundle works. Smoke is still clean because export writes to a *new* file.
+- **Edge case:** The license file on disk is a *bundle* copy (user sets `CURLEW_LICENSE_BUNDLE` then runs `license export`). → **Handling:** Allowed — `Write` reads by path, so re-exporting an imported bundle works. Smoke is still clean because export writes to a *new* file.
 - **Edge case:** Empty `--output` path (e.g. `--output ""`). → **Handling:** Treated as missing; exit 2 with the same message as "no output".
 - **Edge case:** Output file already exists. → **Handling:** We open with `O_CREATE|O_WRONLY|O_TRUNC`, overwriting silently. This matches Unix conventions; the executor may optionally add an `--overwrite` guard later but the task does not require it.
 - **Edge case:** README.txt hard-codes a date that goes stale. → **Mitigation:** Render README at export time using `now()` so its "Generated on YYYY-MM-DD" line is accurate; the rest is static.
 - **Edge case:** JWKS from bundle differs from embedded (future key rotation). → **Handling:** Bundle source ranks above cache but below embedded; if embedded already has the kid, we use it. Bundle wins only for kids not in the embedded set.
-- **Risk:** `--validate` with `APITEST_LICENSE_BUNDLE` pointing at a dir missing `license.json`. → **Mitigation:** `Store.Load` returns `ErrNoLicense`, validator emits `State: NO_LICENSE`, CLI prints "no license" and exits 2. Same as today.
-- **Edge case:** `APITEST_LICENSE_BUNDLE` points at a **file** rather than a directory. → **Handling:** `os.ReadFile(filepath.Join(path, "license.json"))` returns an error that is *not* `os.ErrNotExist` (it's `ENOTDIR`). The store surfaces the raw error wrapped as "read license". CLI exits 1 with a clear message.
+- **Risk:** `--validate` with `CURLEW_LICENSE_BUNDLE` pointing at a dir missing `license.json`. → **Mitigation:** `Store.Load` returns `ErrNoLicense`, validator emits `State: NO_LICENSE`, CLI prints "no license" and exits 2. Same as today.
+- **Edge case:** `CURLEW_LICENSE_BUNDLE` points at a **file** rather than a directory. → **Handling:** `os.ReadFile(filepath.Join(path, "license.json"))` returns an error that is *not* `os.ErrNotExist` (it's `ENOTDIR`). The store surfaces the raw error wrapped as "read license". CLI exits 1 with a clear message.
 - **Risk:** Behavior 6 (tamper → exit 6). Already covered transitively — tampering the extracted `license.json` fails `VerifyRS256` which maps to `ErrSignatureInvalid` and exit 6 in `licenseValidate`. We add a dedicated test to confirm this path survives the refactor.
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/license/export/...
 go test ./internal/license/...
-go test ./cmd/apitest/...
+go test ./cmd/curlew/...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
 ```
@@ -952,7 +952,7 @@ Observable verification (from task YAML):
 
 ```bash
 # 1. export works
-./apitest license export --output bundle.tar.gz
+./curlew license export --output bundle.tar.gz
 # Expected stdout:
 #   Exporting license bundle...
 #   Included: license token (valid until YYYY-MM-DD), JWKS (1 keys)
@@ -964,9 +964,9 @@ tar -tzf bundle.tar.gz
 
 # 3. import and validate on a "fresh" dir
 mkdir /tmp/extracted && tar -xzf bundle.tar.gz -C /tmp/extracted
-APITEST_LICENSE_BUNDLE=/tmp/extracted APITEST_OFFLINE=1 ./apitest license --validate
+CURLEW_LICENSE_BUNDLE=/tmp/extracted CURLEW_OFFLINE=1 ./curlew license --validate
 # Expected: exit 0, State: VALID
 
 # 4. help documents the new command + env var
-./apitest license --help | grep -E 'export --output|APITEST_LICENSE_BUNDLE'
+./curlew license --help | grep -E 'export --output|CURLEW_LICENSE_BUNDLE'
 ```

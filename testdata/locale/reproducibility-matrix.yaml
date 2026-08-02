@@ -3,7 +3,7 @@ description: |
   Worked example for the M20 seed/locale reproducibility guarantee. Run with a
   fixed seed and a configured locale; the same seed always produces the same
   localized faker values. Demonstrated here for de-DE (German):
-    ./apitest run testdata/locale/reproducibility-matrix.yaml --seed 12345
+    ./curlew run testdata/locale/reproducibility-matrix.yaml --seed 12345
   The exhaustive all-15-locale proof lives in
   internal/variable TestLocale_ReproducibilityMatrix.
 config:

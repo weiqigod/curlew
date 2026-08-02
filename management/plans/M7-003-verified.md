@@ -20,7 +20,7 @@
 
 ```
 # unknown-command test
-$ ./apitest unknown-command > /tmp/out.txt 2> /tmp/err.txt || true
+$ ./curlew unknown-command > /tmp/out.txt 2> /tmp/err.txt || true
 $ wc -c /tmp/out.txt
        0 /tmp/out.txt
 $ grep -c "Usage:" /tmp/err.txt
@@ -29,7 +29,7 @@ $ grep -c "Unknown command" /tmp/err.txt
 1
 
 # --help test
-$ ./apitest --help > /tmp/out.txt 2> /tmp/err.txt
+$ ./curlew --help > /tmp/out.txt 2> /tmp/err.txt
 $ wc -c /tmp/err.txt
        0 /tmp/err.txt
 $ grep -c "Commands:" /tmp/out.txt
@@ -43,20 +43,20 @@ Result: MATCH
 
 | # | Behavior | Test | Status |
 |---|----------|------|--------|
-| 1 | apitest <unknown-command>: stderr has error AND synopsis; stdout empty | `TestStreamHelp/top_level_unknown_command` | PASS |
-| 2 | apitest plugins <unknown-subcommand>: stderr has error AND synopsis; stdout empty | `TestStreamHelp/plugins_unknown_subcommand` | PASS |
-| 3 | apitest perf with malformed flag: stderr has parse error AND synopsis; stdout empty | `TestStreamHelp/perf_malformed_flag` | PASS |
-| 4 | apitest worker with malformed flag: stderr has parse error AND synopsis; stdout empty | `TestStreamHelp/worker_malformed_flag` | PASS |
-| 5 | apitest import no args: stderr has synopsis; stdout empty | `TestStreamHelp/import_no_args` | PASS |
-| 6 | apitest --help (explicit): stdout has full help, stderr empty, exit 0 | `TestStreamHelp/top_level_explicit_help` | PASS |
-| 7 | apitest plugins --help and apitest perf --help: stdout has subcommand help, stderr empty, exit 0 | `TestStreamHelp/plugins_explicit_help`, `TestStreamHelp/perf_explicit_help` | PASS |
+| 1 | curlew <unknown-command>: stderr has error AND synopsis; stdout empty | `TestStreamHelp/top_level_unknown_command` | PASS |
+| 2 | curlew plugins <unknown-subcommand>: stderr has error AND synopsis; stdout empty | `TestStreamHelp/plugins_unknown_subcommand` | PASS |
+| 3 | curlew perf with malformed flag: stderr has parse error AND synopsis; stdout empty | `TestStreamHelp/perf_malformed_flag` | PASS |
+| 4 | curlew worker with malformed flag: stderr has parse error AND synopsis; stdout empty | `TestStreamHelp/worker_malformed_flag` | PASS |
+| 5 | curlew import no args: stderr has synopsis; stdout empty | `TestStreamHelp/import_no_args` | PASS |
+| 6 | curlew --help (explicit): stdout has full help, stderr empty, exit 0 | `TestStreamHelp/top_level_explicit_help` | PASS |
+| 7 | curlew plugins --help and curlew perf --help: stdout has subcommand help, stderr empty, exit 0 | `TestStreamHelp/plugins_explicit_help`, `TestStreamHelp/perf_explicit_help` | PASS |
 
 ## Definition of Done
 
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All behavior tests pass | `TestStreamHelp` 11 subtests PASS | PASS |
-| 2 | cmd/apitest/stream_help_test.go exercises both explicit --help and error-path invocations | File exists, 11 subtests covering main/plugins/perf/worker/import | PASS |
+| 2 | cmd/curlew/stream_help_test.go exercises both explicit --help and error-path invocations | File exists, 11 subtests covering main/plugins/perf/worker/import | PASS |
 | 3 | Each of the four print*Help functions takes an io.Writer parameter | `printHelpTo(w io.Writer)`, `printPluginsHelpTo(w io.Writer)`, `printPerfHelpTo(w io.Writer)`, `printWorkerHelpTo(w io.Writer)` | PASS |
 | 4 | usageSynopsis helper exists in main.go and is reused by every error-recovery site | `usageSynopsis(cmd string)` at main.go:3142, used at all 5 error sites | PASS |
 | 5 | Explicit --help writes to stdout; error-recovery writes synopsis to stderr | Verified by TestStreamHelp subtests and observable | PASS |
@@ -103,12 +103,12 @@ Branch A: Review PASS trusted (management/reviews/M7-003-review.md), spot-check 
 
 | File | Action |
 |------|--------|
-| `cmd/apitest/main.go` | modified — usageSynopsis helper, printHelpTo(w io.Writer), error-recovery sites rewired |
-| `cmd/apitest/perf.go` | modified — printPerfHelpTo(w io.Writer), perf error site rewired |
-| `cmd/apitest/plugins.go` | modified — printPluginsHelpTo(w io.Writer), plugins error site rewired |
-| `cmd/apitest/worker.go` | modified — printWorkerHelpTo(w io.Writer), worker error site rewired |
-| `cmd/apitest/stream_help_test.go` | added — TestStreamHelp (11 subtests), TestUsageSynopsis_* |
-| `cmd/apitest/main_test.go` | modified — TestUsageSynopsis tests moved/added |
+| `cmd/curlew/main.go` | modified — usageSynopsis helper, printHelpTo(w io.Writer), error-recovery sites rewired |
+| `cmd/curlew/perf.go` | modified — printPerfHelpTo(w io.Writer), perf error site rewired |
+| `cmd/curlew/plugins.go` | modified — printPluginsHelpTo(w io.Writer), plugins error site rewired |
+| `cmd/curlew/worker.go` | modified — printWorkerHelpTo(w io.Writer), worker error site rewired |
+| `cmd/curlew/stream_help_test.go` | added — TestStreamHelp (11 subtests), TestUsageSynopsis_* |
+| `cmd/curlew/main_test.go` | modified — TestUsageSynopsis tests moved/added |
 | `CHANGELOG.md` | modified — unreleased entry for M7-003 |
 
 ## Issues Found
@@ -118,7 +118,7 @@ None.
 
 | Field | Value |
 |-------|-------|
-| PR | https://github.com/weiqigod/apitest/pull/115 |
+| PR | https://github.com/weiqigod/curlew/pull/115 |
 | Merge commit | a27c344 |
 | Strategy | squash |
 | Merged to | main |

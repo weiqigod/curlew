@@ -331,7 +331,7 @@ describe('applyEvent — run-level events', () => {
     ...header(1, 0),
     kind: 'run.start',
     started_at: '2026-06-11T09:30:00Z',
-    apitest_version: '1.0.0',
+    curlew_version: '1.0.0',
     cli_args: ['run', 'collections/users.yaml'],
   };
   const runEnd: RunEndEvent = {
@@ -368,7 +368,7 @@ describe('replay idempotency', () => {
         ...header(1, 0),
         kind: 'run.start',
         started_at: '2026-06-11T09:30:00Z',
-        apitest_version: '1.0.0',
+        curlew_version: '1.0.0',
         cli_args: ['run', 'collections/users.yaml'],
       },
       reqStart(2, 1, 'req-1', 'get-token'),

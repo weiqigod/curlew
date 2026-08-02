@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/jsonpath"
+	"github.com/weiqigod/curlew/internal/jsonpath"
 )
 
 // Result represents the outcome of a single assertion.

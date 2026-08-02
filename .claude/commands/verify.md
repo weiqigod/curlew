@@ -67,7 +67,7 @@ Read the `observable` field from the task YAML. Execute the exact observable sce
 
 1. Build the binary (if not already built):
    ```bash
-   go build -o ./apitest ./cmd/apitest
+   go build -o ./curlew ./cmd/curlew
    ```
 2. Run the observable command from the task YAML
 3. Verify the output matches expectations

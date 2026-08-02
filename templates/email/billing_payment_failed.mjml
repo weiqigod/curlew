@@ -9,7 +9,7 @@
         <mj-text>
           We were unable to process your payment of {{amount_total}}.
           This is attempt {{attempt_count}}. Please update your payment method to avoid
-          any interruption to your ApiTool subscription.
+          any interruption to your Curlew subscription.
         </mj-text>
         <mj-button href="{{update_payment_url}}" background-color="#cc3300" font-size="16px">
           Update payment method

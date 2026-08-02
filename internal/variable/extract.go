@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sort"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
-	"github.com/peterlindqvist/apitest/internal/jsonpath"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/jsonpath"
 )
 
 // Sentinel errors for variable extraction failures.

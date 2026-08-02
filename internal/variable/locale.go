@@ -6,7 +6,7 @@ import (
 	"math/rand/v2"
 	"strings"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // localeData holds the per-locale generation pools. Pools that a given locale

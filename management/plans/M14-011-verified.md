@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, no warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, no warnings |
 | `go test ./...` | PASS | All packages pass (cached) |
 | `dotnet test` (full suite) | PASS | 798 passed, 8 skipped, 0 failed |
 | `dotnet test --filter StripeWebhookIngest` | PASS | 30 tests, 3.18s |

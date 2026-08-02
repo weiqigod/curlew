@@ -21,7 +21,7 @@
 ## Observable Output
 
 ```
-$ ./apitest run /tmp/dd_test.yaml
+$ ./curlew run /tmp/dd_test.yaml
 Collection: Data-Driven Observable Test
 [ERROR] Data-driven testing requires Professional tier ($19/month)
 Exit code: 6
@@ -105,7 +105,7 @@ Review PASS trusted (management/reviews/M2-019-review.md, iteration 2), spot-che
 
 | File | Action | Lines +/- |
 |------|--------|-----------|
-| `cmd/apitest/main.go` | modified | +25/-22 |
+| `cmd/curlew/main.go` | modified | +25/-22 |
 | `internal/auth/gate_test.go` | modified | +29/-0 |
 | `internal/auth/registry.go` | modified | +6/-0 |
 | `internal/datadriven/csv.go` | created | +66/-0 |

@@ -8,19 +8,19 @@ dependencies:
   - M14-003
   - M14-004
 observable: |
-  go build ./cmd/apitest
+  go build ./cmd/curlew
   go test ./internal/license/... -count=1
   # Expected: ok, >=12 tests (existing + new JWKS tests)
   ./testdata/m14/stub-backend.sh start
-  ./apitest license --validate testdata/m14/sample-license.jwt
+  ./curlew license --validate testdata/m14/sample-license.jwt
   # Expected stdout: "License valid; tier=solo; kid=dev-es256-202605-a3f4d2; jwks=cached"
-  # Exit 0; ~/.config/apitesttool/jwks_cache.json now contains the keys
+  # Exit 0; ~/.config/curlew/jwks_cache.json now contains the keys
   ./testdata/m14/stub-backend.sh stop
-  ./apitest license --validate testdata/m14/sample-license.jwt
+  ./curlew license --validate testdata/m14/sample-license.jwt
   # Expected: same success — backend is down but jwks_cache.json + embedded JWKS suffice
   # Exit 0
 behaviors:
-  - "Given an empty jwks_cache.json and a reachable backend, when offline verification needs a kid not in the embedded JWKS, then the CLI fetches /api/v1/.well-known/jwks.json, persists it to ~/.config/apitesttool/jwks_cache.json, and verifies"
+  - "Given an empty jwks_cache.json and a reachable backend, when offline verification needs a kid not in the embedded JWKS, then the CLI fetches /api/v1/.well-known/jwks.json, persists it to ~/.config/curlew/jwks_cache.json, and verifies"
   - "Given jwks_cache.json exists and contains the required kid, when offline verification runs, then no network call is made and verification succeeds"
   - "Given a JWT signed with a kid not in either the embedded JWKS or jwks_cache.json AND the backend is unreachable, when verification runs, then VerifyJWT returns ErrKeyNotFound and the CLI exits 6 (per existing license validation taxonomy)"
   - "Given the JWS header alg is not in the allowlist {ES256}, when VerifyJWT runs, then it rejects with InvalidAlgorithm without attempting key lookup"
@@ -33,7 +33,7 @@ scope: |
   the v4.2 algorithm-agnostic verifier requirement at
   docs/SPECIFICATION.md:7990. The verifier dispatches on JWS header alg with
   initial allowlist {"ES256"} and rejects all others. JWKS cache file at
-  ~/.config/apitesttool/jwks_cache.json (mode 0600). Embedded JWKS continues
+  ~/.config/curlew/jwks_cache.json (mode 0600). Embedded JWKS continues
   to ship in the binary as the primary fallback for the SaaS issuer's current
   key; the cache extends coverage to additional/rotated kids. Online refresh
   is best-effort — failures are non-fatal so long as a valid kid is locally

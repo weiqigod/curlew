@@ -8,27 +8,27 @@ created: 2026-04-14
 phase: "M4: Team Tier"
 dependencies: []
 observable: |
-  go build ./cmd/apitest && \
-    ./apitest validate testdata/team/shared-vault-template.yaml
+  go build ./cmd/curlew && \
+    ./curlew validate testdata/team/shared-vault-template.yaml
   # Expected: "OK: shared vault template valid (2 environments, 4 secrets)" exit 0
-  # And: ./apitest validate testdata/team/shared-vault-template.invalid.yaml
+  # And: ./curlew validate testdata/team/shared-vault-template.invalid.yaml
   # Expected: "error: team_secrets.vault_configs.production.provider: unknown provider 'foo'"
   # exit code 2
   go test ./internal/vault/teamtemplate/... -run TestTeamTemplate -count=1
   # Expected: ok with >=8 tests passing
 behaviors:
-  - "Given a YAML file containing a top-level team_secrets.vault_configs map with two environments, when apitest validate is run, then the command exits 0 and prints a one-line summary naming each environment"
-  - "Given a template where a vault_configs entry specifies an unknown provider value, when apitest validate is run, then the command exits 2 with an error naming the offending key path team_secrets.vault_configs.<env>.provider"
+  - "Given a YAML file containing a top-level team_secrets.vault_configs map with two environments, when curlew validate is run, then the command exits 0 and prints a one-line summary naming each environment"
+  - "Given a template where a vault_configs entry specifies an unknown provider value, when curlew validate is run, then the command exits 2 with an error naming the offending key path team_secrets.vault_configs.<env>.provider"
   - "Given a template where a keys entry references a compound secret with the '#' field syntax (e.g. prod/db-credentials#password), when parsed, then the parser records both the secret path and the field name without error"
   - "Given a template with an aws-secrets-manager provider that omits the region field, when validated, then the validator emits a single error identifying the missing required field for that provider"
   - "Given a template with an azure-key-vault provider that omits vault_name, when validated, then the validator emits a single error identifying the missing required field for that provider"
   - "Given a valid template file, when loaded into the TeamTemplate struct, then env.Resolve(name) returns the provider plus key mappings for the named environment"
   - "Given a template that duplicates a key alias (e.g. api_key) within the same environment, when validated, then the validator reports the duplicate and fails"
-  - "Given apitest validate --help, when invoked, then the help output mentions support for shared vault config templates"
+  - "Given curlew validate --help, when invoked, then the help output mentions support for shared vault config templates"
 scope: |
   Introduce a new internal/vault/teamtemplate package that parses, validates,
-  and exposes the team_secrets.vault_configs section from apitest.yaml. Extend
-  the existing `apitest validate` subcommand in cmd/apitest so that when the
+  and exposes the team_secrets.vault_configs section from curlew.yaml. Extend
+  the existing `curlew validate` subcommand in cmd/curlew so that when the
   provided file contains team_secrets, the command dispatches to the new
   team-template validator. Providers supported in this slice: aws-secrets-manager
   (requires region) and azure-key-vault (requires vault_name). Fixtures live
@@ -36,10 +36,10 @@ scope: |
   the file format; resolution is M4-002.
 definition_of_done:
   - "All 8 behavior tests pass under go test ./internal/vault/teamtemplate/..."
-  - "apitest validate recognises team_secrets files and prints a one-line success summary"
+  - "curlew validate recognises team_secrets files and prints a one-line success summary"
   - "Invalid-template fixtures produce deterministic error messages with key paths"
   - "testdata/team/shared-vault-template.yaml and .invalid.yaml checked in"
-  - "apitest validate --help mentions shared vault template support"
+  - "curlew validate --help mentions shared vault template support"
   - "smoke/run.sh validates the new fixture in its CI path"
 complexity: medium
 estimated_effort: "4-6 hours"

@@ -1,5 +1,5 @@
 id: M14-006
-title: "CLI: apitest license --refresh + --debug + 8-code exit taxonomy"
+title: "CLI: curlew license --refresh + --debug + 8-code exit taxonomy"
 status: done
 priority: 1
 created: 2026-05-03
@@ -7,32 +7,32 @@ phase: "M14: Revenue plumbing"
 dependencies:
   - M14-005
 observable: |
-  go build ./cmd/apitest
-  go test ./cmd/apitest/... -run TestLicenseRefresh -count=1
+  go build ./cmd/curlew
+  go test ./cmd/curlew/... -run TestLicenseRefresh -count=1
   # Expected: ok, >=10 tests
   ./testdata/m14/stub-backend.sh start
-  ./apitest login --no-browser   # primes the cache via M14-005
-  ./apitest license --refresh
+  ./curlew login --no-browser   # primes the cache via M14-005
+  ./curlew license --refresh
   echo "exit=$?"
   # Expected: stdout "License refreshed. Tier=solo. Expires in 30 days."; exit 0
-  ./apitest license --debug
+  ./curlew license --debug
   # Expected stdout JSON includes: jti, kid, tier, exp, grace_until, refresh_failures, lastRefreshAttemptAt
   # Force a 5xx via the stub to exercise exit-code 6:
   ./testdata/m14/stub-backend.sh inject 500
-  ./apitest license --refresh; echo "exit=$?"
+  ./curlew license --refresh; echo "exit=$?"
   # Expected: stderr 'license refresh failed, will retry next invocation'; exit 6
   ./testdata/m14/stub-backend.sh stop
 behaviors:
-  - "Given a valid refresh-token cache, when apitest license --refresh succeeds, then the three new tokens are persisted via internal/backend storage and the command exits 0 with the documented stdout"
-  - "Given no refresh-token cache exists, when apitest license --refresh runs, then it prints 'No cache; run apitest login' and exits 2"
-  - "Given the backend is unreachable, when apitest license --refresh runs, then it logs a warning and exits 3 (network failure); a subsequent apitest run continues to succeed because the License JWT is offline-verified"
-  - "Given the backend returns AUTH_REFRESH_EXPIRED, when --refresh runs, then the command exits 4 with 'Refresh expired; run apitest login'"
+  - "Given a valid refresh-token cache, when curlew license --refresh succeeds, then the three new tokens are persisted via internal/backend storage and the command exits 0 with the documented stdout"
+  - "Given no refresh-token cache exists, when curlew license --refresh runs, then it prints 'No cache; run curlew login' and exits 2"
+  - "Given the backend is unreachable, when curlew license --refresh runs, then it logs a warning and exits 3 (network failure); a subsequent curlew run continues to succeed because the License JWT is offline-verified"
+  - "Given the backend returns AUTH_REFRESH_EXPIRED, when --refresh runs, then the command exits 4 with 'Refresh expired; run curlew login'"
   - "Given the backend returns AUTH_REFRESH_REUSED, when --refresh runs, then the command exits 5 with the family-revocation message and prompts re-auth"
   - "Given the backend returns 5xx, when --refresh runs, then the command exits 6 (server error) and the previous License JWT remains valid"
   - "Given AUTH_DEVICE_MISMATCH or no device.json present, when --refresh runs, then the command exits 7 (device not registered)"
-  - "Given apitest license --debug runs, when invoked, then it prints decoded License JWT claims, the active kid from the JWS header, the cache file path, and the type-URL of any most-recent error for navigation"
+  - "Given curlew license --debug runs, when invoked, then it prints decoded License JWT claims, the active kid from the JWS header, the cache file path, and the type-URL of any most-recent error for navigation"
 scope: |
-  Replaces the placeholder branches in cmd/apitest/license.go:28–30 and wires
+  Replaces the placeholder branches in cmd/curlew/license.go:28–30 and wires
   the full --refresh and --debug surfaces. Maps backend RFC 7807 codes to
   exit codes per docs/SPECIFICATION.md:8275–8284 (8-code taxonomy 0–7). Calls
   /api/v1/auth/refresh via internal/backend. The --debug branch decodes the
@@ -40,11 +40,11 @@ scope: |
   grace_until, and surfaces ProblemDetails.Type for one-click docs lookup per
   :8267. Exit codes 3 and 6 are non-fatal for normal CLI operation.
 definition_of_done:
-  - "go test ./cmd/apitest/... -run TestLicenseRefresh passes with >=10 tests"
+  - "go test ./cmd/curlew/... -run TestLicenseRefresh passes with >=10 tests"
   - "Real binary invocation against stub produces the documented exit codes for at least the success, 2, 3, 5, 6, and 7 paths"
   - "Help text for `license --refresh` and `license --debug` lists every exit code with one-line meaning"
   - "MANUAL.md updated with the 8-code exit-taxonomy table"
-  - "docs/SPECIFICATION.md:8269–8284 cited in cmd/apitest/license.go header"
+  - "docs/SPECIFICATION.md:8269–8284 cited in cmd/curlew/license.go header"
   - "smoke/run.sh extended to verify --refresh exits 2 when no cache exists"
 complexity: medium
 estimated_effort: "5-8 hours"

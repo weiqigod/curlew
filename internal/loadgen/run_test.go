@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/httpexec"
 )
 
 func TestRun_VUsExecuteUntilDeadline(t *testing.T) {

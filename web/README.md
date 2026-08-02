@@ -1,6 +1,6 @@
-# ApiTool Web
+# Curlew Web
 
-SvelteKit-based web dashboard for ApiTool's team tier.
+SvelteKit-based web dashboard for Curlew's team tier.
 
 ## Requirements
 
@@ -34,7 +34,7 @@ npm run build
 Copy `.env.example` to `.env` and set:
 
 ```
-PUBLIC_API_URL=http://localhost:5000   # ApiTool backend URL
+PUBLIC_API_URL=http://localhost:5000   # Curlew backend URL
 ```
 
 ## Running E2E Tests
@@ -45,7 +45,7 @@ The E2E spec at `tests/e2e/org-results.spec.ts` requires a running backend + web
 
 ```bash
 # Build and start the docker-compose test stack, then run the spec
-APITOOL_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-results.spec.ts
+CURLEW_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-results.spec.ts
 
 # Tear down when done
 cd .. && ./scripts/test-stack.sh down

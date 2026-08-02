@@ -29,7 +29,7 @@ Note: The full `ci-local.sh` gate exits with failure at the E2E/docker stage bec
 Expected: a string matching `^[a-z0-9-]{1,64}$`
 Result: MATCH — `smoke-es256-202605-f670cc` matches the pattern
 
-Run used `ASPNETCORE_ENVIRONMENT=Development` with `APITOOL__KEYPROVIDER__MODE=file` and a temp key directory. Note: `ASPNETCORE_ENVIRONMENT=Testing` cannot start the backend standalone because that environment skips `AddDbContext` registration by design (it is configured by the test host `BackendFactory`). The observable from the task YAML is functionally equivalent when run with `Development` environment.
+Run used `ASPNETCORE_ENVIRONMENT=Development` with `CURLEW__KEYPROVIDER__MODE=file` and a temp key directory. Note: `ASPNETCORE_ENVIRONMENT=Testing` cannot start the backend standalone because that environment skips `AddDbContext` registration by design (it is configured by the test host `BackendFactory`). The observable from the task YAML is functionally equivalent when run with `Development` environment.
 
 ## Behaviors Verified
 
@@ -53,7 +53,7 @@ Run used `ASPNETCORE_ENVIRONMENT=Development` with `APITOOL__KEYPROVIDER__MODE=f
 | 4 | Migration applied to staging DB and rolled back cleanly | SQLite migration applied during test runs; `Down()` implemented | PASS |
 | 5 | deploy/self-hosted/README.md gains FileKeyProvider key-generation procedure | Section added; runbook includes emergency-rotation curl invocation | PASS |
 | 6 | docs/SPECIFICATION.md:7990–8090 cited in implementation file headers | Present in `KeyId.cs`, `FileKeyProvider.cs`, `IKeyProvider.cs`, `SigningKey.cs` | PASS |
-| 7 | Smoke test smoke/run.sh verifies backend boots with FileKeyProvider in CI | Backend smoke probe added behind `APITEST_RUN_BACKEND_SMOKE=1` guard | PASS |
+| 7 | Smoke test smoke/run.sh verifies backend boots with FileKeyProvider in CI | Backend smoke probe added behind `CURLEW_RUN_BACKEND_SMOKE=1` guard | PASS |
 
 ## Code Review
 

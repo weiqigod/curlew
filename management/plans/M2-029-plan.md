@@ -167,7 +167,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/peterlindqvist/apitest/internal/parser"
+	"github.com/weiqigod/curlew/internal/parser"
 )
 
 // ErrorHandlingMode controls how GraphQL errors in responses are treated.
@@ -652,7 +652,7 @@ Looking at the existing `assertion.Detail` struct -- it already has a `Type` fie
 #### New Code
 ```bash
 echo "--- Running GraphQL collection (expect exit 6 - feature gate) ---"
-GQL_FILE=$(mktemp /tmp/apitest_gql_XXXXXX.yaml)
+GQL_FILE=$(mktemp /tmp/curlew_gql_XXXXXX.yaml)
 cat > "$GQL_FILE" << 'YAML'
 name: GraphQL Gate Test
 requests:
@@ -663,7 +663,7 @@ requests:
       graphql:
         query: "query { hello }"
 YAML
-./apitest run "$GQL_FILE" 2>&1 && echo "ERROR: should have failed" || echo "Exit code: $?"
+./curlew run "$GQL_FILE" 2>&1 && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$GQL_FILE"
 echo
 ```
@@ -700,7 +700,7 @@ No existing tests break. All changes are additive.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -721,7 +721,7 @@ requests:
 YAML
 
 # Run at Free tier (expect exit code 6 - feature gate)
-apitest run /tmp/graphql_test.yaml
+curlew run /tmp/graphql_test.yaml
 echo "Exit code: $?"
 
 # Run unit tests for GraphQL adapter

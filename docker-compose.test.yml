@@ -6,18 +6,18 @@ services:
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:5000
       ASPNETCORE_ENVIRONMENT: Development
-      APITOOL__APP__WEBAPPURL: http://localhost:3000
+      CURLEW__APP__WEBAPPURL: http://localhost:3000
       # Keep the private half of the development signing key beside the SQLite
       # database so container recreation cannot leave a current DB key without
       # its corresponding PEM file.
-      APITOOL__KEYPROVIDER__FILE__DIR: /app/data/keys/signing
+      CURLEW__KEYPROVIDER__FILE__DIR: /app/data/keys/signing
       SCHEDULES__KEY_PROVIDER: file
       SCHEDULES__KEK_PATH: /app/data/schedule-kek.bin
       TEAMVAULT__KEY_PROVIDER: file
       TEAMVAULT__KEK_PATH: /app/data/team-vault-kek.bin
       # Override cookie name and redirect URL for E2E SSO testing.
       # The web reads the 'access_token' cookie; this makes the backend ACS
-      # set that cookie name instead of the production default 'apitool_session'.
+      # set that cookie name instead of the production default 'curlew_session'.
       # Override only here — never copy these into production appsettings.
       Saml__SessionCookieName: access_token
       Saml__WebPortalUrl: http://localhost:3000/org/acme
@@ -27,12 +27,12 @@ services:
       # M18-004: MinIO object store (S3-compatible) for GDPR export bundles.
       OBJECTSTORE__PROVIDER: s3
       OBJECTSTORE__S3__ENDPOINT: http://minio:9000
-      OBJECTSTORE__S3__BUCKET: apitool-exports
+      OBJECTSTORE__S3__BUCKET: curlew-exports
       OBJECTSTORE__S3__ACCESSKEY: minioadmin
       OBJECTSTORE__S3__SECRETKEY: minioadmin
       OBJECTSTORE__S3__USEPATHSTYLE: "true"
     ports:
-      - "${APITOOL_BACKEND_PORT:-5000}:5000"
+      - "${CURLEW_BACKEND_PORT:-5000}:5000"
     volumes:
       - backend_data:/app/data
     entrypoint: ["/bin/sh", "-c"]
@@ -95,7 +95,7 @@ services:
       # Host-reachable ACS base: the browser running on the CI host posts
       # the SAMLResponse here, and the assertion's Destination/Audience/Recipient
       # must match the configured acs_url (see scripts/seed-enterprise.sh).
-      FAKE_IDP_ACS_BASE: "http://localhost:${APITOOL_BACKEND_PORT:-5000}/api/v1/sso/saml"
+      FAKE_IDP_ACS_BASE: "http://localhost:${CURLEW_BACKEND_PORT:-5000}/api/v1/sso/saml"
     volumes:
       - ./testdata/enterprise/fake-idp-cert.pem:/certs/cert.pem:ro
       - ./testdata/enterprise/fake-idp-key.pem:/certs/key.pem:ro

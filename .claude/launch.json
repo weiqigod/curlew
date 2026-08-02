@@ -4,7 +4,7 @@
     {
       "name": "design-preview",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8742", "--directory", "docs/design/apitest-ui"],
+      "runtimeArgs": ["-m", "http.server", "8742", "--directory", "docs/design/curlew-ui"],
       "port": 8742
     },
     {

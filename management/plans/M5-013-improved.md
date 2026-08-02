@@ -18,7 +18,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | High | Behavior 6 (GRACE_EXPIRED → exit 9 "feature_gated" on premium commands) was explicitly planned but never implemented. `runCmd` and `execCmd` had no grace-expired gate. | Added `checkGraceExpired()` helper in `cmd/apitest/license.go` that calls `NewValidator`, evaluates state, and returns exit code 9 with `"feature_gated"` stderr message when `StateGraceExpired`. Wired it at the top of `runCmd` and `execCmd` in `cmd/apitest/main.go`. Added `TestRunCmd_GraceExpired_ExitsNine` and `TestExecCmd_GraceExpired_ExitsNine` tests. | ✓ tests pass |
+| 1 | High | Behavior 6 (GRACE_EXPIRED → exit 9 "feature_gated" on premium commands) was explicitly planned but never implemented. `runCmd` and `execCmd` had no grace-expired gate. | Added `checkGraceExpired()` helper in `cmd/curlew/license.go` that calls `NewValidator`, evaluates state, and returns exit code 9 with `"feature_gated"` stderr message when `StateGraceExpired`. Wired it at the top of `runCmd` and `execCmd` in `cmd/curlew/main.go`. Added `TestRunCmd_GraceExpired_ExitsNine` and `TestExecCmd_GraceExpired_ExitsNine` tests. | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -28,10 +28,10 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
-| Coverage `cmd/apitest` | 83.3% |
+| Coverage `cmd/curlew` | 83.3% |
 | Coverage `internal/license` | 87.8% |
 | Coverage `internal/license/jwks` | 92.0% |
 

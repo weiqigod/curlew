@@ -266,8 +266,8 @@ func TestGuardRailJSON_Serialization(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Check `summary.LimitExceeded` and return exit code 2 with format-appropriate output |
-| `cmd/apitest/main_test.go` | modify | Integration tests for exit code 2 across formats |
+| `cmd/curlew/main.go` | modify | Check `summary.LimitExceeded` and return exit code 2 with format-appropriate output |
+| `cmd/curlew/main_test.go` | modify | Integration tests for exit code 2 across formats |
 
 #### Current Code (terminal exit logic, lines 388-399)
 
@@ -360,7 +360,7 @@ Note: Integration tests need a test HTTP server and a collection that exceeds a 
 | `internal/runner/runner_test.go` | `TestRun_GuardRail` | new | write new test cases |
 | `internal/output/terminal_test.go` | `TestPrinter_GuardRail` | new | write new test cases |
 | `internal/output/json_test.go` | `TestGuardRailJSON` | new | write new test cases |
-| `cmd/apitest/main_test.go` | `TestRunCmd_GuardRail` | new | write integration tests |
+| `cmd/curlew/main_test.go` | `TestRunCmd_GuardRail` | new | write integration tests |
 
 ## Risks and Edge Cases
 
@@ -376,7 +376,7 @@ Note: Integration tests need a test HTTP server and a collection that exceeds a 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh

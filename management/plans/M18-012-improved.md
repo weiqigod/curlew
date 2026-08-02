@@ -14,7 +14,7 @@
 | 2 | High | `InternalBackdateDeletionEndpointTests.cs` missing `Returns_404_in_Production` test — same root cause as #1 | Added `Returns_404_in_Production` [Fact] following the identical pattern: isolated Production `WebApplicationFactory`, fresh SQLite DB, asserts `POST /api/v1/internal/test-hooks/backdate-deletion-request` returns `HttpStatusCode.NotFound`. Added the same using directives as finding #1. | ✓ tests pass |
 | 3 | High | `scripts/m18-e2e.sh` steps 8+9 anonymisation assertions downgraded to `echo "WARN..."`, allowing the script to exit 0 even when GDPR anonymisation proof was absent | Changed both soft-warn paths to `fail` calls: step 8 now `\|\| fail "no audit-log row with actor_email=deleted-user-{8hex} — anonymisation did not complete" 8`; step 9 now `\|\| fail "no user.anonymised audit-log row — audit-of-audit trail not written" 9`. Script can no longer print "M18 e2e PASS" when behaviors #4 and #5 have not fired. | ✓ tests pass |
 | 4 | Medium | `web/tests/e2e/m18-compliance.spec.ts` assertion 5 did not assert `transfer-encoding: chunked`, despite the `streamAuditJsonl` helper returning `transferEncoding` and task behavior #6 requiring chunked transfer proof | Added `expect(stream.transferEncoding.toLowerCase(), '...').toContain('chunked')` before the `lineCount` assertion, consistent with the shell script's own check and the M18-001 streaming proof requirement. | ✓ tests pass |
-| 5 | Medium | `testdata/m18/e2e-collection.yaml` URL hardcoded to `http://localhost:5000/healthz`; the shell orchestrator did not pass `--var BACKEND_URL=...` to `apitest run`, breaking non-default port environments | Changed the collection URL to `"{{ BACKEND_URL }}/healthz"` and added `--var "BACKEND_URL=$BACKEND_URL"` to the `apitest run` invocation in `scripts/m18-e2e.sh` step 4. | ✓ tests pass |
+| 5 | Medium | `testdata/m18/e2e-collection.yaml` URL hardcoded to `http://localhost:5000/healthz`; the shell orchestrator did not pass `--var BACKEND_URL=...` to `curlew run`, breaking non-default port environments | Changed the collection URL to `"{{ BACKEND_URL }}/healthz"` and added `--var "BACKEND_URL=$BACKEND_URL"` to the `curlew run` invocation in `scripts/m18-e2e.sh` step 4. | ✓ tests pass |
 
 ### Iteration 2 (review 2 → review 3)
 
@@ -30,7 +30,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage | 87.1% |
@@ -58,7 +58,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage | 87.1% |
@@ -85,7 +85,7 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | `dotnet build src/ApiTool.Backend/ApiTool.Backend.csproj` | PASS (0 warnings) |

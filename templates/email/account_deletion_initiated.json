@@ -1,6 +1,6 @@
 {
   "slug": "account_deletion_initiated",
-  "subject": "Your ApiTool account is scheduled for deletion",
+  "subject": "Your Curlew account is scheduled for deletion",
   "variables": {
     "user_email":         "string",
     "cancel_url":         "string (HTTPS URL)",

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a repeatable `--only "<name>"` flag to `apitest run` (and transitively `apitest watch`) that filters the collection's main requests to the selected set while leaving setup/teardown intact; reject duplicate main request names at parse time so every subcommand (`run`, `watch`, `validate`) inherits the invariant; enrich variable-cliff errors when a missing producer is a filtered-out main request; bump the events schema from v1.0 to v1.1 with an additive optional `selection` field on `run.start`.
+Add a repeatable `--only "<name>"` flag to `curlew run` (and transitively `curlew watch`) that filters the collection's main requests to the selected set while leaving setup/teardown intact; reject duplicate main request names at parse time so every subcommand (`run`, `watch`, `validate`) inherits the invariant; enrich variable-cliff errors when a missing producer is a filtered-out main request; bump the events schema from v1.0 to v1.1 with an additive optional `selection` field on `run.start`.
 
 ## Task Details
 
@@ -31,7 +31,7 @@ Add a repeatable `--only "<name>"` flag to `apitest run` (and transitively `apit
 | Hint registration | New `RegisteredError{Name: "ErrDuplicateRequestName", …, Code: "PARSE_DUPLICATE_REQUEST_NAME"}` in `hints_init.go` | Consistent with every other parser sentinel; gives events schema a stable `code`. |
 | Selection field home | `runner.VarSources.Selection []string` | Same package that owns `CLI` / `EnvVar` / `EnvFile` / `AuthProfiles`; no new import; naturally threaded to `Run` → `runPhases`. |
 | Filter application point | Shallow-copy the `*parser.Collection` inside `runner.Run` and replace `Requests.Items` with a filtered slice **before** calling `runPhases` | `runPhases`, `executePhase`, and `executeParallelMain` all read `col.Requests.Items`; filtering once at the top of `Run` is the minimal change. `col.Setup` and `col.Teardown` are shared by the shallow copy, so setup/teardown still run in full. |
-| No-match behaviour | Fail before any HTTP: `runner.Run` returns a structured error (`ErrNoMatchingRequests`) naming available main request names; `cmd/apitest` maps this to exit 3 with a stderr message | Observable requires exit 3 with "available:" list. Handling in `runner.Run` keeps the check central for all callers (watch, future programmatic consumers). |
+| No-match behaviour | Fail before any HTTP: `runner.Run` returns a structured error (`ErrNoMatchingRequests`) naming available main request names; `cmd/curlew` maps this to exit 3 with a stderr message | Observable requires exit 3 with "available:" list. Handling in `runner.Run` keeps the check central for all callers (watch, future programmatic consumers). |
 | Variable-cliff diagnostic | Wrap the existing `enrichInterpErr` output with a selection-aware enricher at the main-phase interpolation call sites only (sequential + parallel + websocket branches) | Setup/teardown items cannot "be filtered out by --only", so the diagnostic is main-phase-specific. Uses `parallel.ExtractProducedVars` over the **full** main items list (not the filtered one) to locate the producer. |
 | Undefined-variable name extraction | Regex-match `^undefined variable "([^"]+)"$` on the structured error's `Message`, guarded by a unit test that asserts the format stays stable | The format is owned by `internal/variable/variable.go` at a single emission site; adding a typed field on `*apierrors.Structured` would touch a shared cross-package type for one caller. Regex is the least-invasive option; a format-guard test prevents silent drift. |
 | Selection flag parsing | Repeatable `--only <name>` in `parseRunArgs` (hand-rolled, slice-accumulated, whitespace-trimmed) | Mirrors `--var` / `--env-var` exactly; no new flag framework. |
@@ -45,8 +45,8 @@ Add a repeatable `--only "<name>"` flag to `apitest run` (and transitively `apit
 | Feature gate | None | `--only` is free-tier; matches existing `--var` / `--env-var` gating policy. |
 | Data-driven iterations | When a data-driven main request is selected, all its iterations run | Task: "Data-driven requests selected by --only run all of their declared iterations; per-iteration filtering is V2 scope." Requires no extra code — the filter runs at the main-items level, `executeDataDriven` handles all iterations of any item it receives. |
 | Parallel analyzer | `parallel.Analyze` is re-run on the filtered subset (no code change required) | Task: "the analyzer already operates on any []RequestItem and requires no changes." Confirmed by reading `internal/parallel/analyze.go`: `Analyze(items []parser.RequestItem, preExecVars map[string]bool, …)` is slice-scoped and re-computes waves from scratch on every call. |
-| Watch plumbing | None — `watchCmdOut` passes filtered CLI args verbatim through `watch.Config.RunFunc` on every rebuild (M7-005 pattern) | Task: "Watch mode requires no plumbing changes." Verified by reading `cmd/apitest/main.go:1748-1758`. |
-| Validate behaviour | `validator.Validate` calls `parser.ParseFile`, which now carries the duplicate-name error; `validateCmdOut` already surfaces parse errors at exit 3 | Task: "apitest validate surfaces duplicate-name rejection as a static error (exit 3)." Requires no change to `validator.go` or `validateCmdOut`. |
+| Watch plumbing | None — `watchCmdOut` passes filtered CLI args verbatim through `watch.Config.RunFunc` on every rebuild (M7-005 pattern) | Task: "Watch mode requires no plumbing changes." Verified by reading `cmd/curlew/main.go:1748-1758`. |
+| Validate behaviour | `validator.Validate` calls `parser.ParseFile`, which now carries the duplicate-name error; `validateCmdOut` already surfaces parse errors at exit 3 | Task: "curlew validate surfaces duplicate-name rejection as a static error (exit 3)." Requires no change to `validator.go` or `validateCmdOut`. |
 
 ## Implementation Steps
 
@@ -201,7 +201,7 @@ requests:
 - `internal/parser/parser_test.go::TestParseFile` — no impact (no fixture has duplicate names).
 - `internal/parser/include_*_test.go` — audit fixtures; if any intentionally share a main-request name across included files, rename one. Search plan: `grep -rn "name:" internal/parser/testdata/include_*.yaml` at execute time; unlikely given the focus of those tests on variable propagation.
 - `internal/runner/runner_test.go` — programmatically-constructed `parser.Collection` values that share a main name across items? No: the check lives in `ParseFile`, which those tests do not call. No impact.
-- `cmd/apitest/*_test.go` — any test fixture YAML with duplicate names? Search: `grep -l "requests:" cmd/apitest/testdata/**/*.yaml | xargs grep -A 1 "name:"`. Audit at execute time.
+- `cmd/curlew/*_test.go` — any test fixture YAML with duplicate names? Search: `grep -l "requests:" cmd/curlew/testdata/**/*.yaml | xargs grep -A 1 "name:"`. Audit at execute time.
 
 ---
 
@@ -471,7 +471,7 @@ func TestRun_OnlyVariableCliff(t *testing.T) {
 type RunStart struct {
     Header
     StartedAt      string   `json:"started_at"` // RFC3339Nano UTC
-    ApitestVersion string   `json:"apitest_version"`
+    CurlewVersion string   `json:"curlew_version"`
     CLIArgs        []string `json:"cli_args"`
     CollectionFile string   `json:"collection_file,omitempty"`
     EnvName        string   `json:"env_name,omitempty"`
@@ -510,7 +510,7 @@ func (e *Emitter) EmitRunStartWithInput(in RunStartInput) error {
             Kind:          KindRunStart,
         },
         StartedAt:      e.startTime.UTC().Format(time.RFC3339Nano),
-        ApitestVersion: e.opts.ApitestVersion,
+        CurlewVersion: e.opts.CurlewVersion,
         CLIArgs:        cliArgs,
         CollectionFile: in.CollectionFile,
         EnvName:        in.EnvName,
@@ -542,7 +542,7 @@ In the RunStart definition, add to `properties`:
 }
 ```
 
-All existing `const: "1.0"` become `const: "1.1"`. `$id` becomes `https://apitest.dev/events-schema/v1.1.json`. Title becomes `ApiTool Agent Event Stream v1.1`.
+All existing `const: "1.0"` become `const: "1.1"`. `$id` becomes `https://curlew.dev/events-schema/v1.1.json`. Title becomes `Curlew Agent Event Stream v1.1`.
 
 #### Tests to Write FIRST (RED phase)
 
@@ -579,8 +579,8 @@ func TestSchema_v11_validates(t *testing.T) {
 | `internal/output/events/schema_test.go` | `TestEmitter_AllKindsValidateAgainstSchema`, `TestEmitter_GoldenSchemaValidates`, `TestEmitter_GoldenRunHappy`, `TestEmitter_GoldenRunError`, `TestEmitter_GoldenRunFailedAssertion`, `TestSchema_DocInSyncWithCode`, `TestSchema_MarkdownExamplesValidate` | breaks when schemaPath/docPath switch | Update paths to `v1.1.json` / `EVENTS_SCHEMA_v1.1.md`. |
 | `internal/output/events/schema_test.go::TestSchema_v01ArtifactsRetained` | — | no impact | Retained (still guards v0.1 presence). |
 | `internal/output/events/testdata/golden/*.ndjson` | `TestEmitter_GoldenRun*` | golden mismatch | Regenerate with `UPDATE_GOLDEN=1` after the SchemaVersion bump. |
-| `cmd/apitest/testdata/**/*.golden` / related | events snapshots? | search at execute time | Run `grep -rn "schema_version\":\"1.0\"" cmd/ docs/` and update. |
-| `cmd/apitest/run_test.go::TestRunCmd_events_*` (if any) | events content-matching | possibly breaks | Update literal version strings. |
+| `cmd/curlew/testdata/**/*.golden` / related | events snapshots? | search at execute time | Run `grep -rn "schema_version\":\"1.0\"" cmd/ docs/` and update. |
+| `cmd/curlew/run_test.go::TestRunCmd_events_*` (if any) | events content-matching | possibly breaks | Update literal version strings. |
 
 Add new test:
 ```go
@@ -599,9 +599,9 @@ func TestSchema_v10ArtifactsRetained(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `onlyNames []string` to `runFlags`. Parse `--only <name>` in `parseRunArgs` (repeatable, whitespace-trimmed). Thread `flags.onlyNames` into `runner.VarSources.Selection` and `events.RunStartInput.Selection`. Update the run Usage string and `printRunHelpTo` Run Options section. |
-| `cmd/apitest/run_test.go` | modify | Add `TestRun_OnlyNoMatch` covering exit 3 + stderr content. Add `TestRunCmd_only_filter_integration` covering single match and union end-to-end. |
-| `cmd/apitest/main_test.go` | modify | Add parse-level tests: `TestParseRunArgs_Only` (single, repeated, missing value, whitespace-trim). |
+| `cmd/curlew/main.go` | modify | Add `onlyNames []string` to `runFlags`. Parse `--only <name>` in `parseRunArgs` (repeatable, whitespace-trimmed). Thread `flags.onlyNames` into `runner.VarSources.Selection` and `events.RunStartInput.Selection`. Update the run Usage string and `printRunHelpTo` Run Options section. |
+| `cmd/curlew/run_test.go` | modify | Add `TestRun_OnlyNoMatch` covering exit 3 + stderr content. Add `TestRunCmd_only_filter_integration` covering single match and union end-to-end. |
+| `cmd/curlew/main_test.go` | modify | Add parse-level tests: `TestParseRunArgs_Only` (single, repeated, missing value, whitespace-trim). |
 | `CHANGELOG.md` | modify | Add Added and Changed bullets under `## [Unreleased]`. |
 | `docs/SPECIFICATION.md` | modify | Document `--only` in the run command section (flags reference). |
 | `docs/MANUAL.md` | modify | Add an `--only` example to Part 4 (Running Tests in CI) or a dedicated "Running a single request" subsection. |
@@ -698,7 +698,7 @@ func TestWatch_OnlyPropagates(t *testing.T) {
 
 - `parseRunArgs` tests: zero impact; new flag branches fall through default path on existing fixtures.
 - Help output snapshot tests (`TestStreamHelp`, `printHelp` golden): update golden to include the new `--only` line.
-- Usage-string tests (if any asserting the exact Usage: synopsis): `grep -rn "apitest run" cmd/apitest/*_test.go` to audit. The Usage line is long; safer to assert the substring `[--only "<name>"]` rather than re-spell the whole line.
+- Usage-string tests (if any asserting the exact Usage: synopsis): `grep -rn "curlew run" cmd/curlew/*_test.go` to audit. The Usage line is long; safer to assert the substring `[--only "<name>"]` rather than re-spell the whole line.
 
 ---
 
@@ -712,7 +712,7 @@ func TestWatch_OnlyPropagates(t *testing.T) {
 |------|--------|-------------|
 | `docs/SPECIFICATION.md` | modify | Extend the run command section (near the other flags listed around line 2863 / 4729 / 5102) with a `--only "<name>"` entry: name, semantics, repeatable, setup/teardown still run, no-match exit 3, interaction with --parallel. |
 | `docs/MANUAL.md` | modify | In Part 4 (Running Tests in CI) or new subsection, add an "--only" example. Mention the variable-cliff hint. |
-| `CHANGELOG.md` | modify | Under `## [Unreleased]`, `### Added`: "CLI: `--only "<name>"` flag on `apitest run` … (M8-004)". Under `### Changed`: "Events schema promoted from v1.0 to v1.1 (additive): `run.start` gains an optional `selection` field carrying --only values … (M8-004)". |
+| `CHANGELOG.md` | modify | Under `## [Unreleased]`, `### Added`: "CLI: `--only "<name>"` flag on `curlew run` … (M8-004)". Under `### Changed`: "Events schema promoted from v1.0 to v1.1 (additive): `run.start` gains an optional `selection` field carrying --only values … (M8-004)". |
 
 No code impact.
 
@@ -738,19 +738,19 @@ No code impact.
 | `internal/output/events/schema_test.go` | (new) `TestSchema_v10ArtifactsRetained` | new | Mirror of v0.1 retention guard. |
 | `internal/output/events/schema_test.go` | (new) `TestSchema_v11_validates` | new | Validates all emitted kinds against the v1.1 schema. |
 | `internal/output/events/testdata/golden/*.ndjson` | `TestEmitter_GoldenRun*` | golden updates | Regenerate with `UPDATE_GOLDEN=1` after SchemaVersion bump. |
-| `cmd/apitest/main_test.go` | (new) `TestParseRunArgs_Only` | new | Flag parsing. |
-| `cmd/apitest/run_test.go` | (new) `TestRun_OnlyNoMatch` | new | Exit 3, stderr content. |
-| `cmd/apitest/run_test.go` | (new) `TestRunCmd_only_filter_integration` | new | End-to-end with httptest.Server. |
-| `cmd/apitest/run_test.go` | (new) `TestEvents_v11_RunStart_carriesSelection` | new | End-to-end event emission. |
-| `cmd/apitest/stream_help_test.go` | `TestStreamHelp` | possibly breaks | Audit help-text golden; extend with new `--only` line if necessary. |
-| `cmd/apitest/validate_team_test.go` / validator tests | existing | no direct impact | Duplicate rejection inherited via `parser.ParseFile`; new fixture added in Step 1 exercises it. Optionally add `TestValidate_DuplicateRejected` (exit 3, line-numbered error). |
-| `cmd/apitest/testdata/**` fixtures | various | audit | Search for any fixture with duplicate main-request names; rename or delete. |
+| `cmd/curlew/main_test.go` | (new) `TestParseRunArgs_Only` | new | Flag parsing. |
+| `cmd/curlew/run_test.go` | (new) `TestRun_OnlyNoMatch` | new | Exit 3, stderr content. |
+| `cmd/curlew/run_test.go` | (new) `TestRunCmd_only_filter_integration` | new | End-to-end with httptest.Server. |
+| `cmd/curlew/run_test.go` | (new) `TestEvents_v11_RunStart_carriesSelection` | new | End-to-end event emission. |
+| `cmd/curlew/stream_help_test.go` | `TestStreamHelp` | possibly breaks | Audit help-text golden; extend with new `--only` line if necessary. |
+| `cmd/curlew/validate_team_test.go` / validator tests | existing | no direct impact | Duplicate rejection inherited via `parser.ParseFile`; new fixture added in Step 1 exercises it. Optionally add `TestValidate_DuplicateRejected` (exit 3, line-numbered error). |
+| `cmd/curlew/testdata/**` fixtures | various | audit | Search for any fixture with duplicate main-request names; rename or delete. |
 
 ---
 
 ## Risks and Edge Cases
 
-- **Risk: Include-based fixtures with intentional duplicate names** → Mitigation: audit `internal/parser/testdata/include_*.yaml`, `cmd/apitest/testdata/**`, and `smoke/**` for fixtures that intentionally share main-request names. Estimated low probability (all existing include tests focus on variable propagation, not name collision). If found, rename one occurrence and add a comment.
+- **Risk: Include-based fixtures with intentional duplicate names** → Mitigation: audit `internal/parser/testdata/include_*.yaml`, `cmd/curlew/testdata/**`, and `smoke/**` for fixtures that intentionally share main-request names. Estimated low probability (all existing include tests focus on variable propagation, not name collision). If found, rename one occurrence and add a comment.
 - **Risk: Help-text snapshot tests breaking on the new `--only` line** → Mitigation: audit `TestStreamHelp` and any other golden-help assertions at execute time. Prefer substring assertions over equality.
 - **Risk: Format drift in the undefined-variable error message breaks the variable-cliff enricher silently** → Mitigation: `TestRunner_UndefinedVarMessageFormatStable` locks the contract with a clear failure message pointing to the regex.
 - **Risk: Events schema goldens get stale when fields are added in unrelated future work** → Mitigation: unchanged from current practice (UPDATE_GOLDEN=1 dance). Documented in `compareOrUpdateGolden`.
@@ -770,7 +770,7 @@ No code impact.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -781,30 +781,30 @@ Observable verification (matches the task YAML `observable` field verbatim):
 
 ```bash
 # Build
-go build -o apitest ./cmd/apitest
+go build -o curlew ./cmd/curlew
 
 # 1. --only runs exactly one named main request; setup + teardown still run.
-./apitest run collections/multi.yaml --only "Get user"
+./curlew run collections/multi.yaml --only "Get user"
 
 # 2. Repeatable --only unions the selection.
-./apitest run collections/multi.yaml --only "Get user" --only "Update user"
+./curlew run collections/multi.yaml --only "Get user" --only "Update user"
 
 # 3. Unknown name: exit 3 before any HTTP runs.
-./apitest run collections/multi.yaml --only "Nope"
+./curlew run collections/multi.yaml --only "Nope"
 
 # 4. Variable-cliff diagnostic.
-./apitest run collections/multi.yaml --only "Update user"
+./curlew run collections/multi.yaml --only "Update user"
 
 # 5. Duplicate request names rejected.
-./apitest run collections/dupes.yaml
-./apitest validate collections/dupes.yaml
+./curlew run collections/dupes.yaml
+./curlew validate collections/dupes.yaml
 
 # 6. Events selection field.
-./apitest run collections/multi.yaml --only "Get user" --events run.ndjson
+./curlew run collections/multi.yaml --only "Get user" --events run.ndjson
 jq -c 'select(.kind == "run.start") | {schema_version, selection}' run.ndjson
 
 # 7. Watch mode passthrough.
-./apitest watch collections/multi.yaml --only "Get user"
+./curlew watch collections/multi.yaml --only "Get user"
 
 # 8. Full unit + integration suite.
 go test -run 'TestParser_DuplicateNameRejection|TestRunner_OnlyFilter|TestRun_OnlyNoMatch|TestRun_OnlyVariableCliff|TestEvents_v11_Selection|TestSchema_v11_validates' ./...

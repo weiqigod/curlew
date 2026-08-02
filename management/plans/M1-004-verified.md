@@ -108,9 +108,9 @@ Review PASS trusted, spot-check clean.
 | `internal/runner/runner_test.go` | modified | +115 |
 | `internal/output/terminal.go` | modified | +15/-1 |
 | `internal/output/terminal_test.go` | modified | +87/-1 |
-| `cmd/apitest/main.go` | modified | +13/-1 |
-| `cmd/apitest/main_test.go` | modified | +139 |
-| `cmd/apitest/run_test.go` | modified | +38 |
+| `cmd/curlew/main.go` | modified | +13/-1 |
+| `cmd/curlew/main_test.go` | modified | +139 |
+| `cmd/curlew/run_test.go` | modified | +38 |
 | `smoke/run.sh` | modified | +32 |
 | `sample/hello.yaml` | modified | +4 |
 | `CHANGELOG.md` | modified | +4 |

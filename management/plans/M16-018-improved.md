@@ -22,7 +22,7 @@
 |---|----------|---------|------------|----------|
 | 1 | Medium | Empty-orgId test used `tc.orgID == ""` short-circuit, so `ErrOrgIDRequired` was never verified via `errors.Is` | Changed `wantErr` to `backend.ErrOrgIDRequired`; removed the short-circuit; standard `errors.Is` path now exercises the sentinel | ✓ tests pass |
 | 2 | Medium | `orgIDRE` path-traversal validation path had zero test coverage | Added test case `"invalid orgId format rejects path traversal"` with `orgID: "org/evil"`; error message checked via `strings.Contains` fallback | ✓ tests pass |
-| 3 | Low | `vaultCache.Refresh(...)` in `licenseRefreshOut` passed `io.Discard` instead of `stderr` — vault cache refresh failures silently dropped | Replaced `io.Discard` with `stderr` on `cmd/apitest/license.go:412` | ✓ tests pass |
+| 3 | Low | `vaultCache.Refresh(...)` in `licenseRefreshOut` passed `io.Discard` instead of `stderr` — vault cache refresh failures silently dropped | Replaced `io.Discard` with `stderr` on `cmd/curlew/license.go:412` | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -32,14 +32,14 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS (0 issues) |
 | Coverage `internal/backend` | 84.4% |
 | Coverage `internal/vault/teamtemplate` | 88.3% |
 | Coverage `internal/license` | 88.7% |
 | Coverage `internal/runner` | 84.8% |
-| Coverage `cmd/apitest` | 81.4% |
+| Coverage `cmd/curlew` | 81.4% |
 
 ## Fix Commits
 

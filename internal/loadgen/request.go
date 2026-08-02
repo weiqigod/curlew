@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/peterlindqvist/apitest/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/httpexec"
 	"gopkg.in/yaml.v3"
 )
 

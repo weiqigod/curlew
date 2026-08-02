@@ -12,7 +12,7 @@ observable: |
   # Expected: Playwright >=4 passing:
   #   - admin sees "Connect GitHub" button on /integrations
   #   - clicking it navigates to /api/v1/integrations/github/install-url and follows the redirect
-  #   - after callback simulation, the page renders "GitHub connected — apitool-checks-test, 3 repos covered"
+  #   - after callback simulation, the page renders "GitHub connected — curlew-checks-test, 3 repos covered"
   #   - non-admin users see the integration as read-only with no Connect button
 behaviors:
   - "Given an admin/owner user on /integrations, when the page loads, then a 'Connect GitHub' button is rendered linking through /api/v1/integrations/github/install-url"

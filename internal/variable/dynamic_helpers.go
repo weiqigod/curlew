@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // hmacHexLower computes HMAC-SHA256 over msg under key and returns the

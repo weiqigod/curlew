@@ -29,7 +29,7 @@ No findings.
   - `assertion`: 95.2%
   - `jsonpath`: 94.2%
   - `parser`: 92.0%
-  - `cmd/apitest`: 90.9%
+  - `cmd/curlew`: 90.9%
   - `httpexec`: 85.4%
   - `runner`: 100.0%
 

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/vault/teamtemplate"
+	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
 
 // validTemplateYAML has two environments (production=AWS, staging=Azure)

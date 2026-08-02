@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>Reset your password — ApiTool</title>
+	<title>Reset your password — Curlew</title>
 </svelte:head>
 
 <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4">

@@ -77,8 +77,8 @@ func TestWriteVaultListJSON(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `parseVaultArgs` function |
-| `cmd/apitest/main_test.go` | modify | Add table-driven tests for arg parsing |
+| `cmd/curlew/main.go` | modify | Add `parseVaultArgs` function |
+| `cmd/curlew/main_test.go` | modify | Add table-driven tests for arg parsing |
 
 #### New Code
 ```go
@@ -140,7 +140,7 @@ func TestParseVaultArgs(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add package-level `currentTier` variable |
+| `cmd/curlew/main.go` | modify | Add package-level `currentTier` variable |
 
 #### New Code
 ```go
@@ -160,8 +160,8 @@ var currentTier = func() auth.Tier { return auth.TierFree }
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add `vaultCmd`, `vaultListCmd`, `printVaultHelp`; update `run()` switch |
-| `cmd/apitest/main_test.go` | modify | Add Free-tier and Solo-tier tests |
+| `cmd/curlew/main.go` | modify | Add `vaultCmd`, `vaultListCmd`, `printVaultHelp`; update `run()` switch |
+| `cmd/curlew/main_test.go` | modify | Add Free-tier and Solo-tier tests |
 
 #### Current Code
 ```go
@@ -208,7 +208,7 @@ func TestVaultCmd_free_tier(t *testing.T) {
 
 // Solo tier tests
 func TestVaultCmd_solo_tier(t *testing.T) {
-	// Override currentTier, create temp dir with apitest.yaml containing secrets block
+	// Override currentTier, create temp dir with curlew.yaml containing secrets block
 	tests := []struct {
 		name     string
 		args     []string
@@ -226,7 +226,7 @@ func TestVaultCmd_solo_tier(t *testing.T) {
 }
 
 func TestVaultCmd_solo_tier_no_profiles(t *testing.T) {
-	// Override currentTier, create temp dir with apitest.yaml WITHOUT secrets block
+	// Override currentTier, create temp dir with curlew.yaml WITHOUT secrets block
 	tests := []struct {
 		name     string
 		args     []string
@@ -254,7 +254,7 @@ func TestVaultCmd_solo_tier_no_profiles(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Update `printHelp()` vault line to show subcommands |
+| `cmd/curlew/main.go` | modify | Update `printHelp()` vault line to show subcommands |
 
 #### Current Code
 ```
@@ -274,26 +274,26 @@ func TestVaultCmd_solo_tier_no_profiles(t *testing.T) {
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestGatedCmd_vault` | preserved | may rename to `TestVaultCmd_free_tier` |
-| `cmd/apitest/main_test.go` | `TestGatedCmd_vault_json` | preserved | may rename |
-| `cmd/apitest/main_test.go` | `TestGatedCmd_vault_format_missing_value` | preserved | may rename |
-| `cmd/apitest/main_test.go` | `TestGatedCmd_vault_unknown_arg` | preserved | may rename |
-| `cmd/apitest/main_test.go` | `TestHelpText_vault` | preserved | verify assertion still matches |
+| `cmd/curlew/main_test.go` | `TestGatedCmd_vault` | preserved | may rename to `TestVaultCmd_free_tier` |
+| `cmd/curlew/main_test.go` | `TestGatedCmd_vault_json` | preserved | may rename |
+| `cmd/curlew/main_test.go` | `TestGatedCmd_vault_format_missing_value` | preserved | may rename |
+| `cmd/curlew/main_test.go` | `TestGatedCmd_vault_unknown_arg` | preserved | may rename |
+| `cmd/curlew/main_test.go` | `TestHelpText_vault` | preserved | verify assertion still matches |
 | `internal/output/json_test.go` | — | new tests | add `TestWriteVaultListJSON` |
 
 ## Risks and Edge Cases
 
 - **Risk: `os.Getwd()` / `os.Chdir()` in tests** -> **Mitigation:** Run Solo-tier tests sequentially (no `t.Parallel()`), restore working directory in `t.Cleanup`
 - **Risk: Map iteration order for `Secrets.Keys`** -> **Mitigation:** Sort keys before display in both terminal and JSON output
-- **Edge case: No `apitest.yaml` found** -> **Handling:** `LoadProjectConfig` returns empty config with nil `Secrets`; `vaultListCmd` shows "No vault profiles configured"
-- **Edge case: Invalid `apitest.yaml`** -> **Handling:** `LoadProjectConfig` returns error; `vaultListCmd` shows error and returns exit 1
+- **Edge case: No `curlew.yaml` found** -> **Handling:** `LoadProjectConfig` returns empty config with nil `Secrets`; `vaultListCmd` shows "No vault profiles configured"
+- **Edge case: Invalid `curlew.yaml`** -> **Handling:** `LoadProjectConfig` returns error; `vaultListCmd` shows error and returns exit 1
 - **Edge case: `vault` with no subcommand at Solo tier** -> **Handling:** Show vault help with available subcommands, exit 0
 - **Edge case: `vault list --format json` at Free tier** -> **Handling:** Gate fires before subcommand dispatch; returns JSON gate error, exit 6
 
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -302,12 +302,12 @@ go test ./...
 Observable verification:
 ```bash
 # Free tier (default, always active)
-./apitest vault
+./curlew vault
 echo "Exit: $?"  # expect 6
 
-./apitest vault --format json
+./curlew vault --format json
 echo "Exit: $?"  # expect 6, JSON gate output
 
 # Solo tier — requires test override or future auth backend
-go test -run TestVaultCmd_solo_tier ./cmd/apitest/
+go test -run TestVaultCmd_solo_tier ./cmd/curlew/
 ```

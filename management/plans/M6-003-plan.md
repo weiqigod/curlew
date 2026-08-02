@@ -386,7 +386,7 @@ func TestRedactBody_LongestValueFirst(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Populate `sensitive` values from resolved variable sources; extend redaction block to call `RedactBody` for `RequestBody` and `Result.Body`. |
+| `cmd/curlew/main.go` | modify | Populate `sensitive` values from resolved variable sources; extend redaction block to call `RedactBody` for `RequestBody` and `Result.Body`. |
 
 #### Current Code (main.go ~lines 832-861)
 ```go
@@ -460,7 +460,7 @@ func addSensitiveValues(s *variable.SensitiveSet, vars map[string]string) {
 
 #### Tests to Write FIRST (RED phase)
 
-A single `TestRedact_BodyAcrossFormats` end-to-end test in `cmd/apitest/main_test.go` that satisfies the task's observable verification:
+A single `TestRedact_BodyAcrossFormats` end-to-end test in `cmd/curlew/main_test.go` that satisfies the task's observable verification:
 
 ```go
 func TestRedact_BodyAcrossFormats(t *testing.T) {
@@ -575,8 +575,8 @@ requests:
 | `internal/variable/sensitive_test.go` | `TestSensitiveSet_ValueTracking` (new) | new | write |
 | `internal/variable/sensitive_test.go` | `TestSensitiveSet_MergeValues` (new) | new | write |
 | `internal/variable/redact_test.go` | `TestRedactBody*` (new) | new | write |
-| `cmd/apitest/main_test.go` | `TestRedact_BodyAcrossFormats` (new) | new | write |
-| `cmd/apitest/main_test.go` | `TestRunCmd_SensitiveRedaction` | none | — |
+| `cmd/curlew/main_test.go` | `TestRedact_BodyAcrossFormats` (new) | new | write |
+| `cmd/curlew/main_test.go` | `TestRunCmd_SensitiveRedaction` | none | — |
 | `internal/output/terminal_test.go` | body-dump cases | none | — |
 
 ## Risks and Edge Cases
@@ -592,8 +592,8 @@ requests:
 ## Verification
 
 ```bash
-go build ./cmd/apitest
-go test ./internal/variable/... ./cmd/apitest/...
+go build ./cmd/curlew
+go test ./internal/variable/... ./cmd/curlew/...
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -602,6 +602,6 @@ go test ./...
 Observable verification (from task YAML):
 
 ```bash
-go test -run TestRedact_BodyAcrossFormats ./cmd/apitest/
+go test -run TestRedact_BodyAcrossFormats ./cmd/curlew/
 # Expected: PASS
 ```

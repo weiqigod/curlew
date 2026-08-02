@@ -1115,7 +1115,7 @@ exactly, so it's a low-risk 1:1 pattern copy.
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | add `schemaGateFor(tier)`; pass into both `ParseFileWithOptions` call sites |
+| `cmd/curlew/main.go` | modify | add `schemaGateFor(tier)`; pass into both `ParseFileWithOptions` call sites |
 
 #### Current Code
 
@@ -1262,11 +1262,11 @@ The smoke block should:
 1. Start a local test server (using `python3 -m http.server` with a JSON
    fixture, or an ad-hoc Go helper embedded in a tiny `go run` script,
    whichever is already the smoke idiom).
-2. Run with `APITEST_TIER=professional` and assert exit 0.
+2. Run with `CURLEW_TIER=professional` and assert exit 0.
 3. Corrupt the fixture (or use a `schema_fail.yaml` pointing at an
    endpoint returning the bad body) and assert exit 1 with stderr
    containing `$.id`.
-4. Run with `APITEST_TIER=free` on the valid scenario and assert exit 6
+4. Run with `CURLEW_TIER=free` on the valid scenario and assert exit 6
    and stderr containing `schema_validation`.
 
 Inspect the existing smoke script for the test-server pattern and match
@@ -1315,7 +1315,7 @@ assertion operators, skip that edit.
 | `internal/runner/runner_test.go` | existing | none | add 3 new end-to-end schema tests |
 | `internal/parallel/executor_test.go` | existing | none | parallel path gets a test that a schema failure in a parallel wave is surfaced |
 | `internal/schema/schema_test.go` | existing | none | add `TestCollectionSchema_contains_assertions_schema` |
-| `cmd/apitest/main_test.go` | existing (if present) | none | no change; CLI behaviour covered by gate tests |
+| `cmd/curlew/main_test.go` | existing (if present) | none | no change; CLI behaviour covered by gate tests |
 
 Total tests added: ~18. Total files created: 4 assertion source/test + 3 parser testdata fixtures + 2 sample files = 9. Files modified: 8.
 
@@ -1426,7 +1426,7 @@ var ErrSchemaInvalid      = errors.New("invalid JSON Schema")
 // internal/auth/registry.go
 // (no signature change, registers new FeatureDefinition)
 
-// cmd/apitest/main.go
+// cmd/curlew/main.go
 func schemaGateFor(tier auth.Tier) func() error
 ```
 
@@ -1436,7 +1436,7 @@ standards.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -1462,15 +1462,15 @@ requests:
       status: 200
       schema: schemas/user.json
 EOF
-APITEST_TIER=professional apitest run collection.yaml   # expect exit 0
+CURLEW_TIER=professional curlew run collection.yaml   # expect exit 0
 
 # 2. Same but server returns {"id":"not-an-int"} — expect exit 1,
 #    stderr contains $.id, "type integer", and "string".
-APITEST_TIER=professional apitest run collection.yaml
+CURLEW_TIER=professional curlew run collection.yaml
 
 # 3. Free tier on the valid scenario — expect exit 6 and
 #    "schema_validation" in the gate output.
-APITEST_TIER=free apitest run collection.yaml
+CURLEW_TIER=free curlew run collection.yaml
 
 # 4. Unit tests
 go test ./internal/assertion/...

@@ -55,7 +55,7 @@ Understand every change. Identify:
 Run ALL three commands. ALL must pass before committing:
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 ```
 
 ```bash
@@ -112,11 +112,11 @@ Refs: TASK-ID
 | `docs` | Documentation, plans, reviews |
 | `chore` | Tooling, config, CI, dependencies |
 
-### Commit Scopes (ApiTool-specific)
+### Commit Scopes (Curlew-specific)
 
 | Scope | Package / Area |
 |-------|---------------|
-| `cli` | `cmd/apitest/`, CLI wiring |
+| `cli` | `cmd/curlew/`, CLI wiring |
 | `parser` | `internal/parser/` |
 | `http` | `internal/http/` |
 | `variable` | `internal/variable/` |
@@ -188,7 +188,7 @@ git log --oneline -3
 Before every commit, mentally verify:
 
 - [ ] On feature branch (not main)
-- [ ] `go build ./cmd/apitest` succeeds
+- [ ] `go build ./cmd/curlew` succeeds
 - [ ] `go test ./...` passes
 - [ ] `~/go/bin/golangci-lint run` passes
 - [ ] Only related changes are staged

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Convergence slice that wires the existing `apitest run` pipeline to `--report-upload`, so a single CLI invocation both runs a collection and posts its results (plus an optional PR-check) to the backend, then validates end-to-end via a Playwright spec that navigates the web dashboard. Ships `testdata/team/e2e-collection.yaml`, `web/tests/e2e/full-pipeline.spec.ts`, seeds a team-tier org in `scripts/test-stack.sh`, and adds a CI workflow that runs the full pipeline on Linux.
+Convergence slice that wires the existing `curlew run` pipeline to `--report-upload`, so a single CLI invocation both runs a collection and posts its results (plus an optional PR-check) to the backend, then validates end-to-end via a Playwright spec that navigates the web dashboard. Ships `testdata/team/e2e-collection.yaml`, `web/tests/e2e/full-pipeline.spec.ts`, seeds a team-tier org in `scripts/test-stack.sh`, and adds a CI workflow that runs the full pipeline on Linux.
 
 ## Task Details
 - **ID:** M4-012
@@ -21,12 +21,12 @@ Convergence slice that wires the existing `apitest run` pipeline to `--report-up
 ## Scope Clarification (decisions)
 
 The task scope says **"No new backend endpoints, no new CLI commands"** but the observable requires:
-- `apitest run --report-upload` to upload a result and post a PR-check in one call
+- `curlew run --report-upload` to upload a result and post a PR-check in one call
 - A web route `/org/[slug]/pr-checks` where the PR-check row is visible
 
 The following reality constraints force targeted deviations from that scope:
 
-1. **`--report-upload` flag on `apitest run`** — this is *not* a new subcommand; it is a new flag on an existing subcommand, reusing `internal/prcheck.Client`. This is how I interpret "no new CLI commands".
+1. **`--report-upload` flag on `curlew run`** — this is *not* a new subcommand; it is a new flag on an existing subcommand, reusing `internal/prcheck.Client`. This is how I interpret "no new CLI commands".
 2. **Backend `POST/GET /api/v1/organizations/{orgId}/pr-checks`** — no such endpoint currently exists. M4-007 added only the CLI side; the CLI today calls a not-yet-existent server path. A minimal PR-check endpoint is required so the Playwright spec can assert the row appears. Added in this slice as a thin stub (in-memory/SQLite persistence, RBAC via `CurrentUserAccessor`, no GitHub integration).
 3. **Web route `/org/[slug]/pr-checks`** — a new SvelteKit page + server loader that lists PR-checks for the org. Required for the `confirms pr-check row shows in /org/acme/pr-checks` assertion.
 
@@ -76,7 +76,7 @@ package prcheck
 import (
     "time"
 
-    "github.com/peterlindqvist/apitest/internal/runner"
+    "github.com/weiqigod/curlew/internal/runner"
 )
 
 // TriggerInfo captures the operator context that is not in Summary.
@@ -126,7 +126,7 @@ func TestBuildPayload(t *testing.T) {
 
 ### Step 2: Wire `TriggerInfo` detection (git sha)
 
-**Rationale:** Pure helper, no network; tested in isolation. Keeps the `cmd/apitest` glue simple.
+**Rationale:** Pure helper, no network; tested in isolation. Keeps the `cmd/curlew` glue simple.
 
 #### Files to Modify
 
@@ -154,7 +154,7 @@ func TestDetectGitSha(t *testing.T) {
 
 ---
 
-### Step 3: Add `--report-upload` flag to `apitest run`
+### Step 3: Add `--report-upload` flag to `curlew run`
 
 **Rationale:** Builds on Step 1 (mapping) and Step 2 (git). This is the main behavioural change and wiring — kept small because all the heavy lifting lives in `internal/prcheck`.
 
@@ -162,16 +162,16 @@ func TestDetectGitSha(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Parse `--report-upload`, `--org`, `--pr`, `--repo`, `--triggered-by`, `--git-sha` in `parseRunArgs`; after summary is built in `runCmdInner`, if `--report-upload` set, call `prcheck.Run` (or new `UploadRun`) |
-| `cmd/apitest/main_test.go` | modify | New table tests for flag parsing, error when env missing, stdout line format |
-| `cmd/apitest/report_upload_test.go` | create | Integration test against `httptest.NewServer` asserting 2 POSTs and stdout |
+| `cmd/curlew/main.go` | modify | Parse `--report-upload`, `--org`, `--pr`, `--repo`, `--triggered-by`, `--git-sha` in `parseRunArgs`; after summary is built in `runCmdInner`, if `--report-upload` set, call `prcheck.Run` (or new `UploadRun`) |
+| `cmd/curlew/main_test.go` | modify | New table tests for flag parsing, error when env missing, stdout line format |
+| `cmd/curlew/report_upload_test.go` | create | Integration test against `httptest.NewServer` asserting 2 POSTs and stdout |
 | `internal/prcheck/run.go` | modify | Add `UploadRun(ctx, cfg, payload, state)` that skips the file-load step and does not require `ResultsFile`. Keep existing `Run()` for `pr-check` subcommand. |
 | `internal/prcheck/prcheck.go` | modify | In `Validate()`, make `ResultsFile` optional when `InMemoryPayload` is set; add new sentinel `ErrOrgRequired` if not already present (already checked) |
 
 #### Current Code
 
 ```go
-// cmd/apitest/main.go parseRunArgs signature
+// cmd/curlew/main.go parseRunArgs signature
 func parseRunArgs(args []string) (file, envName, format, report string,
     vars, envVarVars map[string]string, seed *int64, noColor bool,
     verbosity output.Verbosity, allowSensitive, showDeps, dryRun,
@@ -183,7 +183,7 @@ The positional signature is already extremely wide. Refactor to a struct to stay
 #### New Code
 
 ```go
-// cmd/apitest/main.go — replace the wide-tuple return with a struct.
+// cmd/curlew/main.go — replace the wide-tuple return with a struct.
 type runFlags struct {
     file, envName, format, report string
     vars, envVarVars              map[string]string
@@ -228,7 +228,7 @@ Exit-code rules:
 #### Tests to Write FIRST
 
 ```go
-// cmd/apitest/report_upload_test.go
+// cmd/curlew/report_upload_test.go
 func TestRunWithReportUpload(t *testing.T) {
     tests := []struct {
         name       string
@@ -241,16 +241,16 @@ func TestRunWithReportUpload(t *testing.T) {
         {"upload only (no --pr)", /* --report-upload --org acme */, /* 1 POST */, 0, []string{"Uploaded result res_"}},
         {"failing run still uploads and reports state=failure", /* assertion fails + upload flags */, /* expects state=failure in pr-checks body */, 1, []string{"state posted: failure"}},
         {"backend unreachable on passing run returns exit 2", /* connection refused */, /* no server */, 2, []string{"backend unreachable"}},
-        {"missing APITEST_BACKEND_URL returns exit 2 before run", /* no env */, nil, 2, []string{"backend URL not configured"}},
+        {"missing CURLEW_BACKEND_URL returns exit 2 before run", /* no env */, nil, 2, []string{"backend URL not configured"}},
         {"missing --org returns exit 1 at parse time", /* --report-upload without --org */, nil, 1, []string{"--org is required"}},
     }
-    // use httptest.NewServer, set APITEST_BACKEND_URL to ts.URL, call runCmdInner directly
+    // use httptest.NewServer, set CURLEW_BACKEND_URL to ts.URL, call runCmdInner directly
 }
 ```
 
 #### Impact on Existing Tests
-- `cmd/apitest/run_test.go`, `cmd/apitest/discovery_run_test.go`, `cmd/apitest/validate_team_test.go`, `cmd/apitest/main_test.go` — all call `parseRunArgs` via the runCmdInner path. The struct refactor breaks any test that unpacks the tuple directly. Expected fix: replace the 15-arg destructure with `flags := parseRunArgs(...)` and read `flags.X`. Search `parseRunArgs(` to enumerate call sites.
-- `cmd/apitest/main.go` itself has 2 call sites of `parseRunArgs` (in `runCmdInner` and `watchCmd` line 924). Both must be updated.
+- `cmd/curlew/run_test.go`, `cmd/curlew/discovery_run_test.go`, `cmd/curlew/validate_team_test.go`, `cmd/curlew/main_test.go` — all call `parseRunArgs` via the runCmdInner path. The struct refactor breaks any test that unpacks the tuple directly. Expected fix: replace the 15-arg destructure with `flags := parseRunArgs(...)` and read `flags.X`. Search `parseRunArgs(` to enumerate call sites.
+- `cmd/curlew/main.go` itself has 2 call sites of `parseRunArgs` (in `runCmdInner` and `watchCmd` line 924). Both must be updated.
 - `internal/prcheck/run_test.go` — no changes needed; `Run()` preserved.
 - `internal/prcheck/prcheck_test.go` — if `Validate()` is relaxed to allow missing `ResultsFile` when in-memory payload is set, a new case table entry proves the pre-existing "missing results" error still fires for the `pr-check` subcommand.
 
@@ -391,7 +391,7 @@ COUNT_AFTER=$(curl -sS -H "Authorization: Bearer $(./scripts/test-token.sh owner
 | File | Action | Description |
 |------|--------|-------------|
 | `web/tests/e2e/full-pipeline.spec.ts` | create | Playwright spec: |
-| `web/tests/e2e/helpers/cli.ts` | create | `runApitest({ flags })` helper that `execSync`s `./apitest run …` and parses the `res_...` id from stdout |
+| `web/tests/e2e/helpers/cli.ts` | create | `runCurlew({ flags })` helper that `execSync`s `./curlew run …` and parses the `res_...` id from stdout |
 
 Spec structure (5 assertions — meets the >=4 DoD):
 
@@ -400,7 +400,7 @@ test.describe('E2E: CLI -> backend -> web', () => {
     test.beforeEach(async ({ context }) => { await seedAuthCookie(context, OWNER_EMAIL); });
 
     test('uploaded run appears in /org/acme/results within 5s', async ({ page }) => {
-        const { resultId, pass, fail } = runApitest({ flags: ['--report-upload','--org','acme','--pr','7','--repo','acme/api'], collection: 'testdata/team/e2e-collection.yaml' });
+        const { resultId, pass, fail } = runCurlew({ flags: ['--report-upload','--org','acme','--pr','7','--repo','acme/api'], collection: 'testdata/team/e2e-collection.yaml' });
         await page.goto(`/org/acme/results?range=all`);
         await expect(page.locator(`[data-result-id="${resultId}"]`)).toBeVisible({ timeout: 5000 });
         await expect(page.getByTestId(`result-pass-count-${resultId}`)).toContainText(String(pass));
@@ -414,7 +414,7 @@ test.describe('E2E: CLI -> backend -> web', () => {
     });
 
     test('failing collection uploads state=failure and dashboard shows failure badge', async ({ page }) => {
-        const res = runApitest({ flags: ['--report-upload','--org','acme','--pr','8','--repo','acme/api'], collection: 'testdata/team/e2e-collection-failing.yaml', expectExit: 1 });
+        const res = runCurlew({ flags: ['--report-upload','--org','acme','--pr','8','--repo','acme/api'], collection: 'testdata/team/e2e-collection-failing.yaml', expectExit: 1 });
         await page.goto(`/org/acme/pr-checks`);
         await expect(page.getByTestId('pr-check-state-failure').first()).toBeVisible();
     });
@@ -423,7 +423,7 @@ test.describe('E2E: CLI -> backend -> web', () => {
 
 #### Impact on Existing Tests
 - Existing Playwright specs unaffected (different `.spec.ts` file).
-- Global setup (`APITOOL_MANAGE_STACK=1`) stays compatible.
+- Global setup (`CURLEW_MANAGE_STACK=1`) stays compatible.
 
 ---
 
@@ -454,9 +454,9 @@ test.describe('E2E: CLI -> backend -> web', () => {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` (`printHelp`, `run` help section) | modify | Document `--report-upload`, `--org`, `--pr`, `--repo`, `--triggered-by`, `--git-sha`; env vars `APITEST_BACKEND_URL`, `APITEST_BACKEND_TOKEN` |
+| `cmd/curlew/main.go` (`printHelp`, `run` help section) | modify | Document `--report-upload`, `--org`, `--pr`, `--repo`, `--triggered-by`, `--git-sha`; env vars `CURLEW_BACKEND_URL`, `CURLEW_BACKEND_TOKEN` |
 | `CHANGELOG.md` | modify | Add `### Added` entry describing the feature |
-| `smoke/run.sh` | modify | Add a dry-run-style test case for `apitest run --report-upload --dry-run` (stub backend) to catch help-text/flag regressions |
+| `smoke/run.sh` | modify | Add a dry-run-style test case for `curlew run --report-upload --dry-run` (stub backend) to catch help-text/flag regressions |
 
 ---
 
@@ -464,10 +464,10 @@ test.describe('E2E: CLI -> backend -> web', () => {
 
 | Test File | Test Function | Impact | Action Required |
 |-----------|--------------|--------|----------------|
-| `cmd/apitest/main_test.go` | `TestParseRunArgs*` | breaks (tuple → struct) | Update destructures to struct access |
-| `cmd/apitest/run_test.go` | `TestRun*` | breaks (tuple → struct) | Same |
-| `cmd/apitest/discovery_run_test.go` | `TestDiscovery*` | breaks (tuple → struct) | Same |
-| `cmd/apitest/validate_team_test.go` | `TestValidate*` | neutral | No change |
+| `cmd/curlew/main_test.go` | `TestParseRunArgs*` | breaks (tuple → struct) | Update destructures to struct access |
+| `cmd/curlew/run_test.go` | `TestRun*` | breaks (tuple → struct) | Same |
+| `cmd/curlew/discovery_run_test.go` | `TestDiscovery*` | breaks (tuple → struct) | Same |
+| `cmd/curlew/validate_team_test.go` | `TestValidate*` | neutral | No change |
 | `internal/prcheck/run_test.go` | `TestRun*` | none | `Run()` preserved |
 | `internal/prcheck/prcheck_test.go` | `TestValidate*` | small | Add case for missing-results-allowed when in-memory mode set |
 | `internal/prcheck/client_test.go` | — | additive | Add contract pin |
@@ -483,7 +483,7 @@ test.describe('E2E: CLI -> backend -> web', () => {
 - **Risk:** Upload failure on passing run masks test success. → **Mitigation:** Documented exit-code rules in Step 3 — upload error on a failing run does not override the failure; upload error on a passing run yields exit 2 with the upload error on stderr.
 - **Risk:** Seed idempotency — second `test-stack.sh up` could duplicate fixtures. → **Mitigation:** Existing seed script is already idempotent (checks 409). Add assertion to smoke to pin this behavior.
 - **Edge case:** Run has zero requests (empty collection). → **Handling:** `BuildPayload` returns a payload with empty `Items`; backend ingest already accepts this per M4-004.
-- **Edge case:** `--report-upload` without `APITEST_BACKEND_URL` env. → **Handling:** Validate at parse time, exit 2 with `backend URL not configured` — reuses existing `prcheck.ErrBackendURLMissing`.
+- **Edge case:** `--report-upload` without `CURLEW_BACKEND_URL` env. → **Handling:** Validate at parse time, exit 2 with `backend URL not configured` — reuses existing `prcheck.ErrBackendURLMissing`.
 - **Edge case:** `--pr` without `--repo` or vice versa. → **Handling:** Parse-time validation error (`--pr and --repo must be set together`), exit 1.
 - **Edge case:** Run cancelled via SIGINT. → **Handling:** Context already plumbed; `prcheck.UploadRun` inherits the cancelled context and returns `context.Canceled`; we check and print `upload cancelled` on stderr, exit 130.
 
@@ -508,7 +508,7 @@ type UploadConfig struct {
 
 func UploadRun(ctx context.Context, cfg UploadConfig, payload *ResultsPayload) (*RunResult, error)
 
-// cmd/apitest/main.go
+// cmd/curlew/main.go
 type runFlags struct { ... }
 func parseRunArgs(args []string) (runFlags, error)
 func handleReportUpload(ctx context.Context, f runFlags, col *parser.Collection, results []runner.RequestResult, sum *runner.Summary) (exitCode int)
@@ -517,7 +517,7 @@ func handleReportUpload(ctx context.Context, f runFlags, col *parser.Collection,
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -531,10 +531,10 @@ Observable verification (from the task YAML):
 
 ```bash
 scripts/test-stack.sh up
-go build ./cmd/apitest
-APITEST_BACKEND_URL=http://localhost:5000 \
-APITEST_BACKEND_TOKEN=$(scripts/test-token.sh owner@example.com) \
-  ./apitest run testdata/team/e2e-collection.yaml --report-upload \
+go build ./cmd/curlew
+CURLEW_BACKEND_URL=http://localhost:5000 \
+CURLEW_BACKEND_TOKEN=$(scripts/test-token.sh owner@example.com) \
+  ./curlew run testdata/team/e2e-collection.yaml --report-upload \
     --org acme --pr 7 --repo acme/api
 # Expected: exit 0, stdout contains "Uploaded result res_...; status posted"
 

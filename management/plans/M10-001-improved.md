@@ -8,7 +8,7 @@
 
 | # | Severity | Finding | Fix Applied | Verified |
 |---|----------|---------|------------|----------|
-| 1 | Medium | 5 DoD test function names in `internal/scaffold/scaffold_test.go` did not match the `definition_of_done` names in the task YAML. `TestInit_SkillClaude_VersionInTemplate` was also missing entirely (behavior split across other tests but no dedicated function by that name). | Renamed the 5 existing tests to match DoD names: `CreatesSkillFile` → `CopiesFile`, `DefaultsMarkdownFormat` → `DefaultsMarkdown`, `AppendsEventsForEveryFormat` → `ExtendsOutputBlock`, `GitignoreContainsApitestDir` → `ExtendsGitignore`, `OutputJSON_KeepsJSONReportAndAddsEvents` → `OutputOverride`. Added `TestInit_SkillClaude_VersionInTemplate` to `cmd/apitest/main_test.go` as a binary-level check that `{{apitest_version}}` is fully substituted and the version comment reflects the live binary version constant. | ✓ tests pass |
+| 1 | Medium | 5 DoD test function names in `internal/scaffold/scaffold_test.go` did not match the `definition_of_done` names in the task YAML. `TestInit_SkillClaude_VersionInTemplate` was also missing entirely (behavior split across other tests but no dedicated function by that name). | Renamed the 5 existing tests to match DoD names: `CreatesSkillFile` → `CopiesFile`, `DefaultsMarkdownFormat` → `DefaultsMarkdown`, `AppendsEventsForEveryFormat` → `ExtendsOutputBlock`, `GitignoreContainsCurlewDir` → `ExtendsGitignore`, `OutputJSON_KeepsJSONReportAndAddsEvents` → `OutputOverride`. Added `TestInit_SkillClaude_VersionInTemplate` to `cmd/curlew/main_test.go` as a binary-level check that `{{curlew_version}}` is fully substituted and the version comment reflects the live binary version constant. | ✓ tests pass |
 
 ## Out of Scope (Deferred)
 
@@ -18,11 +18,11 @@ No findings deferred. All findings resolved.
 
 | Check | Result |
 |-------|--------|
-| `go build ./cmd/apitest` | PASS |
+| `go build ./cmd/curlew` | PASS |
 | `go test ./...` | PASS |
 | `golangci-lint run` | PASS |
 | Coverage (`internal/scaffold`) | 86.6% |
-| Coverage (`cmd/apitest`) | 81.3% |
+| Coverage (`cmd/curlew`) | 81.3% |
 | Coverage (`templates`) | 90.9% |
 | Coverage (overall) | 86.8% |
 

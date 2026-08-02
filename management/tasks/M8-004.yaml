@@ -8,38 +8,38 @@ track: go-cli
 dependencies: [M8-003]
 observable: |
   # --only runs exactly one named main request; setup + teardown still run.
-  ./apitest run collections/multi.yaml --only "Get user"
+  ./curlew run collections/multi.yaml --only "Get user"
   # Expected: exit 0; stdout shows setup items, then only "Get user",
   # then teardown items.
 
   # Repeatable --only unions the selection.
-  ./apitest run collections/multi.yaml --only "Get user" --only "Update user"
+  ./curlew run collections/multi.yaml --only "Get user" --only "Update user"
   # Expected: exit 0; both requests run; selection preserved in events.
 
   # Unknown name: exit 3 before any HTTP runs.
-  ./apitest run collections/multi.yaml --only "Nope"
+  ./curlew run collections/multi.yaml --only "Nope"
   # Expected: exit 3; stderr: 'no request named "Nope"; available: "Get user", "Update user", ...'.
 
   # Variable-cliff diagnostic: a filtered-out producer surfaces in the error.
-  ./apitest run collections/multi.yaml --only "Update user"
+  ./curlew run collections/multi.yaml --only "Update user"
   # (where {{user_id}} is extracted by "Create user" in main, not in setup)
   # Expected: exit 1; stderr: 'variable {{user_id}} is not defined; normally
   # extracted from "Create user" which was not included by --only'.
 
   # Duplicate request names are rejected unconditionally at load time.
-  ./apitest run collections/dupes.yaml
+  ./curlew run collections/dupes.yaml
   # Expected: exit 3; stderr: 'duplicate request name "Get user" at
   # collections/dupes.yaml:12 and collections/dupes.yaml:27'.
-  ./apitest validate collections/dupes.yaml
+  ./curlew validate collections/dupes.yaml
   # Expected: exit 3; same duplicate-name error.
 
   # Events stream records the filter so agents distinguish filtered runs.
-  ./apitest run collections/multi.yaml --only "Get user" --events run.ndjson
+  ./curlew run collections/multi.yaml --only "Get user" --events run.ndjson
   jq -c 'select(.kind == "run.start") | {schema_version, selection}' run.ndjson
   # Expected: {"schema_version":"1.1","selection":["Get user"]}.
 
   # Watch mode propagates --only through CLI args; no plumbing required.
-  ./apitest watch collections/multi.yaml --only "Get user"
+  ./curlew watch collections/multi.yaml --only "Get user"
   # Expected: on every save, only "Get user" re-runs; setup and teardown
   # still execute in full around it.
 
@@ -49,7 +49,7 @@ observable: |
 behaviors:
   - "The parser rejects any collection whose main requests contain two or more items with the same name at load time, before any HTTP, with exit code 3 and a line-numbered stderr error that names both occurrences and their source files."
   - "Duplicate-name rejection applies unconditionally across every output format and every subcommand that loads a collection (run, watch, validate)."
-  - "apitest run accepts a repeatable --only <name> flag; multiple occurrences form a union; values are exact, case-sensitive matches against main request names; surrounding whitespace is trimmed."
+  - "curlew run accepts a repeatable --only <name> flag; multiple occurrences form a union; values are exact, case-sensitive matches against main request names; surrounding whitespace is trimmed."
   - "When --only is non-empty, runner.Run filters the main-phase items to the selected set; the setup phase runs in full; the teardown phase runs in full (matches the unconditional teardown behaviour of runPhases today)."
   - "When --only selects zero main requests (no name matches), exit code is 3, no HTTP runs, and stderr lists the available main request names."
   - "--only does not target setup or teardown items; naming a setup or teardown item via --only matches zero main requests and triggers the exit-3 no-match error."
@@ -59,7 +59,7 @@ behaviors:
   - "Events schema bumps to v1.1: run.start gains an additive optional selection field (array of strings) carrying the --only values; the field is omitted when --only is not set."
   - "internal/output/events/events.go SchemaVersion constant is bumped from \"1.0\" to \"1.1\"; docs/events-schema/v1.1.json is published; docs/events-schema/v1.0.json is retained unchanged as a historical anchor (matching the v0.1 precedent documented in events.go)."
   - "Watch mode requires no plumbing changes: --only flows through RunFunc's CLI args on every rebuild."
-  - "apitest validate surfaces duplicate-name rejection as a static error (exit 3), matching the run-time behaviour."
+  - "curlew validate surfaces duplicate-name rejection as a static error (exit 3), matching the run-time behaviour."
   - "docs/SPECIFICATION.md run command section documents --only; docs/MANUAL.md run section references it; CHANGELOG.md [Unreleased] has an Added entry for --only and a Changed entry for the events schema v1.0 → v1.1 bump."
 scope: |
   Implement four linked behaviours plus a documentation pass.
@@ -71,7 +71,7 @@ scope: |
      subcommand inherits it (run, watch, validate).
 
   2. CLI: --only flag and runner selection. Add a repeatable --only flag to
-     runCmdInner (cmd/apitest/main.go), following the --var flag pattern in
+     runCmdInner (cmd/curlew/main.go), following the --var flag pattern in
      parseRunArgs (hand-rolled, slice-accumulated). Thread the selection as
      an optional []string through runner.Run (internal/runner/runner.go) and
      apply the filter at the main-phase branch of runPhases only; the setup
@@ -116,13 +116,13 @@ definition_of_done:
   - "docs/events-schema/v1.1.json exists and validates representative events (TestSchema_v11_validates)"
   - "docs/events-schema/v1.0.json retained unchanged as a historical anchor"
   - "Watch-mode integration test asserts --only propagates across rebuilds without plumbing changes"
-  - "apitest validate surfaces duplicate-name rejection as exit 3"
-  - "apitest run --only \"Nope\" exits 3 with stderr listing available names"
+  - "curlew validate surfaces duplicate-name rejection as exit 3"
+  - "curlew run --only \"Nope\" exits 3 with stderr listing available names"
   - "docs/SPECIFICATION.md run command section documents --only"
   - "docs/MANUAL.md references --only in the run section"
   - "CHANGELOG.md updated with M8-004 entries (Added: --only flag; Changed: events schema v1.0 → v1.1)"
   - "go test ./... passes with no regressions"
-  - "go test -cover ./internal/parser/... ./internal/runner/... ./internal/output/events/... ./cmd/apitest/... >= 80%"
+  - "go test -cover ./internal/parser/... ./internal/runner/... ./internal/output/events/... ./cmd/curlew/... >= 80%"
   - "golangci-lint run passes with 0 issues"
   - "./smoke/run.sh passes"
   - "./scripts/ci-local.sh passes"

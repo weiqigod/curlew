@@ -334,7 +334,7 @@ func (p *Printer) FeatureGate(result *auth.GateResult) {
 }
 ```
 
-Note: This adds an import of `github.com/peterlindqvist/apitest/internal/auth` to the `output` package. Since `auth` has no dependencies on `output`, there is no cycle.
+Note: This adds an import of `github.com/weiqigod/curlew/internal/auth` to the `output` package. Since `auth` has no dependencies on `output`, there is no cycle.
 
 #### Tests to Write FIRST (RED phase)
 
@@ -441,8 +441,8 @@ func TestWriteGateJSON(t *testing.T) {
 
 | File | Action | Description |
 |------|--------|-------------|
-| `cmd/apitest/main.go` | modify | Add vault case, gatedCmd helper, help text |
-| `cmd/apitest/main_test.go` | modify | Add gate integration tests |
+| `cmd/curlew/main.go` | modify | Add vault case, gatedCmd helper, help text |
+| `cmd/curlew/main_test.go` | modify | Add gate integration tests |
 
 #### Current Code
 ```go
@@ -586,23 +586,23 @@ func TestHelpText_vault(t *testing.T) {
 echo "=== Feature Gate ==="
 
 echo "--- Vault command returns exit code 6 ---"
-./apitest vault > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
+./curlew vault > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 [ "$EXITCODE" = "6" ] && echo "PASS: vault exit code 6" || { echo "FAIL: expected exit 6, got $EXITCODE"; exit 1; }
 echo
 
 echo "--- Vault gate message contains feature name ---"
-VAULT_OUTPUT=$(./apitest vault --no-color 2>&1 || true)
+VAULT_OUTPUT=$(./curlew vault --no-color 2>&1 || true)
 echo "$VAULT_OUTPUT" | grep -q "vault_provider_profiles" && echo "PASS: feature name in output" || { echo "FAIL: Missing feature name in: $VAULT_OUTPUT"; exit 1; }
 echo
 
 echo "--- Vault --format json produces valid JSON ---"
-VAULT_JSON=$(./apitest vault --format json 2>&1 || true)
+VAULT_JSON=$(./curlew vault --format json 2>&1 || true)
 echo "$VAULT_JSON" | python3 -m json.tool > /dev/null && echo "PASS: vault --format json is valid JSON" || { echo "FAIL: Invalid JSON: $VAULT_JSON"; exit 1; }
 echo "$VAULT_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='feature_gated', f'Wrong status: {d[\"status\"]}'" && echo "PASS: status is feature_gated" || { echo "FAIL: Wrong status"; exit 1; }
 echo
 
 echo "--- Help text shows vault ---"
-HELP_OUT=$(./apitest --help 2>&1)
+HELP_OUT=$(./curlew --help 2>&1)
 echo "$HELP_OUT" | grep -q "vault" && echo "PASS: vault in help" || { echo "FAIL: Missing vault in help output"; exit 1; }
 echo
 ```
@@ -619,7 +619,7 @@ echo
 | `internal/auth/gate_test.go` | new | new file | create |
 | `internal/output/terminal_test.go` | `TestPrinter_FeatureGate` | new tests | add |
 | `internal/output/json_test.go` | `TestWriteGateJSON` | new tests | add |
-| `cmd/apitest/main_test.go` | `TestGatedCmd_*` | new tests | add |
+| `cmd/curlew/main_test.go` | `TestGatedCmd_*` | new tests | add |
 | All existing tests | — | none | — |
 
 ## Risks and Edge Cases
@@ -635,7 +635,7 @@ echo
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -644,14 +644,14 @@ go test ./...
 Observable verification:
 ```bash
 # Terminal output
-./apitest vault
+./curlew vault
 # Expected: structured gate message with feature name, tier, URLs, exit code 6
 
 # JSON output
-./apitest vault --format json
+./curlew vault --format json
 # Expected: JSON with status "feature_gated", exit_code 6, all gate fields
 
 # Exit code
-./apitest vault; echo "Exit: $?"
+./curlew vault; echo "Exit: $?"
 # Expected: Exit: 6
 ```

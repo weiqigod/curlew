@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/worker/schedule"
+	"github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 func TestQueue(t *testing.T) {

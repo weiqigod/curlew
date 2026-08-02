@@ -188,7 +188,7 @@ import (
     "context"
     "fmt"
 
-    apierrors "github.com/peterlindqvist/apitest/internal/errors"
+    apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // wrapVaultFetchError wraps a provider fetch error in a Structured error
@@ -309,7 +309,7 @@ t.Run("vault_secret_fetch_error_stops_execution", func(t *testing.T) {
 })
 ```
 
-**Import required in runner_test.go:** `apierrors "github.com/peterlindqvist/apitest/internal/errors"` (check if already imported).
+**Import required in runner_test.go:** `apierrors "github.com/weiqigod/curlew/internal/errors"` (check if already imported).
 
 **Impact on Existing Tests:** This test currently passes with a simple nil check. After Step 2, it will still pass the nil check AND the new structured-error assertions. No other runner tests are affected.
 
@@ -342,7 +342,7 @@ t.Run("vault_secret_fetch_error_stops_execution", func(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/vault/...
 go test ./internal/runner/...
 go test ./...
@@ -359,5 +359,5 @@ go test ./internal/runner/... -run TestRun_VaultResolution -v
 go test ./internal/vault/... -run TestResolve/resolve_returns_error_for_missing_secret -v
 
 # Verify CLI override (exit code 0 since override is non-vault)
-# apitest run tests.yaml --var api_key=override
+# curlew run tests.yaml --var api_key=override
 ```

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/ratelimit"
+	"github.com/weiqigod/curlew/internal/ratelimit"
 )
 
 func TestNew(t *testing.T) {

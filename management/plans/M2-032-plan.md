@@ -305,9 +305,9 @@ import (
 	"time"
 
 	gws "github.com/gorilla/websocket"
-	"github.com/peterlindqvist/apitest/internal/assertion"
-	"github.com/peterlindqvist/apitest/internal/parser"
-	"github.com/peterlindqvist/apitest/internal/variable"
+	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/parser"
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // StepResult records the outcome of one step.
@@ -612,8 +612,8 @@ The fake dialer is a test helper — define a minimal `wsFakeDialer` at the top 
 | File | Action | Description |
 |------|--------|-------------|
 | `internal/websocket/integration_test.go` | create | Spin up `httptest.NewServer` with `websocket.Upgrader`, run `Execute` against it, assert round-trip |
-| `cmd/apitest/testdata/ws_basic.yaml` | create | Fixture for the smoke/integration test of the `run` command |
-| `cmd/apitest/run_test.go` | modify | Add `TestRun_websocket_integration` that sets `runCommandWebSocketDialer` (or uses the real dialer against `httptest.NewServer`) |
+| `cmd/curlew/testdata/ws_basic.yaml` | create | Fixture for the smoke/integration test of the `run` command |
+| `cmd/curlew/run_test.go` | modify | Add `TestRun_websocket_integration` that sets `runCommandWebSocketDialer` (or uses the real dialer against `httptest.NewServer`) |
 
 Integration test outline:
 ```go
@@ -663,7 +663,7 @@ None.
 |------|--------|-------------|
 | `CHANGELOG.md` | modify | Add M2-032 entry under `[Unreleased]` → `Added` |
 | `smoke/run.sh` | modify (optional) | Add a WebSocket validation line if smoke currently exercises protocols — inspect first; if the smoke test runs `validate` on a fixture, add a websocket fixture and `validate` call. Do NOT add a run-against-real-server call (non-hermetic). |
-| `cmd/apitest/main.go` | modify (if needed) | If `run --help` enumerates supported protocols anywhere, append `websocket`. Grep confirms no such enumeration today, but re-verify during execute. |
+| `cmd/curlew/main.go` | modify (if needed) | If `run --help` enumerates supported protocols anywhere, append `websocket`. Grep confirms no such enumeration today, but re-verify during execute. |
 
 CHANGELOG entry (single line, keep-a-changelog style, matching M2-029's format):
 > WebSocket protocol adapter: `protocol: websocket` with `websocket.steps` containing `send` (JSON `message:` or raw `message_raw:`), `expect` (JSONPath assertions on `message:`, `timeout_ms`, `extract:`), `wait` (`duration_ms`), and `close` (`code`, `reason`) actions; establishes a real WebSocket connection via HTTP upgrade using `gorilla/websocket`; FIFO message buffer so pre-delivered messages are matched before waiting; variable interpolation in URL/headers/message fields; variables extracted in `expect` steps are available to subsequent steps; Professional-tier feature gate (exit code 6 at Free tier); each WebSocket request counts as 1 request against the guard rail regardless of step count (M2-032)
@@ -684,7 +684,7 @@ None.
 | `internal/runner/runner_test.go` | `TestRun_websocket_*` (new) | new | add |
 | `internal/runner/runner_test.go` | existing graphql + http tests | none | `VarSources{}` literals still compile |
 | `internal/auth/registry_test.go` | feature count assertion (if any) | possibly breaks | increment expected count by 1 |
-| `cmd/apitest/run_test.go` | `TestRun_websocket_integration` (new) | new | add |
+| `cmd/curlew/run_test.go` | `TestRun_websocket_integration` (new) | new | add |
 
 ## Risks and Edge Cases
 
@@ -721,7 +721,7 @@ None.
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -730,7 +730,7 @@ go test ./...
 Observable verification:
 ```bash
 # Build
-go build ./cmd/apitest
+go build ./cmd/curlew
 
 # Unit tests for the new package
 go test ./internal/websocket/...
@@ -755,5 +755,5 @@ requests:
             code: 1000
 YAML
 # (Run against a test server — see internal/websocket/integration_test.go for the in-process equivalent.)
-./apitest run /tmp/ws_tests.yaml
+./curlew run /tmp/ws_tests.yaml
 ```

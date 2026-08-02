@@ -10,7 +10,7 @@
 
 | Suite | Result | Details |
 |-------|--------|---------|
-| `go build ./cmd/apitest` | PASS | Clean build, 0 warnings |
+| `go build ./cmd/curlew` | PASS | Clean build, 0 warnings |
 | `go test ./...` | PASS | All packages pass |
 | `go test -race ./...` (Go gate) | PASS | No races detected |
 | `golangci-lint run` (Go gate) | PASS | No findings |

@@ -462,7 +462,7 @@ t.Run("resolve_1password_item_with_field_extraction", func(t *testing.T) {
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./internal/vault/...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -470,7 +470,7 @@ go test ./internal/vault/...
 
 Observable verification:
 ```bash
-# Configure GCP and 1Password vault profiles in apitest.yaml.
+# Configure GCP and 1Password vault profiles in curlew.yaml.
 # Run go test ./internal/vault/... with mocked CLI calls for both providers.
 go test ./internal/vault/... -v -run TestGCPProvider
 go test ./internal/vault/... -v -run TestOnePasswordProvider

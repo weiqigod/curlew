@@ -845,7 +845,7 @@ npm run lint         # eslint
 npm run test:unit    # vitest
 
 # E2E (observable)
-APITOOL_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-billing.spec.ts
+CURLEW_MANAGE_STACK=1 npm run test:e2e -- tests/e2e/org-billing.spec.ts
 ```
 
 Observable verification (from task YAML):

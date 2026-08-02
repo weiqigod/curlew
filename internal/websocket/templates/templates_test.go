@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/peterlindqvist/apitest/internal/websocket/templates"
+	"github.com/weiqigod/curlew/internal/websocket/templates"
 )
 
 func TestLoadTemplate_Relative(t *testing.T) {

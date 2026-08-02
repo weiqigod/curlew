@@ -42,7 +42,7 @@ No findings.
 | `internal/config` | 96.4% |
 | `internal/parser` | 91.5% |
 | `internal/runner` | 91.2% |
-| `cmd/apitest` | 86.1% |
+| `cmd/curlew` | 86.1% |
 | **Total** | **92.1%** |
 
 All packages exceed the 80% threshold.

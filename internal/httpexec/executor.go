@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	apierrors "github.com/peterlindqvist/apitest/internal/errors"
+	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
 // Result holds the outcome of an executed HTTP request.

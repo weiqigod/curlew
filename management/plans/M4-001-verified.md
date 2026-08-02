@@ -20,17 +20,17 @@
 ## Observable Output
 
 ```
-$ ./apitest validate testdata/team/shared-vault-template.yaml
+$ ./curlew validate testdata/team/shared-vault-template.yaml
 OK: shared vault template valid (2 environments, 4 secrets)
 Exit: 0
 
-$ ./apitest validate testdata/team/shared-vault-template.invalid.yaml
+$ ./curlew validate testdata/team/shared-vault-template.invalid.yaml
 FAIL testdata/team/shared-vault-template.invalid.yaml is invalid
   [ERROR]   line 3: team_secrets.vault_configs.production.provider: unknown provider 'foo'
 Exit: 2
 
 $ go test ./internal/vault/teamtemplate/... -run TestTeamTemplate -count=1
-ok  github.com/peterlindqvist/apitest/internal/vault/teamtemplate  0.305s  (10 subtests pass)
+ok  github.com/weiqigod/curlew/internal/vault/teamtemplate  0.305s  (10 subtests pass)
 ```
 
 Expected: exit 0 + "OK: shared vault template valid (2 environments, 4 secrets)" for valid file; exit 2 + key path error for invalid file; >=8 tests passing.
@@ -47,17 +47,17 @@ Result: MATCH
 | 5 | azure-key-vault missing vault_name emits single error identifying missing field | `TestTeamTemplate/azure_missing_vault_name` | PASS |
 | 6 | Valid template loaded, env.Resolve(name) returns provider + key mappings | `TestTeamTemplate_Resolve` | PASS |
 | 7 | Duplicate key alias within same env → validator reports duplicate | `TestTeamTemplate/duplicate_alias_in_same_env` | PASS |
-| 8 | `apitest validate --help` mentions shared vault config templates | `TestValidateCmd_TeamTemplate/help_mentions_shared_vault_template` | PASS |
+| 8 | `curlew validate --help` mentions shared vault config templates | `TestValidateCmd_TeamTemplate/help_mentions_shared_vault_template` | PASS |
 
 ## Definition of Done
 
 | # | Item | Evidence | Status |
 |---|------|----------|--------|
 | 1 | All 8 behavior tests pass under `go test ./internal/vault/teamtemplate/...` | 10 subtests pass (8 behavior + 2 structural) | PASS |
-| 2 | `apitest validate` recognises team_secrets files and prints one-line success summary | `OK: shared vault template valid (2 environments, 4 secrets)` exit 0 | PASS |
+| 2 | `curlew validate` recognises team_secrets files and prints one-line success summary | `OK: shared vault template valid (2 environments, 4 secrets)` exit 0 | PASS |
 | 3 | Invalid-template fixtures produce deterministic error messages with key paths | `team_secrets.vault_configs.production.provider: unknown provider 'foo'` | PASS |
 | 4 | `testdata/team/shared-vault-template.yaml` and `.invalid.yaml` checked in | Files exist and are committed | PASS |
-| 5 | `apitest validate --help` mentions shared vault template support | Help output contains "Also validates shared vault configuration templates (team_secrets.vault_configs)" | PASS |
+| 5 | `curlew validate --help` mentions shared vault template support | Help output contains "Also validates shared vault configuration templates (team_secrets.vault_configs)" | PASS |
 | 6 | `smoke/run.sh` validates the new fixture in its CI path | Smoke lines 938–955 added; team template sections execute correctly | PASS |
 
 ## Code Review
@@ -103,8 +103,8 @@ Branch A: Review PASS trusted (iteration 2 review), spot-check clean.
 | `internal/vault/teamtemplate/teamtemplate_test.go` | created |
 | `internal/validator/validator.go` | modified — added ValidateAuto, sniffTeamTemplate, validateTeamTemplate, ResultKind |
 | `internal/validator/teamtemplate_test.go` | created |
-| `cmd/apitest/main.go` | modified — ValidateAuto dispatch, exit-2 for team templates, help text |
-| `cmd/apitest/validate_team_test.go` | created |
+| `cmd/curlew/main.go` | modified — ValidateAuto dispatch, exit-2 for team templates, help text |
+| `cmd/curlew/validate_team_test.go` | created |
 | `testdata/team/shared-vault-template.yaml` | created |
 | `testdata/team/shared-vault-template.invalid.yaml` | created |
 | `smoke/run.sh` | modified — added team template validate assertions |

@@ -1,7 +1,7 @@
 # Implementation Plan: M2-009
 
 ## Overview
-Extends auth profile execution with file-based token caching (persisting across runs in `.apitest/cache/`) and optional refresh-on-failure behavior that re-executes the auth profile and retries the request when a 401 Unauthorized response is received.
+Extends auth profile execution with file-based token caching (persisting across runs in `.curlew/cache/`) and optional refresh-on-failure behavior that re-executes the auth profile and retries the request when a 401 Unauthorized response is received.
 
 ## Task Details
 - **ID:** M2-009
@@ -178,14 +178,14 @@ type CacheStore interface {
     Invalidate(profileName string) error
 }
 
-// FileCacheStore is a CacheStore backed by JSON files in .apitest/cache/.
+// FileCacheStore is a CacheStore backed by JSON files in .curlew/cache/.
 type FileCacheStore struct {
     dir string
 }
 
-// NewFileCacheStore creates a FileCacheStore rooted at projectRoot/.apitest/cache/.
+// NewFileCacheStore creates a FileCacheStore rooted at projectRoot/.curlew/cache/.
 func NewFileCacheStore(projectRoot string) *FileCacheStore {
-    return &FileCacheStore{dir: filepath.Join(projectRoot, ".apitest", "cache")}
+    return &FileCacheStore{dir: filepath.Join(projectRoot, ".curlew", "cache")}
 }
 
 func (s *FileCacheStore) Load(profileName string) (*CacheEntry, error) { ... }
@@ -541,20 +541,20 @@ func TestExecutePhase_RefreshOnFailure(t *testing.T) {
 
 ---
 
-### Step 6: Add `.apitest/cache/` to `.gitignore`
+### Step 6: Add `.curlew/cache/` to `.gitignore`
 **Rationale:** Cache files contain credentials (even if obfuscated) and must not be committed. Low risk, additive only.
 
 #### Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `.gitignore` | modify | Add `.apitest/cache/` entry |
+| `.gitignore` | modify | Add `.curlew/cache/` entry |
 
 #### New Code
 
 ```gitignore
 # Auth profile credential cache (contains obfuscated sensitive values)
-.apitest/cache/
+.curlew/cache/
 ```
 
 #### Impact on Existing Tests
@@ -604,7 +604,7 @@ Note: Since auth profiles are gated at Solo tier, the smoke test may only valida
 ## Verification
 
 ```bash
-go build ./cmd/apitest
+go build ./cmd/curlew
 go test ./...
 ~/go/bin/golangci-lint run
 ./smoke/run.sh
@@ -613,9 +613,9 @@ go test ./...
 Observable verification:
 ```bash
 # Configure an auth profile with TTL-based caching.
-# Run apitest run tests.yaml twice within TTL and confirm auth profile only executes once.
-apitest run tests.yaml  # first run: auth profile executes
-apitest run tests.yaml  # second run within TTL: auth profile skipped (cached)
+# Run curlew run tests.yaml twice within TTL and confirm auth profile only executes once.
+curlew run tests.yaml  # first run: auth profile executes
+curlew run tests.yaml  # second run within TTL: auth profile skipped (cached)
 
 # Verify caching and refresh behavior with unit tests:
 go test ./internal/auth/...

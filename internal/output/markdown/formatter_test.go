@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/peterlindqvist/apitest/internal/assertion"
+	"github.com/weiqigod/curlew/internal/assertion"
 )
 
 var (
@@ -67,14 +67,14 @@ func TestMarkdown_Render_PassJSON(t *testing.T) {
 	markerREs := []*regexp.Regexp{
 		regexp.MustCompile(`^# `),
 		regexp.MustCompile(`^## Notes$`),
-		regexp.MustCompile(`^<!-- BEGIN apitest:response`),
+		regexp.MustCompile(`^<!-- BEGIN curlew:response`),
 		regexp.MustCompile(`^## Response \(deterministic\)$`),
 		regexp.MustCompile(`^### Request$`),
 		regexp.MustCompile(`^### Response `),
 		regexp.MustCompile(`^### Response metadata$`),
 		regexp.MustCompile(`^### Timing$`),
 		regexp.MustCompile(`^### Assertions$`),
-		regexp.MustCompile(`^<!-- END apitest:response`),
+		regexp.MustCompile(`^<!-- END curlew:response`),
 		regexp.MustCompile(`^## Analysis$`),
 	}
 	lines := strings.Split(string(got), "\n")
@@ -94,7 +94,7 @@ func TestMarkdown_Render_PassJSON(t *testing.T) {
 
 	// Verify sentinel format.
 	sentinelRE := regexp.MustCompile(
-		`<!-- BEGIN apitest:response id=req-1 slug=get-user run=[0-9a-f]{32} -->`,
+		`<!-- BEGIN curlew:response id=req-1 slug=get-user run=[0-9a-f]{32} -->`,
 	)
 	if !sentinelRE.Match(got) {
 		t.Errorf("BEGIN sentinel not found or malformed:\n%s", got)
@@ -317,7 +317,7 @@ func TestMarkdown_SentinelExactFormat(t *testing.T) {
 
 	got, _ := os.ReadFile(filepath.Join(dir, "get-user.md"))
 	re := regexp.MustCompile(
-		`^<!-- BEGIN apitest:response id=req-1 slug=get-user run=[0-9a-f]{32} -->$`,
+		`^<!-- BEGIN curlew:response id=req-1 slug=get-user run=[0-9a-f]{32} -->$`,
 	)
 	matched := false
 	for _, line := range strings.Split(string(got), "\n") {

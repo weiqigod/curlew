@@ -29,7 +29,7 @@ No findings. All 5 issues from the iteration-1 review have been resolved:
 | Naming | PASS | No stuttering. All exported types and functions have doc comments. Package name is lowercase single-word. `ResultKind` constants (`KindCollection`, `KindTeamTemplate`) are clean. |
 | Code Organization | PASS | `internal/` boundaries respected. No circular dependencies. `internal/vault/teamtemplate` does not import `internal/runner`, `internal/variable`, or `internal/config`. Exported surface is minimal (`Parse`, `Validate`, `Resolve`, `Summary`, types, sentinels). |
 | Correctness | PASS | Duplicate alias detection via `yaml.Node` walk (not Go map decode) — correctly detects YAML-level duplicates. Deterministic output via sorted alias iteration. `context.Context` not needed (no I/O, no network). No goroutines. Race detector passes. |
-| Test Quality | PASS | All 8 task behaviors covered by table-driven tests with descriptive `t.Run` names. `TestTeamTemplate_Resolve` and `TestTeamTemplate_Summary` cover structural behaviours. Integration tests in `cmd/apitest/validate_team_test.go` exercise real dispatch via `captureRun`. `testdata/` fixtures checked in. |
+| Test Quality | PASS | All 8 task behaviors covered by table-driven tests with descriptive `t.Run` names. `TestTeamTemplate_Resolve` and `TestTeamTemplate_Summary` cover structural behaviours. Integration tests in `cmd/curlew/validate_team_test.go` exercise real dispatch via `captureRun`. `testdata/` fixtures checked in. |
 
 ## Test Coverage
 - `internal/vault/teamtemplate`: **87.8%** (exceeds >= 80% gate)
@@ -43,10 +43,10 @@ No findings. All 5 issues from the iteration-1 review have been resolved:
 ## Observable Verification
 
 ```
-$ ./apitest validate testdata/team/shared-vault-template.yaml
+$ ./curlew validate testdata/team/shared-vault-template.yaml
 OK: shared vault template valid (2 environments, 4 secrets)   ← exit 0 ✓
 
-$ ./apitest validate testdata/team/shared-vault-template.invalid.yaml; echo "Exit: $?"
+$ ./curlew validate testdata/team/shared-vault-template.invalid.yaml; echo "Exit: $?"
 FAIL testdata/team/shared-vault-template.invalid.yaml is invalid
   [ERROR]   line 3: team_secrets.vault_configs.production.provider: unknown provider 'foo'
 Exit: 2   ← exit 2 ✓
