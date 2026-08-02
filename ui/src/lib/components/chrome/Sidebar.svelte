@@ -20,8 +20,6 @@
   let filter = '';
   let filterInput: HTMLInputElement;
   let collapsed: Record<string, boolean> = {};
-  let footerHint: string | null = null;
-  let hintTimer: ReturnType<typeof setTimeout> | null = null;
 
   $: q = filter.trim().toLowerCase();
   $: collections = $tree?.collections ?? [];
@@ -124,13 +122,9 @@
         return;
       }
     }
-    showHint('no result yet — run to inspect');
-  }
-
-  function showHint(text: string): void {
-    footerHint = text;
-    if (hintTimer !== null) clearTimeout(hintTimer);
-    hintTimer = setTimeout(() => (footerHint = null), 2600);
+    // No result to inspect — land on the request definition instead of a
+    // dead click (the old footer hint was invisible in practice).
+    navigate({ name: 'definition', path: c.path, slug: r.slug });
   }
 
   // ---- selection mode ------------------------------------------------------
@@ -189,7 +183,6 @@
   });
   onDestroy(() => {
     unregister.forEach((u) => u());
-    if (hintTimer !== null) clearTimeout(hintTimer);
   });
 
   $: selectedPath =
@@ -254,6 +247,9 @@
                   <div
                     class="rrow"
                     class:checked={isSelected(selection, c, r)}
+                    class:active={$route.name === 'definition' &&
+                      $route.path === c.path &&
+                      $route.slug === r.slug}
                     role="button"
                     tabindex="0"
                     on:click={() => clickRequest(c, r)}
@@ -303,9 +299,7 @@
   </div>
 
   <div class="foot at-mono">
-    {#if footerHint !== null}
-      <span class="hint">{footerHint}</span>
-    {:else if selectionMode}
+    {#if selectionMode}
       <span>{selection.names.length} selected · esc to clear</span>
     {:else}
       <span>{totalCollections} collections</span><span>·</span><span>{totalRequests} requests</span>
@@ -409,6 +403,9 @@
   .rrow.checked {
     background: var(--acc-dim);
   }
+  .rrow.active {
+    background: var(--bg2);
+  }
   .selbox {
     width: 13px;
     flex: none;
@@ -476,9 +473,6 @@
     color: var(--fg3);
     font-size: var(--fs-xs);
     white-space: nowrap;
-  }
-  .foot .hint {
-    color: var(--fg1);
   }
   .foot .sp {
     flex: 1;

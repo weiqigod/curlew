@@ -207,3 +207,27 @@ test('deep link with a token boots straight into the history view', async () => 
   await expect(page.locator('.runrow').first()).toBeVisible();
   expect(page.url()).not.toContain('token=');
 });
+
+test('request definition panel: deep link renders the raw template and can run one request', async () => {
+  await page.goto(appUrl('#/def/collections%2Fbasic.yaml/get-json-ok'));
+  await expect(page.getByRole('main').getByText('Get json ok')).toBeVisible();
+  // Raw template, never resolved values.
+  await expect(page.getByRole('main').locator('.turl')).toContainText('{{base_url}}');
+  await expect(page.getByRole('main').getByText(/collections\/basic\.yaml:\d+/)).toBeVisible();
+  // Run just this request from the panel.
+  await page.getByRole('button', { name: /run this request/i }).click();
+  await expectRunDone(page);
+  // Selection of one main request still runs setup + teardown (pure seeders).
+  await expect(page.locator('.rr')).toHaveCount(3);
+  await expect(row(page, 'Get json ok')).toBeVisible();
+
+  // Sidebar click on a request with NO result in the focused run → definition
+  // panel (the fallback that replaced the invisible footer hint).
+  await page.locator('.rrow').filter({ hasText: 'Create alpha' }).click();
+  await expect(page.getByRole('main').getByText('Create alpha')).toBeVisible();
+  await expect(page.getByRole('main').locator('.turl')).toContainText('{{base_url}}');
+
+  // Sidebar click on a request WITH a result in the focused run → inspector.
+  await page.locator('.rrow').filter({ hasText: 'Get json ok' }).click();
+  await expect(page.getByRole('tab', { name: 'Body' })).toBeVisible();
+});

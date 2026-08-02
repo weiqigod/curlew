@@ -72,6 +72,16 @@ describe('parseHash', () => {
     });
   });
 
+  it('parses #/def/<collectionPath>/<slug>', () => {
+    expect(parseHash('#/def/collections%2Fusers.yaml/create-user')).toEqual({
+      name: 'definition',
+      path: 'collections/users.yaml',
+      slug: 'create-user',
+    });
+    expect(parseHash('#/def/onlypath')).toEqual({ name: 'notFound', hash: '#/def/onlypath' });
+    expect(parseHash('#/def//slug')).toEqual({ name: 'notFound', hash: '#/def//slug' });
+  });
+
   it('returns notFound for unknown hashes', () => {
     expect(parseHash('#/nope')).toEqual({ name: 'notFound', hash: '#/nope' });
     expect(parseHash('#/runs/')).toEqual({ name: 'notFound', hash: '#/runs/' });
@@ -92,6 +102,7 @@ describe('formatRoute', () => {
       { name: 'compare' },
       { name: 'compare', base: 'r1', target: 'r2', slug: 's', iter: 0, changes: true },
       { name: 'file', path: 'collections/broken.yaml' },
+      { name: 'definition', path: 'collections/users.yaml', slug: 'create-user' },
     ];
     for (const r of routes) {
       expect(parseHash(formatRoute(r)), formatRoute(r)).toEqual(r);

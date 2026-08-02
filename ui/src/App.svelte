@@ -19,6 +19,7 @@
   import RunView from './lib/components/run/RunView.svelte';
   import Disconnected from './lib/components/states/Disconnected.svelte';
   import EmptyProject from './lib/components/states/EmptyProject.svelte';
+  import DefinitionPanel from './lib/components/states/DefinitionPanel.svelte';
   import NotFoundPanel from './lib/components/states/NotFoundPanel.svelte';
   import ValidationPanel from './lib/components/states/ValidationPanel.svelte';
 
@@ -92,6 +93,8 @@
             />
           {:else if $route.name === 'file'}
             <ValidationPanel path={$route.path} />
+          {:else if $route.name === 'definition'}
+            <DefinitionPanel path={$route.path} slug={$route.slug} />
           {:else}
             <NotFoundPanel />
           {/if}

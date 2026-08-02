@@ -6,6 +6,7 @@
 //   #/runs/<run_id>/requests/<request_id>     inspector (?tab=…)
 //   #/compare                                 compare (?base=&target=&slug=&iter=&changes=1)
 //   #/file/<collectionPath>                   validation panel
+//   #/def/<collectionPath>/<slug>             request definition panel
 
 import { readable } from 'svelte/store';
 
@@ -25,6 +26,7 @@ export type Route =
       changes?: boolean;
     }
   | { name: 'file'; path: string }
+  | { name: 'definition'; path: string; slug: string }
   | { name: 'notFound'; hash: string };
 
 const INSPECTOR_TABS: readonly string[] = ['error', 'body', 'headers', 'assertions', 'timing', 'request'];
@@ -53,6 +55,17 @@ export function parseHash(hash: string): Route {
   if (rest.startsWith('file/')) {
     const path = decodeURIComponent(rest.slice('file/'.length));
     return path === '' ? { name: 'notFound', hash } : { name: 'file', path };
+  }
+  if (rest.startsWith('def/')) {
+    const segments = rest.slice('def/'.length).split('/');
+    if (segments.length === 2 && segments[0] !== '' && segments[1] !== '') {
+      return {
+        name: 'definition',
+        path: decodeURIComponent(segments[0]),
+        slug: decodeURIComponent(segments[1]),
+      };
+    }
+    return { name: 'notFound', hash };
   }
   if (rest === 'compare') {
     const route: Route = { name: 'compare' };
@@ -111,6 +124,8 @@ export function formatRoute(route: Route): string {
     }
     case 'file':
       return `#/file/${encodeURIComponent(route.path)}`;
+    case 'definition':
+      return `#/def/${encodeURIComponent(route.path)}/${encodeURIComponent(route.slug)}`;
     case 'notFound':
       return route.hash;
   }
