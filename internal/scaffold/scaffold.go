@@ -253,7 +253,16 @@ func envExample() string {
 }
 
 func devEnvironment() string {
-	return "variables:\n  base_url: \"https://httpbin.org\"\n"
+	// The override ships commented out: environment values take precedence
+	// over curlew.yaml's variables:, so an active base_url here would
+	// silently shadow the project-level default on every `--env dev` run.
+	return "# Overrides for the \"dev\" environment.\n" +
+		"# Values here take precedence over the variables: block in curlew.yaml.\n" +
+		"# Uncomment to point this environment at a different host:\n" +
+		"#\n" +
+		"# variables:\n" +
+		"#   base_url: \"https://dev.example.com\"\n" +
+		"variables: {}\n"
 }
 
 func sampleCollection() string {

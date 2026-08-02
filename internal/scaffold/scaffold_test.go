@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // TestInit_OutputAllFormats verifies that each supported output format
@@ -76,6 +78,43 @@ func TestInit_DefaultUnchanged(t *testing.T) {
 		"  verbosity: normal\n"
 	if string(got) != want {
 		t.Fatalf("bare-init curlew.yaml diverged from M8-003 baseline\nwant:\n%s\ngot:\n%s", want, got)
+	}
+}
+
+// TestInit_DevEnvironmentDoesNotShadowProject guards the first-run experience:
+// environment variables take precedence over curlew.yaml's variables: block,
+// so an active base_url in the scaffolded dev.yaml silently shadows the
+// project-level value. The scaffold must ship the override commented out,
+// with the precedence rule explained, while remaining a valid environment
+// file that yields zero active variables.
+func TestInit_DevEnvironmentDoesNotShadowProject(t *testing.T) {
+	dir := t.TempDir()
+	if err := Init(Options{Dir: dir}); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, "environments", "dev.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "base_url:") {
+			t.Errorf("scaffolded dev.yaml has an active base_url override (shadows curlew.yaml): %q", line)
+		}
+	}
+	if !strings.Contains(string(body), "# base_url:") && !strings.Contains(string(body), "#   base_url:") {
+		t.Errorf("dev.yaml should keep a commented-out base_url example:\n%s", body)
+	}
+	if !strings.Contains(string(body), "precedence") {
+		t.Errorf("dev.yaml should explain that environment values take precedence:\n%s", body)
+	}
+	var ef struct {
+		Variables map[string]any `yaml:"variables"`
+	}
+	if err := yaml.Unmarshal(body, &ef); err != nil {
+		t.Fatalf("scaffolded dev.yaml is not valid YAML: %v", err)
+	}
+	if len(ef.Variables) != 0 {
+		t.Errorf("scaffolded dev.yaml should define zero active variables, got %v", ef.Variables)
 	}
 }
 
