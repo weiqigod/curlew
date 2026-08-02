@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	celgo "github.com/google/cel-go/cel"
 	"gopkg.in/yaml.v3"
 
 	apicel "github.com/weiqigod/curlew/internal/cel"
+	"github.com/weiqigod/curlew/internal/config"
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 	"github.com/weiqigod/curlew/internal/parser"
 	"github.com/weiqigod/curlew/internal/retry"
@@ -144,6 +146,8 @@ func validateTeamTemplate(path string) *Result {
 // It collects ALL issues rather than failing on the first one.
 // knownVars optionally provides variable names known at validate time
 // (e.g. from --var or --env-var flags), suppressing false-positive warnings.
+// Variables declared in the project config (curlew.yaml, located by walking up
+// from the collection's directory) are treated as known as well.
 func Validate(path string, knownVars map[string]string) *Result {
 	result := &Result{FilePath: path, Valid: true}
 
@@ -186,8 +190,12 @@ func Validate(path string, knownVars map[string]string) *Result {
 		return result
 	}
 
-	// Build known variable set: collection variables + caller-provided knownVars.
+	// Build known variable set: collection variables + project config variables
+	// + caller-provided knownVars.
 	known := knownCollectionVars(col)
+	for k := range knownProjectVars(path) {
+		known[k] = true
+	}
 	for k := range knownVars {
 		known[k] = true
 	}
@@ -209,7 +217,7 @@ func Validate(path string, knownVars map[string]string) *Result {
 					Severity: SeverityWarning,
 					FilePath: path,
 					Message:  fmt.Sprintf("variable %q may not be defined at runtime", ref),
-					Hint:     "Variables can be defined via collection variables, --var, --env-var, --env, or .env file",
+					Hint:     "Variables can be defined via collection variables, curlew.yaml variables, --var, --env-var, --env, or .env file",
 				})
 				warned[ref] = true
 			}
@@ -390,6 +398,31 @@ func joinSections(col *parser.Collection) []parser.RequestItem {
 	all = append(all, col.Requests.Items...)
 	all = append(all, col.Teardown.Items...)
 	return all
+}
+
+// knownProjectVars returns the variable names defined in the project config
+// that governs colPath. The project root is found by walking up from the
+// collection's directory, exactly as `curlew run` does, so a variable defined
+// in curlew.yaml is not reported as possibly-undefined.
+//
+// A missing or unparsable project config yields no names: validate reports on
+// the collection, and a broken curlew.yaml must not turn into a collection
+// error. The usual "may not be defined at runtime" warning still surfaces in
+// that case, which is the honest answer when the project vars are unreadable.
+func knownProjectVars(colPath string) map[string]bool {
+	dir := filepath.Dir(colPath)
+	if abs, err := filepath.Abs(colPath); err == nil {
+		dir = filepath.Dir(abs)
+	}
+	cfg, _, err := config.LoadProjectConfig(dir)
+	if err != nil || cfg == nil {
+		return nil
+	}
+	known := make(map[string]bool, len(cfg.Variables))
+	for k := range cfg.Variables {
+		known[k] = true
+	}
+	return known
 }
 
 // knownCollectionVars returns a set of variable names statically defined in the collection.

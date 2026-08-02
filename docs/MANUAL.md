@@ -2343,6 +2343,8 @@ curlew validate 'collections/**/*.yaml'
 
 Validate checks YAML syntax, required fields, operator names, circular references, and `include:` paths. It never makes an HTTP request.
 
+It also warns about `{{variable}}` references it cannot account for statically. Names defined in the collection's own `variables:` block, in `curlew.yaml` (found by walking up from the collection's directory, as `curlew run` does), or passed via `--var`/`--env-var` are considered defined; a name that appears in none of those is reported as a warning, not an error, since environments and `.env` supply values at run time.
+
 **`curlew info`** — project metadata:
 
 ```bash

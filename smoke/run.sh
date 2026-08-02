@@ -1028,6 +1028,12 @@ INIT_DIR=$(mktemp -d /tmp/curlew_init_XXXXXX)
 # The scaffolded curlew.yaml defaults base_url to https://httpbin.org (a
 # user-facing default we keep); override it so the run stays hermetic.
 ./curlew run "$INIT_DIR/collections/sample.yaml" --var "base_url=$SMOKE_HTTPBIN_URL" && echo "PASS: sample collection runs successfully" || fail "sample collection run failed"
+# base_url lives in the scaffolded curlew.yaml, so validate must resolve it by
+# walking up from the collection instead of warning about it.
+INIT_VALIDATE_OUT=$(./curlew validate "$INIT_DIR/collections/sample.yaml") || fail "scaffolded collection failed to validate" "$INIT_VALIDATE_OUT"
+echo "$INIT_VALIDATE_OUT" | grep -q "base_url" \
+  && fail "validate warned about base_url defined in curlew.yaml" "$INIT_VALIDATE_OUT" \
+  || echo "PASS: validate does not warn about project-level base_url"
 echo
 
 echo "--- Running curlew init on existing project (expect error) ---"

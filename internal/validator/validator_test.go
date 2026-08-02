@@ -861,3 +861,155 @@ requests:
 		}
 	}
 }
+
+// warningFor returns the first warning issue whose message mentions name.
+func warningFor(result *validator.Result, name string) *validator.Issue {
+	for i := range result.Issues {
+		iss := &result.Issues[i]
+		if iss.Severity == validator.SeverityWarning && strings.Contains(iss.Message, name) {
+			return iss
+		}
+	}
+	return nil
+}
+
+// writeProject lays out a project root containing curlew.yaml (named cfgName)
+// plus collections/sample.yaml, and returns the collection path.
+func writeProject(t *testing.T, cfgName, cfgBody string) string {
+	t.Helper()
+	root := t.TempDir()
+	writeYAML(t, root, cfgName, cfgBody)
+	colDir := filepath.Join(root, "collections")
+	if err := os.MkdirAll(colDir, 0o750); err != nil {
+		t.Fatalf("mkdir collections: %v", err)
+	}
+	return writeYAML(t, colDir, "sample.yaml", `name: Sample
+requests:
+  - name: Hello World
+    request:
+      method: GET
+      url: "{{base_url}}/get"
+`)
+}
+
+func TestValidate_ProjectVariables(t *testing.T) {
+	t.Run("project_config_variable_suppresses_warning", func(t *testing.T) {
+		path := writeProject(t, "curlew.yaml", "project_name: demo\nvariables:\n  base_url: \"https://httpbin.org\"\n")
+
+		result := validator.Validate(path, nil)
+
+		if !result.Valid {
+			t.Fatalf("expected valid, got issues: %v", result.Issues)
+		}
+		if iss := warningFor(result, "base_url"); iss != nil {
+			t.Errorf("should not warn about base_url defined in curlew.yaml, got: %v", iss.Message)
+		}
+	})
+
+	t.Run("project_config_found_by_walking_up_multiple_levels", func(t *testing.T) {
+		root := t.TempDir()
+		writeYAML(t, root, "curlew.yaml", "project_name: demo\nvariables:\n  base_url: \"https://httpbin.org\"\n")
+		deep := filepath.Join(root, "collections", "api", "v2")
+		if err := os.MkdirAll(deep, 0o750); err != nil {
+			t.Fatalf("mkdir deep: %v", err)
+		}
+		path := writeYAML(t, deep, "col.yaml", `name: Deep
+requests:
+  - name: Req
+    request:
+      url: "{{base_url}}/get"
+`)
+
+		result := validator.Validate(path, nil)
+
+		if iss := warningFor(result, "base_url"); iss != nil {
+			t.Errorf("should not warn about base_url defined in an ancestor curlew.yaml, got: %v", iss.Message)
+		}
+	})
+
+	t.Run("curlew_yml_extension_is_honoured", func(t *testing.T) {
+		path := writeProject(t, "curlew.yml", "project_name: demo\nvariables:\n  base_url: \"https://httpbin.org\"\n")
+
+		result := validator.Validate(path, nil)
+
+		if iss := warningFor(result, "base_url"); iss != nil {
+			t.Errorf("should not warn about base_url defined in curlew.yml, got: %v", iss.Message)
+		}
+	})
+
+	t.Run("variable_absent_from_project_config_still_warns", func(t *testing.T) {
+		root := t.TempDir()
+		writeYAML(t, root, "curlew.yaml", "project_name: demo\nvariables:\n  other: \"value\"\n")
+		path := writeYAML(t, root, "col.yaml", `name: Sample
+requests:
+  - name: Req
+    request:
+      url: "{{base_url}}/get"
+`)
+
+		result := validator.Validate(path, nil)
+
+		if warningFor(result, "base_url") == nil {
+			t.Errorf("expected warning about base_url, got issues: %v", result.Issues)
+		}
+	})
+
+	t.Run("warning_hint_mentions_project_config", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeYAML(t, dir, "col.yaml", `name: Sample
+requests:
+  - name: Req
+    request:
+      url: "{{base_url}}/get"
+`)
+
+		result := validator.Validate(path, nil)
+
+		iss := warningFor(result, "base_url")
+		if iss == nil {
+			t.Fatalf("expected warning about base_url, got issues: %v", result.Issues)
+		}
+		if !strings.Contains(iss.Hint, "curlew.yaml") {
+			t.Errorf("hint should list the project config as a definition source, got: %q", iss.Hint)
+		}
+	})
+
+	t.Run("unparsable_project_config_does_not_fail_collection_validation", func(t *testing.T) {
+		root := t.TempDir()
+		writeYAML(t, root, "curlew.yaml", "variables: [not, a, mapping\n")
+		path := writeYAML(t, root, "col.yaml", `name: Sample
+requests:
+  - name: Req
+    request:
+      url: "{{base_url}}/get"
+`)
+
+		result := validator.Validate(path, nil)
+
+		if !result.Valid {
+			t.Errorf("a broken curlew.yaml must not invalidate the collection, got: %v", result.Issues)
+		}
+		if warningFor(result, "base_url") == nil {
+			t.Errorf("expected the usual warning when project vars are unavailable, got: %v", result.Issues)
+		}
+	})
+
+	t.Run("relative_collection_path_resolves_project_root", func(t *testing.T) {
+		path := writeProject(t, "curlew.yaml", "project_name: demo\nvariables:\n  base_url: \"https://httpbin.org\"\n")
+		root := filepath.Dir(filepath.Dir(path))
+		wd, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("getwd: %v", err)
+		}
+		if err := os.Chdir(root); err != nil {
+			t.Fatalf("chdir: %v", err)
+		}
+		t.Cleanup(func() { _ = os.Chdir(wd) })
+
+		result := validator.Validate(filepath.Join("collections", "sample.yaml"), nil)
+
+		if iss := warningFor(result, "base_url"); iss != nil {
+			t.Errorf("relative paths should still find the project config, got: %v", iss.Message)
+		}
+	})
+}

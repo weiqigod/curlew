@@ -3854,6 +3854,31 @@ requests:
 		}
 	})
 
+	// A freshly scaffolded project defines base_url in curlew.yaml; validate
+	// must not warn about it.
+	t.Run("project_config_var_does_not_warn", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, root, "curlew.yaml", "project_name: demo\nvariables:\n  base_url: \"https://httpbin.org\"\n")
+		colDir := filepath.Join(root, "collections")
+		if err := os.MkdirAll(colDir, 0o750); err != nil {
+			t.Fatalf("mkdir collections: %v", err)
+		}
+		path := writeFile(t, colDir, "sample.yaml", `name: Sample
+requests:
+  - name: Hello World
+    request:
+      method: GET
+      url: "{{base_url}}/get"
+`)
+		stdout, stderr, code := captureRun(t, "validate", path)
+		if code != 0 {
+			t.Errorf("exit code = %d, want 0; stdout=%q stderr=%q", code, stdout, stderr)
+		}
+		if strings.Contains(stdout+stderr, "base_url") {
+			t.Errorf("expected no warning for base_url defined in curlew.yaml, got stdout=%q stderr=%q", stdout, stderr)
+		}
+	})
+
 	// behavior 5: missing external file ref
 	t.Run("missing_external_file_exit_3", func(t *testing.T) {
 		dir := t.TempDir()

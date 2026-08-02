@@ -70,6 +70,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   artifacts retained as historical anchors.
 
 ### Fixed
+- `curlew validate` no longer warns that a variable "may not be defined at runtime"
+  when it is defined in the project config. The undefined-variable heuristic now loads
+  `curlew.yaml` (or `curlew.yml`) by walking up from the collection's directory, the
+  same way `curlew run` does, so a freshly scaffolded project validates cleanly instead
+  of warning about its own `base_url`. The warning hint lists the project config among
+  the definition sources. An unparsable `curlew.yaml` is ignored rather than failing
+  collection validation.
 - License and backend authentication are separated correctly: release builds derive
   product tier only from verified license JWTs, while API access tokens are stored in
   the OS keychain (or encrypted-file fallback), refreshed on 401, and accepted by the
