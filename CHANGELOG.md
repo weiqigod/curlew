@@ -51,6 +51,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **The 53 failing web E2E specs never tested anything; replaced with component tests.**
+  Fifteen Playwright specs stubbed backend calls with `context.route('**/api/v1/…')` and
+  asserted the stub rendered. Every page they targeted loads its data in a SvelteKit
+  `+page.server.ts` `load`, which runs in the web container — Playwright's browser-level
+  interception never saw those requests, so the real backend's data rendered instead and
+  the assertions failed. A probe confirmed it: zero browser-level `/api/v1/**` requests
+  during a page load that rendered a fully populated table. Running against a host
+  `npm run dev` was verified not to help — SSR is SSR wherever node runs.
+  - The specs are replaced by `*.test.ts` component tests (`@testing-library/svelte`,
+    rendering `+page.svelte` against a `data` prop) and `*.server.test.ts` tests that
+    drive each `load`/`action`/`+server` directly with an injected `fetch`. Edge cases
+    that were impractical to seed — 402 tier gates, 409 conflicts, 429 rate limits, 422
+    weak-password and suspicious-value responses — are now covered rather than mocked at
+    a layer that did nothing.
+  - `npm run test:unit` goes from 350 to 533 tests and still finishes in ~7s, and it is
+    already part of the web CI gate — so this coverage is gated for the first time.
+  - The five convergence specs (`full-pipeline`, `enterprise-full`, `m14-revenue-loop`,
+    `m16-happy-path`, `m18-compliance`) are untouched and still pass.
+  - Also removed `account-data-{export,delete}.spec.ts` from `src/routes/`: they asserted
+    API-client behaviour already covered by `src/lib/api/*.test.ts`, plus `?raw`
+    source-greps standing in for the component rendering that now has real tests.
 - **E2E convergence specs seed over HTTP; the E2E gate runs again.** The five specs now
   drive the same REST endpoints the CLI used to call (`POST /organizations/{id}/results`,
   `POST /pr-checks`, `POST /telemetry/events`, the auth and export endpoints), mint their
