@@ -610,6 +610,41 @@ func TestRunCmd_TeamSecrets_MissingFile(t *testing.T) {
 	}
 }
 
+// A leftover team_vault.json from a pre-backend-removal install is inert: the CLI
+// no longer reads or writes that cache, so it must not make a missing env file
+// tolerable the way CURLEW_TEAM_CONFIG does.
+func TestRunCmd_StaleVaultCache_DoesNotTolerateMissingEnvFile(t *testing.T) {
+	// Local server so a regression fails on the exit code rather than reaching out.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	tmp := t.TempDir()
+
+	cfgDir := filepath.Join(tmp, "config")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "team_vault.json"), []byte(`{"template":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	col := filepath.Join(tmp, "col.yaml")
+	colContent := fmt.Sprintf("name: T\nrequests:\n  - name: A\n    request:\n      method: GET\n      url: %s\n", srv.URL)
+	if err := os.WriteFile(col, []byte(colContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("CURLEW_CONFIG_DIR", cfgDir)
+	t.Setenv("CURLEW_TEAM_CONFIG", "")
+
+	code := runCmd([]string{col, "--env", "staging"})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (environment not found)", code)
+	}
+}
+
 func TestRunCmd_TeamSecrets_MissingEnvFlag(t *testing.T) {
 	tmp := t.TempDir()
 

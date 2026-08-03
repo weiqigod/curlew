@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/weiqigod/curlew/internal/appdir"
 	"github.com/weiqigod/curlew/internal/config"
 	"github.com/weiqigod/curlew/internal/discovery"
 	"github.com/weiqigod/curlew/internal/httpexec"
@@ -652,21 +651,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	// Read CURLEW_TEAM_CONFIG early so env-file loading can tolerate its presence.
 	teamCfgPath := os.Getenv("CURLEW_TEAM_CONFIG")
 
-	// hasTeamVaultCache checks whether a backend vault cache exists in the config dir.
-	// Used to tolerate missing env files when the backend cache acts as the team template source.
-	hasTeamVaultCache := func() bool {
-		cfgDir, err2 := appdir.ResolveConfigDir()
-		if err2 != nil || cfgDir == "" {
-			return false
-		}
-		_, statErr := os.Stat(filepath.Join(cfgDir, "team_vault.json"))
-		return statErr == nil
-	}
-
 	// Load environment variables if --env specified.
-	// When CURLEW_TEAM_CONFIG is set or a backend vault cache exists,
-	// ErrEnvironmentNotFound is tolerated: --env selects the team template environment
-	// even if no env file exists.
+	// When CURLEW_TEAM_CONFIG is set, ErrEnvironmentNotFound is tolerated:
+	// --env selects the team template environment even if no env file exists.
 	var envVars map[string]string
 	var environmentLocale string
 	if envName != "" {
@@ -677,7 +664,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			environment, err = config.LoadEnvironmentConfig(envName, environmentProjectRoot)
 		}
 		if err != nil {
-			if errors.Is(err, config.ErrEnvironmentNotFound) && (teamCfgPath != "" || hasTeamVaultCache()) {
+			if errors.Is(err, config.ErrEnvironmentNotFound) && teamCfgPath != "" {
 				// Env file absent but team template is configured — treat as empty env vars.
 				envVars = nil
 			} else {
