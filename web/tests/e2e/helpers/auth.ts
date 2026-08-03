@@ -15,6 +15,21 @@ const SEEDED_USER_IDS: Record<string, string> = {
 };
 
 /**
+ * Mints a dev JWT for the given identity via `scripts/test-token.sh`.
+ *
+ * Specs use this wherever they need a bearer token for a direct backend call —
+ * the seeding path that replaced `curlew run --report-upload`. Pass `userId`
+ * for identities the seed scripts do not create; known seeded emails resolve
+ * their fixed UUID automatically.
+ */
+export function mintToken(email: string, userId?: string): string {
+	const tokenScript = path.join(REPO_ROOT, 'scripts', 'test-token.sh');
+	const resolvedUserId = userId ?? SEEDED_USER_IDS[email];
+	const userArg = resolvedUserId ? ` ${resolvedUserId}` : '';
+	return execSync(`bash ${tokenScript} ${email}${userArg}`, { encoding: 'utf8' }).trim();
+}
+
+/**
  * Seeds an `access_token` cookie into the given Playwright browser context.
  *
  * Mints a dev JWT via `scripts/test-token.sh` and injects it as an
@@ -26,10 +41,7 @@ export async function seedAuthCookie(
 	email: string,
 	userId?: string
 ): Promise<void> {
-	const tokenScript = path.join(REPO_ROOT, 'scripts', 'test-token.sh');
-	const resolvedUserId = userId ?? SEEDED_USER_IDS[email];
-	const userArg = resolvedUserId ? ` ${resolvedUserId}` : '';
-	const token = execSync(`bash ${tokenScript} ${email}${userArg}`, { encoding: 'utf8' }).trim();
+	const token = mintToken(email, userId);
 
 	const baseURL = process.env.WEB_BASE_URL ?? 'http://localhost:3000';
 	const urlObj = new URL(baseURL);

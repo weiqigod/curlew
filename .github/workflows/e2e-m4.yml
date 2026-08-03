@@ -36,9 +36,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Build CLI
-        run: go build -o curlew ./cmd/curlew
-
       - name: Install web dependencies
         working-directory: web
         run: npm ci
@@ -49,14 +46,6 @@ jobs:
 
       - name: Start test stack
         run: ./scripts/test-stack.sh up
-
-      - name: Mint backend token for CLI uploads
-        id: mint-token
-        run: |
-          # Use the same fixed UUID that seed-test-data.sh uses for the owner.
-          TOKEN=$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)
-          echo "CURLEW_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Run Go unit tests
         run: go test ./...

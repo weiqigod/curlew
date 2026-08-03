@@ -6,15 +6,26 @@ services:
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:5000
       ASPNETCORE_ENVIRONMENT: Development
-      CURLEW__APP__WEBAPPURL: http://localhost:3000
+      # The backend binds its options under the "ApiTool:" configuration root
+      # (see AppOptions.Section), so its env prefix is APITOOL__ — the CLI
+      # rebrand did not rename the backend's config namespace. A CURLEW__
+      # prefix here is silently ignored and the container dies on startup
+      # validation ("ApiTool:App:WebAppUrl is required").
+      APITOOL__APP__WEBAPPURL: http://localhost:3000
       # Keep the private half of the development signing key beside the SQLite
       # database so container recreation cannot leave a current DB key without
       # its corresponding PEM file.
-      CURLEW__KEYPROVIDER__FILE__DIR: /app/data/keys/signing
+      APITOOL__KEYPROVIDER__FILE__DIR: /app/data/keys/signing
       SCHEDULES__KEY_PROVIDER: file
       SCHEDULES__KEK_PATH: /app/data/schedule-kek.bin
       TEAMVAULT__KEY_PROVIDER: file
       TEAMVAULT__KEK_PATH: /app/data/team-vault-kek.bin
+      # POST /api/v1/pr-checks resolves IGitLabCheckPoster for every request,
+      # github provider included, and FileGitLabKeyProvider throws at
+      # construction when no KEK path is configured — so without these the
+      # endpoint 500s on every upload.
+      GITLAB__KEY_PROVIDER: file
+      GITLAB__KEK_PATH: /app/data/gitlab-kek.bin
       # Override cookie name and redirect URL for E2E SSO testing.
       # The web reads the 'access_token' cookie; this makes the backend ACS
       # set that cookie name instead of the production default 'curlew_session'.
@@ -23,7 +34,32 @@ services:
       Saml__WebPortalUrl: http://localhost:3000/org/acme
       # M14-018: point backend at the github-mock sidecar for docker-compose runs.
       # Set to https://api.github.com for production; override here for test stack.
-      GitHub__ApiBase: http://github-mock:8443
+      # Must be the APITOOL__ spelling: the env provider maps GitHub__ApiBase to
+      # the config key "GitHub:ApiBase", which nothing reads, so the plain
+      # spelling silently left the backend calling api.github.com for real.
+      APITOOL__GITHUB__APIBASE: http://github-mock:8443
+      # App identity used to mint installation tokens. AppId must match the
+      # app_id seeded into github_installations by scripts/seed-test-data.sh,
+      # or SignAppJwtAsync rejects the claims and pr-checks never leave the
+      # "queued" state. github-mock does not verify the signature, so any RSA
+      # private key works — reuse the fake-idp one rather than commit a second.
+      APITOOL__GITHUBAPP__APPID: "111"
+      APITOOL__GITHUBAPP__KEYPROVIDER__MODE: file
+      APITOOL__GITHUBAPP__KEYPROVIDER__FILE__PATH: /certs/github-app-key.pem
+      # Required once AppId is set (startup validation). Test-only value.
+      APITOOL__GITHUBAPP__STATESIGNINGKEY: e2e-state-signing-key-32-bytes-min-length
+      # M14-011: signing secret for POST /api/v1/webhooks/stripe. Without it the
+      # endpoint logs stripe_webhook_no_secrets_configured and rejects every
+      # replayed event, so no billing email is ever queued. Matches the default
+      # in scripts/replay-stripe-event.sh.
+      APITOOL__STRIPE__WEBHOOK__SECRETS: whsec_test
+      # Invoice handlers re-fetch the invoice from Stripe before enqueuing the
+      # billing email. FakeStripeGateway only knows invoices registered in-process,
+      # so an end-to-end webhook replay needs the live gateway pointed at
+      # stripe-mock.
+      APITOOL__STRIPE__MODE: live
+      APITOOL__STRIPE__APIKEY: sk_test_123
+      APITOOL__STRIPE__APIBASE: http://stripe-mock:12111
       # M18-004: MinIO object store (S3-compatible) for GDPR export bundles.
       OBJECTSTORE__PROVIDER: s3
       OBJECTSTORE__S3__ENDPOINT: http://minio:9000
@@ -35,12 +71,14 @@ services:
       - "${CURLEW_BACKEND_PORT:-5000}:5000"
     volumes:
       - backend_data:/app/data
+      - ./testdata/enterprise/fake-idp-key.pem:/certs/github-app-key.pem:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         umask 077
         test -f /app/data/schedule-kek.bin || printf '0123456789abcdef0123456789abcdef' > /app/data/schedule-kek.bin
         test -f /app/data/team-vault-kek.bin || printf 'abcdef0123456789abcdef0123456789' > /app/data/team-vault-kek.bin
+        test -f /app/data/gitlab-kek.bin || printf 'fedcba9876543210fedcba9876543210' > /app/data/gitlab-kek.bin
         exec dotnet ApiTool.Backend.dll
     depends_on:
       minio:

@@ -88,10 +88,13 @@ fi
 EMAIL="${1:-dev@example.com}"
 USER_ID="${2:-$(uuidgen | tr '[:upper:]' '[:lower:]')}"
 
-# Must match Jwt:SigningKey in appsettings.Development.json
+# Must match Jwt:* in src/ApiTool.Backend/appsettings.Development.json.
+# The issuer/audience are "apitool-dev", not "curlew-dev": the rebrand renamed
+# the CLI, not the backend's configuration. A mismatch here mints tokens the
+# backend rejects with 401, which surfaces as every seed script failing.
 SIGNING_KEY="${JWT_SIGNING_KEY:-development-signing-key-change-me-32-bytes-minimum}"
-ISSUER="${JWT_ISSUER:-curlew-dev}"
-AUDIENCE="${JWT_AUDIENCE:-curlew-dev}"
+ISSUER="${JWT_ISSUER:-apitool-dev}"
+AUDIENCE="${JWT_AUDIENCE:-apitool-dev}"
 
 # ----- helpers ---------------------------------------------------------------
 b64url() {

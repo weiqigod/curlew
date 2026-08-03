@@ -128,7 +128,7 @@ public static class InternalSeedM14Endpoint
 
             if (existing is null)
             {
-                var repoSetJson = JsonSerializer.Serialize(body.Repos ?? []);
+                var repoSetJson = SerializeRepoSet(body.Repos);
 
                 db.GithubInstallations.Add(new GithubInstallation
                 {
@@ -147,7 +147,7 @@ public static class InternalSeedM14Endpoint
             else
             {
                 existing.AppId = body.AppId;
-                existing.RepoSetJson = JsonSerializer.Serialize(body.Repos ?? []);
+                existing.RepoSetJson = SerializeRepoSet(body.Repos);
                 existing.ClaimedAt = now;
                 existing.LastReconciledAt = now;
             }
@@ -170,6 +170,16 @@ public static class InternalSeedM14Endpoint
 
         return app;
     }
+
+    /// <summary>
+    /// Serialises the seeded repository slugs into the shape readers expect:
+    /// an array of objects carrying <c>full_name</c>. CheckRunPoster.IsRepoCovered
+    /// walks the entries with <c>TryGetProperty</c>, so a bare string array made it
+    /// throw — leaving every seeded pr-check silently stuck in "queued" instead of
+    /// posting a check run.
+    /// </summary>
+    private static string SerializeRepoSet(string[]? repos) =>
+        JsonSerializer.Serialize((repos ?? []).Select(r => new { full_name = r }));
 }
 
 /// <summary>Request body for the M14 seed endpoint.</summary>

@@ -15,9 +15,13 @@ WORKDIR /app
 
 COPY --from=builder /app/publish .
 
-# Install wget for healthcheck; create data directory for SQLite
-RUN apk add --no-cache wget && mkdir -p data
+# Install wget for healthcheck; create data directory for SQLite.
+# icu-libs: the alpine runtime image ships without ICU and defaults to
+# globalization-invariant mode, where CultureInfo.GetCultureInfo("en-US")
+# throws — which took down the billing_receipt email handler.
+RUN apk add --no-cache wget icu-libs && mkdir -p data
 
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV ASPNETCORE_URLS=http://0.0.0.0:5000
 ENV ASPNETCORE_ENVIRONMENT=Development
 EXPOSE 5000

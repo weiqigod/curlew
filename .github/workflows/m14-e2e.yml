@@ -19,7 +19,6 @@ jobs:
       BACKEND_URL: http://localhost:5000
       WEB_BASE_URL: http://localhost:3000
       CURLEW_BACKEND_URL: http://localhost:5000
-      GITHUB_MOCK_URL: http://localhost:5099
 
     steps:
       - uses: actions/checkout@v4
@@ -42,9 +41,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Build CLI
-        run: go build -o curlew ./cmd/curlew
-
       - name: Run Go unit tests
         run: go test ./...
 
@@ -65,12 +61,6 @@ jobs:
 
       - name: Start test stack
         run: ./scripts/test-stack.sh up
-
-      - name: Mint backend token for CLI uploads
-        id: mint-token
-        run: |
-          TOKEN=$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)
-          echo "CURLEW_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
       - name: Run M14 revenue loop E2E spec
         working-directory: web

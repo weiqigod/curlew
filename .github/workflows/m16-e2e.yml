@@ -41,9 +41,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Build CLI
-        run: go build -o curlew ./cmd/curlew
-
       - name: Run Go unit tests
         run: go test ./...
 
@@ -65,14 +62,9 @@ jobs:
       - name: Start test stack
         run: ./scripts/test-stack.sh up
 
-      - name: Mint backend token for CLI uploads
-        id: mint-token
-        run: |
-          TOKEN=$(./scripts/test-token.sh owner@example.com 00000000-0000-0000-0000-000000000001)
-          echo "CURLEW_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-
       - name: Run M16 happy-path E2E scenario
-        run: ./scripts/m16-e2e.sh
+        working-directory: web
+        run: npx playwright test tests/e2e/m16-happy-path.spec.ts
 
       - name: Tear down test stack
         if: always()

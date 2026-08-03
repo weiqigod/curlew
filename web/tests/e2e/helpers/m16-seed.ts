@@ -75,6 +75,34 @@ export async function seedRegistrationViaRefresh(email: string): Promise<{
 }
 
 /**
+ * Queues an email-verification link for the given address.
+ * The spec pulls the token back out of the email-audit log.
+ */
+export async function requestEmailVerification(email: string): Promise<void> {
+	const res = await fetch(`${BACKEND_URL}/api/v1/auth/email-verification/resend`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ email }),
+	});
+	if (!res.ok)
+		throw new Error(`email-verification/resend failed: ${res.status} ${await res.text()}`);
+}
+
+/**
+ * Queues a password-reset link for the given address.
+ * The spec pulls the token back out of the email-audit log.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+	const res = await fetch(`${BACKEND_URL}/api/v1/auth/password-reset/request`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ email }),
+	});
+	if (!res.ok)
+		throw new Error(`password-reset/request failed: ${res.status} ${await res.text()}`);
+}
+
+/**
  * Seeds a near-expiry trial row via POST /internal/test/seed-near-expiry-trial.
  */
 export async function seedNearExpiryTrial(

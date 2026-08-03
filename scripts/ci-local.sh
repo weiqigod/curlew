@@ -43,10 +43,13 @@ case "$MODE" in
       echo "$CHANGED" | sed 's/^/  /'
     fi
     echo
-    grep -qE '^src/Curlew\.Backend'                                   <<<"$CHANGED" && run_backend=1 || true
+    # The backend project directory is src/ApiTool.Backend — the rebrand
+    # renamed the CLI, not the .NET solution. Matching on src/Curlew.Backend
+    # here silently skipped the backend and E2E gates for every backend change.
+    grep -qE '^src/ApiTool\.Backend'                                    <<<"$CHANGED" && run_backend=1 || true
     grep -qE '^web/'                                                    <<<"$CHANGED" && run_web=1     || true
     grep -qE '^(ui/|internal/uiserver/assets/)'                         <<<"$CHANGED" && run_ui=1      || true
-    grep -qE '^(src/Curlew\.Backend|web/|scripts/(test-stack|seed-|test-token|fake-idp)|docker-compose\.test\.yml)' \
+    grep -qE '^(src/ApiTool\.Backend|web/|scripts/(test-stack|seed-|test-token|fake-idp)|docker-compose\.test\.yml)' \
                                                                         <<<"$CHANGED" && run_e2e=1     || true
     # Running E2E implies the backend and web gates (the stack is already up).
     if (( run_e2e )); then run_backend=1; run_web=1; fi
@@ -193,8 +196,10 @@ if (( run_backend )); then
   done
 
   step "dotnet test"
-  CURLEW__STRIPE__APIBASE="http://localhost:12111" \
-  CURLEW__STRIPE__APIKEY="sk_test_123" \
+  # APITOOL__ prefix: the backend binds options under the "ApiTool:" root
+  # (StripeOptions.Section). The CLI rebrand did not rename it.
+  APITOOL__STRIPE__APIBASE="http://localhost:12111" \
+  APITOOL__STRIPE__APIKEY="sk_test_123" \
     dotnet test src/ApiTool.Backend.Tests/ApiTool.Backend.Tests.csproj
 fi
 
@@ -236,14 +241,20 @@ fi
 
 # --- E2E gate ---
 if (( run_e2e )); then
-  # The CLI-driven E2E specs seeded the backend by running `curlew run
-  # --report-upload` (and, for m16/m18, `curlew login` / `worker` /
-  # `telemetry`). Those commands were removed when the CLI was made
-  # backend-free, so these specs cannot run as written. They are skipped
-  # rather than deleted: the backend endpoints they cover still exist, and
-  # the specs need reseeding over HTTP before they can be re-enabled.
-  echo "SKIPPED (need reseeding without the CLI): full-pipeline, enterprise-full,"
-  echo "  m14-revenue-loop, m16-happy-path, m18-compliance"
+  step "web: playwright install"
+  ( cd web && npx playwright install --with-deps chromium )
+
+  # The convergence specs seed the backend over HTTP and mint their own
+  # tokens, so there is no CLI binary to build and no token to export here.
+  export CURLEW_BACKEND_URL="${CURLEW_BACKEND_URL:-http://localhost:5000}"
+
+  step "playwright: convergence specs"
+  ( cd web && npx playwright test \
+      tests/e2e/full-pipeline.spec.ts \
+      tests/e2e/enterprise-full.spec.ts \
+      tests/e2e/m14-revenue-loop.spec.ts \
+      tests/e2e/m16-happy-path.spec.ts \
+      tests/e2e/m18-compliance.spec.ts )
 fi
 
 if [ "${CURLEW_RUN_SELF_HOSTED:-0}" = "1" ]; then

@@ -66,6 +66,35 @@ export async function pollExportReady(
 }
 
 /**
+ * Creates a GDPR data-export request for the bearer token's user and returns
+ * its id. Pair with {@link runExportBuilder} and {@link pollExportReady}.
+ */
+export async function createExportRequest(bearerToken: string): Promise<string> {
+	const res = await fetch(`${BACKEND_URL}/api/v1/users/me/export-requests`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${bearerToken}` },
+	});
+	if (!res.ok)
+		throw new Error(`export-requests: HTTP ${res.status} ${await res.text()}`);
+	const body = (await res.json()) as { id?: string };
+	if (!body.id) throw new Error('export-request response carried no id');
+	return body.id;
+}
+
+/**
+ * Posts to /api/v1/internal/test-hooks/run-export-builder to deterministically
+ * trigger one export-builder tick instead of waiting for its timer.
+ */
+export async function runExportBuilder(): Promise<void> {
+	const res = await fetch(
+		`${BACKEND_URL}/api/v1/internal/test-hooks/run-export-builder`,
+		{ method: 'POST' }
+	);
+	if (!res.ok)
+		throw new Error(`run-export-builder: HTTP ${res.status} ${await res.text()}`);
+}
+
+/**
  * Posts to /api/v1/internal/test-hooks/backdate-deletion-request to push
  * users.pending_deletion_at past the 30-day cooldown, enabling the finalizer to run.
  */

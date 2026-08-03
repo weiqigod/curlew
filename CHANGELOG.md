@@ -44,10 +44,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--report-upload` would have become a no-op. It now fails with `unknown flag: …`.
 - The CLI-driven Playwright E2E specs (`full-pipeline`, `enterprise-full`,
   `m14-revenue-loop`, `m16-happy-path`, `m18-compliance`) seeded the backend by shelling
-  out to removed CLI commands. They are skipped in `scripts/ci-local.sh` pending a rewrite
-  that seeds over HTTP. `scripts/m16-e2e.sh` and `scripts/m18-e2e.sh` are deleted outright.
+  out to removed CLI commands. They now seed over HTTP and run again in
+  `scripts/ci-local.sh` (see "E2E convergence specs seed over HTTP" below).
+  `scripts/m16-e2e.sh` and `scripts/m18-e2e.sh` are deleted outright.
 
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
+
+### Fixed
+- **E2E convergence specs seed over HTTP; the E2E gate runs again.** The five specs now
+  drive the same REST endpoints the CLI used to call (`POST /organizations/{id}/results`,
+  `POST /pr-checks`, `POST /telemetry/events`, the auth and export endpoints), mint their
+  own dev token, and skip themselves when the backend is unreachable. They need no
+  `curlew` binary, no `CURLEW_BACKEND_TOKEN`, and no shell orchestrator.
+  `web/tests/e2e/helpers/cli.ts` is replaced by `helpers/seed.ts`.
+- **The docker-compose test stack could not start.** The rebrand renamed the CLI but not
+  the backend's `ApiTool:` configuration root, leaving the stack broken in five separate
+  places. All now fixed:
+  - `docker-compose.test.yml` set `CURLEW__APP__WEBAPPURL`, which the backend ignores; it
+    died on startup validation demanding `APITOOL__APP__WEBAPPURL`.
+  - `scripts/test-token.sh` minted JWTs with issuer/audience `curlew-dev` while the
+    backend validates `apitool-dev`, so every seed script got 401.
+  - `scripts/ci-local.sh` scoped its backend and E2E gates on `src/Curlew.Backend`, a path
+    that does not exist — backend changes silently skipped both gates.
+  - `GitHub__ApiBase` never bound (the env provider maps it to an unread key), so the
+    backend called the real api.github.com instead of the github-mock sidecar.
+  - No GitLab KEK was configured, and `POST /api/v1/pr-checks` resolves the GitLab poster
+    for every request — so every pr-check upload returned 500.
+- **Check runs never posted from the test stack.** The GitHub App key/app id were
+  unconfigured, and `/internal/test/seed-m14` wrote `repo_set` as a bare string array
+  while `CheckRunPoster.IsRepoCovered` reads it as objects — the resulting exception was
+  swallowed into a silent "queued". pr-checks now reach `posted` with a check-run id.
+- **Billing receipt emails threw on the alpine image.** The runtime image ships without
+  ICU, so `CultureInfo.GetCultureInfo("en-US")` failed in globalization-invariant mode and
+  took down the `invoice.payment_succeeded` handler. The image now installs `icu-libs`.
+  The test stack also configures the Stripe webhook secret and points the live gateway at
+  stripe-mock, without which replayed webhooks were rejected unverified.
 
 ### Added
 - **M20-004: MANUAL.md locale reference + cross-locale seed reproducibility matrix.** (M20-004)

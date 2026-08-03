@@ -38,9 +38,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Build CLI
-        run: go build -o curlew ./cmd/curlew
-
       - name: Install web dependencies
         working-directory: web
         run: npm ci
@@ -51,12 +48,6 @@ jobs:
 
       - name: Start test stack (includes fake-idp and enterprise seed)
         run: ./scripts/test-stack.sh up
-
-      - name: Mint backend token for qa user (qa-lead custom role)
-        id: mint-qa-token
-        run: |
-          TOKEN=$(./scripts/test-token.sh qa@acme.example ${{ env.QA_USER_ID }})
-          echo "CURLEW_BACKEND_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
       - name: Run Go unit tests
         run: go test ./...

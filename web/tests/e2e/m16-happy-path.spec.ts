@@ -4,17 +4,19 @@
  * Proves the M16 workflow wires together end-to-end:
  *   registration (via seed-refresh) →
  *   email verification confirm page →
- *   dashboard reflects scheduled-run result_id →
+ *   dashboard reflects an ingested run →
  *   password reset confirm page revokes session.
  *
  * Prerequisites (handled by scripts/ci-local.sh --full or manual test-stack.sh up):
- *   - Backend:  http://localhost:5000
+ *   - Backend:  http://localhost:5000 (override with CURLEW_BACKEND_URL)
  *   - Web:      http://localhost:3000
- *   - CURLEW_BACKEND_URL env var set
- *   - CURLEW_BACKEND_TOKEN env var set (minted by test-token.sh owner@example.com)
- *   - The shell script scripts/m16-e2e.sh has already completed the CLI + backend steps
- *     (schedule create, worker pull, run result ingest, password-reset request) by the
- *     time these Playwright tests execute. The spec drives web assertions only.
+ *   - The 'acme' org seeded by scripts/seed-test-data.sh
+ *
+ * Everything this spec needs is seeded here over HTTP. It used to depend on
+ * scripts/m16-e2e.sh having already run `curlew worker --schedule-pull --once`
+ * and the auth requests ahead of it; that orchestrator went away with the
+ * CLI's backend support, and the run it produced is now an ordinary results
+ * ingest.
  *
  * Open Decision 9: happy-path only — failure modes are covered in each cluster's own tests.
  */
@@ -22,25 +24,57 @@ import { test, expect } from '@playwright/test';
 import { seedAuthCookie } from './helpers/auth';
 import { SEEDED_ORG_SLUG, OWNER_EMAIL, OWNER_USER_ID } from './helpers/fixtures';
 import { waitForEmailAuditEntry } from './helpers/m14-seed';
-import { extractTokenFromAuditEntry, decodeJwtPayload } from './helpers/m16-seed';
+import {
+	decodeJwtPayload,
+	extractTokenFromAuditEntry,
+	requestEmailVerification,
+	requestPasswordReset,
+	seedRegistrationViaRefresh,
+} from './helpers/m16-seed';
+import { backendReachable, ingestResult, mintToken, resolveOrgId } from './helpers/seed';
 
-const BACKEND_URL = process.env.CURLEW_BACKEND_URL ?? 'http://localhost:5000';
-const BACKEND_TOKEN = process.env.CURLEW_BACKEND_TOKEN ?? '';
-const TRIAL_EMAIL = process.env.M16_E2E_TRIAL_EMAIL ?? 'm16-trial@example.com';
+// A per-run address keeps reruns clear of per-user reset/verification throttles
+// and of already-consumed tokens in the shared email audit log.
+const TRIAL_EMAIL = process.env.M16_E2E_TRIAL_EMAIL ?? `m16-trial-${Date.now()}@example.com`;
+
+const NO_STACK = 'backend not reachable — run ./scripts/test-stack.sh up';
+
+let stackUp = false;
+let licenseJwt = '';
 
 test.describe('M16 happy path', () => {
+	test.beforeAll(async () => {
+		stackUp = await backendReachable();
+		if (!stackUp) return;
+
+		// Register an isolated free-tier user and keep its License JWT for assertion 4.
+		const registration = await seedRegistrationViaRefresh(TRIAL_EMAIL);
+		licenseJwt = registration.licenseJwt;
+
+		// Queue the two confirmation emails the browser assertions consume.
+		await requestEmailVerification(TRIAL_EMAIL);
+		await requestPasswordReset(TRIAL_EMAIL);
+
+		// Give the dashboard a run to count.
+		const ownerToken = mintToken(OWNER_EMAIL, OWNER_USER_ID);
+		const orgId = await resolveOrgId(SEEDED_ORG_SLUG, ownerToken);
+		await ingestResult(orgId, ownerToken, {
+			collectionName: 'm16-e2e',
+			triggeredBy: 'm16-playwright',
+		});
+	});
+
 	test.beforeEach(async ({ context }) => {
 		await seedAuthCookie(context, OWNER_EMAIL, OWNER_USER_ID);
 	});
 
 	/**
 	 * Assertion 1: Email verification confirm page.
-	 * The shell script has already called POST /api/v1/auth/email-verification/resend,
-	 * which enqueues an email_verification email. Extract the token from the audit log,
-	 * navigate the confirm page, and assert the redirect.
+	 * Extract the token queued in beforeAll from the audit log, navigate the
+	 * confirm page, and assert the redirect.
 	 */
 	test('1. Email verification confirm page redirects to dashboard', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!stackUp, NO_STACK);
 
 		// Wait for the email_verification email to appear in the audit log.
 		await waitForEmailAuditEntry('email_verification', 10_000, TRIAL_EMAIL);
@@ -68,12 +102,11 @@ test.describe('M16 happy path', () => {
 	});
 
 	/**
-	 * Assertion 2: Dashboard reflects the scheduled-run result_id.
-	 * The shell script has already run curlew worker --schedule-pull --once.
+	 * Assertion 2: Dashboard reflects the ingested run.
 	 * The overview card total-runs should be >= 1.
 	 */
 	test('2. Dashboard overview shows at least one run', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!stackUp, NO_STACK);
 
 		await page.goto(`/org/${SEEDED_ORG_SLUG}/dashboard`);
 		const card = page.getByTestId('dashboard-total-runs');
@@ -83,17 +116,17 @@ test.describe('M16 happy path', () => {
 		const text = await card.innerText();
 		const match = text.match(/\d+/);
 		const count = match ? parseInt(match[0], 10) : 0;
-		expect(count, 'total-runs card must show at least 1 run after the e2e worker run').toBeGreaterThanOrEqual(1);
+		expect(count, 'total-runs card must show at least 1 run after the seeded ingest').toBeGreaterThanOrEqual(1);
 	});
 
 	/**
 	 * Assertion 3: Password reset confirm page revokes session.
-	 * The shell script has already called POST /api/v1/auth/password-reset/request.
-	 * Extract the reset token from the audit log, navigate the confirm page, submit
-	 * a new strong password, and assert the redirect to /login.
+	 * Extract the reset token queued in beforeAll from the audit log, navigate
+	 * the confirm page, submit a new strong password, and assert the redirect
+	 * to /login.
 	 */
 	test('3. Password reset confirm page redirects to login', async ({ page }) => {
-		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
+		test.skip(!stackUp, NO_STACK);
 
 		// Wait for the password_reset email to appear in the audit log.
 		await waitForEmailAuditEntry('password_reset', 10_000, TRIAL_EMAIL);
@@ -127,31 +160,14 @@ test.describe('M16 happy path', () => {
 
 	/**
 	 * Assertion 4: License JWT carries trial_state=active after registration.
-	 * Decodes the license JWT from /api/v1/auth/refresh and asserts the claim.
-	 * This assertion uses an isolated free-tier identity because the seeded owner belongs
-	 * to the Enterprise fixture and paid subscriptions intentionally suppress trial state.
+	 * Decodes the license JWT minted for the isolated free-tier user in beforeAll.
+	 * The seeded owner is deliberately not used: it belongs to the Enterprise
+	 * fixture, and paid subscriptions suppress trial state.
 	 */
-	test('4. License JWT trial_state=active after seed-refresh', async () => {
-		test.skip(!BACKEND_TOKEN, 'CURLEW_BACKEND_TOKEN not set — skipping live E2E test');
+	test('4. License JWT trial_state=active after seed-refresh', () => {
+		test.skip(!stackUp, NO_STACK);
 
-		// Mint a fresh token trio for an isolated free-tier user.
-		const seedRes = await fetch(`${BACKEND_URL}/internal/test/seed-refresh`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ email: TRIAL_EMAIL }),
-		});
-		expect(seedRes.ok, `seed-refresh failed: ${seedRes.status}`).toBeTruthy();
-		const seed = (await seedRes.json()) as { plaintext: string; device_id: string };
-
-		const refreshRes = await fetch(`${BACKEND_URL}/api/v1/auth/refresh`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ refresh_token: seed.plaintext, device_id: seed.device_id }),
-		});
-		expect(refreshRes.ok, `auth/refresh failed: ${refreshRes.status}`).toBeTruthy();
-		const tokens = (await refreshRes.json()) as { license_jwt: string };
-
-		const payload = decodeJwtPayload(tokens.license_jwt);
+		const payload = decodeJwtPayload(licenseJwt);
 		expect(payload['trial_state'], 'License JWT must carry trial_state').toBe('active');
 	});
 });

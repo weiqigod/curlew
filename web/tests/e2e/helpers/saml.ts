@@ -3,7 +3,10 @@ import type { Page } from '@playwright/test';
 import path from 'path';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5000';
+// CURLEW_BACKEND_URL is what the E2E gate and the other helpers export;
+// BACKEND_URL is kept as a fallback for the shell scripts that set it.
+const BACKEND_URL =
+	process.env.CURLEW_BACKEND_URL ?? process.env.BACKEND_URL ?? 'http://localhost:5000';
 const OWNER_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 /**

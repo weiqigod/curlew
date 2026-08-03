@@ -41,9 +41,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
-      - name: Build CLI
-        run: go build -o curlew ./cmd/curlew
-
       - name: Run Go unit tests
         run: go test ./...
 
@@ -69,7 +66,8 @@ jobs:
         run: ./scripts/seed-enterprise.sh acme m18-auditor "audit_log.view,audit_log.export"
 
       - name: Run M18 compliance E2E scenario
-        run: ./scripts/m18-e2e.sh
+        working-directory: web
+        run: npx playwright test tests/e2e/m18-compliance.spec.ts
 
       - name: Tear down test stack
         if: always()
