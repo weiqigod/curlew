@@ -25,8 +25,6 @@ import (
 	// Err* sentinel.
 	_ "github.com/weiqigod/curlew/internal/assertion"
 	_ "github.com/weiqigod/curlew/internal/auth"
-	_ "github.com/weiqigod/curlew/internal/backend"
-	_ "github.com/weiqigod/curlew/internal/backend/device"
 	_ "github.com/weiqigod/curlew/internal/cel"
 	_ "github.com/weiqigod/curlew/internal/config"
 	_ "github.com/weiqigod/curlew/internal/datadriven"
@@ -46,7 +44,6 @@ import (
 	_ "github.com/weiqigod/curlew/internal/plugin/hooks"
 	_ "github.com/weiqigod/curlew/internal/prcheck"
 	_ "github.com/weiqigod/curlew/internal/runner"
-	_ "github.com/weiqigod/curlew/internal/runner/distributed"
 	_ "github.com/weiqigod/curlew/internal/runservice"
 	_ "github.com/weiqigod/curlew/internal/scaffold"
 	_ "github.com/weiqigod/curlew/internal/signer"
@@ -56,7 +53,6 @@ import (
 	_ "github.com/weiqigod/curlew/internal/vault/teamtemplate"
 	_ "github.com/weiqigod/curlew/internal/websocket"
 	_ "github.com/weiqigod/curlew/internal/websocket/templates"
-	_ "github.com/weiqigod/curlew/internal/worker/schedule"
 )
 
 // internalRoot returns the absolute path to the internal/ directory of this

@@ -1,31 +1,51 @@
 package telemetry
 
 import (
-	"context"
-	"net/http"
-	"net/http/httptest"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 )
 
-func TestEmitter_DisabledNoNetwork(t *testing.T) {
-	cs, srv := newCaptureServer(http.StatusOK)
-	defer srv.Close()
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", srv.URL)
+// sinkAt returns a FileSink writing to a fresh file under dir, plus its path.
+func sinkAt(t *testing.T, name string) (*FileSink, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	return NewFileSink(path), path
+}
 
+// eventLines returns the non-empty lines written to the events file. A missing
+// file counts as zero events — nothing was ever emitted.
+func eventLines(t *testing.T, path string) []string {
+	t.Helper()
+	b, err := os.ReadFile(path) //nolint:gosec // test-controlled path
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		t.Fatalf("read events file: %v", err)
+	}
+	var out []string
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.TrimSpace(l) != "" {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+func TestEmitter_DisabledWritesNothing(t *testing.T) {
 	store, _ := newTestStore(t)
 	// Enable then disable — install_id retained, enabled=false
 	_, _ = store.Enable("")
 	_ = store.Disable()
 
-	client := NewClient(ClientOptions{Endpoint: srv.URL, Timeout: time.Second})
-	emitter := NewEmitter(store, client)
-	emitter.Emit(context.Background(), "run.completed", map[string]any{})
+	sink, path := sinkAt(t, "telemetry.ndjson")
+	NewEmitter(store, sink).Emit("run.completed", map[string]any{})
 
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	if len(cs.requests) != 0 {
-		t.Errorf("expected 0 HTTP requests when disabled, got %d", len(cs.requests))
+	if got := eventLines(t, path); len(got) != 0 {
+		t.Errorf("expected 0 events when disabled, got %d: %v", len(got), got)
 	}
 	// Emission should be recorded as "disabled" in ring buffer
 	ems, err := store.RecentEmissions()
@@ -33,51 +53,47 @@ func TestEmitter_DisabledNoNetwork(t *testing.T) {
 		t.Fatalf("RecentEmissions: %v", err)
 	}
 	if len(ems) == 0 {
-		t.Error("expected a disabled emission to be recorded")
+		t.Fatal("expected a disabled emission to be recorded")
 	}
 	if ems[0].Status != "disabled" {
 		t.Errorf("emission status = %q, want disabled", ems[0].Status)
 	}
 }
 
-func TestEmitter_NoInstallIDNoNetwork(t *testing.T) {
-	cs, srv := newCaptureServer(http.StatusOK)
-	defer srv.Close()
+func TestEmitter_NoInstallIDWritesNothing(t *testing.T) {
+	store, _ := newTestStore(t) // never enabled
 
-	store, _ := newTestStore(t)
-	// Never enabled
-	client := NewClient(ClientOptions{Endpoint: srv.URL, Timeout: time.Second})
-	emitter := NewEmitter(store, client)
-	emitter.Emit(context.Background(), "run.completed", nil)
+	sink, path := sinkAt(t, "telemetry.ndjson")
+	NewEmitter(store, sink).Emit("run.completed", nil)
 
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	if len(cs.requests) != 0 {
-		t.Errorf("expected 0 HTTP requests when no install_id, got %d", len(cs.requests))
+	if got := eventLines(t, path); len(got) != 0 {
+		t.Errorf("expected 0 events when no install_id, got %d: %v", len(got), got)
 	}
 }
 
-func TestEmitter_EnabledHitsBackend(t *testing.T) {
-	cs, srv := newCaptureServer(http.StatusOK)
-	defer srv.Close()
-
+func TestEmitter_EnabledAppendsToFile(t *testing.T) {
 	store, _ := newTestStore(t)
-	id, err := store.Enable(srv.URL)
+	id, err := store.Enable("")
 	if err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
 
-	client := NewClient(ClientOptions{Endpoint: srv.URL, Timeout: time.Second})
-	emitter := NewEmitter(store, client)
-	emitter.Emit(context.Background(), "run.completed", map[string]any{"session_id": "s1"})
+	sink, path := sinkAt(t, "telemetry.ndjson")
+	NewEmitter(store, sink).Emit("run.completed", map[string]any{"session_id": "s1"})
 
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	if len(cs.requests) != 1 {
-		t.Errorf("expected 1 HTTP request, got %d", len(cs.requests))
+	lines := eventLines(t, path)
+	if len(lines) != 1 {
+		t.Fatalf("expected 1 event, got %d: %v", len(lines), lines)
 	}
-	if cs.body["install_id"] != id {
-		t.Errorf("body install_id = %v, want %s", cs.body["install_id"], id)
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &rec); err != nil {
+		t.Fatalf("event is not valid JSON: %v", err)
+	}
+	if rec["install_id"] != id {
+		t.Errorf("install_id = %v, want %s", rec["install_id"], id)
+	}
+	if rec["event_type"] != "run.completed" {
+		t.Errorf("event_type = %v, want run.completed", rec["event_type"])
 	}
 	// Emission should be recorded as "ok"
 	ems, err := store.RecentEmissions()
@@ -89,20 +105,20 @@ func TestEmitter_EnabledHitsBackend(t *testing.T) {
 	}
 }
 
-func TestEmitter_BackendErrorSwallowed(t *testing.T) {
-	_, srv := newCaptureServer(http.StatusInternalServerError)
-	defer srv.Close()
-
+func TestEmitter_SinkErrorSwallowed(t *testing.T) {
 	store, _ := newTestStore(t)
-	_, err := store.Enable(srv.URL)
-	if err != nil {
+	if _, err := store.Enable(""); err != nil {
 		t.Fatalf("Enable: %v", err)
 	}
 
-	client := NewClient(ClientOptions{Endpoint: srv.URL, Timeout: time.Second})
-	emitter := NewEmitter(store, client)
-	// Should not panic or return an error to caller
-	emitter.Emit(context.Background(), "run.completed", nil)
+	// Point the sink at a path whose parent is a regular file, so the write
+	// cannot succeed. The caller must not see the failure.
+	blocker := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("seed blocker: %v", err)
+	}
+	sink := NewFileSink(filepath.Join(blocker, "telemetry.ndjson"))
+	NewEmitter(store, sink).Emit("run.completed", nil)
 
 	// Emission should be recorded as "error"
 	ems, err := store.RecentEmissions()
@@ -111,34 +127,5 @@ func TestEmitter_BackendErrorSwallowed(t *testing.T) {
 	}
 	if len(ems) == 0 || ems[0].Status != "error" {
 		t.Errorf("expected error emission, got %+v", ems)
-	}
-}
-
-func TestEmitter_ContextCancellationPolite(t *testing.T) {
-	testCtx, testCancel := context.WithCancel(context.Background())
-	t.Cleanup(testCancel)
-
-	slowSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-testCtx.Done():
-		case <-r.Context().Done():
-		}
-	}))
-	t.Cleanup(func() { testCancel(); slowSrv.Close() })
-
-	store, _ := newTestStore(t)
-	_, _ = store.Enable(slowSrv.URL)
-
-	client := NewClient(ClientOptions{Endpoint: slowSrv.URL, Timeout: 5 * time.Second})
-	emitter := NewEmitter(store, client)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
-	start := time.Now()
-	emitter.Emit(ctx, "run.completed", nil)
-	if time.Since(start) > 3*time.Second {
-		t.Error("Emit did not return quickly after context cancellation")
 	}
 }

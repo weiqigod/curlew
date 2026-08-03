@@ -1,11 +1,10 @@
 package teamtemplate_test
 
 import (
-	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/weiqigod/curlew/internal/vault/teamtemplate"
 )
@@ -43,21 +42,6 @@ const localOverlayYAML = `team_secrets:
         api_key: staging/api-key
 `
 
-// backendCache creates a Cache pre-seeded with a given YAML template.
-func backendCache(t *testing.T, cfgDir, yaml string) *teamtemplate.Cache {
-	t.Helper()
-	env := &teamtemplate.CacheEnvelope{
-		FetchedAt: time.Now().Unix(),
-		Version:   3,
-		Template:  yaml,
-	}
-	c := teamtemplate.NewCache(cfgDir)
-	if err := c.Write(env); err != nil {
-		t.Fatalf("write backend cache: %v", err)
-	}
-	return c
-}
-
 func writeLocalFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
@@ -67,42 +51,11 @@ func writeLocalFile(t *testing.T, dir, name, content string) string {
 	return path
 }
 
-func TestLoad_BackendOnly(t *testing.T) {
-	cfgDir := t.TempDir()
-	cache := backendCache(t, cfgDir, backendYAML)
-
-	result, err := teamtemplate.Load(context.Background(), teamtemplate.LoadOptions{
-		Cache: cache,
-	})
-	if err != nil {
-		t.Fatalf("Load() unexpected error: %v", err)
-	}
-	if result == nil || result.Template == nil {
-		t.Fatal("Load() returned nil result or nil template")
-	}
-	if result.LocalOverlay {
-		t.Error("LocalOverlay = true, want false")
-	}
-	if result.BackendVersion != 3 {
-		t.Errorf("BackendVersion = %d, want 3", result.BackendVersion)
-	}
-
-	env, ok := result.Template.Resolve("production")
-	if !ok {
-		t.Fatal("Resolve(production) = false, want true")
-	}
-	if env.Provider != "aws-secrets-manager" {
-		t.Errorf("Provider = %q, want aws-secrets-manager", env.Provider)
-	}
-}
-
 func TestLoad_LocalOnly(t *testing.T) {
-	cfgDir := t.TempDir()
-	localPath := writeLocalFile(t, cfgDir, "team.yaml", localYAML)
+	dir := t.TempDir()
+	localPath := writeLocalFile(t, dir, "team.yaml", localYAML)
 
-	result, err := teamtemplate.Load(context.Background(), teamtemplate.LoadOptions{
-		LocalPath: localPath,
-	})
+	result, err := teamtemplate.Load(teamtemplate.LoadOptions{LocalPath: localPath})
 	if err != nil {
 		t.Fatalf("Load() unexpected error: %v", err)
 	}
@@ -112,61 +65,38 @@ func TestLoad_LocalOnly(t *testing.T) {
 	if !result.LocalOverlay {
 		t.Error("LocalOverlay = false, want true")
 	}
-	if result.BackendVersion != 0 {
-		t.Errorf("BackendVersion = %d, want 0", result.BackendVersion)
-	}
 }
 
-func TestLoad_NeitherSource_ReturnsNilTemplate(t *testing.T) {
-	result, err := teamtemplate.Load(context.Background(), teamtemplate.LoadOptions{})
+func TestLoad_NoLocalPath_ReturnsNilTemplate(t *testing.T) {
+	result, err := teamtemplate.Load(teamtemplate.LoadOptions{})
 	if err != nil {
 		t.Fatalf("Load() unexpected error: %v", err)
 	}
-	if result != nil && result.Template != nil {
-		t.Error("expected nil template when no sources configured")
+	if result != nil {
+		t.Errorf("expected nil result when no template is configured, got %+v", result)
 	}
 }
 
-func TestLoad_BackendPlusLocalOverlay(t *testing.T) {
-	cfgDir := t.TempDir()
-	cache := backendCache(t, cfgDir, backendYAML)
-	localPath := writeLocalFile(t, cfgDir, "team.yaml", localOverlayYAML)
-
-	result, err := teamtemplate.Load(context.Background(), teamtemplate.LoadOptions{
-		Cache:     cache,
-		LocalPath: localPath,
+func TestLoad_MissingLocalFile_IsAnError(t *testing.T) {
+	_, err := teamtemplate.Load(teamtemplate.LoadOptions{
+		LocalPath: filepath.Join(t.TempDir(), "absent.yaml"),
 	})
-	if err != nil {
-		t.Fatalf("Load() unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("Load() with a missing CURLEW_TEAM_CONFIG path = nil error; want ErrTemplateNotFound")
 	}
-	if result == nil || result.Template == nil {
-		t.Fatal("Load() returned nil result or nil template")
-	}
-	if !result.LocalOverlay {
-		t.Error("LocalOverlay = false, want true")
-	}
-
-	// Local wins on production.api_key (local/api-key beats prod/api-key).
-	prod, ok := result.Template.Resolve("production")
-	if !ok {
-		t.Fatal("Resolve(production) = false")
-	}
-	if prod.Keys["api_key"].Path != "local/api-key" {
-		t.Errorf("production.api_key.Path = %q, want local/api-key", prod.Keys["api_key"].Path)
-	}
-	// Backend's db_password is preserved where local doesn't override it.
-	if _, ok := prod.Keys["db_password"]; !ok {
-		t.Error("production.db_password missing after merge")
-	}
-
-	// Staging added by local overlay.
-	_, ok = result.Template.Resolve("staging")
-	if !ok {
-		t.Error("staging env missing after merge")
+	if !errors.Is(err, teamtemplate.ErrTemplateNotFound) {
+		t.Errorf("err = %v; want ErrTemplateNotFound", err)
 	}
 }
 
-// Merge tests.
+func TestLoad_MalformedLocalFile_IsAnError(t *testing.T) {
+	dir := t.TempDir()
+	path := writeLocalFile(t, dir, "bad.yaml", "team_secrets: [not, a, mapping\n")
+
+	if _, err := teamtemplate.Load(teamtemplate.LoadOptions{LocalPath: path}); err == nil {
+		t.Fatal("Load() with a malformed template = nil error; want a parse error")
+	}
+}
 
 func TestTeamTemplate_Merge_LocalKeyWins(t *testing.T) {
 	base, err := teamtemplate.Parse([]byte(backendYAML))

@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -20,7 +16,6 @@ import (
 	"time"
 
 	"github.com/weiqigod/curlew/internal/appdir"
-	"github.com/weiqigod/curlew/internal/backend"
 	"github.com/weiqigod/curlew/internal/config"
 	"github.com/weiqigod/curlew/internal/discovery"
 	"github.com/weiqigod/curlew/internal/httpexec"
@@ -33,7 +28,6 @@ import (
 	"github.com/weiqigod/curlew/internal/parser"
 	"github.com/weiqigod/curlew/internal/prcheck"
 	"github.com/weiqigod/curlew/internal/runner"
-	"github.com/weiqigod/curlew/internal/runner/distributed"
 	"github.com/weiqigod/curlew/internal/runservice"
 	"github.com/weiqigod/curlew/internal/scaffold"
 	"github.com/weiqigod/curlew/internal/schema"
@@ -97,24 +91,12 @@ func runWithWriters(args []string, stdout, stderr io.Writer) int {
 		return prCheckCmdOut(args[1:], stdout, stderr)
 	case "import":
 		return importCmdOut(args[1:], stdout, stderr)
-	case "login":
-		return loginCmdOut(args[1:], stdout, stderr)
 	case "telemetry":
 		return telemetryCmdOut(args[1:], stdout, stderr)
-	case "worker":
-		return workerCmdOut(args[1:], stdout, stderr)
 	case "perf":
 		return perfCmdOut(args[1:], stdout, stderr)
 	case "plugins":
 		return pluginsCmdOut(args[1:], stdout, stderr)
-	case "internal":
-		// Hidden: gated on CURLEW_INTERNAL=1. Not listed in help or usageSynopses.
-		if os.Getenv("CURLEW_INTERNAL") != "1" {
-			_, _ = fmt.Fprintf(stderr, "Unknown command: %s\n", args[0])
-			_, _ = fmt.Fprintln(stderr, usageSynopsis(""))
-			return 1
-		}
-		return internalCmdOut(args[1:], stdout, stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "Unknown command: %s\n", args[0])
 		_, _ = fmt.Fprintln(stderr, usageSynopsis(""))
@@ -131,18 +113,6 @@ type runFlags struct {
 	verbosity                                                       output.Verbosity
 	allowSensitive, showDeps, dryRun, parallel, confirmLargeDataset bool
 
-	// M4-012: report-upload flags
-	reportUpload bool
-	org          string
-	pr           int
-	repo         string
-	triggeredBy  string
-	gitSha       string
-
-	// M5-010: distributed execution flags
-	workers        int    // 0 = single-process (default); 1 = warn+fallback; ≥2 = distributed
-	coordinatorURL string // --coordinator-url; falls back to CURLEW_COORDINATOR_URL
-
 	// M6-005: events NDJSON stream
 	events string // --events <path>; empty = disabled
 
@@ -153,9 +123,6 @@ type runFlags struct {
 	// M8-004: --only flag for single/union request selection.
 	onlyNames []string
 
-	// M16-018: force team-vault cache refresh regardless of TTL.
-	refreshVault bool
-
 	// M20-001: --locale flag for faker locale selection.
 	locale    string
 	localeSet bool
@@ -163,8 +130,8 @@ type runFlags struct {
 
 // parseRunArgs extracts all flags for the run subcommand into a runFlags struct.
 // Supports: --env, --format, --report, --var, --env-var, --seed, --no-color,
-// --allow-sensitive, --show-dependencies, --dry-run, --parallel, --confirm-large-dataset,
-// --report-upload, --org, --pr, --repo, --triggered-by, --git-sha, --only.
+// --allow-sensitive, --show-dependencies, --dry-run, --parallel,
+// --confirm-large-dataset, --events, --only, --locale.
 func parseRunArgs(args []string) (runFlags, error) {
 	f := runFlags{
 		vars:       make(map[string]string),
@@ -188,8 +155,6 @@ func parseRunArgs(args []string) (runFlags, error) {
 			f.parallel = true
 		case "--confirm-large-dataset":
 			f.confirmLargeDataset = true
-		case "--report-upload":
-			f.reportUpload = true
 		case "-vv":
 			f.verbosity = output.VerbosityDebug
 			f.verbositySet = true
@@ -249,59 +214,6 @@ func parseRunArgs(args []string) (runFlags, error) {
 			}
 			f.report = args[i]
 			f.reportSet = true
-		case "--org":
-			i++
-			if i >= len(args) {
-				return errorf("--org requires a value (e.g. --org myteam)")
-			}
-			f.org = args[i]
-		case "--pr":
-			i++
-			if i >= len(args) {
-				return errorf("--pr requires a value (e.g. --pr 42)")
-			}
-			n, parseErr := strconv.Atoi(args[i])
-			if parseErr != nil {
-				return errorf("--pr value must be an integer: %w", parseErr)
-			}
-			f.pr = n
-		case "--repo":
-			i++
-			if i >= len(args) {
-				return errorf("--repo requires a value (e.g. --repo owner/name)")
-			}
-			f.repo = args[i]
-		case "--triggered-by":
-			i++
-			if i >= len(args) {
-				return errorf("--triggered-by requires a value (e.g. --triggered-by ci)")
-			}
-			f.triggeredBy = args[i]
-		case "--git-sha":
-			i++
-			if i >= len(args) {
-				return errorf("--git-sha requires a value (e.g. --git-sha abc1234)")
-			}
-			f.gitSha = args[i]
-		case "--workers":
-			i++
-			if i >= len(args) {
-				return errorf("--workers requires an integer value (e.g. --workers 4)")
-			}
-			n, parseErr := strconv.Atoi(args[i])
-			if parseErr != nil {
-				return errorf("--workers value must be an integer: %w", parseErr)
-			}
-			if n < 1 {
-				return errorf("--workers must be >= 1")
-			}
-			f.workers = n
-		case "--coordinator-url":
-			i++
-			if i >= len(args) {
-				return errorf("--coordinator-url requires a value")
-			}
-			f.coordinatorURL = args[i]
 		case "--events":
 			i++
 			if i >= len(args) {
@@ -317,9 +229,6 @@ func parseRunArgs(args []string) (runFlags, error) {
 				return errorf("--only requires a name (e.g. --only \"Get user\")")
 			}
 			f.onlyNames = append(f.onlyNames, strings.TrimSpace(args[i]))
-		case "--refresh-vault":
-			// M16-018: force team-vault cache refresh regardless of TTL.
-			f.refreshVault = true
 		case "--locale":
 			// M20-001: faker locale selection
 			i++
@@ -329,6 +238,12 @@ func parseRunArgs(args []string) (runFlags, error) {
 			f.locale = args[i]
 			f.localeSet = true
 		default:
+			// A dash-prefixed token is never a collection path. Rejecting it
+			// here means a removed or misspelled flag fails loudly instead of
+			// being silently swallowed as an extra positional argument.
+			if strings.HasPrefix(args[i], "-") && args[i] != "-" {
+				return errorf("unknown flag: %s", args[i])
+			}
 			positional = append(positional, args[i])
 		}
 	}
@@ -337,16 +252,6 @@ func parseRunArgs(args []string) (runFlags, error) {
 	}
 	f.file = positional[0]
 
-	// Validate report-upload specific constraints.
-	if f.reportUpload {
-		if f.org == "" {
-			return errorf("--org is required when --report-upload is set")
-		}
-		// --pr and --repo must be set together (neither or both).
-		if (f.pr > 0) != (f.repo != "") {
-			return errorf("--pr and --repo must be set together (both or neither)")
-		}
-	}
 	return f, nil
 }
 
@@ -501,7 +406,7 @@ func redactedCLIArgs(args []string) []string {
 func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary) {
 	flags, parseErr := parseRunArgs(args)
 	if parseErr != nil {
-		_, _ = fmt.Fprintln(stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--report <file>] [--only \"<name>\"] [--show-dependencies] [--dry-run] [--parallel] [--confirm-large-dataset] [--report-upload] [--org <name>] [--pr <number>] [--repo <owner/repo>] [--triggered-by <who>] [--git-sha <sha>] [--no-color] [-v] [-vv] [-q]")
+		_, _ = fmt.Fprintln(stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--report <file>] [--only \"<name>\"] [--show-dependencies] [--dry-run] [--parallel] [--confirm-large-dataset] [--no-color] [-v] [-vv] [-q]")
 		errOut := newStderrPrinterTo(stderr, flags.noColor)
 		errOut.StructuredError(parseErr)
 		return 1, nil
@@ -836,7 +741,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 
 	// Load shared vault template: backend cache (base) + CURLEW_TEAM_CONFIG (overlay).
 	// M16-018: use teamtemplate.Load which handles backend fetch, TTL, and merge.
-	teamLoadResult, teamErr := loadTeamTemplate(teamCfgPath, flags.refreshVault, stderr)
+	teamLoadResult, teamErr := loadTeamTemplate(teamCfgPath, stderr)
 	if teamErr != nil {
 		if eventsEmitter != nil {
 			_ = eventsEmitter.EmitRunError(teamErr)
@@ -1018,77 +923,6 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	_ = dryRun // --dry-run without --show-dependencies is a no-op for now
 
 	ctx := context.Background()
-
-	// M5-010: --workers dispatch.
-	switch {
-	case flags.workers == 1:
-		errOut.Warning("--workers 1 has no benefit; falling back to local execution")
-		// fall through to local pipeline
-	case flags.workers >= 2:
-		coordURL := flags.coordinatorURL
-		if coordURL == "" {
-			coordURL = os.Getenv("CURLEW_COORDINATOR_URL")
-		}
-		if coordURL == "" {
-			missingCoordErr := fmt.Errorf("--workers requires CURLEW_COORDINATOR_URL")
-			_, _ = fmt.Fprintf(stderr, "error: %v\n", missingCoordErr)
-			if eventsEmitter != nil {
-				_ = eventsEmitter.EmitRunError(missingCoordErr)
-				evExitCode = 2
-			}
-			return 2, nil
-		}
-		token := os.Getenv("CURLEW_BACKEND_TOKEN")
-		if token == "" {
-			missingTokenErr := fmt.Errorf("--workers requires CURLEW_BACKEND_TOKEN")
-			_, _ = fmt.Fprintf(stderr, "error: %v\n", missingTokenErr)
-			if eventsEmitter != nil {
-				_ = eventsEmitter.EmitRunError(missingTokenErr)
-				evExitCode = 2
-			}
-			return 2, nil
-		}
-		if flags.org == "" {
-			missingOrgErr := fmt.Errorf("--workers requires --org")
-			_, _ = fmt.Fprintf(stderr, "error: %v\n", missingOrgErr)
-			if eventsEmitter != nil {
-				_ = eventsEmitter.EmitRunError(missingOrgErr)
-				evExitCode = 2
-			}
-			return 2, nil
-		}
-		if flags.parallel {
-			errOut.Warning("--parallel is ignored when --workers is set")
-		}
-		_, dSummary, dErr := distributed.Run(ctx, distributed.Config{
-			CoordinatorURL: coordURL,
-			Token:          token,
-			Org:            flags.org,
-			Workers:        flags.workers,
-			CollectionSha:  collectionSha(file),
-			Collection:     col,
-			PreExecVars:    mergedPreExecVars(projectCfg.Variables, envVars, dotenvVars, envVarVars, cliVars),
-			Stdout:         stdout,
-		}, distributed.Deps{})
-		evSummary = dSummary
-		if dErr != nil {
-			errOut.StructuredError(dErr)
-			if eventsEmitter != nil {
-				_ = eventsEmitter.EmitRunError(dErr)
-				evExitCode = 2
-			}
-			return 2, dSummary
-		}
-		// Print terminal summary for the distributed results.
-		if out := output.NewPrinter(stdout, stdoutUseColor, verbosity); out != nil {
-			out.SummaryWithDuration(dSummary.Total, dSummary.Passed, dSummary.Failed, dSummary.Skipped, dSummary.Duration)
-		}
-		if dSummary.Failed > 0 {
-			evExitCode = 1
-			return 1, dSummary
-		}
-		return 0, dSummary
-	}
 
 	// Build plugin hook dispatcher (nil when CURLEW_PLUGINS is empty).
 	hookDispatcher, closeHooks, hookErr := buildHookDispatcher(ctx, stderr)
@@ -1558,71 +1392,8 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		runExitCode = 4
 	}
 
-	// Handle --report-upload: upload results and optionally post a PR check.
-	if flags.reportUpload {
-		uploadCode := handleReportUpload(ctx, flags, col, results, summary, stdout, stderr)
-		if uploadCode != 0 {
-			// Upload error overrides exit code only when the run itself passed.
-			if runExitCode == 0 {
-				evExitCode = uploadCode
-				return uploadCode, summary
-			}
-			// Run failed — already reported; upload error is on stderr (done in handleReportUpload).
-		}
-	}
-
 	evExitCode = runExitCode
 	return runExitCode, summary
-}
-
-// handleReportUpload builds a ResultsPayload from the run output, uploads it,
-// and optionally posts a PR check. Returns a non-zero exit code on failure.
-// On upload failure when the run itself also failed, it prints the error to
-// stderr and returns 0 (the run exit code is the authoritative signal).
-func handleReportUpload(ctx context.Context, flags runFlags, col *parser.Collection, results []runner.RequestResult, sum *runner.Summary, stdout, stderr io.Writer) int {
-	backendURL := os.Getenv("CURLEW_BACKEND_URL")
-	if backendURL == "" {
-		_, _ = fmt.Fprintln(stderr, "error: backend URL not configured (set CURLEW_BACKEND_URL)")
-		return 2
-	}
-	backendToken := os.Getenv("CURLEW_BACKEND_TOKEN")
-
-	colName := ""
-	if col != nil {
-		colName = col.Name
-	}
-	gitSha := flags.gitSha
-	if gitSha == "" {
-		gitSha = prcheck.DetectGitSha(".")
-	}
-	info := prcheck.TriggerInfo{
-		CollectionName: colName,
-		TriggeredBy:    flags.triggeredBy,
-		GitSha:         gitSha,
-	}
-	payload := prcheck.BuildPayload(results, sum, info)
-
-	cfg := prcheck.UploadConfig{
-		BackendURL:   backendURL,
-		BackendToken: backendToken,
-		Org:          flags.org,
-		PR:           flags.pr,
-		Repo:         flags.repo,
-	}
-
-	runResult, err := prcheck.UploadRun(ctx, cfg, payload)
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "error: upload failed: %v\n", err)
-		return 2
-	}
-
-	if flags.pr > 0 && flags.repo != "" {
-		_, _ = fmt.Fprintf(stdout, "Uploaded result %s; check-run posted; status=%s\n",
-			runResult.ResultID, runResult.State)
-	} else {
-		_, _ = fmt.Fprintf(stdout, "Uploaded result %s\n", runResult.ResultID)
-	}
-	return 0
 }
 
 // runCmdWithWriters is a thin wrapper around runCmdInner used by both the CLI
@@ -3439,29 +3210,6 @@ func parseVaultArgs(args []string) (subcommand, format string, noColor bool, err
 	return subcommand, format, noColor, nil
 }
 
-// collectionSha returns a hex-encoded SHA-256 of the collection file bytes.
-// Returns an empty string on error (non-fatal; coordinator accepts any value).
-func collectionSha(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
-
-// mergedPreExecVars merges variable maps (later sources win) to build the
-// flat map passed to the coordinator job as pre-execution variable context.
-func mergedPreExecVars(sources ...map[string]string) map[string]string {
-	merged := make(map[string]string)
-	for _, src := range sources {
-		for k, v := range src {
-			merged[k] = v
-		}
-	}
-	return merged
-}
-
 // filterShowDepsItems applies the --only selection to col.Requests.Items before
 // passing them to parallel.Analyze in the --show-dependencies path. This ensures
 // the dependency graph visualisation reflects the same filtered subset that
@@ -3478,9 +3226,7 @@ func filterShowDepsItems(items []parser.RequestItem, selection []string) ([]pars
 // TestUsageSynopsis_MatchesPrintHelpFirstLine asserts the two stay in sync.
 var usageSynopses = map[string]string{
 	"":          "Usage: curlew <command> [arguments]",
-	"login":     "Usage: curlew login [--no-browser]",
 	"perf":      "Usage: curlew perf <request-file> [options]",
-	"worker":    "Usage: curlew worker [options]",
 	"ui":        "Usage: curlew ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] [--no-color]",
 	"plugins":   "Usage: curlew plugins <subcommand>",
 	"import":    "Usage: curlew import <format> <spec-path>",
@@ -3520,14 +3266,12 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  vault           Manage vault provider profiles")
 	_, _ = fmt.Fprintln(w, "  vault list      List configured vault provider profiles")
 	_, _ = fmt.Fprintln(w, "  import openapi  Import OpenAPI 3.x spec into a collection with headers, request bodies, and status assertions")
-	_, _ = fmt.Fprintln(w, "  pr-check        Upload test results and post PR status check")
+	_, _ = fmt.Fprintln(w, "  pr-check        Gate CI on a run's results file (exit 1 on failures)")
 	_, _ = fmt.Fprintln(w, "  ui              Start the local web UI (runner & inspector)")
-	_, _ = fmt.Fprintln(w, "  worker          Run as a distributed worker")
 	_, _ = fmt.Fprintln(w, "  perf <file>     Run a load test against a single request")
 	_, _ = fmt.Fprintln(w, "  plugins         Manage external-process plugins")
 	_, _ = fmt.Fprintln(w, "  plugins list    Discover plugins and print registered capabilities")
-	_, _ = fmt.Fprintln(w, "  login           Authenticate via the device-code flow (browser or --no-browser)")
-	_, _ = fmt.Fprintln(w, "  telemetry       Manage anonymous usage telemetry (opt-in)")
+	_, _ = fmt.Fprintln(w, "  telemetry       Record anonymous usage events to a local file (opt-in)")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Exec Options:")
 	_, _ = fmt.Fprintln(w, "  --stdin             Read request JSON from stdin")
@@ -3576,32 +3320,12 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "                      phase. Names must match an existing request item (case-sensitive).")
 	_, _ = fmt.Fprintln(w, "                      Example: depends_on: [confirm-order]")
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Report Upload:")
-	_, _ = fmt.Fprintln(w, "  --report-upload     Upload run results to the Curlew backend after execution")
-	_, _ = fmt.Fprintln(w, "  --org <slug>        Organization slug (required with --report-upload)")
-	_, _ = fmt.Fprintln(w, "  --pr <number>       Pull-request number (posts a PR check status if set)")
-	_, _ = fmt.Fprintln(w, "  --repo <owner/repo> Repository slug (required when --pr is set)")
-	_, _ = fmt.Fprintln(w, "  --triggered-by <who>  Label for the upload trigger (e.g. ci, scheduled)")
-	_, _ = fmt.Fprintln(w, "  --git-sha <sha>     Git commit SHA to associate with the upload")
-	_, _ = fmt.Fprintln(w, "  Env vars:  CURLEW_BACKEND_URL   Backend base URL (e.g. http://api.example.com)")
-	_, _ = fmt.Fprintln(w, "             CURLEW_BACKEND_TOKEN  Bearer token for authentication")
-	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Perf Options:")
 	_, _ = fmt.Fprintln(w, "  --vus <n>           Number of virtual users (concurrent workers)")
 	_, _ = fmt.Fprintln(w, "  --duration <d>      Total run duration (e.g. 30s, 2m)")
 	_, _ = fmt.Fprintln(w, "  --ramp-up <d>       Linearly ramp VU count from 1 to --vus over this window")
 	_, _ = fmt.Fprintln(w, "  --rps <n>           Target throughput in requests/sec (0 = unbounded)")
 	_, _ = fmt.Fprintln(w, "  --output <dest>     Output destination (stdout|json|html). Only 'stdout' supported currently.")
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Distributed Execution:")
-	_, _ = fmt.Fprintln(w, "  --workers <N>            Shard the main phase across N remote workers")
-	_, _ = fmt.Fprintln(w, "  --coordinator-url <url>  Coordinator base URL (or set CURLEW_COORDINATOR_URL)")
-	_, _ = fmt.Fprintln(w, "  --org <slug>             Required with --workers")
-	_, _ = fmt.Fprintln(w, "  Env vars:  CURLEW_COORDINATOR_URL   Coordinator base URL")
-	_, _ = fmt.Fprintln(w, "             CURLEW_BACKEND_TOKEN     Bearer token for the coordinator API")
-	_, _ = fmt.Fprintln(w, "  Notes: Only the main phase is sharded; setup/teardown run locally.")
-	_, _ = fmt.Fprintln(w, "         --workers 1 falls back to local single-process execution.")
-	_, _ = fmt.Fprintln(w, "         (See docs/distributed.md for full setup.)")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Glob Discovery:")
 	_, _ = fmt.Fprintln(w, "  Patterns support *, ?, [abc], and ** (multi-segment wildcard)")
@@ -3618,8 +3342,6 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  CURLEW_TEAM_CONFIG=path   Load a shared vault configuration template")
 	_, _ = fmt.Fprintln(w, "                             {{secrets.ALIAS}} references in collections resolve")
 	_, _ = fmt.Fprintln(w, "                             through the template for the environment named by --env")
-	_, _ = fmt.Fprintln(w, "  --refresh-vault            Force refresh of backend team vault cache (bypasses TTL)")
-	_, _ = fmt.Fprintln(w, "                             Cache stored in team_vault.json (~/.config/curlew/team_vault.json)")
 	_, _ = fmt.Fprintln(w, "  CURLEW_VAULT_STUB=1       Use an in-memory stub provider (for local/CI testing)")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Plugins:")
@@ -3702,8 +3424,8 @@ func importOpenAPICmdOut(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// prCheckCmdOut implements the pr-check subcommand.
-// It reads a local test results file, uploads it to the backend, and posts a PR status check.
+// prCheckCmdOut implements the pr-check subcommand. It reads a local results
+// file and reports the CI verdict; exit 1 when the run contained failures.
 func prCheckCmdOut(args []string, stdout, stderr io.Writer) int {
 	cfg, showHelp, err := parsePrCheckArgs(args)
 	if showHelp {
@@ -3716,17 +3438,8 @@ func prCheckCmdOut(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	result, runErr := prcheck.Run(ctx, cfg, stdout)
+	result, runErr := prcheck.Run(cfg, stdout)
 	if runErr != nil {
-		if errors.Is(runErr, prcheck.ErrBackendURLMissing) ||
-			errors.Is(runErr, prcheck.ErrUnauthorized) ||
-			errors.Is(runErr, prcheck.ErrNetworkFailure) {
-			_, _ = fmt.Fprintln(stderr, runErr.Error())
-			return 2
-		}
 		_, _ = fmt.Fprintf(stderr, "Error: %v\n", runErr)
 		return 2
 	}
@@ -3735,8 +3448,12 @@ func prCheckCmdOut(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	_, _ = fmt.Fprintf(stdout, "Uploaded result %s (pass=%d fail=%d); status check posted\n",
-		result.ResultID, result.Pass, result.Fail)
+	if cfg.SummaryFile != "" {
+		_, _ = fmt.Fprintf(stdout, "%s: pass=%d fail=%d; summary written to %s\n",
+			result.State, result.Pass, result.Fail, cfg.SummaryFile)
+	} else {
+		_, _ = fmt.Fprintf(stdout, "%s: pass=%d fail=%d\n", result.State, result.Pass, result.Fail)
+	}
 
 	if result.State == "failure" {
 		return 1
@@ -3747,39 +3464,22 @@ func prCheckCmdOut(args []string, stdout, stderr io.Writer) int {
 // parsePrCheckArgs parses flags for the pr-check subcommand.
 // Returns the config, whether --help was requested, and any parse error.
 func parsePrCheckArgs(args []string) (cfg prcheck.Config, showHelp bool, err error) {
-	cfg = prcheck.ConfigFromEnv()
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--help", "-h":
 			return cfg, true, nil
-		case "--org":
-			i++
-			if i >= len(args) {
-				return cfg, false, fmt.Errorf("--org requires a value")
-			}
-			cfg.Org = args[i]
-		case "--pr":
-			i++
-			if i >= len(args) {
-				return cfg, false, fmt.Errorf("--pr requires a value")
-			}
-			n, parseErr := strconv.Atoi(args[i])
-			if parseErr != nil {
-				return cfg, false, fmt.Errorf("--pr value must be a positive integer: %w", parseErr)
-			}
-			cfg.PR = n
-		case "--repo":
-			i++
-			if i >= len(args) {
-				return cfg, false, fmt.Errorf("--repo requires a value")
-			}
-			cfg.Repo = args[i]
 		case "--results":
 			i++
 			if i >= len(args) {
 				return cfg, false, fmt.Errorf("--results requires a file path")
 			}
 			cfg.ResultsFile = args[i]
+		case "--summary":
+			i++
+			if i >= len(args) {
+				return cfg, false, fmt.Errorf("--summary requires a file path")
+			}
+			cfg.SummaryFile = args[i]
 		case "--dry-run":
 			cfg.DryRun = true
 		case "--events":
@@ -3795,116 +3495,29 @@ func parsePrCheckArgs(args []string) (cfg prcheck.Config, showHelp bool, err err
 func printPrCheckHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage: curlew pr-check [options]")
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Upload test results to the backend and post a PR status check.")
+	_, _ = fmt.Fprintln(w, "Turn a run's results file into a CI gate: report the pass/fail verdict")
+	_, _ = fmt.Fprintln(w, "and exit 1 when the run contained failures. Nothing is transmitted.")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Options:")
-	_, _ = fmt.Fprintln(w, "  --org <slug>        Organization slug (required)")
-	_, _ = fmt.Fprintln(w, "  --pr <number>       Pull request number (required)")
-	_, _ = fmt.Fprintln(w, "  --repo <owner/repo> Repository in owner/repo format (required)")
 	_, _ = fmt.Fprintln(w, "  --results <file>    Path to test results JSON file (required)")
-	_, _ = fmt.Fprintln(w, "  --dry-run           Print payloads without sending HTTP requests")
+	_, _ = fmt.Fprintln(w, "  --summary <file>    Write the verdict as JSON to this path")
+	_, _ = fmt.Fprintln(w, "  --dry-run           Print the summary instead of writing it")
 	_, _ = fmt.Fprintln(w, "  --help              Show this help message")
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Environment Variables:")
-	_, _ = fmt.Fprintln(w, "  CURLEW_BACKEND_URL    Backend API base URL (required)")
-	_, _ = fmt.Fprintln(w, "  CURLEW_BACKEND_TOKEN  Bearer token for authentication (required)")
+	_, _ = fmt.Fprintln(w, "Exit codes:")
+	_, _ = fmt.Fprintln(w, "  0  all tests passed")
+	_, _ = fmt.Fprintln(w, "  1  the results file contains failures")
+	_, _ = fmt.Fprintln(w, "  2  usage error or unreadable results file")
 }
 
 // loadTeamTemplate loads the shared vault template using the backend-cache+overlay loader.
-// Returns (nil, nil) when neither backend cache nor CURLEW_TEAM_CONFIG is configured.
-// This function creates its own context with a short timeout for the stale-revalidate fetch;
-// callers do not need to pass a context.
-func loadTeamTemplate(localPath string, force bool, warnW io.Writer) (*teamtmpl.LoadResult, error) {
-	ctx := context.Background()
-
-	cfgDir, err := appdir.ResolveConfigDir()
-	if err != nil {
-		cfgDir = ""
-	}
-
-	var cache *teamtmpl.Cache
-	var fetcher teamtmpl.Fetcher
-	var orgID, accessToken string
-
-	if cfgDir != "" {
-		cache = teamtmpl.NewCache(cfgDir)
-		// The org_id claim only selects the backend route; the backend
-		// authorizes the bearer token, so an unverified routing claim cannot
-		// grant vault access.
-		accessToken, _ = loadStoredBackendAccessToken(cfgDir)
-		orgID = orgIDFromJWT(accessToken)
-		backendURL := os.Getenv("CURLEW_BACKEND_URL")
-		if backendURL == "" {
-			backendURL = "https://api.apitool.dev"
-		}
-		if client, clientErr := backend.NewClient(backend.Options{BaseURL: backendURL}); clientErr == nil {
-			fetcher = &backendVaultFetcher{
-				client: client,
-				refreshAccessToken: func(ctx context.Context) (string, error) {
-					return refreshStoredBackendAccessToken(ctx, cfgDir, backendURL)
-				},
-			}
-		}
-	}
-
-	return teamtmpl.Load(ctx, teamtmpl.LoadOptions{
-		Cache:       cache,
-		Fetcher:     fetcher,
-		OrgID:       orgID,
-		AccessToken: accessToken,
-		LocalPath:   localPath,
-		Force:       force,
-		Warn:        warnW,
+// Returns (nil, nil) when CURLEW_TEAM_CONFIG is not set. The template is read
+// from the local filesystem — curlew has no vault backend to fetch from.
+func loadTeamTemplate(localPath string, warnW io.Writer) (*teamtmpl.LoadResult, error) {
+	return teamtmpl.Load(teamtmpl.LoadOptions{
+		LocalPath: localPath,
+		Warn:      warnW,
 	})
-}
-
-// orgIDFromJWT decodes a JWT payload without verification and returns the
-// org_id claim, or "" on any parse error. Routing hint only — the backend
-// authorizes the bearer token itself.
-func orgIDFromJWT(jwt string) string {
-	parts := strings.SplitN(jwt, ".", 3)
-	if len(parts) != 3 {
-		return ""
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return ""
-	}
-	var claims struct {
-		OrgID string `json:"org_id"`
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return ""
-	}
-	return claims.OrgID
-}
-
-// backendVaultFetcher adapts *backend.Client to teamtmpl.Fetcher.
-type backendVaultFetcher struct {
-	client             *backend.Client
-	refreshAccessToken func(context.Context) (string, error)
-}
-
-// GetTeamVault fetches the team vault config from the backend and adapts
-// the response to the teamtmpl.FetchResult type.
-func (f *backendVaultFetcher) GetTeamVault(ctx context.Context, orgId, accessToken string) (*teamtmpl.FetchResult, error) {
-	resp, err := f.client.GetTeamVault(ctx, orgId, accessToken)
-	if isBackendUnauthorized(err) && f.refreshAccessToken != nil {
-		refreshed, refreshErr := f.refreshAccessToken(ctx)
-		if refreshErr != nil {
-			return nil, fmt.Errorf("refresh backend access token: %w", refreshErr)
-		}
-		resp, err = f.client.GetTeamVault(ctx, orgId, refreshed)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &teamtmpl.FetchResult{Template: resp.Template, Version: resp.Version}, nil
-}
-
-func isBackendUnauthorized(err error) bool {
-	var problem *backend.ProblemDetails
-	return errors.As(err, &problem) && problem.Status == http.StatusUnauthorized
 }
 
 // parseImportOpenAPIArgs extracts the spec path and optional --output flag.

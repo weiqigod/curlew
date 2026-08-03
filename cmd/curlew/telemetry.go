@@ -1,16 +1,17 @@
 // Package main: cmd/curlew/telemetry.go
 //
-// Implements `curlew telemetry {enable,disable,status,reset-id,export,delete-request}`.
-// Per v4-11, this uses a dedicated HTTP client from internal/telemetry and
-// MUST NOT import internal/backend.
+// Implements `curlew telemetry {enable,disable,status,reset-id,export,delete}`.
+// Telemetry is local-only: events are appended to an NDJSON file on this
+// machine. Nothing is transmitted, and this file MUST NOT gain a network
+// client — there is no telemetry backend.
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/weiqigod/curlew/internal/appdir"
@@ -46,8 +47,8 @@ func telemetryCmdOut(args []string, stdout, stderr io.Writer) int {
 		return telemetryResetID(store, stdout, stderr)
 	case "export":
 		return telemetryExport(store, stdout, stderr)
-	case "delete-request":
-		return telemetryDeleteRequest(store, stdout, stderr)
+	case "delete":
+		return telemetryDelete(store, stdout, stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "Unknown telemetry subcommand: %s\n", args[0])
 		printTelemetryHelpTo(stderr)
@@ -59,7 +60,7 @@ func telemetryCmdOut(args []string, stdout, stderr io.Writer) int {
 // Exit 1 when telemetry has never been enabled (no install_id).
 // Exit 0 when enabled or explicitly disabled.
 func telemetryStatus(store *telemetry.Store, stdout, stderr io.Writer) int {
-	enabled, installID, _, err := store.Status()
+	enabled, installID, file, err := store.Status()
 	if err != nil {
 		if errors.Is(err, telemetry.ErrNotEnabled) {
 			// No install_id file: user has never opted in.
@@ -71,22 +72,22 @@ func telemetryStatus(store *telemetry.Store, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if enabled {
-		_, _ = fmt.Fprintf(stdout, "telemetry: enabled; install_id=%s\n", installID)
+		_, _ = fmt.Fprintf(stdout, "telemetry: enabled; install_id=%s; events file %s\n", installID, file)
 		return 0
 	}
 	_, _ = fmt.Fprintf(stdout, "telemetry: disabled; install_id=%s retained\n", installID)
 	return 0
 }
 
-// telemetryEnable handles `curlew telemetry enable [--endpoint=<url>]`.
+// telemetryEnable handles `curlew telemetry enable`.
 func telemetryEnable(store *telemetry.Store, stdout, stderr io.Writer) int {
-	endpoint := store.ResolvedEndpoint() // honours CURLEW_TELEMETRY_ENDPOINT
-	id, err := store.Enable(endpoint)
+	file := store.ResolvedFile() // honours CURLEW_TELEMETRY_FILE
+	id, err := store.Enable(file)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	_, _ = fmt.Fprintf(stdout, "telemetry: enabled; install_id=%s; events will post to %s\n", id, endpoint)
+	_, _ = fmt.Fprintf(stdout, "telemetry: enabled; install_id=%s; events will be appended to %s\n", id, file)
 	return 0
 }
 
@@ -96,7 +97,7 @@ func telemetryDisable(store *telemetry.Store, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	_, _ = fmt.Fprintln(stdout, "telemetry: disabled; install_id retained (use `reset-id` to regenerate or `delete-request` to remove)")
+	_, _ = fmt.Fprintln(stdout, "telemetry: disabled; install_id retained (use `reset-id` to regenerate or `delete` to remove)")
 	return 0
 }
 
@@ -112,20 +113,20 @@ func telemetryResetID(store *telemetry.Store, stdout, stderr io.Writer) int {
 }
 
 // telemetryExport handles `curlew telemetry export`.
-// Prints JSON: { install_id, enabled, endpoint, recent_emissions }.
+// Prints JSON: { install_id, enabled, file, recent_emissions }.
 func telemetryExport(store *telemetry.Store, stdout, stderr io.Writer) int {
-	enabled, installID, endpoint, err := store.Status()
+	enabled, installID, file, err := store.Status()
 	if err != nil {
 		// Not enabled — still export what we have (empty).
 		installID = ""
-		endpoint = store.ResolvedEndpoint()
+		file = store.ResolvedFile()
 		enabled = false
 	}
 	ems, _ := store.RecentEmissions()
 	out := map[string]any{
 		"install_id":       installID,
 		"enabled":          enabled,
-		"endpoint":         endpoint,
+		"file":             file,
 		"recent_emissions": ems,
 	}
 	enc := json.NewEncoder(stdout)
@@ -137,56 +138,37 @@ func telemetryExport(store *telemetry.Store, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// telemetryDeleteRequest handles `curlew telemetry delete-request`.
-// Issues a synchronous POST with event_type=telemetry.delete_request (5s timeout),
-// then removes local files regardless of POST outcome.
-func telemetryDeleteRequest(store *telemetry.Store, stdout, stderr io.Writer) int {
-	_, priorID, endpoint, statusErr := store.Status()
-
-	// Only POST if there is a known install_id; no install_id means nothing to
-	// delete on the backend (Status returns ErrNotEnabled with an empty id).
-	var postErr error
-	if priorID != "" && statusErr == nil {
-		client := telemetry.NewClient(telemetry.ClientOptions{
-			Endpoint: endpoint,
-			Timeout:  5 * time.Second,
-		})
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		postErr = client.Emit(ctx, priorID, "telemetry.delete_request", map[string]any{
-			"install_id": priorID,
-		})
+// telemetryDelete handles `curlew telemetry delete`: removes install_id,
+// telemetry.json, and the collected events file. Everything telemetry has ever
+// recorded lives on this machine, so local removal is the whole deletion.
+func telemetryDelete(store *telemetry.Store, stdout, stderr io.Writer) int {
+	_, _, file, statusErr := store.Status()
+	if statusErr != nil {
+		file = store.ResolvedFile()
 	}
 
-	// Remove local files regardless of POST outcome.
-	actualPriorID, delErr := store.DeleteLocal()
+	priorID, delErr := store.DeleteLocal()
 	if delErr != nil {
 		_, _ = fmt.Fprintln(stderr, delErr)
 		return 1
 	}
-	if actualPriorID != "" {
-		priorID = actualPriorID
+	if rmErr := os.Remove(file); rmErr != nil && !os.IsNotExist(rmErr) {
+		_, _ = fmt.Fprintln(stderr, rmErr)
+		return 1
 	}
 
-	if actualPriorID == "" && priorID == "" {
-		// Telemetry was never enabled — nothing to delete locally or remotely.
+	if priorID == "" {
 		_, _ = fmt.Fprintln(stdout, "telemetry: nothing to delete (telemetry was never enabled)")
 		return 0
 	}
-	if postErr != nil {
-		_, _ = fmt.Fprintf(stdout,
-			"telemetry: local files removed; backend delete POST failed (offline). Re-run when online to send the delete request.\n")
-	} else {
-		_, _ = fmt.Fprintf(stdout,
-			"telemetry: install_id %s deleted locally; delete-request event posted\n", priorID)
-	}
+	_, _ = fmt.Fprintf(stdout, "telemetry: install_id %s and collected events deleted\n", priorID)
 	return 0
 }
 
-// emitTelemetryRunCompleted fires a fire-and-forget run.completed event.
+// emitTelemetryRunCompleted appends a fire-and-forget run.completed event.
 // Called from the deferred end-of-run block in runCmdWithWriters.
-// All errors are silently swallowed (v4-9). Only contacts the network when
-// telemetry is enabled (telemetry.json present and enabled=true).
+// All errors are silently swallowed (v4-9). Only writes when telemetry is
+// enabled (telemetry.json present and enabled=true).
 func emitTelemetryRunCompleted(sessionID string, started time.Time, summary *runner.Summary, exitCode int) {
 	configDir, err := appdir.ResolveConfigDir()
 	if err != nil {
@@ -196,17 +178,11 @@ func emitTelemetryRunCompleted(sessionID string, started time.Time, summary *run
 	if err != nil {
 		return
 	}
-	enabled, _, endpoint, statusErr := store.Status()
+	enabled, _, file, statusErr := store.Status()
 	if statusErr != nil || !enabled {
 		return
 	}
-	client := telemetry.NewClient(telemetry.ClientOptions{
-		Endpoint: endpoint,
-		Timeout:  2 * time.Second,
-	})
-	emitter := telemetry.NewEmitter(store, client)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	emitter := telemetry.NewEmitter(store, telemetry.NewFileSink(file))
 	payload := map[string]any{
 		"session_id":  sessionID,
 		"duration_ms": time.Since(started).Milliseconds(),
@@ -218,14 +194,15 @@ func emitTelemetryRunCompleted(sessionID string, started time.Time, summary *run
 		payload["failure_count"] = summary.Failed
 		payload["skip_count"] = summary.Skipped
 	}
-	emitter.Emit(ctx, "run.completed", payload)
+	emitter.Emit("run.completed", payload)
 }
 
 // printTelemetryHelpTo writes usage for `curlew telemetry` to w.
 func printTelemetryHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage: curlew telemetry <subcommand>")
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Manage anonymous usage telemetry (opt-in).")
+	_, _ = fmt.Fprintln(w, "Record anonymous usage events to a local file (opt-in).")
+	_, _ = fmt.Fprintln(w, "Nothing is transmitted: curlew has no telemetry backend.")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Subcommands:")
 	_, _ = fmt.Fprintln(w, "  enable         Generate a persistent install_id (UUIDv4) and enable telemetry.")
@@ -235,12 +212,12 @@ func printTelemetryHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  status         Show current telemetry state. Exit 1 if never enabled.")
 	_, _ = fmt.Fprintln(w, "  reset-id       Regenerate the install_id (new UUIDv4; old id unrecoverable).")
 	_, _ = fmt.Fprintln(w, "  export         Print install_id and recent emission history as JSON.")
-	_, _ = fmt.Fprintln(w, "                 (CLI-side GDPR export; backend export covered by M18-004.)")
-	_, _ = fmt.Fprintln(w, "  delete-request Remove install_id and telemetry.json locally, and POST a")
-	_, _ = fmt.Fprintln(w, "                 telemetry.delete_request event so the backend can purge rows.")
+	_, _ = fmt.Fprintln(w, "  delete         Remove install_id, telemetry.json, and the events file.")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "Events are appended as NDJSON, one object per line.")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Env vars:")
-	_, _ = fmt.Fprintln(w, "  CURLEW_TELEMETRY_ENDPOINT=<url>  Override the default ingest endpoint.")
-	_, _ = fmt.Fprintln(w, "                                    Default: https://api.curlew.org/telemetry/events")
-	_, _ = fmt.Fprintln(w, "  CURLEW_CONFIG_DIR=<path>         Override ~/.config/curlew")
+	_, _ = fmt.Fprintln(w, "  CURLEW_TELEMETRY_FILE=<path>  Override the events file.")
+	_, _ = fmt.Fprintln(w, "                                Default: ~/.config/curlew/telemetry.ndjson")
+	_, _ = fmt.Fprintln(w, "  CURLEW_CONFIG_DIR=<path>      Override ~/.config/curlew")
 }

@@ -16,11 +16,11 @@ const (
 	installIDBaseName     = "install_id"
 	telemetryJSONBaseName = "telemetry.json"
 	currentSchemaVersion  = 1
-	defaultEndpoint       = "https://api.curlew.org/telemetry/events"
+	eventsBaseName        = "telemetry.ndjson"
 	maxRecentEmissions    = 10
 )
 
-// Emission records one event-post attempt for use by `telemetry export`.
+// Emission records one event-append attempt for use by `telemetry export`.
 type Emission struct {
 	At        string `json:"at"` // RFC3339
 	EventType string `json:"event_type"`
@@ -32,7 +32,7 @@ type Emission struct {
 type State struct {
 	SchemaVersion   int        `json:"schema_version"`
 	Enabled         bool       `json:"enabled"`
-	Endpoint        string     `json:"endpoint,omitempty"`
+	File            string     `json:"file,omitempty"`
 	RecentEmissions []Emission `json:"recent_emissions,omitempty"`
 }
 
@@ -83,7 +83,7 @@ func (s *Store) writeInstallID(id string) error {
 
 // Enable generates an install_id if absent and persists telemetry.json with
 // enabled=true. Returns the (possibly newly minted) install_id.
-func (s *Store) Enable(endpoint string) (string, error) {
+func (s *Store) Enable(file string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -105,8 +105,8 @@ func (s *Store) Enable(endpoint string) (string, error) {
 	state, _ := s.readState()
 	state.SchemaVersion = currentSchemaVersion
 	state.Enabled = true
-	if endpoint != "" {
-		state.Endpoint = endpoint
+	if file != "" {
+		state.File = file
 	}
 	if err := s.writeState(state); err != nil {
 		return "", err
@@ -132,9 +132,9 @@ func (s *Store) Disable() error {
 	return s.writeState(state)
 }
 
-// Status reports the current enabled flag, install_id, and resolved endpoint.
+// Status reports the current enabled flag, install_id, and resolved events file.
 // Returns ErrNotEnabled when no install_id file exists.
-func (s *Store) Status() (enabled bool, installID, endpoint string, err error) {
+func (s *Store) Status() (enabled bool, installID, file string, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -143,8 +143,7 @@ func (s *Store) Status() (enabled bool, installID, endpoint string, err error) {
 		return false, "", "", err
 	}
 	state, _ := s.readState()
-	ep := s.resolvedEndpoint(state)
-	return state.Enabled, id, ep, nil
+	return state.Enabled, id, s.resolvedFile(state), nil
 }
 
 // ResetID regenerates install_id (overwrites the file with a new UUID v4) and
@@ -231,16 +230,16 @@ func (s *Store) RecentEmissions() ([]Emission, error) {
 	return state.RecentEmissions, nil
 }
 
-// resolvedEndpoint honours CURLEW_TELEMETRY_ENDPOINT, then State.Endpoint,
-// then defaultEndpoint.
-func (s *Store) resolvedEndpoint(state State) string {
-	if ep := os.Getenv("CURLEW_TELEMETRY_ENDPOINT"); ep != "" {
-		return ep
+// resolvedFile honours CURLEW_TELEMETRY_FILE, then State.File, then
+// <configDir>/telemetry.ndjson.
+func (s *Store) resolvedFile(state State) string {
+	if f := os.Getenv("CURLEW_TELEMETRY_FILE"); f != "" {
+		return f
 	}
-	if state.Endpoint != "" {
-		return state.Endpoint
+	if state.File != "" {
+		return state.File
 	}
-	return defaultEndpoint
+	return filepath.Join(s.configDir, eventsBaseName)
 }
 
 // errStateMissing is a sentinel returned by readState when telemetry.json is absent.
@@ -298,11 +297,11 @@ func removeIfExists(path string) error {
 	return nil
 }
 
-// ResolvedEndpoint returns the effective endpoint for external callers (cmd/curlew).
-// Precedence: CURLEW_TELEMETRY_ENDPOINT > telemetry.json.Endpoint > defaultEndpoint.
-func (s *Store) ResolvedEndpoint() string {
+// ResolvedFile returns the effective events file for external callers (cmd/curlew).
+// Precedence: CURLEW_TELEMETRY_FILE > telemetry.json.file > <configDir>/telemetry.ndjson.
+func (s *Store) ResolvedFile() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	state, _ := s.readState()
-	return s.resolvedEndpoint(state)
+	return s.resolvedFile(state)
 }

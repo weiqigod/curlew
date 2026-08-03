@@ -121,37 +121,6 @@ func TestStreamHelp(t *testing.T) {
 		}
 	})
 
-	t.Run("worker_malformed_flag", func(t *testing.T) {
-		var stdout, stderr bytes.Buffer
-		code := runWithWriters([]string{"worker", "--bogus"}, &stdout, &stderr)
-		if code != 1 {
-			t.Errorf("exit = %d, want 1", code)
-		}
-		if stdout.Len() != 0 {
-			t.Errorf("stdout should be empty, got: %q", stdout.String())
-		}
-		if !strings.Contains(stderr.String(), "Error:") {
-			t.Errorf("stderr missing error: %q", stderr.String())
-		}
-		if !strings.Contains(stderr.String(), "Usage: curlew worker") {
-			t.Errorf("stderr missing synopsis: %q", stderr.String())
-		}
-	})
-
-	t.Run("worker_explicit_help", func(t *testing.T) {
-		var stdout, stderr bytes.Buffer
-		code := runWithWriters([]string{"worker", "--help"}, &stdout, &stderr)
-		if code != 0 {
-			t.Errorf("exit = %d, want 0", code)
-		}
-		if stderr.Len() != 0 {
-			t.Errorf("stderr should be empty for --help, got: %q", stderr.String())
-		}
-		if !strings.Contains(stdout.String(), "Usage: curlew worker") {
-			t.Errorf("stdout missing full help: %q", stdout.String())
-		}
-	})
-
 	t.Run("import_no_args", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := runWithWriters([]string{"import"}, &stdout, &stderr)

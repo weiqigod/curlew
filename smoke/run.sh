@@ -1920,16 +1920,9 @@ echo "$SMOKE_OUT" | grep -q "Resolved 2 secrets from shared template (production
 
 echo
 
-echo "=== PR check dry-run (M4-007) ==="
-SMOKE_OUT=$(CURLEW_BACKEND_URL=http://localhost:99999 \
-  CURLEW_BACKEND_TOKEN=fake-token \
-  ./curlew pr-check \
-    --org acme \
-    --pr 42 \
-    --repo acme/api \
-    --results testdata/team/sample-junit.json \
-    --dry-run 2>&1)
-SMOKE_RC=$?
+echo "=== PR check (local results gate) ==="
+SMOKE_RC=0
+SMOKE_OUT=$(./curlew pr-check --results testdata/team/sample-junit.json --dry-run 2>&1) || SMOKE_RC=$?
 if [ "$SMOKE_RC" -eq 0 ]; then
   echo "PASS: pr-check --dry-run exit 0"
 else
@@ -1937,70 +1930,43 @@ else
   echo "$SMOKE_OUT"
   exit 1
 fi
-echo "$SMOKE_OUT" | grep -q '"collection_name"' \
-  && echo "PASS: dry-run output contains results payload" \
-  || fail "missing results payload in dry-run output" "$SMOKE_OUT"
+echo "$SMOKE_OUT" | grep -q '"state"' \
+  && echo "PASS: dry-run output contains the check summary" \
+  || fail "missing summary in dry-run output" "$SMOKE_OUT"
 
-echo
+# --summary writes the verdict to a file; a failing results file exits 1.
+PRCHECK_SUMMARY=$(mktemp /tmp/curlew_prcheck_XXXXXX.json)
+./curlew pr-check --results testdata/team/sample-junit.json --summary "$PRCHECK_SUMMARY" > /dev/null 2>&1
+[ -s "$PRCHECK_SUMMARY" ] \
+  && echo "PASS: pr-check --summary wrote a summary file" \
+  || fail "pr-check --summary produced no file"
+rm -f "$PRCHECK_SUMMARY"
 
-echo "=== Worker --help (M5-009) ==="
-WORKER_HELP=$(./curlew worker --help 2>&1)
-echo "$WORKER_HELP" | grep -q "Usage: curlew worker" \
-  || fail "worker --help missing expected usage line" "$WORKER_HELP"
-echo "PASS: worker --help shows usage"
+# pr-check must not reach the network: no backend env var can change its behaviour.
+./curlew pr-check --results testdata/team/sample-junit.json > /dev/null 2>&1 \
+  && echo "PASS: pr-check needs no backend configuration" \
+  || fail "pr-check failed without backend configuration"
 
-echo
-
-echo "=== Run --workers (M5-010) ==="
-
-# --help mentions --workers and --coordinator-url
-RUN_HELP=$(./curlew --help 2>&1)
-echo "$RUN_HELP" | grep -q -- "--workers" \
-  || fail "--help missing --workers" "$RUN_HELP"
-echo "PASS: --help documents --workers"
-
-echo "$RUN_HELP" | grep -q -- "--coordinator-url" \
-  || fail "--help missing --coordinator-url" "$RUN_HELP"
-echo "PASS: --help documents --coordinator-url"
-
-# --workers with no coordinator URL → exit 2
-# Use a minimal collection file (same one used below)
-WORKERS_COL="/tmp/curlew_workers_smoke_$$.yaml"
-cat > "$WORKERS_COL" << 'YAML'
-name: workers-smoke
+# The documented pipeline: `curlew run --format json` output feeds pr-check directly.
+# Uses the local fixture server — the smoke suite never touches the public internet.
+PRCHECK_COL=$(mktemp /tmp/curlew_prcheck_col_XXXXXX.yaml)
+cat > "$PRCHECK_COL" << YAML
+name: PrCheck Pipeline
 requests:
-  - name: ping
+  - name: get
     request:
       method: GET
-      url: "http://localhost:1"
+      url: "$SMOKE_HTTPBIN_URL/get"
+    assertions:
+      status: 200
 YAML
-
-SMOKE_RC=0
-unset CURLEW_COORDINATOR_URL
-CURLEW_BACKEND_TOKEN=tok ./curlew run "$WORKERS_COL" --workers 4 --org acme > /dev/null 2>/tmp/curlew_workers_err_$$.txt || SMOKE_RC=$?
-if [ "$SMOKE_RC" -eq 2 ]; then
-  echo "PASS: --workers without CURLEW_COORDINATOR_URL exits 2"
-else
-  echo "FAIL: --workers without CURLEW_COORDINATOR_URL exited $SMOKE_RC (expected 2)"
-  cat /tmp/curlew_workers_err_$$.txt
-  rm -f "$WORKERS_COL" /tmp/curlew_workers_err_$$.txt
-  exit 1
-fi
-grep -q "CURLEW_COORDINATOR_URL" /tmp/curlew_workers_err_$$.txt \
-  || { echo "FAIL: error message missing CURLEW_COORDINATOR_URL"; cat /tmp/curlew_workers_err_$$.txt; exit 1; }
-echo "PASS: error message mentions CURLEW_COORDINATOR_URL"
-
-# --workers 1 warns and falls back (no coordinator needed)
-# Use a minimal always-passing collection — point at an unreachable host.
-# We only care about the warning message on stderr; the run itself will likely exit non-zero
-# because the URL is unreachable, which is fine.
-SMOKE_RC=0
-SMOKE_WARN_OUT=$(./curlew run "$WORKERS_COL" --workers 1 2>&1) || SMOKE_RC=$?
-echo "$SMOKE_WARN_OUT" | grep -q "falling back to local" \
-  || fail "--workers 1 missing fallback warning; got: $SMOKE_WARN_OUT"
-echo "PASS: --workers 1 warns and falls back to local"
-
-rm -f "$WORKERS_COL" /tmp/curlew_workers_err_$$.txt
+PRCHECK_RUN_JSON=$(mktemp /tmp/curlew_prcheck_run_XXXXXX.json)
+./curlew run "$PRCHECK_COL" --format json > "$PRCHECK_RUN_JSON" 2>/dev/null || true
+PRCHECK_OUT=$(./curlew pr-check --results "$PRCHECK_RUN_JSON" 2>&1) || true
+echo "$PRCHECK_OUT" | grep -qE "^(success|failure): pass=" \
+  && echo "PASS: pr-check reads curlew run --format json output" \
+  || fail "pr-check could not read run --format json output" "$PRCHECK_OUT"
+rm -f "$PRCHECK_RUN_JSON" "$PRCHECK_COL"
 
 echo
 
@@ -2110,20 +2076,29 @@ requests:
       status: 200
 YAML
 
-# --report-upload without --org must return exit 1 with "org is required" message
-SMOKE_RC=0
-SMOKE_OUT=$(./curlew run "$MINIMAL_COL" --report-upload 2>&1) || SMOKE_RC=$?
-if [ "$SMOKE_RC" -eq 1 ]; then
-  echo "PASS: --report-upload without --org exits 1"
-else
-  echo "FAIL: --report-upload without --org exited $SMOKE_RC (expected 1)"
-  echo "$SMOKE_OUT"
-  rm -f "$MINIMAL_COL"
-  exit 1
-fi
-echo "$SMOKE_OUT" | grep -qi "org is required" \
-  && echo "PASS: error message mentions --org" \
-  || { echo "FAIL: missing --org error message"; echo "$SMOKE_OUT"; rm -f "$MINIMAL_COL"; exit 1; }
+# Removed backend flags must fail loudly rather than being silently ignored.
+for REMOVED_FLAG in --report-upload --workers --refresh-vault; do
+  SMOKE_RC=0
+  SMOKE_OUT=$(./curlew run "$MINIMAL_COL" "$REMOVED_FLAG" 2>&1) || SMOKE_RC=$?
+  if [ "$SMOKE_RC" -eq 0 ]; then
+    echo "FAIL: removed flag $REMOVED_FLAG was silently accepted"
+    echo "$SMOKE_OUT"
+    rm -f "$MINIMAL_COL"
+    exit 1
+  fi
+  echo "$SMOKE_OUT" | grep -qi "unknown flag" \
+    && echo "PASS: $REMOVED_FLAG rejected as an unknown flag" \
+    || { echo "FAIL: $REMOVED_FLAG did not produce an unknown-flag error"; echo "$SMOKE_OUT"; rm -f "$MINIMAL_COL"; exit 1; }
+done
+
+# Removed subcommands must be unknown commands.
+for REMOVED_CMD in login worker; do
+  SMOKE_RC=0
+  SMOKE_OUT=$(./curlew "$REMOVED_CMD" 2>&1) || SMOKE_RC=$?
+  echo "$SMOKE_OUT" | grep -q "Unknown command" \
+    && echo "PASS: curlew $REMOVED_CMD is an unknown command" \
+    || { echo "FAIL: curlew $REMOVED_CMD is still reachable"; echo "$SMOKE_OUT"; rm -f "$MINIMAL_COL"; exit 1; }
+done
 
 rm -f "$MINIMAL_COL"
 echo
@@ -2536,36 +2511,9 @@ if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
   echo
 fi
 
-# ── Login Help (M14-005) ──────────────────────────────────────────────────
-echo "=== Login Help (M14-005) ==="
-LOGIN_HELP=$(./curlew login --help)
-echo "$LOGIN_HELP" | grep -q -- "--no-browser" \
-  && echo "PASS: login help mentions --no-browser" \
-  || fail "login help missing --no-browser"
-echo "$LOGIN_HELP" | grep -qi "device" \
-  && echo "PASS: login help describes device-code UX" \
-  || fail "login help missing device-code description"
-LOGIN_TOP=$(./curlew --help)
-echo "$LOGIN_TOP" | grep -q "^  login" \
-  && echo "PASS: top-level help lists login" \
-  || fail "login missing from top-level help"
-echo
-
-# ── Schedule Pull Help (M16-011) ──────────────────────────────────────────────
-echo "=== Schedule Pull Help (M16-011) ==="
-SCHED_HELP=$(./curlew worker --help 2>&1)
-if echo "$SCHED_HELP" | grep -q -- "--schedule-pull"; then
-  echo "PASS: worker --help documents --schedule-pull"
-else
-  echo "FAIL: worker --help missing --schedule-pull; got:"
-  echo "$SCHED_HELP"
-  exit 1
-fi
-echo
-
 # ── M19-001: if: conditional gate ─────────────────────────────────────────────
 echo "=== M19-001: if: conditional gate ==="
-IF_OUTPUT=$(./curlew run smoke/fixtures/if_conditional.yaml --output terminal 2>&1)
+IF_OUTPUT=$(./curlew run smoke/fixtures/if_conditional.yaml --format terminal 2>&1)
 echo "$IF_OUTPUT"
 if echo "$IF_OUTPUT" | grep -q "SKIPPED.*confirm-pending-order"; then
   echo "PASS: confirm-pending-order rendered as SKIPPED"
@@ -2593,7 +2541,7 @@ cleanup_cel_srv() { kill "$CEL_SRV_PID" 2>/dev/null || true; }
 trap cleanup_cel_srv EXIT
 
 CEL_RC=0
-CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --output terminal 2>&1) || CEL_RC=$?
+CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --format terminal 2>&1) || CEL_RC=$?
 kill "$CEL_SRV_PID" 2>/dev/null || true
 trap - EXIT
 
@@ -2646,7 +2594,7 @@ cleanup_telemetry() { rm -rf "$SMOKE_TELEMETRY_DIR"; }
 trap cleanup_telemetry EXIT
 
 export CURLEW_CONFIG_DIR="$SMOKE_TELEMETRY_DIR"
-export CURLEW_TELEMETRY_ENDPOINT="http://127.0.0.1:1"  # unreachable endpoint for offline tests
+export CURLEW_TELEMETRY_FILE="$SMOKE_TELEMETRY_DIR/telemetry.ndjson"
 
 # status before enable → exit 1
 SMOKE_OUT=$(./curlew telemetry status 2>&1) && {
@@ -2683,19 +2631,37 @@ echo "$STATUS_OUT" | grep -q "enabled" || {
 }
 echo "PASS: telemetry status after enable shows enabled"
 
+# a run appends a run.completed event to the local file — no network involved
+cat > "$SMOKE_TELEMETRY_DIR/col.yaml" << 'YAML'
+name: Telemetry Smoke
+requests:
+  - name: noop
+    request:
+      method: GET
+      url: "http://127.0.0.1:1"
+YAML
+./curlew run "$SMOKE_TELEMETRY_DIR/col.yaml" > /dev/null 2>&1 || true
+grep -q '"event_type":"run.completed"' "$CURLEW_TELEMETRY_FILE" \
+  || { echo "FAIL: run.completed not appended to $CURLEW_TELEMETRY_FILE"; exit 1; }
+echo "PASS: run appends run.completed to the local events file"
+
 # disable → exit 0
 ./curlew telemetry disable
 echo "PASS: telemetry disable exits 0"
 
-# delete-request (offline — unreachable endpoint) → exit 0, local files removed
-./curlew telemetry delete-request
+# delete → exit 0, local files and collected events removed
+./curlew telemetry delete
 if [ -f "$SMOKE_TELEMETRY_DIR/install_id" ]; then
-  echo "FAIL: install_id not removed after delete-request"
+  echo "FAIL: install_id not removed after delete"
   exit 1
 fi
-echo "PASS: telemetry delete-request removes local files even when offline"
+if [ -f "$CURLEW_TELEMETRY_FILE" ]; then
+  echo "FAIL: events file not removed after delete"
+  exit 1
+fi
+echo "PASS: telemetry delete removes install_id and collected events"
 
-unset CURLEW_TELEMETRY_ENDPOINT
+unset CURLEW_TELEMETRY_FILE
 export CURLEW_CONFIG_DIR="$SMOKE_CFG_DIR"
 echo
 

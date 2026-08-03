@@ -86,11 +86,14 @@ curlew ui                            # open the local web UI
 | `cmd/curlew/` | CLI entry point (the product — a single static Go binary) |
 | `internal/` | CLI implementation packages |
 | `ui/` | Svelte single-page app served by `curlew ui` (embedded at build time) |
-| `src/` | Optional C#/.NET backend + web dashboard for team features (shared vault templates, scheduled runs, PR status checks) |
+| `src/` | C#/.NET backend + web dashboard, kept for reference. The CLI does not talk to it. |
 | `smoke/` | Hermetic end-to-end smoke suite (local fixture server, no public internet) |
 | `docs/` | Manual, specifications, and design history |
 
-The CLI is fully standalone — the backend is only needed for the optional team-oriented features reached via `curlew login`.
+The CLI is entirely local. It has no account, no login, and makes no network calls
+other than the HTTP requests your collections define. Shared vault templates come from a
+local file (`CURLEW_TEAM_CONFIG`), `pr-check` reads a local results file, and `telemetry`
+(opt-in) appends to a local NDJSON file that is never transmitted.
 
 ## Development
 

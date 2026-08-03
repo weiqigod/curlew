@@ -3,46 +3,55 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"sync"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 )
 
-// runWithTelemetry runs `curlew run <args>` with a configured telemetry
-// endpoint and returns stdout, stderr, exit.
-func runWithTelemetry(t *testing.T, configDir, endpoint string, runArgs ...string) (string, string, int) {
+// runWithTelemetry runs `curlew run <args>` with a configured telemetry events
+// file and returns stdout, stderr, exit.
+func runWithTelemetry(t *testing.T, configDir, eventsFile string, runArgs ...string) (string, string, int) {
 	t.Helper()
 	t.Setenv("CURLEW_CONFIG_DIR", configDir)
-	if endpoint != "" {
-		t.Setenv("CURLEW_TELEMETRY_ENDPOINT", endpoint)
-	} else {
-		t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "")
-	}
+	t.Setenv("CURLEW_TELEMETRY_FILE", eventsFile)
 	var out, errOut bytes.Buffer
 	args := append([]string{"run"}, runArgs...)
 	exit := runWithWriters(args, &out, &errOut)
 	return out.String(), errOut.String(), exit
 }
 
-func TestRunFiresTelemetryWhenEnabled(t *testing.T) {
-	var mu sync.Mutex
-	var bodies []map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var b map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&b)
-		mu.Lock()
-		bodies = append(bodies, b)
-		mu.Unlock()
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
+// collectedEvents parses the NDJSON events file. A missing file means no
+// events were ever recorded.
+func collectedEvents(t *testing.T, path string) []map[string]any {
+	t.Helper()
+	b, err := os.ReadFile(path) //nolint:gosec // test-controlled path
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		t.Fatalf("read events file: %v", err)
+	}
+	var out []map[string]any
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var rec map[string]any
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("event line %q is not valid JSON: %v", line, err)
+		}
+		out = append(out, rec)
+	}
+	return out
+}
 
+func TestRunRecordsTelemetryWhenEnabled(t *testing.T) {
 	configDir := t.TempDir()
-	// Enable telemetry
+	events := filepath.Join(t.TempDir(), "telemetry.ndjson")
+
 	t.Setenv("CURLEW_CONFIG_DIR", configDir)
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", srv.URL)
+	t.Setenv("CURLEW_TELEMETRY_FILE", events)
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_ = runWithWriters([]string{"telemetry", "enable"}, &stdoutBuf, &stderrBuf)
 	installID := extractInstallID(stdoutBuf.String())
@@ -51,23 +60,20 @@ func TestRunFiresTelemetryWhenEnabled(t *testing.T) {
 	}
 
 	// Run a minimal collection. emitTelemetryRunCompleted is called synchronously
-	// in the deferred end-of-run block, so by the time runWithTelemetry returns
-	// the POST has already been attempted.
-	_, _, _ = runWithTelemetry(t, configDir, srv.URL, "testdata/minimal.yaml")
+	// in the deferred end-of-run block, so the event is on disk by the time
+	// runWithTelemetry returns.
+	_, _, _ = runWithTelemetry(t, configDir, events, "testdata/minimal.yaml")
 
-	mu.Lock()
-	defer mu.Unlock()
-	// Find a run.completed event
 	var found map[string]any
-	for _, b := range bodies {
-		if et, ok := b["event_type"].(string); ok && et == "run.completed" {
-			found = b
+	recs := collectedEvents(t, events)
+	for _, rec := range recs {
+		if et, ok := rec["event_type"].(string); ok && et == "run.completed" {
+			found = rec
 			break
 		}
 	}
 	if found == nil {
-		t.Errorf("no run.completed event found in %d bodies: %v", len(bodies), bodies)
-		return
+		t.Fatalf("no run.completed event found in %d records: %v", len(recs), recs)
 	}
 	if found["install_id"] != installID {
 		t.Errorf("event install_id = %v, want %s", found["install_id"], installID)
@@ -77,7 +83,7 @@ func TestRunFiresTelemetryWhenEnabled(t *testing.T) {
 		t.Fatalf("event_payload is not a map: %T", found["event_payload"])
 	}
 	if payload["session_id"] == nil {
-		t.Error("event_payload.session_id is nil")
+		t.Fatal("event_payload.session_id is nil")
 	}
 	// session_id must be a UUID and differ from install_id
 	sessionID, _ := payload["session_id"].(string)
@@ -89,81 +95,39 @@ func TestRunFiresTelemetryWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestRunDoesNotFireWhenDisabled(t *testing.T) {
-	var mu sync.Mutex
-	var requestCount int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		requestCount++
-		mu.Unlock()
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
+func TestRunWritesNothingWhenDisabled(t *testing.T) {
 	configDir := t.TempDir()
-	// telemetry never enabled; emitTelemetryRunCompleted is synchronous, so the
-	// request count is final when runWithTelemetry returns.
-	_, _, _ = runWithTelemetry(t, configDir, srv.URL, "testdata/minimal.yaml")
+	events := filepath.Join(t.TempDir(), "telemetry.ndjson")
 
-	mu.Lock()
-	defer mu.Unlock()
-	if requestCount != 0 {
-		t.Errorf("expected 0 telemetry requests when disabled, got %d", requestCount)
+	// telemetry never enabled
+	_, _, _ = runWithTelemetry(t, configDir, events, "testdata/minimal.yaml")
+
+	if recs := collectedEvents(t, events); len(recs) != 0 {
+		t.Errorf("expected 0 telemetry events when disabled, got %d: %v", len(recs), recs)
 	}
 }
 
-func TestRunDoesNotBlockOnSlowTelemetryEndpoint(t *testing.T) {
-	// Use a slow server; run must exit well within the 2s telemetry deadline.
-	testDone, testDoneCancel := func() (chan struct{}, func()) {
-		ch := make(chan struct{})
-		return ch, sync.OnceFunc(func() { close(ch) })
-	}()
-	t.Cleanup(testDoneCancel)
-	slowSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-testDone:
-		case <-r.Context().Done():
-		case <-time.After(30 * time.Second):
-		}
-	}))
-	t.Cleanup(func() { testDoneCancel(); slowSrv.Close() })
-
-	configDir := t.TempDir()
-	t.Setenv("CURLEW_CONFIG_DIR", configDir)
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", slowSrv.URL)
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_ = runWithWriters([]string{"telemetry", "enable"}, &stdoutBuf, &stderrBuf)
-
-	start := time.Now()
-	_, _, code := runWithTelemetry(t, configDir, slowSrv.URL, "testdata/minimal.yaml")
-	elapsed := time.Since(start)
-	// Must exit within 5 seconds (2s telemetry timeout + margin)
-	if elapsed > 5*time.Second {
-		t.Errorf("run took %v, want < 5s (slow telemetry should not block)", elapsed)
-	}
-	// Exit code must be the collection's own exit code (0 or 1), not a telemetry error
-	if code > 2 {
-		t.Errorf("exit code = %d; slow telemetry should not cause high exit codes", code)
-	}
-}
-
+// A telemetry sink that cannot be written must never affect the run's exit
+// code or leak noise into the user-facing output.
 func TestRunDoesNotFailOnTelemetryError(t *testing.T) {
-	errSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer errSrv.Close()
-
 	configDir := t.TempDir()
+	// Parent is a regular file, so every append fails.
+	blocker := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("seed blocker: %v", err)
+	}
+	events := filepath.Join(blocker, "telemetry.ndjson")
+
 	t.Setenv("CURLEW_CONFIG_DIR", configDir)
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", errSrv.URL)
+	t.Setenv("CURLEW_TELEMETRY_FILE", events)
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_ = runWithWriters([]string{"telemetry", "enable"}, &stdoutBuf, &stderrBuf)
 
 	var out, errOut bytes.Buffer
 	exit := runWithWriters([]string{"run", "testdata/minimal.yaml"}, &out, &errOut)
-	// Exit must be normal (0 or 1 from collection); no telemetry noise in stdout/stderr
+	// Exit must be normal (0 or 1 from collection); no telemetry noise anywhere.
 	if exit > 2 {
-		t.Errorf("exit = %d; telemetry 500 should not affect run exit code", exit)
+		t.Errorf("exit = %d; an unwritable telemetry sink must not affect run exit code", exit)
 	}
 	if bytes.Contains(out.Bytes(), []byte("telemetry")) {
 		t.Errorf("stdout contains telemetry noise: %s", out.String())

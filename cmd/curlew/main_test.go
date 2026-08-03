@@ -7645,89 +7645,41 @@ func makePrCheckResultsFile(t *testing.T, passCount, failCount int) string {
 	return f.Name()
 }
 
-// makePrCheckMockBackend creates an httptest server for pr-check tests.
-func makePrCheckMockBackend(t *testing.T, resultsStatus, prCheckStatus int) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" && strings.Contains(r.URL.Path, "/results") {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(resultsStatus)
-			if resultsStatus >= 200 && resultsStatus < 300 {
-				_, _ = w.Write([]byte(`{"result_id":"res_mock001","status":"accepted"}`))
-			} else {
-				_, _ = w.Write([]byte(`{"error":"error"}`))
-			}
-			return
-		}
-		if r.Method == "POST" && strings.Contains(r.URL.Path, "/pr-checks") {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(prCheckStatus)
-			if prCheckStatus >= 200 && prCheckStatus < 300 {
-				_, _ = w.Write([]byte(`{"status":"ok"}`))
-			} else {
-				_, _ = w.Write([]byte(`{"error":"error"}`))
-			}
-			return
-		}
-		w.WriteHeader(404)
-	}))
-}
-
 func TestPrCheckCmd_Help(t *testing.T) {
 	stdout, _, exitCode := captureRun(t, "pr-check", "--help")
 	if exitCode != 0 {
 		t.Errorf("exit code = %d; want 0", exitCode)
 	}
-	for _, want := range []string{"--org", "--pr", "--repo", "--results", "--dry-run", "CURLEW_BACKEND_URL", "CURLEW_BACKEND_TOKEN"} {
+	for _, want := range []string{"--results", "--summary", "--dry-run"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("help output missing %q; got: %s", want, stdout)
 		}
 	}
-}
-
-func TestPrCheckCmd_MissingBackendURL(t *testing.T) {
-	t.Setenv("CURLEW_BACKEND_URL", "")
-	t.Setenv("CURLEW_BACKEND_TOKEN", "tok")
-	resultsFile := makePrCheckResultsFile(t, 3, 0)
-	_, stderr, exitCode := captureRun(t, "pr-check",
-		"--org", "acme", "--pr", "42", "--repo", "acme/api", "--results", resultsFile)
-	if exitCode != 2 {
-		t.Errorf("exit code = %d; want 2", exitCode)
-	}
-	if !strings.Contains(stderr, "backend URL not configured") {
-		t.Errorf("stderr = %q; want containing 'backend URL not configured'", stderr)
+	for _, absent := range []string{"--org", "--repo", "CURLEW_BACKEND_URL", "CURLEW_BACKEND_TOKEN"} {
+		if strings.Contains(stdout, absent) {
+			t.Errorf("help output still mentions %q; got: %s", absent, stdout)
+		}
 	}
 }
 
-func TestPrCheckCmd_Unauthorized(t *testing.T) {
-	srv := makePrCheckMockBackend(t, 401, 200)
-	defer srv.Close()
-	t.Setenv("CURLEW_BACKEND_URL", srv.URL)
-	t.Setenv("CURLEW_BACKEND_TOKEN", "bad-token")
-	resultsFile := makePrCheckResultsFile(t, 3, 0)
-	_, stderr, exitCode := captureRun(t, "pr-check",
-		"--org", "acme", "--pr", "42", "--repo", "acme/api", "--results", resultsFile)
+func TestPrCheckCmd_MissingResultsFile(t *testing.T) {
+	_, stderr, exitCode := captureRun(t, "pr-check")
 	if exitCode != 2 {
 		t.Errorf("exit code = %d; want 2", exitCode)
 	}
-	if !strings.Contains(stderr, "unauthorized") {
-		t.Errorf("stderr = %q; want containing 'unauthorized'", stderr)
+	if !strings.Contains(stderr, "--results") {
+		t.Errorf("stderr = %q; want containing '--results'", stderr)
 	}
 }
 
 func TestPrCheckCmd_SuccessAllPass(t *testing.T) {
-	srv := makePrCheckMockBackend(t, 202, 200)
-	defer srv.Close()
-	t.Setenv("CURLEW_BACKEND_URL", srv.URL)
-	t.Setenv("CURLEW_BACKEND_TOKEN", "tok")
 	resultsFile := makePrCheckResultsFile(t, 3, 0)
-	stdout, _, exitCode := captureRun(t, "pr-check",
-		"--org", "acme", "--pr", "42", "--repo", "acme/api", "--results", resultsFile)
+	stdout, _, exitCode := captureRun(t, "pr-check", "--results", resultsFile)
 	if exitCode != 0 {
 		t.Errorf("exit code = %d; want 0", exitCode)
 	}
-	if !strings.Contains(stdout, "res_mock001") {
-		t.Errorf("stdout = %q; want containing result ID", stdout)
+	if !strings.Contains(stdout, "success") {
+		t.Errorf("stdout = %q; want containing 'success'", stdout)
 	}
 	if !strings.Contains(stdout, "pass=3") {
 		t.Errorf("stdout = %q; want containing 'pass=3'", stdout)
@@ -7738,13 +7690,8 @@ func TestPrCheckCmd_SuccessAllPass(t *testing.T) {
 }
 
 func TestPrCheckCmd_FailingTests_Exit1(t *testing.T) {
-	srv := makePrCheckMockBackend(t, 202, 200)
-	defer srv.Close()
-	t.Setenv("CURLEW_BACKEND_URL", srv.URL)
-	t.Setenv("CURLEW_BACKEND_TOKEN", "tok")
 	resultsFile := makePrCheckResultsFile(t, 2, 1)
-	stdout, _, exitCode := captureRun(t, "pr-check",
-		"--org", "acme", "--pr", "42", "--repo", "acme/api", "--results", resultsFile)
+	stdout, _, exitCode := captureRun(t, "pr-check", "--results", resultsFile)
 	if exitCode != 1 {
 		t.Errorf("exit code = %d; want 1", exitCode)
 	}
@@ -7753,37 +7700,43 @@ func TestPrCheckCmd_FailingTests_Exit1(t *testing.T) {
 	}
 }
 
-func TestPrCheckCmd_DryRun_NoHTTP(t *testing.T) {
-	// Use an unroutable address — if HTTP is attempted it will fail
-	t.Setenv("CURLEW_BACKEND_URL", "http://127.0.0.1:0")
-	t.Setenv("CURLEW_BACKEND_TOKEN", "tok")
+func TestPrCheckCmd_WritesSummaryFile(t *testing.T) {
 	resultsFile := makePrCheckResultsFile(t, 3, 0)
-	stdout, _, exitCode := captureRun(t, "pr-check",
-		"--org", "acme", "--pr", "42", "--repo", "acme/api", "--results", resultsFile,
-		"--dry-run")
+	summaryPath := filepath.Join(t.TempDir(), "summary.json")
+	stdout, _, exitCode := captureRun(t, "pr-check", "--results", resultsFile, "--summary", summaryPath)
+	if exitCode != 0 {
+		t.Errorf("exit code = %d; want 0", exitCode)
+	}
+	if !strings.Contains(stdout, summaryPath) {
+		t.Errorf("stdout = %q; want it to name the summary file", stdout)
+	}
+	data, err := os.ReadFile(summaryPath) //nolint:gosec // test-controlled path
+	if err != nil {
+		t.Fatalf("read summary: %v", err)
+	}
+	if !json.Valid(data) {
+		t.Errorf("summary file is not valid JSON: %s", data)
+	}
+}
+
+func TestPrCheckCmd_DryRun_PrintsSummary(t *testing.T) {
+	resultsFile := makePrCheckResultsFile(t, 3, 0)
+	stdout, _, exitCode := captureRun(t, "pr-check", "--results", resultsFile, "--dry-run")
 	if exitCode != 0 {
 		t.Errorf("exit code = %d; want 0", exitCode)
 	}
 	if !strings.Contains(stdout, "collection_name") {
-		t.Errorf("stdout = %q; want containing JSON payload", stdout)
+		t.Errorf("stdout = %q; want containing the summary JSON", stdout)
 	}
 }
 
-func TestPrCheckCmd_ConnectionRefused_Exit2(t *testing.T) {
-	// Create server then close it
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	addr := srv.URL
-	srv.Close()
-	t.Setenv("CURLEW_BACKEND_URL", addr)
-	t.Setenv("CURLEW_BACKEND_TOKEN", "tok")
-	resultsFile := makePrCheckResultsFile(t, 3, 0)
-	_, stderr, exitCode := captureRun(t, "pr-check",
-		"--org", "acme", "--pr", "42", "--repo", "acme/api", "--results", resultsFile)
+func TestPrCheckCmd_UnreadableResults_Exit2(t *testing.T) {
+	_, stderr, exitCode := captureRun(t, "pr-check", "--results", filepath.Join(t.TempDir(), "absent.json"))
 	if exitCode != 2 {
 		t.Errorf("exit code = %d; want 2", exitCode)
 	}
-	if !strings.Contains(stderr, "network error") {
-		t.Errorf("stderr = %q; want containing 'network error'", stderr)
+	if stderr == "" {
+		t.Error("expected an error on stderr for an unreadable results file")
 	}
 }
 
@@ -8334,14 +8287,6 @@ func TestUsageSynopsis_MatchesPrintHelpFirstLine(t *testing.T) {
 		{
 			"perf", "perf", printPerfHelpTo,
 			[]string{"Usage: curlew perf <request-file> [options]"},
-		},
-		{
-			"worker", "worker", printWorkerHelpTo,
-			[]string{"Usage: curlew worker [options]"},
-		},
-		{
-			"login", "login", printLoginHelpTo,
-			[]string{"Usage: curlew login [--no-browser]"},
 		},
 		{
 			"top-level", "", printHelpTo,
@@ -9056,5 +9001,76 @@ func TestHelpText_ContainsLocaleFlag(t *testing.T) {
 	occurrences := strings.Count(text, "--locale")
 	if occurrences < 2 {
 		t.Errorf("printHelpTo output contains '--locale' %d time(s); expected at least 2 (Exec Options + Run Options)", occurrences)
+	}
+}
+
+// TestBackendCommandsRemoved locks in the local-only surface: the commands and
+// flags that required a Curlew account or backend must not be reachable.
+func TestBackendCommandsRemoved(t *testing.T) {
+	for _, cmd := range []string{"login", "worker", "internal"} {
+		t.Run("command_"+cmd+"_is_unknown", func(t *testing.T) {
+			_, stderr, code := captureRun(t, cmd)
+			if code != 1 {
+				t.Errorf("`curlew %s` exit = %d, want 1 (unknown command)", cmd, code)
+			}
+			if !strings.Contains(stderr, "Unknown command") {
+				t.Errorf("`curlew %s` stderr = %q, want an unknown-command error", cmd, stderr)
+			}
+		})
+	}
+
+	t.Run("help_does_not_advertise_backend_commands", func(t *testing.T) {
+		var buf bytes.Buffer
+		printHelpTo(&buf)
+		help := buf.String()
+		// Command entries and flags, not bare substrings: "worker" legitimately
+		// appears in the perf section ("concurrent workers").
+		for _, s := range []string{
+			"curlew login", "curlew worker", "Run as a distributed worker",
+			"device-code flow", "--report-upload", "--workers", "--coordinator-url",
+			"--refresh-vault", "Report Upload:", "Distributed Execution:",
+		} {
+			if strings.Contains(help, s) {
+				t.Errorf("help still mentions %q", s)
+			}
+		}
+	})
+
+	t.Run("usage_synopses_have_no_backend_commands", func(t *testing.T) {
+		for _, cmd := range []string{"login", "worker"} {
+			if got := usageSynopses[cmd]; got != "" {
+				t.Errorf("usageSynopses[%q] = %q, want removed", cmd, got)
+			}
+		}
+	})
+
+	t.Run("upload_and_worker_flags_are_rejected", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "col.yaml")
+		if err := os.WriteFile(path, []byte("name: Test\nrequests: []\n"), 0o600); err != nil {
+			t.Fatalf("write collection: %v", err)
+		}
+		for _, flag := range []string{"--report-upload", "--workers"} {
+			_, stderr, code := captureRun(t, "run", path, flag)
+			if code == 0 {
+				t.Errorf("`curlew run %s` exit = 0, want a usage error", flag)
+			}
+			if !strings.Contains(stderr, "Unknown") && !strings.Contains(stderr, "unknown") {
+				t.Errorf("`curlew run %s` stderr = %q, want an unknown-flag error", flag, stderr)
+			}
+		}
+	})
+}
+
+// TestNoBackendEnvVarsReferenced ensures no help text points users at a
+// backend that no longer exists.
+func TestNoBackendEnvVarsReferenced(t *testing.T) {
+	var buf bytes.Buffer
+	printHelpTo(&buf)
+	help := buf.String()
+	for _, s := range []string{"CURLEW_BACKEND_URL", "CURLEW_BACKEND_TOKEN", "CURLEW_COORDINATOR_URL", "apitool.dev"} {
+		if strings.Contains(help, s) {
+			t.Errorf("help still references %q", s)
+		}
 	}
 }

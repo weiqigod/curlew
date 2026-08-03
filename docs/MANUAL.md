@@ -3119,32 +3119,20 @@ requests:
 
 **Sensitive-secret footgun:** when `secret_key` is a literal string (no `{{var}}` reference), the resolved value is **not** added to the sensitive set — there is no source variable to back-trace. Always prefer variable references for credential params. This mirrors the `$hmacSha256` documentation in §3.7.
 
-### 6.9 Logging in to the Curlew backend
+### 6.9 No account, no backend
 
-For backend-connected features (`--report-upload`, PR checks, team vault fetch, scheduled runs), `curlew` needs to know which backend it is talking to and who the authenticated user is.
+Curlew is entirely local. There is no `curlew login`, no account, and no service it
+reports to. The only network traffic it generates is the HTTP requests your collections
+define.
 
-```bash
-export CURLEW_BACKEND_URL=https://api.apitool.dev
-curlew login --no-browser
-# Output:
-#   First, copy your one-time code: ABCD-1234
-#   Then visit: https://app.apitool.dev/device
-```
+Features that used to require an account are now local:
 
-Visit the URL in your browser, paste the code, and confirm. The CLI persists two artefacts:
-
-- OS keychain (or encrypted `refresh_token.enc` / `access_token.enc` fallback) — backend refresh and access tokens, never logged
-- `~/.config/curlew/device.json` — device id (rotated when you log out)
-
-Subsequent commands are silent.
-
-Once authenticated, `curlew run --report-upload --org <slug> --pr <n> --repo <owner/repo>` uploads the run, posts a GitHub check-run via the GitHub App installation configured for your org, and prints:
-
-```
-Uploaded result res_abc123; check-run posted; status=success
-```
-
-The exit code is 0 on success, 1 if the run itself had failing assertions, and 2 on upload errors. The check-run state mirrors the run outcome (`success` or `failure`).
+| Was | Now |
+|---|---|
+| Team vault fetched from the backend | `CURLEW_TEAM_CONFIG=<path>` reads a local template file (§6.10) |
+| `curlew run --report-upload --org …` | `curlew run --format json --report <file>`, then `curlew pr-check --results <file>` (§8.1) |
+| `curlew worker` / `run --workers` (distributed) | Removed. Use `--parallel` for concurrency within one process. |
+| Telemetry posted to an ingest endpoint | `curlew telemetry` appends to a local NDJSON file, never transmitted (§8.2) |
 
 ---
 
@@ -3350,87 +3338,88 @@ Think of it as a faster starting point, not a finished test suite.
 
 ---
 
-## Part 8 — Team Features
+## Part 8 — CI Integration
 
-Team features are about closing the loop from "tests ran" to "the team can see the result."
+Curlew's CI story is file-based: a run writes its results, and a second command turns
+those results into a pass/fail verdict. Nothing is uploaded.
 
-### 8.1 Report upload
+### 8.1 Gating CI on a results file
 
-Upload run results to the Curlew backend for centralized reporting:
-
-```bash
-curlew run 'collections/**/*.yaml' \
-  --env staging \
-  --format junit --report test-results.xml \
-  --report-upload \
-  --org acme \
-  --triggered-by ci \
-  --git-sha "$GITHUB_SHA"
-```
-
-Required flags: `--report-upload`, `--org`.
-
-Required environment:
+Write the results, then gate on them:
 
 ```bash
-export CURLEW_BACKEND_URL=https://api.curlew.example.com
-export CURLEW_BACKEND_TOKEN=<bearer-token>
+curlew run 'collections/**/*.yaml' --env staging --format json > test-results.json
+
+curlew pr-check --results test-results.json --summary verdict.json
 ```
 
-Optional: `--pr <number>` + `--repo <owner/repo>` to attach a run to a specific pull request — this enables posting a status check back to GitHub via §8.2.
+`pr-check` reads the output of `curlew run --format json` directly. (It also accepts the
+flatter `collection_name` / `pass_count` payload shape, for results produced by other
+tooling.)
 
-### 8.2 PR checks
+`pr-check` exits 0 when every test passed, 1 when the results contain failures, and 2 on
+a usage error or an unreadable results file — so it drops straight into a pipeline step.
+`--summary <file>` writes the verdict as JSON:
 
-With a PR number and repo, Curlew posts a commit status check summarizing the run:
+```json
+{
+  "collection_name": "checkout-api",
+  "state": "failure",
+  "pass_count": 41,
+  "fail_count": 2,
+  "skipped_count": 0,
+  "git_sha": "abc1234"
+}
+```
+
+`--dry-run` prints that summary instead of writing it.
+
+Publishing the verdict — a PR comment, a commit status, a dashboard — is your CI
+system's job. `curlew` produces the artefacts; `gh`, `curl`, or your CI provider's
+native step consumes them.
+
+### 8.2 Local telemetry
+
+`curlew telemetry` records anonymous usage events to a local NDJSON file. It is opt-in,
+disabled by default, and has no transmission path — there is no endpoint to configure.
 
 ```bash
-curlew run 'collections/**/*.yaml' \
-  --report-upload --org acme \
-  --pr 142 --repo acme/demo-api \
-  --git-sha "$GITHUB_SHA"
+curlew telemetry enable       # generates an install_id, starts recording
+curlew telemetry status       # shows state and the events file path
+curlew telemetry export       # prints install_id + recent emissions as JSON
+curlew telemetry delete       # removes install_id, state, and collected events
 ```
 
-For workflows where the upload and check posting are separate steps (e.g. orchestrated by a scheduler), use `curlew pr-check` explicitly.
+Events land in `~/.config/curlew/telemetry.ndjson` (override with
+`CURLEW_TELEMETRY_FILE`), one JSON object per line:
 
-### 8.3 Web dashboard
+```json
+{"at":"2026-08-03T09:12:44Z","install_id":"…","event_type":"run.completed","event_payload":{"exit_code":0,"collection_size":12}}
+```
 
-The backend hosts a web dashboard where teams can browse uploaded runs, diff environments, and track flakiness over time. The dashboard is out of scope for this manual — treat it as the remote equivalent of `curlew info` plus history.
+Useful if you want to chart your own suite's duration or failure rate over time.
 
 ---
 
 ## Part 9 — Scale Features
 
-### 9.1 Distributed execution
+### 9.1 Concurrency
 
-For very large test suites, shard the main phase across multiple worker processes coordinated by a central service:
-
-```bash
-curlew run 'collections/**/*.yaml' \
-  --workers 10 \
-  --coordinator-url https://coordinator.example.com \
-  --org acme
-```
-
-Or via environment:
+Curlew runs in a single process. For large suites, `--parallel` executes independent
+requests concurrently within the run, respecting the dependency graph:
 
 ```bash
-export CURLEW_COORDINATOR_URL=https://coordinator.example.com
-export CURLEW_BACKEND_TOKEN=<bearer>
-curlew run 'collections/**/*.yaml' --workers 10 --org acme
+curlew run 'collections/**/*.yaml' --parallel
 ```
 
-Semantics:
-
-- Only the **main** phase is sharded. Setup and teardown still run locally in the coordinator process, exactly once.
-- `--workers 1` falls back to local single-process execution — a clean way to gate the behavior on pipeline capacity.
-- Each worker authenticates with the coordinator; unauthorized workers exit with code 10.
-- Extracted variables from setup propagate to every worker.
-
-On each worker host:
+Inspect the plan before committing to it:
 
 ```bash
-curlew worker --job <job-id>
+curlew run 'collections/**/*.yaml' --show-dependencies --dry-run
 ```
+
+Multi-host distributed execution was removed along with the backend; shard across CI
+jobs by globbing different subsets of collections instead.
 
 ### 9.2 Performance testing
 
@@ -3649,18 +3638,14 @@ The server binds loopback only and mints a per-start session token (printed in t
 
 **`curlew watch <file>`** — run and re-run on file changes. Accepts all `run` flags plus `--clear`.
 
-**`curlew worker --job <id>`** — run as a distributed worker.
-
 ### B. Environment variables
 
 | Variable | Used by | Meaning |
 |---|---|---|
-| `CURLEW_BACKEND_URL` | report upload, pr-check | Backend base URL. |
-| `CURLEW_BACKEND_TOKEN` | report upload, distributed | Bearer token for backend auth. |
-| `CURLEW_COORDINATOR_URL` | distributed | Coordinator base URL. |
-| `CURLEW_TEAM_CONFIG` | team vault templates | Path to shared vault config. |
-| `CURLEW_VAULT_STUB` | team vault templates | `1` enables in-memory stub provider. |
-| `CURLEW_CONFIG_DIR` | login | Override config directory (`~/.config/curlew` by default). |
+| `CURLEW_TEAM_CONFIG` | shared vault templates | Path to a local shared vault config file. |
+| `CURLEW_VAULT_STUB` | shared vault templates | `1` enables in-memory stub provider. |
+| `CURLEW_CONFIG_DIR` | telemetry | Override config directory (`~/.config/curlew` by default). |
+| `CURLEW_TELEMETRY_FILE` | telemetry | Override the local events file. |
 | `CURLEW_PLUGINS` | plugins | Colon/semicolon-separated list of plugin paths. |
 | `NO_COLOR` | all terminal output | Any non-empty value disables ANSI colors. |
 

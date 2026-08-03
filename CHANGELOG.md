@@ -7,6 +7,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Removed
+- **All backend and login functionality removed from the CLI.** `curlew` is now entirely
+  local: no account, no authentication, and no network calls beyond the HTTP requests a
+  collection defines.
+  - Commands gone: `curlew login` (device-code flow), `curlew worker` (distributed
+    coordinator + schedule pull), and the hidden `CURLEW_INTERNAL` probe command.
+  - `run` flags gone: `--report-upload`, `--org`, `--pr`, `--repo`, `--triggered-by`,
+    `--git-sha`, `--workers`, `--coordinator-url`, `--refresh-vault`.
+  - Environment variables gone: `CURLEW_BACKEND_URL`, `CURLEW_BACKEND_TOKEN`,
+    `CURLEW_COORDINATOR_URL`, `CURLEW_TELEMETRY_ENDPOINT`. This also retires the dead
+    `https://api.apitool.dev` default that survived the rebrand — `curlew login` had been
+    making a live DNS lookup against a host that serves nothing.
+  - Packages deleted: `internal/backend` (device code, refresh-token rotation, keychain
+    and encrypted-file storage, team-vault fetch), `internal/worker`,
+    `internal/runner/distributed`, `internal/prcheck/client.go`,
+    `internal/vault/teamtemplate/cache.go`, `internal/telemetry/client.go`.
+  - The `src/` .NET backend and `web/` dashboard remain in the repository, untouched. The
+    CLI no longer talks to them.
+
+### Changed
+- **`curlew pr-check` is a local CI gate.** It reads a results file, reports the verdict,
+  and exits 1 when the run contained failures. `--summary <file>` writes the verdict as
+  JSON for a CI step to consume; `--dry-run` prints it instead. The `--org`, `--pr`, and
+  `--repo` flags are gone along with the upload. `--results` now accepts the output of
+  `curlew run --format json` in addition to the older flat payload shape — previously
+  nothing in the CLI produced a file `pr-check` could read, because `--report-upload`
+  built its payload in memory and never round-tripped through disk.
+- **`curlew telemetry` records to a local file.** Events are appended as NDJSON to
+  `~/.config/curlew/telemetry.ndjson` (override with `CURLEW_TELEMETRY_FILE`) and are
+  never transmitted. `delete-request` is renamed `delete` — with no backend to request
+  anything from, it simply removes the install id, state, and collected events.
+- **Shared vault templates load from a local file only.** `CURLEW_TEAM_CONFIG` still
+  works; the backend cache, its TTL/stale-revalidate logic, and `--refresh-vault` are gone.
+- **`curlew run` rejects unknown flags.** A dash-prefixed argument was previously
+  swallowed as an extra positional and silently ignored, so a removed flag such as
+  `--report-upload` would have become a no-op. It now fails with `unknown flag: …`.
+- The CLI-driven Playwright E2E specs (`full-pipeline`, `enterprise-full`,
+  `m14-revenue-loop`, `m16-happy-path`, `m18-compliance`) seeded the backend by shelling
+  out to removed CLI commands. They are skipped in `scripts/ci-local.sh` pending a rewrite
+  that seeds over HTTP. `scripts/m16-e2e.sh` and `scripts/m18-e2e.sh` are deleted outright.
+
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Added

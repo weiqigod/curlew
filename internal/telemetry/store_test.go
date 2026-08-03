@@ -3,6 +3,7 @@ package telemetry
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ import (
 func newTestStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "") // ensure no env leakage
+	t.Setenv("CURLEW_TELEMETRY_FILE", "") // ensure no env leakage
 	s, err := NewStore(dir)
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
@@ -197,24 +198,25 @@ func TestStoreRecordEmissionWithoutEnable(t *testing.T) {
 	}
 }
 
-func TestStoreResolvedEndpointPrecedence(t *testing.T) {
-	s, _ := newTestStore(t)
+func TestStoreResolvedFilePrecedence(t *testing.T) {
+	s, dir := newTestStore(t)
 	// Env > state > default
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "http://env.example.com")
-	state := State{Endpoint: "http://state.example.com"}
-	got := s.resolvedEndpoint(state)
-	if got != "http://env.example.com" {
-		t.Errorf("env precedence: got %q, want http://env.example.com", got)
+	t.Setenv("CURLEW_TELEMETRY_FILE", "/tmp/env.ndjson")
+	state := State{File: "/tmp/state.ndjson"}
+	got := s.resolvedFile(state)
+	if got != "/tmp/env.ndjson" {
+		t.Errorf("env precedence: got %q, want /tmp/env.ndjson", got)
 	}
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "")
-	got = s.resolvedEndpoint(state)
-	if got != "http://state.example.com" {
-		t.Errorf("state precedence: got %q, want http://state.example.com", got)
+	t.Setenv("CURLEW_TELEMETRY_FILE", "")
+	got = s.resolvedFile(state)
+	if got != "/tmp/state.ndjson" {
+		t.Errorf("state precedence: got %q, want /tmp/state.ndjson", got)
 	}
-	state.Endpoint = ""
-	got = s.resolvedEndpoint(state)
-	if got != defaultEndpoint {
-		t.Errorf("default precedence: got %q, want %q", got, defaultEndpoint)
+	state.File = ""
+	want := filepath.Join(dir, eventsBaseName)
+	got = s.resolvedFile(state)
+	if got != want {
+		t.Errorf("default precedence: got %q, want %q", got, want)
 	}
 }
 
@@ -238,13 +240,13 @@ func TestStoreFilePermissions(t *testing.T) {
 	}
 }
 
-func TestStoreResolvedEndpoint_Public(t *testing.T) {
+func TestStoreResolvedFile_Public(t *testing.T) {
 	s, _ := newTestStore(t)
 	_, _ = s.Enable("")
-	t.Setenv("CURLEW_TELEMETRY_ENDPOINT", "http://public.example.com")
-	ep := s.ResolvedEndpoint()
-	if ep != "http://public.example.com" {
-		t.Errorf("ResolvedEndpoint = %q, want http://public.example.com", ep)
+	t.Setenv("CURLEW_TELEMETRY_FILE", "/tmp/public.ndjson")
+	f := s.ResolvedFile()
+	if f != "/tmp/public.ndjson" {
+		t.Errorf("ResolvedFile = %q, want /tmp/public.ndjson", f)
 	}
 }
 

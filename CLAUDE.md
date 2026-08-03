@@ -9,10 +9,17 @@
 **Curlew** is a file-based API testing tool — a Postman replacement built for developers who prefer files, version control, and CLI workflows.
 
 **Two codebases:**
-- **Go CLI** — the primary tool, distributed as a single static binary
-- **C# .NET backend** + web dashboard — authentication, dashboards
+- **Go CLI** — the primary tool, distributed as a single static binary. Entirely local:
+  no account, no login, no backend calls.
+- **C# .NET backend** + web dashboard — retained in `src/` and `web/`, but the CLI no
+  longer talks to them.
 
-**Current Status:** Implemented through M20 — the entire planned backlog (M1–M20) is complete (backlog exhausted 2026-06-12). The five-tier licensing/feature-gating system has since been removed from the Go CLI: every CLI feature is unconditional, and there is no `curlew license` command. `docs/MANUAL.md` is the authoritative feature reference. The Go CLI builds (`go build ./cmd/curlew`) and runs; the .NET backend, web dashboard, and local web UI are all built. New backlog work resumes the task lifecycle below.
+**Current Status:** Implemented through M20 — the entire planned backlog (M1–M20) is complete (backlog exhausted 2026-06-12). Two later passes stripped the CLI down:
+
+1. The five-tier licensing/feature-gating system was removed — every CLI feature is unconditional, and there is no `curlew license` command.
+2. All backend and login functionality was removed (2026-08-03). Gone: `curlew login`, `curlew worker`, distributed execution (`--workers`), report upload (`--report-upload`), and every `CURLEW_BACKEND_*` / `CURLEW_COORDINATOR_URL` variable. `pr-check` is now a local results-file gate, `telemetry` writes to a local NDJSON file, and shared vault templates load only from `CURLEW_TEAM_CONFIG`.
+
+`docs/MANUAL.md` is the authoritative feature reference; `docs/SPECIFICATION.md` describes the platform as designed and no longer matches the CLI. The Go CLI builds (`go build ./cmd/curlew`) and runs; the .NET backend, web dashboard, and local web UI are all built. The CLI-driven Playwright E2E specs are skipped in `scripts/ci-local.sh` pending a rewrite that seeds the backend over HTTP instead of via the CLI. New backlog work resumes the task lifecycle below.
 
 ## Key Documentation
 
