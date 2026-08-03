@@ -100,6 +100,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   took down the `invoice.payment_succeeded` handler. The image now installs `icu-libs`.
   The test stack also configures the Stripe webhook secret and points the live gateway at
   stripe-mock, without which replayed webhooks were rejected unverified.
+- **The vault-config page told users to run a command that no longer exists.** Its
+  "Generate CLI snippet" panel emitted `curlew license --refresh` and described refreshing
+  a cached template "on a worker node" — three things the CLI no longer has (no `license`
+  command, no vault cache, no workers). The snippet is now the actual consumption path:
+  save the template to a file, point `CURLEW_TEAM_CONFIG` at it, and pass `--env` to
+  select the environment backing the collection's `{{secrets.X}}` tokens.
 
 ### Added
 - **M20-004: MANUAL.md locale reference + cross-locale seed reproducibility matrix.** (M20-004)

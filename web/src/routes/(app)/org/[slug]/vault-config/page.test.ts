@@ -179,20 +179,34 @@ describe('vault-config page', () => {
 		expect(editor()).toHaveValue(SPEC_EXAMPLE_YAML);
 	});
 
-	it('toggles the CLI snippet panel', async () => {
+	it('toggles a CLI snippet that loads the template from a local file', async () => {
 		const user = userEvent.setup();
 		render(Page, { props: { data: makeData() } });
 
-		// NOTE: `curlew license` no longer exists — the CLI's licensing system was
-		// removed. This asserts today's (stale) copy so the test fails loudly when
-		// the snippet is corrected. See the follow-up task on this route.
-		expect(screen.queryByText('curlew license --refresh')).not.toBeInTheDocument();
+		expect(screen.queryByTestId('vault-cli-snippet')).not.toBeInTheDocument();
 
 		await user.click(screen.getByTestId('vault-cli-snippet-button'));
-		expect(screen.getByText('curlew license --refresh')).toBeVisible();
+
+		// The CLI never fetches this template — it reads a local file named by
+		// CURLEW_TEAM_CONFIG, and --env picks the environment backing {{secrets.X}}.
+		const snippet = screen.getByTestId('vault-cli-snippet');
+		expect(snippet).toBeVisible();
+		expect(snippet.textContent).toBe(
+			'export CURLEW_TEAM_CONFIG=~/team/curlew-team-config.yaml\n' +
+				'curlew run collections/users.yaml --env staging'
+		);
 
 		await user.click(screen.getByTestId('vault-cli-snippet-button'));
-		expect(screen.queryByText('curlew license --refresh')).not.toBeInTheDocument();
+		expect(screen.queryByTestId('vault-cli-snippet')).not.toBeInTheDocument();
+	});
+
+	it('never mentions the removed `curlew license` command', async () => {
+		const user = userEvent.setup();
+		const { container } = render(Page, { props: { data: makeData() } });
+
+		await user.click(screen.getByTestId('vault-cli-snippet-button'));
+
+		expect(container.textContent).not.toContain('curlew license');
 	});
 
 	it('lists vault_config audit entries with actor and event type', () => {
