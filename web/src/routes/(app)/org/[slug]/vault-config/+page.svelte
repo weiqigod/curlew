@@ -77,7 +77,11 @@
 		}
 	}
 
-	const CLI_SNIPPET = 'curlew license --refresh';
+	// The CLI is entirely local: it never fetches this template. Developers save it
+	// to a file and point CURLEW_TEAM_CONFIG at it; --env picks the environment whose
+	// aliases back the collection's {{secrets.X}} tokens.
+	const CLI_SNIPPET = `export CURLEW_TEAM_CONFIG=~/team/curlew-team-config.yaml
+curlew run collections/users.yaml --env staging`;
 </script>
 
 <div class="mx-auto max-w-4xl px-4 py-8">
@@ -168,10 +172,20 @@
 	{#if showCliSnippet}
 		<div class="mb-6 rounded-md border border-gray-200 bg-gray-50 p-4">
 			<p class="mb-2 text-sm text-gray-700">
-				Run this command to refresh the cached vault template on a worker node:
+				The CLI reads shared vault templates from a local file — it never downloads this
+				one. Save the template above on each developer and CI machine, then point
+				<code class="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs">CURLEW_TEAM_CONFIG</code>
+				at it before running. <code class="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs"
+					>--env</code
+				>
+				selects which environment in the template backs the collection's
+				<code class="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs">{'{{secrets.X}}'}</code>
+				tokens:
 			</p>
 			<div class="flex items-center gap-2">
-				<code class="flex-1 rounded bg-gray-100 px-3 py-2 font-mono text-sm"
+				<code
+					data-testid="vault-cli-snippet"
+					class="flex-1 overflow-x-auto whitespace-pre rounded bg-gray-100 px-3 py-2 font-mono text-sm"
 					>{CLI_SNIPPET}</code
 				>
 				<button
