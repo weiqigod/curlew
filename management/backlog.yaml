@@ -1899,3 +1899,9 @@ capabilities:
         completed_date: 2026-08-04
         verified_by: ai
         branch: fix/M22-001-backlog-traversal
+      - id: M22-002
+        status: done
+        planned_date: 2026-08-04
+        completed_date: 2026-08-04
+        verified_by: ai
+        branch: chore/M22-002-ci-backlog-gate
