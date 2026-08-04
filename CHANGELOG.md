@@ -56,6 +56,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **`TestTAPOutput_ParallelSpeedup` was flaky and is now deterministic.** It ran the same
+  collection twice — once with `--format tap --parallel`, once with `--format json
+  --parallel` — and asserted the two `speedup_factor` values agreed within 0.15.
+  `speedup_factor` is `sum(wave durations) / total duration`, both wall-clock measured, so
+  two executions legitimately disagree: over 25 identical runs that collection produced 0.7
+  once, 0.9 once and 1.0 twenty-three times. A 0.30 spread against a 0.15 tolerance fails
+  roughly one run in twelve, matching the 2-in-8 measured on `main`. The test's own doc
+  comment stated the intent as "byte-equal to the JSON formatter's value **for the same
+  run**", but it was never the same run — one `curlew run` emits one format, so same-run
+  parity is not observable through the CLI.
+  - Replaced by three deterministic tests: `TestBuildParallelMetadata` pins the formula
+    against fixed durations including both rounding boundaries and every zero case;
+    `TestParallelMetadata_formatters_agree` feeds one summary through both real
+    constructors and both formatters and compares what comes back;
+    `TestParallelMetadata_call_sites_agree` keeps an end-to-end check on `wave_count` and
+    `max_parallelism`, which are properties of the dependency graph rather than the clock.
+    `TestTAPOutput_ParallelSpeedup` keeps every assertion that was already deterministic —
+    block presence, keys, ordering, and the one-decimal form.
+  - `newParallelTAP` and `newParallelExecutionJSON` replace the three-field copy that was
+    duplicated at both output call sites. Without them a divergence at one call site was
+    only detectable by running the binary twice, which is precisely the flaky comparison
+    being removed. Verified by mutation: dropping the rounding from
+    `buildParallelMetadata`, altering either constructor, and inverting the formula each
+    fail a test. (M21-003)
 - **The collection and project JSON Schemas now describe every field the parser accepts.**
   `schemas/collection-v1.json` declared `additionalProperties: false` on `requestItem` and
   `request` while omitting nine fields the parser binds — `if`, `depends_on` and `signing`

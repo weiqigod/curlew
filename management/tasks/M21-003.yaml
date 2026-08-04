@@ -1,6 +1,6 @@
 id: M21-003
 title: "TestTAPOutput_ParallelSpeedup is flaky: it compares wall-clock speedup across two separate runs"
-status: planned
+status: done
 priority: 1
 created: 2026-08-04
 phase: "M21: Post-strip documentation and schema drift"
