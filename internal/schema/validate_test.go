@@ -235,6 +235,34 @@ func TestSchema_output_defs_match(t *testing.T) {
 	}
 }
 
+// TestSchema_ids_match_module_path pins the $id of both published schemas to
+// the Go module path's org. MANUAL §1.5 hands out-of-tree users these URLs to
+// wire into yaml.schemas, so an org segment that does not match the remote
+// gives them a 404 instead of a schema.
+func TestSchema_ids_match_module_path(t *testing.T) {
+	const org = "weiqigod"
+	tests := []struct {
+		name string
+		raw  []byte
+		file string
+	}{
+		{"collection", schema.CollectionSchema, "collection-v1.json"},
+		{"project", schema.ProjectSchema, "project-v1.json"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var m map[string]any
+			if err := json.Unmarshal(tc.raw, &m); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			want := "https://raw.githubusercontent.com/" + org + "/curlew/main/schemas/" + tc.file
+			if m["$id"] != want {
+				t.Errorf("$id = %v, want %v", m["$id"], want)
+			}
+		})
+	}
+}
+
 // TestSchema_scaffolded_curlew_yaml_validates verifies that the file produced
 // by scaffold.Init validates against schemas/project-v1.json.
 func TestSchema_scaffolded_curlew_yaml_validates(t *testing.T) {
