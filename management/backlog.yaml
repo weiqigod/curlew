@@ -1911,3 +1911,9 @@ capabilities:
         completed_date: 2026-08-04
         verified_by: ai
         branch: test/M22-003-requtil-coverage
+      - id: M22-004
+        status: done
+        planned_date: 2026-08-04
+        completed_date: 2026-08-04
+        verified_by: ai
+        branch: docs/M22-004-appdir-comment-and-tests
