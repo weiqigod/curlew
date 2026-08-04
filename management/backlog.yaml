@@ -1859,3 +1859,12 @@ capabilities:
         completed_date: 2026-06-12
         verified_by: ai
         branch: feature/M20-004-locale-manual-reproducibility-matrix
+
+  post_strip_drift:
+    description: "Documentation and schema drift left behind by the licensing strip, the backend strip, and the CLI_SPECIFICATION extraction (surfaced 2026-08-04 while writing docs/CLI_SPECIFICATION.md v1). Two independent slices. M21-001 is a functional defect, not a doc gap: `curlew schema` emits a collection schema with additionalProperties:false that omits nine fields the parser accepts (if, depends_on, signing, protocol, graphql, websocket, cel, config, and top-level signing), so editors wired up per MANUAL §1.5 flag valid collections as errors — plus both schemas/*.json declare a $id under peterlindqvist/curlew while the remote is weiqigod/curlew, and MANUAL §1.5's 'not covered yet' list is stale in both directions. M21-002 clears the four MANUAL surfaces still describing the removed backend: the §1.1 install check listing `worker`, the §4.3 exit-code master table and its §11D duplicate both carrying `10 | Worker unauthorized`, and the §11A pr-check entry still saying 'upload results and post a PR status check'. The §4.3 table also inherits the exit-2 inaccuracy corrected in docs/CLI_SPECIFICATION.md §17."
+    milestone: M21
+    tasks:
+      - id: M21-001
+        status: backlog
+      - id: M21-002
+        status: backlog

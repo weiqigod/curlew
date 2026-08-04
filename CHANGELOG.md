@@ -113,6 +113,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   select the environment backing the collection's `{{secrets.X}}` tokens.
 
 ### Added
+- **`docs/CLI_SPECIFICATION.md` — the CLI now has its own specification (v1).** The
+  rename and the backend separation left one document describing two products;
+  `docs/SPECIFICATION.md` still opened with the pre-rename title and a five-tier
+  business model. The CLI half is now extracted into a standalone spec covering scope
+  and the locality guarantee, design principles, execution model, project layout, every
+  file format, the variable system, assertions, extraction, retry, data-driven testing,
+  parallel execution, protocols, secrets, signing, plugins, output, exit codes, the
+  command reference, the UI, `perf`, telemetry, CI, limits, and a 14-point conformance
+  checklist.
+  - Content was verified against the binary, not carried over on trust. Corrections
+    made in the process: the exit-code table drops `6` (feature gate) and `10` (worker
+    unauthorized) and records that usage errors split between `1` and `2` depending on
+    the subcommand; Content-Type detection is `mime.TypeByExtension`, not the fixed
+    table the platform spec listed; and multipart uploads, `raw_file`, `save_to`,
+    `--fixed-time`, the 1,000-request ceiling, gRPC and SSE are recorded in Appendix B
+    as designed-but-never-implemented rather than documented as features.
+  - `docs/SPECIFICATION.md` is retitled "Curlew Platform Specification" and scoped to
+    the `src/` backend and `web/` dashboard, which still implement it.
 - **M20-004: MANUAL.md locale reference + cross-locale seed reproducibility matrix.** (M20-004)
   - `docs/MANUAL.md` faker section rewritten: 15-row locale reference table (all codes, language/region, name-format exemplar, phone-format exemplar), 5-level precedence chain (Default < Project < Environment < Collection < CLI flag), fallback chain (`en-GB → en → en-US`), and `ERR_LOCALE_UNKNOWN` reference.
   - Seven M13 deferral notes removed; replaced with live `--locale` documentation.

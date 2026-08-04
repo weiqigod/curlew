@@ -1,0 +1,72 @@
+id: M21-002
+title: "MANUAL.md: clear the four surfaces still describing the removed backend"
+status: backlog
+priority: 2
+created: 2026-08-04
+phase: "M21: Post-strip documentation and schema drift"
+track: docs
+
+dependencies: []
+
+observable: |
+  # 1. No exit code 10. The CLI has no worker; nothing returns 10.
+  grep -n "Worker unauthorized" docs/MANUAL.md && echo "STALE" || echo "clear"
+  # Expected: "clear". Today it appears twice — §4.3 (line ~2160, the master table
+  # the manual calls "the single source") and Part 11 §D (line ~3762).
+
+  # 2. The installation check no longer lists a command that does not exist.
+  grep -n '`worker`' docs/MANUAL.md && echo "STALE" || echo "clear"
+  # Expected: "clear" outside the §7 migration table. Today line ~182 tells a new user
+  # that a correct `curlew --help` prints `worker` in its command list — it does not,
+  # so the manual's own first-run verification step fails.
+
+  # 3. pr-check is described as the local gate it is.
+  grep -n "upload results and post a PR status check" docs/MANUAL.md && echo "STALE" || echo "clear"
+  # Expected: "clear". Today Part 11 §A (line ~3617) still describes the pre-strip
+  # behaviour, contradicting §8.2 (line ~3353) in the same document.
+
+  # 4. The exit-code master table matches the binary.
+  grep -A12 "### 4.3 Exit codes" docs/MANUAL.md
+  # Expected: rows for 0,1,2,3,4,5,130 only, and the 1-vs-2 usage-error split
+  # documented as it is in docs/CLI_SPECIFICATION.md §17.
+
+behaviors:
+  - "Given docs/MANUAL.md §4.3 (the exit-code master table), when read, then it lists 0, 1, 2, 3, 4, 5, and 130 and no longer lists 10 (worker unauthorized)."
+  - "Given docs/MANUAL.md Part 11 §D, when read, then its exit-code table matches §4.3 exactly."
+  - "Given docs/MANUAL.md §1.1, when a new user follows the install verification step, then the command list it tells them to expect matches `curlew --help` output — no `worker` entry."
+  - "Given docs/MANUAL.md Part 11 §A, when the pr-check entry is read, then it describes a local results-file gate consistent with §8.2, not an upload-and-post operation."
+  - "Given the usage-error split recorded in docs/CLI_SPECIFICATION.md §17 (top-level usage errors exit 1; perf and pr-check usage errors exit 2), when §4.3 is read, then it documents the same split rather than the flat 'usage error' description it carries today."
+
+scope: |
+  Four spots in docs/MANUAL.md still describe the pre-strip CLI. They survived the
+  backend removal because that pass targeted code, and survived the CLI_SPECIFICATION
+  extraction because that produced a new document rather than editing this one.
+
+    line ~182   §1.1  install check lists `worker` among the expected commands
+    line ~2160  §4.3  exit-code master table includes `10 | Worker unauthorized`
+    line ~3617  §11A  "curlew pr-check — upload results and post a PR status check"
+    line ~3762  §11D  exit-code table repeats the `10` row
+
+  The §4.3 table is the most consequential: the manual describes it as "the single
+  source" that every inline exit-code reference points at, and CI authors read it to
+  build their gates. It is also inaccurate about exit 2 in the same way the platform
+  spec was — see docs/CLI_SPECIFICATION.md §17, which records the verified behaviour
+  (top-level usage errors exit 1; perf and pr-check usage errors exit 2).
+
+  §1.1 is the one a new user hits first: it presents a command list as the signal that
+  installation succeeded, and that list contains a command the binary does not have.
+
+  The migration table at §7 (line ~3133-3134) correctly documents `curlew worker` and
+  `--report-upload` as removed and should be left alone.
+
+  Note this is separate from M21-001, which covers §1.5's schema caveat.
+
+definition_of_done:
+  - All four surfaces corrected
+  - §4.3 and §11D exit-code tables agree with each other and with docs/CLI_SPECIFICATION.md §17
+  - §7 migration table left intact
+  - No remaining reference to exit code 10 or to a `worker` command outside the migration table
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "1 hour"
