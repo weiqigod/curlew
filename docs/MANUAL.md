@@ -17,6 +17,7 @@
 - [1.2 Your first test in five minutes](#12-your-first-test-in-five-minutes)
 - [1.3 Anatomy of a collection](#13-anatomy-of-a-collection)
 - [1.4 When a test fails](#14-when-a-test-fails)
+- [1.5 Editor setup (VS Code)](#15-editor-setup-vs-code)
 
 **Part 2 — Writing Tests**
 - [2.1 HTTP methods, headers, query, and body](#21-http-methods-headers-query-and-body)
@@ -32,6 +33,7 @@
 - [3.4 `.env` files](#34-env-files)
 - [3.5 CLI variable flags](#35-cli-variable-flags)
 - [3.6 Project-wide config (`curlew.yaml`)](#36-project-wide-config-curlewyaml)
+- [3.6.1 The `output:` block](#361-the-output-block)
 - [3.7 Dynamic and faker functions](#37-dynamic-and-faker-functions)
 - [3.8 Determinism with `--seed`](#38-determinism-with---seed)
 - [3.9 External request files](#39-external-request-files)
@@ -41,6 +43,7 @@
 - [4.1 Output formats](#41-output-formats)
 - [4.1a Markdown response files](#41a-markdown-response-files)
 - [4.2 Streams, verbosity, and color](#42-streams-verbosity-and-color)
+- [4.2b Running a Single Request (--only)](#42b-running-a-single-request---only)
 - [4.3 Exit codes — master table](#43-exit-codes--master-table)
 - [4.4 Redaction of secrets](#44-redaction-of-secrets)
 - [4.5 JSONL logging](#45-jsonl-logging)
@@ -68,19 +71,20 @@
 - [6.5 Dynamic auth profiles](#65-dynamic-auth-profiles)
 - [6.6 Shared vault templates](#66-shared-vault-templates)
 - [6.7 The redaction contract](#67-the-redaction-contract)
+- [6.8 Request signing](#68-request-signing)
+- [6.9 No account, no backend](#69-no-account-no-backend)
 
 **Part 7 — Beyond REST**
 - [7.1 GraphQL](#71-graphql)
 - [7.2 WebSocket](#72-websocket)
 - [7.3 OpenAPI import](#73-openapi-import)
 
-**Part 8 — Team Features**
-- [8.1 Report upload](#81-report-upload)
-- [8.2 PR checks](#82-pr-checks)
-- [8.3 Web dashboard](#83-web-dashboard)
+**Part 8 — CI Integration**
+- [8.1 Gating CI on a results file](#81-gating-ci-on-a-results-file)
+- [8.2 Local telemetry](#82-local-telemetry)
 
 **Part 9 — Scale Features**
-- [9.1 Distributed execution](#91-distributed-execution)
+- [9.1 Concurrency](#91-concurrency)
 - [9.2 Performance testing](#92-performance-testing)
 
 **Part 10 — Plugins**
@@ -179,7 +183,7 @@ curlew --help
 # ...
 ```
 
-If `curlew --help` prints the usage summary with the full command list (`run`, `exec`, `validate`, `init`, `info`, `schema`, `watch`, `vault`, `import`, `pr-check`, `worker`, `perf`, `plugins`), you are ready.
+If `curlew --help` prints the usage summary with the full command list (`run`, `exec`, `validate`, `init`, `info`, `schema`, `watch`, `vault`, `import`, `pr-check`, `ui`, `perf`, `plugins`, `telemetry`), you are ready.
 
 ### 1.2 Your first test in five minutes
 
@@ -1155,7 +1159,7 @@ are locale-aware — see the [locale reference table](#faker-locales-m20).
 
 **`$faker.color` vs legacy `$randomColor` — both ship.** The
 existing `$randomColor` (M11) returns a `#RRGGBB` hex string; the
-new `$faker.color` (M13-005, per SPECIFICATION.md:812) returns a
+new `$faker.color` (M13-005) returns a
 CSS color keyword (`"blue"`, `"crimson"`, etc.). Both registrations
 co-exist as distinct functions — no aliasing, no deprecation. Pick
 whichever matches your test fixture: hex for CSS inline styles, name
@@ -1197,8 +1201,7 @@ value is registered as a redaction trigger for the run, so it
 appears as `[REDACTED]` wherever the request body is rendered: in
 the `-vv` terminal body dump, the markdown report body section, the
 events stream, and `--log` output. `$faker.bic` is NOT
-auto-sensitive — BIC/SWIFT codes identify a bank, not an account
-(per SPECIFICATION.md:849-857).
+auto-sensitive — BIC/SWIFT codes identify a bank, not an account.
 
 `$faker.price` is the only argument-bearing function — it accepts
 an optional `(min, max)` pair as two single-quoted decimal strings,
@@ -1277,7 +1280,7 @@ JSON if the surrounding context is a JSON-numeric position
 (`{"lat":{{$faker.latitude}}}` → `{"lat":40.7128}`) and quoted if it
 is inside a JSON-string context.
 
-**`$faker.*` locales (M20)** {#faker-locales-m20}
+#### `$faker.*` locales (M20)
 
 The personal-data and city/location families are locale-aware: use
 `--locale` or `config.locale:` to select any of the 15 supported locales.
@@ -2054,8 +2057,8 @@ byte-identical across runs except for explicitly volatile lines
 prefix so a `git diff` mask is one regex.
 
 **See also:** §5.7 for the watch-mode workflow and §4.9 for using
-markdown files with Claude Code; SPECIFICATION.md §Markdown Output
-Format for the formal contract.
+markdown files with Claude Code; `docs/CLI_SPECIFICATION.md` §16 for
+the formal output contract.
 
 ### 4.2 Streams, verbosity, and color
 
@@ -2166,16 +2169,17 @@ This is the single source. Every inline exit-code reference elsewhere in the man
 
 | Code | Meaning |
 |---|---|
-| `0` | All assertions passed |
-| `1` | Assertion failure or general error (collection ran, some checks did not pass) |
-| `2` | Usage error or safety guard tripped (e.g. data set exceeded 10,000 rows without `--confirm-large-dataset`) |
+| `0` | Every assertion passed |
+| `1` | Assertion failure; or a top-level usage error — unknown command, unknown flag, missing argument, invalid flag value |
+| `2` | A safety guard tripped (a data set over 10,000 rows without `--confirm-large-dataset`); or a usage error in `perf` or `pr-check` |
 | `3` | Parse or config error (file not found, YAML invalid, circular references, missing required fields, `--only` name not found, duplicate request names) |
 | `4` | Execution error (network failure, connection refused, TLS error) |
 | `5` | Variable resolution error (undefined variable, circular variable, bad interpolation) |
-| `10` | Worker unauthorized (distributed execution) |
 | `130` | SIGINT — Ctrl+C during `perf` run |
 
 The distinction between `1` (assertions) and `3` (setup) matters for CI: a `3` means your tests didn't even start, usually a broken YAML or missing file, and should be treated as a pipeline configuration problem, not a product regression.
+
+**A note on usage errors.** They do not all map to one code. `curlew run` with no argument, an unknown command, an unknown flag, and an invalid `--format` value all exit `1`; `perf` and `pr-check` usage errors exit `2`. That split is recorded here as the binary's observed behaviour rather than as a design worth copying — see `docs/CLI_SPECIFICATION.md` §17. If you are gating a pipeline, treat both as "fix the invocation".
 
 ### 4.4 Redaction of secrets
 
@@ -3629,7 +3633,7 @@ Alphabetical, every command with one-line purpose and flags. Details are in the 
 
 **`curlew plugins list`** — list discovered plugins and their hooks.
 
-**`curlew pr-check`** — upload results and post a PR status check.
+**`curlew pr-check`** — gate CI on a results file written by `curlew run --format json`. Exits 0 when every test passed, 1 when the results contain failures, 2 on a usage error or an unreadable file. Flags: `--results`, `--summary`, `--dry-run`. Nothing is uploaded (§8.1).
 
 **`curlew run <file|pattern>`** — execute a collection (or glob-matched collections). Full flag list in §4.1, §5.6, §8.1, §9.1.
 
@@ -3768,13 +3772,12 @@ Query files: one query per file, using `$variable` placeholders that map to `gra
 
 | Code | Meaning |
 |---|---|
-| `0` | All assertions passed |
-| `1` | Assertion failure or general error |
-| `2` | Usage error or safety guard |
+| `0` | Every assertion passed |
+| `1` | Assertion failure; or a top-level usage error |
+| `2` | Safety guard tripped; or a `perf` / `pr-check` usage error |
 | `3` | Parse or config error |
 | `4` | Execution error (network/TLS) |
 | `5` | Variable resolution error |
-| `10` | Worker unauthorized |
 | `130` | SIGINT during `perf` |
 
 ### E. Glossary
@@ -3827,11 +3830,11 @@ If you made it here, you can now do everything Curlew does:
 - Handle secrets responsibly with `.env`, `from_command`, vault providers, and dynamic auth profiles.
 - Test REST, GraphQL, and WebSocket endpoints from the same file format.
 - Wire test runs into any CI system via JUnit, TAP, JSON, or HTML output.
-- Scale out to distributed execution and plug in custom process-level extensions.
+- Scale a run out across cores with `--parallel`, and plug in custom process-level extensions.
 
-The two files worth knowing about going forward:
+The two things worth knowing about going forward:
 
-- `docs/SPECIFICATION.md` — the design document and the source of truth for subtler behavior edge cases.
+- `docs/CLI_SPECIFICATION.md` — the CLI's specification, and the source of truth for subtler behaviour edge cases. (`docs/SPECIFICATION.md` describes the separate backend and web dashboard, which the CLI does not talk to.)
 - `curlew schema` — the JSON Schema of the collection format, for IDE autocompletion.
 
 Tests ship with your code. Make them boring, make them fast, and keep them in the diff.

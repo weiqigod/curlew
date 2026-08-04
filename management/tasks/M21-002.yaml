@@ -1,6 +1,6 @@
 id: M21-002
 title: "MANUAL.md: clear the four surfaces still describing the removed backend"
-status: backlog
+status: done
 priority: 2
 created: 2026-08-04
 phase: "M21: Post-strip documentation and schema drift"
