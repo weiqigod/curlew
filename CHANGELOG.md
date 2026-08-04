@@ -56,6 +56,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **`curlew telemetry --help` prints the config directory it actually uses.** Four lines
+  hardcoded `~/.config/curlew/...`, which is the Linux answer — `os.UserConfigDir` resolves
+  to `~/Library/Application Support` on macOS and `%AppData%` on Windows. A macOS user
+  following the help to find or delete their `install_id` would look in a directory curlew
+  never writes to.
+
+  The help now resolves the path through `appdir.ResolveConfigDir` rather than restating a
+  literal, which is correct on every platform without enumerating them and additionally
+  shows an active `CURLEW_CONFIG_DIR` override — something static text could never do.
+  Help must never fail, so an unresolvable directory degrades to a placeholder.
+
+  The same claim appeared in `docs/MANUAL.md` (2 places) and `docs/CLI_SPECIFICATION.md`
+  (3 places); those cannot print a runtime value, so they now state the resolution
+  explicitly. Fixing the help alone would have left the CLI's own reference contradicting
+  its own binary. `management/plans/`, the investigations, `docs/security/` and
+  `docs/SPECIFICATION.md` are dated records and were left alone, the same boundary M21-004
+  drew.
+
 - **`internal/appdir` no longer documents removed backend functionality; 0% → 83.3%.** The
   package comment said the config directory was "used for device registration, backend
   session tokens, and telemetry state". The first two went in the 2026-08-03 backend strip.

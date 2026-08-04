@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/weiqigod/curlew/internal/appdir"
@@ -199,6 +200,8 @@ func emitTelemetryRunCompleted(sessionID string, started time.Time, summary *run
 
 // printTelemetryHelpTo writes usage for `curlew telemetry` to w.
 func printTelemetryHelpTo(w io.Writer) {
+	configDir := telemetryHelpConfigDir()
+
 	_, _ = fmt.Fprintln(w, "Usage: curlew telemetry <subcommand>")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Record anonymous usage events to a local file (opt-in).")
@@ -206,8 +209,8 @@ func printTelemetryHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Subcommands:")
 	_, _ = fmt.Fprintln(w, "  enable         Generate a persistent install_id (UUIDv4) and enable telemetry.")
-	_, _ = fmt.Fprintln(w, "                 Stores ~/.config/curlew/install_id (mode 0600) and")
-	_, _ = fmt.Fprintln(w, "                 ~/.config/curlew/telemetry.json.")
+	_, _ = fmt.Fprintf(w, "                 Stores %s (mode 0600)\n", filepath.Join(configDir, "install_id"))
+	_, _ = fmt.Fprintf(w, "                 and %s.\n", filepath.Join(configDir, "telemetry.json"))
 	_, _ = fmt.Fprintln(w, "  disable        Disable telemetry; install_id is retained for re-enabling.")
 	_, _ = fmt.Fprintln(w, "  status         Show current telemetry state. Exit 1 if never enabled.")
 	_, _ = fmt.Fprintln(w, "  reset-id       Regenerate the install_id (new UUIDv4; old id unrecoverable).")
@@ -218,6 +221,22 @@ func printTelemetryHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Env vars:")
 	_, _ = fmt.Fprintln(w, "  CURLEW_TELEMETRY_FILE=<path>  Override the events file.")
-	_, _ = fmt.Fprintln(w, "                                Default: ~/.config/curlew/telemetry.ndjson")
-	_, _ = fmt.Fprintln(w, "  CURLEW_CONFIG_DIR=<path>      Override ~/.config/curlew")
+	_, _ = fmt.Fprintf(w, "                                Default: %s\n", filepath.Join(configDir, "telemetry.ndjson"))
+	_, _ = fmt.Fprintln(w, "  CURLEW_CONFIG_DIR=<path>      Override the config directory.")
+	_, _ = fmt.Fprintf(w, "                                Currently: %s\n", configDir)
+}
+
+// telemetryHelpConfigDir is the config directory shown in help text. The
+// resolved path is used rather than a literal because os.UserConfigDir
+// differs per platform (~/.config on Linux, ~/Library/Application Support on
+// macOS, %AppData% on Windows) — the old hardcoded "~/.config/curlew" was
+// wrong for most readers. Showing the resolved value also reveals an active
+// CURLEW_CONFIG_DIR override. Help must never fail, so an unresolvable
+// directory degrades to a placeholder instead of an error.
+func telemetryHelpConfigDir() string {
+	dir, err := appdir.ResolveConfigDir()
+	if err != nil {
+		return "<config dir>"
+	}
+	return dir
 }

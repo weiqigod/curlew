@@ -1685,7 +1685,7 @@ See §21.
 |---|---|---|
 | `CURLEW_TEAM_CONFIG` | Shared vault templates | Path to a local shared vault configuration file (§13.5) |
 | `CURLEW_VAULT_STUB` | Shared vault templates | `1` selects the in-memory stub provider |
-| `CURLEW_CONFIG_DIR` | Telemetry | Overrides `~/.config/curlew` |
+| `CURLEW_CONFIG_DIR` | Telemetry | Overrides the config directory (`~/.config/curlew` on Linux, `~/Library/Application Support/curlew` on macOS) |
 | `CURLEW_TELEMETRY_FILE` | Telemetry | Overrides the local events file |
 | `CURLEW_PLUGINS` | Plugins | Colon-separated (semicolon on Windows) list of plugin paths |
 | `NO_COLOR` | All terminal output | Any non-empty value disables ANSI colour |
@@ -1760,16 +1760,18 @@ line, to a file on the user's own disk.
 
 | Subcommand | Effect |
 |---|---|
-| `enable` | Generate a persistent `install_id` (UUIDv4) and enable recording. Writes `~/.config/curlew/install_id` (mode 0600) and `~/.config/curlew/telemetry.json` |
+| `enable` | Generate a persistent `install_id` (UUIDv4) and enable recording. Writes `install_id` (mode 0600) and `telemetry.json` into the config directory |
 | `disable` | Stop recording. The `install_id` is retained so recording can resume |
 | `status` | Print the current state. Exit 1 if telemetry was never enabled |
 | `reset-id` | Regenerate the `install_id`. The previous value is unrecoverable |
 | `export` | Print the `install_id` and recent emission history as JSON |
 | `delete` | Remove the `install_id`, `telemetry.json`, and the events file |
 
-Default events file: `~/.config/curlew/telemetry.ndjson`, overridable with
-`CURLEW_TELEMETRY_FILE`. The config directory is overridable with
-`CURLEW_CONFIG_DIR`.
+Default events file: `telemetry.ndjson` inside the config directory,
+overridable with `CURLEW_TELEMETRY_FILE`. The config directory is
+`os.UserConfigDir()/curlew` — `~/.config/curlew` on Linux,
+`~/Library/Application Support/curlew` on macOS — and is overridable with
+`CURLEW_CONFIG_DIR`. `curlew telemetry --help` prints the resolved path.
 
 ---
 

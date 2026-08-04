@@ -3409,8 +3409,11 @@ curlew telemetry export       # prints install_id + recent emissions as JSON
 curlew telemetry delete       # removes install_id, state, and collected events
 ```
 
-Events land in `~/.config/curlew/telemetry.ndjson` (override with
-`CURLEW_TELEMETRY_FILE`), one JSON object per line:
+Events land in `telemetry.ndjson` inside curlew's config directory —
+`~/.config/curlew` on Linux, `~/Library/Application Support/curlew` on macOS
+(Go's `os.UserConfigDir`). `curlew telemetry --help` prints the resolved path
+for your machine. Override the directory with `CURLEW_CONFIG_DIR`, or the file
+itself with `CURLEW_TELEMETRY_FILE`. One JSON object per line:
 
 ```json
 {"at":"2026-08-03T09:12:44Z","install_id":"…","event_type":"run.completed","event_payload":{"exit_code":0,"collection_size":12}}
@@ -3663,7 +3666,7 @@ The server binds loopback only and mints a per-start session token (printed in t
 |---|---|---|
 | `CURLEW_TEAM_CONFIG` | shared vault templates | Path to a local shared vault config file. |
 | `CURLEW_VAULT_STUB` | shared vault templates | `1` enables in-memory stub provider. |
-| `CURLEW_CONFIG_DIR` | telemetry | Override config directory (`~/.config/curlew` by default). |
+| `CURLEW_CONFIG_DIR` | telemetry | Override the config directory (`~/.config/curlew` on Linux, `~/Library/Application Support/curlew` on macOS). |
 | `CURLEW_TELEMETRY_FILE` | telemetry | Override the local events file. |
 | `CURLEW_PLUGINS` | plugins | Colon/semicolon-separated list of plugin paths. |
 | `NO_COLOR` | all terminal output | Any non-empty value disables ANSI colors. |

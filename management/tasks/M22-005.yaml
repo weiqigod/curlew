@@ -1,0 +1,76 @@
+id: M22-005
+title: "Stop publishing a Linux-only config path in help text and the live docs"
+status: done
+priority: 2
+created: 2026-08-04
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies:
+  - M22-004
+
+observable: |
+  # Help now prints the directory this machine actually uses.
+  ./curlew telemetry --help | tail -4
+  #   CURLEW_CONFIG_DIR=<path>      Override the config directory.
+  #                                 Currently: /Users/<you>/Library/Application Support/curlew
+
+  # An override is reflected rather than described.
+  CURLEW_CONFIG_DIR=/tmp/demo ./curlew telemetry --help | grep Currently
+  #                                 Currently: /tmp/demo
+
+  # No live surface states a bare platform-specific path.
+  grep -n "~/.config/curlew" docs/MANUAL.md docs/CLI_SPECIFICATION.md
+  # Every remaining hit is paired with the macOS equivalent.
+
+  go test ./cmd/curlew/ -run TestTelemetryHelp -v
+
+behaviors:
+  - "Given CURLEW_CONFIG_DIR is set, when telemetry help is printed, then the CURLEW_CONFIG_DIR entry reports that resolved directory, so a user can confirm the override took effect."
+  - "Given no override, when telemetry help is printed, then it names the same directory appdir resolves, rather than a restated literal."
+  - "Given telemetry help on any platform, when printed, then it contains no hardcoded ~/.config/curlew."
+  - "Given telemetry help, when printed, then install_id, telemetry.json and telemetry.ndjson are each still named somewhere, so the reader can tell what is stored."
+  - "Given docs/MANUAL.md or docs/CLI_SPECIFICATION.md, when read, then any config path is either directory-relative or paired with its macOS equivalent."
+
+scope: |
+  Follow-on from M22-004, which corrected the same error in the appdir
+  package comment and flagged the user-facing copies rather than folding them
+  into a doc-comment change.
+
+  Four lines of `curlew telemetry --help` printed "~/.config/curlew/...".
+  That is the Linux answer: os.UserConfigDir resolves to
+  ~/Library/Application Support on macOS and %AppData% on Windows, so the
+  paths shown to most readers -- including every developer on this project,
+  which is macOS -- pointed at a directory curlew never writes to. A user
+  following the help to inspect or delete their install_id would find
+  nothing there.
+
+  Rather than restate the platform matrix in help text, resolve and print the
+  real directory through appdir.ResolveConfigDir. That is correct on every
+  platform without enumerating them, and it additionally reveals an active
+  CURLEW_CONFIG_DIR override -- which the old static text could never do.
+  Help must never fail, so an unresolvable directory degrades to a
+  placeholder rather than an error.
+
+  The same claim appeared in two live documents that cannot print a runtime
+  value, so those state the resolution explicitly instead: docs/MANUAL.md
+  (2 places) and docs/CLI_SPECIFICATION.md (3 places). Fixing the help alone
+  would have left the CLI's own reference contradicting its own binary.
+
+  Deliberately untouched: management/plans/, docs/*_INVESTIGATION.md,
+  docs/security/, .claude/skills/backlog/, CHANGELOG history and
+  docs/SPECIFICATION.md. These are dated records of what was designed or
+  observed at the time, and most of their mentions concern backend features
+  that no longer exist. Rewriting them would falsify the history -- the same
+  boundary M21-004 drew.
+
+definition_of_done:
+  - Help prints the resolved config directory, including under an override
+  - No live surface states a bare Linux-only path
+  - Filenames remain discoverable in the help
+  - Guards verified by mutation, not only by passing
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "45 minutes"

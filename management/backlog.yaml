@@ -1917,3 +1917,9 @@ capabilities:
         completed_date: 2026-08-04
         verified_by: ai
         branch: docs/M22-004-appdir-comment-and-tests
+      - id: M22-005
+        status: done
+        planned_date: 2026-08-04
+        completed_date: 2026-08-04
+        verified_by: ai
+        branch: docs/M22-005-help-text-config-paths
