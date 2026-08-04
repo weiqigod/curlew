@@ -56,6 +56,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **`ci-local.sh` gates the backlog as a named, early step.** The consistency test already
+  ran inside `go test $(go_pkgs)`, so this adds visibility and failure attribution rather
+  than new enforcement — stated plainly so nobody later concludes the backlog was
+  previously ungated. The step sits immediately after `go build`, prints the task and
+  capability counts it actually read (a gate that reports what it read is harder to
+  misread than one that prints only `PASS`), and fails before `go test -race`, `go
+  coverage` and `golangci-lint` are paid for. Measured: an unlisted task file exits 1
+  naming the file, with none of the later steps run.
+
 - **Three task files were not parseable YAML, and nothing had ever noticed.**
   `management/tasks/M21-001.yaml`, `M21-003.yaml` and `M21-004.yaml` each carried a
   definition-of-done line beginning with a backtick, which cannot open a plain YAML

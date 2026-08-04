@@ -1,0 +1,60 @@
+id: M22-002
+title: "Wire the backlog loader into ci-local.sh as a named, early gate"
+status: done
+priority: 2
+created: 2026-08-04
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies:
+  - M22-001
+
+observable: |
+  # The gate reports what it read, not merely that it passed.
+  ./scripts/ci-local.sh --go 2>&1 | grep -A4 "backlog integrity"
+  # === backlog integrity (M22-001) ===
+  #     222 tasks across 78 capabilities
+  #     done: 222
+
+  # A broken management/ fails the script, early and attributably.
+  printf 'id: M99-002\ntitle: "x"\nstatus: done\n' > management/tasks/M99-002.yaml
+  ./scripts/ci-local.sh --go; echo "exit=$?"   # exit=1, before race/coverage/lint
+  rm management/tasks/M99-002.yaml
+
+behaviors:
+  - "Given a consistent management/ directory, when the Go gate runs, then the log records the task and capability counts that were actually read."
+  - "Given a task file absent from backlog.yaml, when the Go gate runs, then it exits 1 naming that file."
+  - "Given a broken backlog, when the Go gate runs, then it fails before go test -race, go coverage and golangci-lint, so the failure is attributable and cheap."
+
+scope: |
+  M22-001 built internal/backlog but left it enforced only implicitly: the
+  consistency test ran inside "go test $(go_pkgs)" along with everything else.
+  That is real enforcement, but the failure surfaces buried among 47 packages
+  and only after the expensive steps have been paid for.
+
+  Add a named step immediately after "go build", following the M7-004
+  stream-discipline precedent of giving a specific gate its own header so a
+  failure is one grep away. Run with -v so the log records the task count and
+  any open tasks -- a gate that prints what it read is much harder to misread
+  than one that prints only PASS.
+
+  This adds visibility and failure attribution, not new enforcement. Stated
+  plainly so nobody later concludes the backlog was previously ungated.
+
+  A note on -count=1: the first version of this step justified the flag by
+  claiming a cached PASS could outlive an edit to management/. That was
+  measured and is false -- Go's test cache tracks the files and directory
+  listings a test reads, and it invalidated correctly for both an added and a
+  deleted task file. The flag is kept for consistency with the M7-004 step and
+  so the gate does not rest on cache heuristics for data outside the package,
+  and the comment now says that instead.
+
+definition_of_done:
+  - A named backlog step runs in the Go gate and prints the counts it read
+  - A broken management/ fails ci-local.sh with exit 1, naming the offending item
+  - The failure occurs before the race, coverage and lint steps
+  - "`./scripts/ci-local.sh --go` passes on a clean tree"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "30 minutes"

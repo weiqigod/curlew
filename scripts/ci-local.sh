@@ -110,6 +110,19 @@ go_pkgs() { go list ./... | grep -v '/node_modules/'; }
 step "go build"
 go build -o curlew ./cmd/curlew
 
+# M22-001: management/backlog.yaml must reconcile against management/tasks/*.yaml.
+# This test also runs inside "go test" below; a named step here fails early and
+# attributably, and prints the task count so the log records what was actually
+# read rather than just that something passed.
+#
+# -count=1 matches the M7-004 step above. It is not required for correctness:
+# Go's test cache tracks the files and directory listings a test reads, and it
+# was measured invalidating properly for both an added and a deleted task file.
+# It is kept so this gate does not rest on cache heuristics for data that lives
+# outside the package, at a cost of about 0.2s.
+step "backlog integrity (M22-001)"
+go test ./internal/backlog/ -run '^TestBacklog_repository_is_consistent$' -count=1 -v
+
 # M7-004: explicit named marker for the stream-discipline matrix so failures
 # show up under a unique header in CI logs (one grep away).
 step "go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate)"
