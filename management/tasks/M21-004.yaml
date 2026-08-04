@@ -1,6 +1,6 @@
 id: M21-004
 title: "Licensing-strip remnants: tier annotations in the published schemas, and stale guidance in DEVELOPMENT_PHILOSOPHY"
-status: in_progress
+status: done
 priority: 1
 created: 2026-08-04
 phase: "M21: Post-strip documentation and schema drift"

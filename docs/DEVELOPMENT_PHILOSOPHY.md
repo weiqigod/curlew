@@ -58,11 +58,18 @@ Features that aren't built yet should be invisible, not present-but-broken. If p
 
 This means the CLI's surface area grows over time. Commands, flags, and supported syntax expand as slices land. The help text at any given commit is an accurate picture of what the tool can do right now.
 
-### The feature-gate seam
+### No middle state
 
-The specification already defines a feature-gating system with a dedicated exit code for "this feature requires a higher tier." This same mechanism serves double duty during development. Features that are specified but not yet built can sit behind a gate that returns a clear, structured message: this capability is not available in this version.
+An earlier version of this document described a third option between invisible and
+implemented: a gating seam, where a specified-but-unbuilt capability sat behind a check
+that told the user to upgrade. That mechanism was deleted along with the licensing model,
+and nothing replaced it — there is no gate, no entitlement check, and no exit code for
+one. Every feature in the CLI is unconditional.
 
-The key distinction: gating is for features whose interface exists but whose implementation is deferred to a later tier or phase. Invisibility is for features that haven't been started at all. A feature graduates from invisible to gated to implemented.
+What remains is the cleaner rule. A feature is either invisible or it works. There is no
+state where the flag exists and answers with an apology. If you find yourself wanting to
+ship an interface whose implementation is deferred, that is the signal to cut the slice
+smaller instead — make a narrower version of the feature genuinely work end to end.
 
 ### Graceful boundaries in file parsing
 
@@ -70,17 +77,24 @@ The parser will inevitably encounter constructs in user files that the current b
 
 The recommended approach: the parser validates the full syntax it will eventually support, but the executor only handles what's implemented. If a parsed construct has no executor, the tool emits a clear error identifying the unsupported construct, the exit code that signals the limitation, and — where possible — a suggestion for how to restructure the file to avoid the unsupported feature. This way, the parser is stable from early on (reducing churn in file format support), and the executor grows incrementally.
 
-## The Backend Boundary
+## No Backend Boundary
 
-The specification introduces a backend server (authentication, licensing, dashboards) starting at Phase 3. This is the most significant architectural boundary in the entire development process, because it changes what "runnable" means.
+This document once described the CLI/backend network boundary as the most significant
+architectural boundary in the process, and required every slice to span it. That boundary
+no longer exists. The CLI makes no backend calls: no account, no login, and no network
+traffic beyond the HTTP requests a collection defines. `src/` and `web/` remain in the
+repository and are developed independently; nothing in the CLI talks to them.
 
-In Phases 1 and 2, "runnable" means: build the binary, run it. No external dependencies. The tool is self-contained.
+So "runnable" means what it meant in the earliest phases, permanently: build the binary,
+run it, no external dependencies. That is a constraint worth defending rather than a stage
+to grow out of. It is what makes the smoke suite hermetic, the tests fast, and a failing
+run always attributable to the tool or the collection rather than to a service being down.
 
-From Phase 3 onward, "runnable" must account for a backend that may or may not be running. The always-runnable constraint demands that the CLI remains fully functional without the backend for all free and offline-capable features. The backend is additive — its absence degrades the experience for premium features, but never breaks the core tool.
-
-This means the backend must itself follow the always-runnable discipline. When backend development begins, the first slice should be: a server that starts, responds to health checks, and the CLI can ping it. Every subsequent slice adds capability to both sides of the connection — the backend endpoint and the CLI code that calls it — together, as one unit.
-
-Never build a backend endpoint without the CLI integration. Never build CLI integration against a backend that isn't running. The vertical slice spans the network boundary.
+Features that would once have lived behind the boundary are local instead: `pr-check`
+reads a results file, `telemetry` appends to a local NDJSON file with no transmission path,
+and shared vault templates load from a path given by `CURLEW_TEAM_CONFIG`. When a new
+feature seems to want a server, prefer the file-based equivalent — it is almost always
+simpler, and it keeps this property intact.
 
 ## The Sample Project
 
