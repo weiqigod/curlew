@@ -24,6 +24,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     `internal/vault/teamtemplate/cache.go`, `internal/telemetry/client.go`.
   - The `src/` .NET backend and `web/` dashboard remain in the repository, untouched. The
     CLI no longer talks to them.
+- **The last reference to the deleted team-vault cache.** `curlew run` still stat'd
+  `~/.config/curlew/team_vault.json` to decide whether a missing env file was tolerable —
+  a file nothing has written since the cache was deleted. On a machine upgrading from an
+  older build, that leftover file silently suppressed `environment not found` for
+  `--env`. Only `CURLEW_TEAM_CONFIG` grants that tolerance now.
 
 ### Changed
 - **`curlew pr-check` is a local CI gate.** It reads a results file, reports the verdict,
