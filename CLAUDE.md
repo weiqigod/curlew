@@ -14,7 +14,7 @@
 - **C# .NET backend** + web dashboard — retained in `src/` and `web/`, but the CLI no
   longer talks to them.
 
-**Current Status:** Implemented through M20 — the entire planned backlog (M1–M20) is complete (backlog exhausted 2026-06-12). Two later passes stripped the CLI down:
+**Current Status:** Implemented through M20 — the entire planned backlog (M1–M20) is complete (backlog exhausted 2026-06-12). **M21 (`post_strip_drift`) is open**: two backlog tasks capturing drift the strips left behind — M21-001 (the emitted JSON Schema omits nine parser fields under `additionalProperties: false`, so editors flag valid collections; plus a wrong `$id` org) and M21-002 (four MANUAL surfaces still describing the removed backend). Two earlier passes stripped the CLI down:
 
 1. The five-tier licensing/feature-gating system was removed — every CLI feature is unconditional, and there is no `curlew license` command.
 2. All backend and login functionality was removed (2026-08-03). Gone: `curlew login`, `curlew worker`, distributed execution (`--workers`), report upload (`--report-upload`), and every `CURLEW_BACKEND_*` / `CURLEW_COORDINATOR_URL` variable. `pr-check` is now a local results-file gate, `telemetry` writes to a local NDJSON file, and shared vault templates load only from `CURLEW_TEAM_CONFIG`.

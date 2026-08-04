@@ -1,0 +1,105 @@
+id: M21-001
+title: "Collection/project JSON Schema completeness: 9 parser fields missing, editors flag valid collections"
+status: backlog
+priority: 1
+created: 2026-08-04
+phase: "M21: Post-strip documentation and schema drift"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  go build ./cmd/curlew
+
+  # 1. Every field the parser accepts is present in the emitted collection schema.
+  ./curlew schema | python3 -c "
+  import json,sys
+  s=json.load(sys.stdin); d=s['\$defs']
+  missing = (
+      {'if','depends_on','signing'} - set(d['requestItem']['properties']) |
+      {'protocol','graphql','websocket'} - set(d['request']['properties']) |
+      {'cel'} - set(d['assertions']['properties']) |
+      {'config','signing'} - set(s['properties'])
+  )
+  print('MISSING:', sorted(missing) or 'none')
+  "
+  # Expected: "MISSING: none". Today this prints all nine:
+  #   cel, config, depends_on, graphql, if, protocol, signing, websocket
+
+  # 2. A collection using those fields validates cleanly against the emitted schema.
+  ./curlew schema > /tmp/collection.schema.json
+  python3 -m pip install --quiet jsonschema
+  python3 -c "
+  import json, jsonschema
+  schema = json.load(open('/tmp/collection.schema.json'))
+  doc = {'name':'T','config':{'locale':'de-DE'},
+         'requests':[{'name':'A','if':'vars.x == \"y\"','depends_on':['B'],
+                      'signing':{'type':'aws-sigv4','params':{'region':'us-east-1'}},
+                      'request':{'method':'GET','url':'http://x/','protocol':'graphql',
+                                 'graphql':{'query':'{ me { id } }'}},
+                      'assertions':{'status':200,'cel':['response.status == 200']}}]}
+  errs = list(jsonschema.Draft202012Validator(schema).iter_errors(doc))
+  print(f'{len(errs)} error(s)'); [print(' -', e.message) for e in errs]
+  "
+  # Expected: "0 error(s)". Today every one of those keys is rejected because both
+  # requestItem and request declare additionalProperties: false.
+
+  # 3. The committed schema files match what the binary emits.
+  diff <(./curlew schema) schemas/collection-v1.json && echo "collection in sync"
+  diff <(./curlew schema --project) schemas/project-v1.json && echo "project in sync"
+
+  # 4. The published $id points at the real repository.
+  grep -o '"\$id": "[^"]*"' schemas/*.json
+  # Expected: .../weiqigod/curlew/... — today both say peterlindqvist/curlew, which 404s.
+
+behaviors:
+  - "Given a collection using if:, depends_on:, signing:, protocol:, graphql:, websocket:, assertions.cel:, or a top-level config: block, when it is validated against the schema emitted by `curlew schema`, then it validates cleanly."
+  - "Given `curlew schema`, when its output is compared field-by-field against the parser structs in internal/parser/collection.go, then every yaml-tagged field the parser accepts is described."
+  - "Given schemas/collection-v1.json and schemas/project-v1.json, when compared to `curlew schema` and `curlew schema --project`, then they are byte-identical (a test enforces this so they cannot drift again)."
+  - "Given the $id field of either published schema, when resolved over HTTP, then it returns the schema rather than 404 — the org segment matches the actual remote (weiqigod), not peterlindqvist."
+  - "Given docs/MANUAL.md §1.5 'What isn't covered yet', when read, then it either lists the genuinely-uncovered fields or is removed; it no longer names auth, retry, data_driven, the section object form, or the variables object form, all of which are now schema-described."
+
+scope: |
+  `curlew schema` emits a collection schema whose requestItem and request definitions
+  both carry `additionalProperties: false`, while omitting nine fields the parser
+  accepts:
+
+    requestItem : if, depends_on, signing
+    request     : protocol, graphql, websocket
+    assertions  : cel
+    top level   : config, signing
+
+  The combination is a functional defect, not a documentation gap. docs/MANUAL.md §1.5
+  instructs users to wire `yaml.schemas` in VS Code at `schemas/collection-v1.json`, and
+  the manual's own text advertises that a misspelled key "is flagged". Every collection
+  using conditional execution, parallel `depends_on`, GraphQL, WebSocket, CEL assertions,
+  or request signing therefore gets false error squiggles on valid YAML — the exact
+  failure mode the schema exists to prevent.
+
+  Two adjacent problems ride along:
+
+  1. Both `schemas/*.json` declare `$id` under `raw.githubusercontent.com/peterlindqvist/curlew`,
+     but the remote is `weiqigod/curlew`. MANUAL §1.5 tells users outside the source tree
+     to point their editor at that URL, which 404s.
+  2. MANUAL §1.5's "What isn't covered yet" paragraph is stale in both directions: it
+     lists `auth`, `retry`, `data_driven`, the `{retry, items}` section form, and the
+     object form of `variables` as uncovered — all five are now in the schema — while
+     naming none of the nine that actually are missing.
+
+  Fix the generator in internal/parser (or wherever the schema is assembled), regenerate
+  both committed files, correct the `$id` values, add a test asserting the committed
+  files match the binary's output, and rewrite MANUAL §1.5's caveat.
+
+definition_of_done:
+  - All behavior tests pass
+  - A collection exercising all nine fields validates cleanly against the emitted schema
+  - schemas/collection-v1.json and schemas/project-v1.json regenerated and committed
+  - A test fails if the committed schema files drift from `curlew schema` output
+  - $id values resolve against the real remote
+  - docs/MANUAL.md §1.5 caveat corrected
+  - docs/CLI_SPECIFICATION.md Appendix A note on schema/parser divergence updated or removed
+  - `./scripts/ci-local.sh --go` passes
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "3-5 hours"

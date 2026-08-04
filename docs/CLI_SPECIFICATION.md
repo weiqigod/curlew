@@ -1878,11 +1878,21 @@ curlew schema             # collection format
 curlew schema --project   # curlew.yaml format
 ```
 
-The emitted schema is generated from the parser's own types, which makes it the
-tiebreaker when this document and the schema disagree about a field name. Note
-that the schema describes structure, not cross-field constraints: mutual
-exclusions (`body` / `body_file` / `body_binary_file`, `query` / `query_file`,
+The schema describes structure, not cross-field constraints: mutual exclusions
+(`body` / `body_file` / `body_binary_file`, `query` / `query_file`,
 `path` / `request`) are enforced by the parser and stated in §5.
+
+> **The emitted schema is currently incomplete and is not the tiebreaker.** It is
+> maintained by hand rather than generated from the parser types, and it omits
+> nine fields the parser accepts — `if`, `depends_on`, and `signing` on a request
+> item; `protocol`, `graphql`, and `websocket` on a request; `cel` on assertions;
+> and top-level `config` and `signing`. Because both the request-item and request
+> definitions declare `additionalProperties: false`, an editor validating against
+> it reports errors on valid collections that use conditional execution, parallel
+> `depends_on`, GraphQL, WebSocket, CEL assertions, or request signing.
+>
+> Until that is fixed, §5 of this document is authoritative for the collection
+> format and the parser is the final tiebreaker. Tracked as **M21-001**.
 
 ---
 
