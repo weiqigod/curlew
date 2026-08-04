@@ -63,7 +63,7 @@ definition_of_done:
   - buildParallelMetadata has direct table-driven coverage including rounding boundaries and both zero cases
   - A deterministic test asserts the TAP and JSON paths report identical metadata
   - The new tests are shown to fail when a divergence is deliberately introduced
-  - `./scripts/ci-local.sh --go` passes
+  - "`./scripts/ci-local.sh --go` passes"
   - CHANGELOG.md updated
 
 complexity: low

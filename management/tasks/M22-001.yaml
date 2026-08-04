@@ -1,0 +1,78 @@
+id: M22-001
+title: "A backlog traversal that cannot report a false clear"
+status: done
+priority: 1
+created: 2026-08-04
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. The backlog reconciles across both of its sources.
+  go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v
+  # Logs the task count, capability count, and a per-status tally. Fails --
+  # rather than reporting "clear" -- on any structural surprise.
+
+  # 2. Every way a traversal could read less than it thinks it has is an error.
+  go test ./internal/backlog/ -run TestBacklog_structural_surprises_are_errors -v
+
+  # 3. There is no input for which the loader succeeds having read nothing.
+  go test ./internal/backlog/ -run TestBacklog_empty_result_is_never_a_success -v
+
+  # 4. Every task file is parseable YAML (three were not).
+  python3 -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('management/tasks/*.yaml')]"
+
+behaviors:
+  - "Given management/backlog.yaml with the capabilities key misspelled, when the backlog is loaded, then it is an error naming the unknown key -- not an empty task list reported as a clean backlog."
+  - "Given a task file that is not parseable YAML, when the backlog is loaded, then it is an error naming that file."
+  - "Given a task id listed in backlog.yaml with no corresponding task file, or a task file absent from backlog.yaml, when the backlog is loaded, then it is an error naming the id."
+  - "Given a backlog entry whose status disagrees with its task file, when the backlog is loaded, then it is an error naming both values."
+  - "Given a task whose status is outside the documented lifecycle, or absent, when the backlog is loaded, then it is an error -- an unrecognised status is never treated as done."
+  - "Given a task entry that is neither an id nor a mapping, when the backlog is loaded, then it is an error rather than a silently skipped entry."
+  - "Given an empty directory, an empty backlog file, or a backlog carrying only metadata, when the backlog is loaded, then it is an error -- zero tasks is never a success."
+
+scope: |
+  Every ad-hoc traversal of management/backlog.yaml written so far has had the
+  same failure mode, and it bit three times in one session:
+
+    1. Iterating capabilities as {name: [task, ...]} when the value is a
+       mapping. Result: 0 tasks, reported as "backlog exhausted, none open".
+    2. Assuming every task entry is a mapping. Result: AttributeError.
+    3. Assuming every task entry is a bare id string, concluding that status
+       lives only in the task files. Result: a wrong statement to the user --
+       218 of 221 entries are mappings that do carry status.
+
+  The shared defect is that a wrong key path yields an empty result, and an
+  empty result reads as good news. The fallback check used to settle it,
+  grep -h '^status:' management/tasks/*.yaml, was a false clear of its own: it
+  counted 221 matching lines across files three of which no YAML parser can
+  read. A backtick cannot open a plain YAML scalar, and this line appears in
+  M21-001, M21-003 and M21-004:
+
+      - `./scripts/ci-local.sh --go` passes
+
+  Those three task files have never been parsed by anything.
+
+  Build internal/backlog: a loader that reconciles backlog.yaml against
+  management/tasks/*.yaml and returns an error, never an empty success, on any
+  structural surprise. Decode backlog.yaml with KnownFields(true) so a renamed
+  key is an error rather than a zero value. Accept both task-entry shapes
+  explicitly and reject any third shape. Require both sources to name the same
+  set of ids and to agree on status where both state one. Fix the three
+  unparseable task files.
+
+  Out of scope: no new curlew subcommand. This is repository tooling, not a
+  product feature, and CLAUDE.md keeps cmd/curlew as the entry point only.
+
+definition_of_done:
+  - Load returns an error for every structural surprise, each naming the offending item
+  - No input exists for which Load succeeds having read zero tasks
+  - All three unparseable task files parse
+  - The real management/ directory reconciles cleanly across both sources
+  - Guards verified by mutation, not only by passing
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "2-3 hours"

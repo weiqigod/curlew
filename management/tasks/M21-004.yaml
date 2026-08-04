@@ -80,7 +80,7 @@ definition_of_done:
   - Both schema files still validate every fixture, and additionalProperties:false still bites
   - DEVELOPMENT_PHILOSOPHY's feature-gate and backend-boundary guidance matches the shipped tool
   - CLAUDE.md's Current Status agrees with management/backlog.yaml
-  - `./scripts/ci-local.sh --go` passes
+  - "`./scripts/ci-local.sh --go` passes"
   - CHANGELOG.md updated
 
 complexity: low
