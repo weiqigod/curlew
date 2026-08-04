@@ -1,0 +1,71 @@
+id: M22-004
+title: "appdir: correct the post-strip doc comment and pin the config-dir precedence rule"
+status: done
+priority: 2
+created: 2026-08-04
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. No package comment claims the config dir holds backend state.
+  grep -n -i "session token\|device registration" internal/appdir/appdir.go \
+    && echo "STALE" || echo "clear"
+
+  # 2. The precedence rule is pinned, both branches.
+  go test ./internal/appdir/ -v
+  # 0.0% -> 83.3% of statements
+
+behaviors:
+  - "Given CURLEW_CONFIG_DIR is set and non-empty, when the config dir is resolved, then that path is returned verbatim with nothing appended."
+  - "Given CURLEW_CONFIG_DIR is set but empty, when the config dir is resolved, then it falls through to the user config dir rather than resolving to the working directory."
+  - "Given CURLEW_CONFIG_DIR is unset, when the config dir is resolved, then it is os.UserConfigDir() joined with curlew."
+  - "Given the ConfigEnv constant, when read, then it is the literal CURLEW_CONFIG_DIR that help text, MANUAL.md and several cmd/curlew tests already hardcode."
+  - "Given the package doc comment, when read, then it names the files actually written there and does not describe removed backend functionality."
+
+scope: |
+  Two defects in one small package, found while closing the requtil coverage
+  gap in M22-003.
+
+  **The doc comment described removed functionality.** It read "used for
+  device registration, backend session tokens, and telemetry state". Device
+  registration and backend session tokens both went in the 2026-08-03 backend
+  strip. Verified against the callers rather than assumed: the only consumers
+  of ResolveConfigDir are two call sites in cmd/curlew/telemetry.go, and the
+  only files written are install_id, telemetry.json and telemetry.ndjson
+  (internal/telemetry/store.go). Same drift class as M21-002.
+
+  Two further inaccuracies in the same file's comments were corrected while
+  there: ConfigEnv was documented as overriding "~/.config/curlew", which is
+  Linux-specific (os.UserConfigDir is ~/Library/Application Support on
+  macOS), and the precedence list omitted that the override must be non-empty
+  and is used verbatim -- both of which are now the tested contract.
+
+  **No tests at all**, at 0% coverage, despite a real precedence rule that
+  every cmd/curlew test depends on: CURLEW_CONFIG_DIR is how the suite keeps
+  state out of the developer's real config directory. Five tests take the
+  package to 83.3%. The remaining uncovered branch is the os.UserConfigDir()
+  failure path, which is not reachable without faking the environment out
+  from under the standard library.
+
+  There is no RED step here in the usual sense -- the behaviour was already
+  correct, so these are characterisation tests. Mutation stands in for RED:
+  each of the four guards was verified by breaking the implementation and
+  confirming a named test fails.
+
+  Out of scope, flagged not fixed: cmd/curlew/telemetry.go prints
+  "~/.config/curlew/..." in three lines of user-facing help text, which is
+  equally wrong on macOS. That is user-visible CLI output rather than an
+  internal comment, so it belongs in its own change.
+
+definition_of_done:
+  - The package comment describes only what is actually stored there
+  - Both branches of the precedence rule are covered
+  - Coverage above 0% and the package builds clean
+  - Each guard verified by mutation, not only by passing
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "30 minutes"

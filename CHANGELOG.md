@@ -56,6 +56,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **`internal/appdir` no longer documents removed backend functionality; 0% → 83.3%.** The
+  package comment said the config directory was "used for device registration, backend
+  session tokens, and telemetry state". The first two went in the 2026-08-03 backend strip.
+  Checked against the callers rather than assumed: the only consumers are two call sites in
+  `cmd/curlew/telemetry.go`, and the only files written are `install_id`, `telemetry.json`
+  and `telemetry.ndjson`. Same drift class as M21-002.
+
+  Two further comment inaccuracies were corrected in the same file: `ConfigEnv` was
+  documented as overriding `~/.config/curlew`, which is Linux-specific (`os.UserConfigDir`
+  is `~/Library/Application Support` on macOS), and the precedence list omitted that the
+  override must be **non-empty** and is used **verbatim** — both now the tested contract.
+
+  The package had no tests despite a precedence rule the whole `cmd/curlew` suite depends
+  on: `CURLEW_CONFIG_DIR` is how those tests keep state out of the developer's real config
+  directory. The uncovered remainder is the `os.UserConfigDir()` failure path. Since the
+  behaviour was already correct these are characterisation tests, so mutation stands in for
+  RED — each of the four guards was verified by breaking the implementation.
+
 - **`internal/requtil` covered directly: 76.8% → 96.8%.** Three exported converters sat at
   0% — `ToHeaderInputs`, `ToBodyInputs` and `ToHTTPRequest`. None was dead code; all three
   are called from the sequential runner, the parallel executor and the WebSocket executor,
