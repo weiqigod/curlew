@@ -56,6 +56,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **The collection and project JSON Schemas now describe every field the parser accepts.**
+  `schemas/collection-v1.json` declared `additionalProperties: false` on `requestItem` and
+  `request` while omitting nine fields the parser binds — `if`, `depends_on` and `signing`
+  on a request item; `protocol`, `graphql` and `websocket` on a request; `cel` on
+  assertions; and top-level `config` and `signing`. Because MANUAL §1.5 tells users to wire
+  the schema into VS Code, every collection using conditional execution, `depends_on`,
+  GraphQL, WebSocket, CEL assertions or request signing got error squiggles on valid YAML —
+  the exact failure the schema exists to prevent. New `$defs`: `config`, `signing`,
+  `celAssertions`, `graphql`, `websocket`, `websocketStep`, `websocketReconnect`,
+  `websocketHeartbeat`.
+  - Two adjacent defects of the same class are fixed alongside. `$defs.request` required
+    `method`, which the parser defaults three ways (`GET`, `POST` for graphql, `WS` for
+    websocket) — the WebSocket example in CLI_SPECIFICATION §12.3 was itself flagged. And
+    `schemas/project-v1.json` omitted the `config:` block that `internal/config` binds, so
+    a project setting a locale was flagged too.
+  - Both files' `$id` moved from `raw.githubusercontent.com/peterlindqvist/curlew`, which
+    404s, to `weiqigod/curlew`. The collection schema's `$id` had no test, which is how it
+    drifted silently; both are now pinned.
+  - New `internal/schema/parity_test.go` walks the parser structs by reflection and fails
+    in both directions — a parser field with no schema entry, and a schema property the
+    parser would ignore — with a table-completeness test so a newly added nested struct
+    cannot slip past, and `go/ast` guards pinning the two hand-rolled key switches
+    (`WebSocketStep.UnmarshalYAML`, `SensitiveVars.parseObjectVar`) to their source.
+    `TestSchema_dod_fixture_parses` runs the all-nine-fields fixture through the real
+    parser, so the two agree on a document and not merely on a list of names.
+  - The four closed value sets the parser validates against (`protocol`, WebSocket
+    `action`, `reconnect.backoff`, `graphql.error_handling`) were inline string
+    comparisons duplicated as schema enums and quoted again in error hints, with nothing
+    holding the copies together. They are now exported lists in `internal/parser`, with
+    the hints built from them and the schema enums pinned to them. That surfaced a
+    user-facing defect: the hint for `ErrUnsupportedProtocol` read "use a supported
+    protocol: http, https, graphql, or websocket" — the parser rejects `https`, so a user
+    who followed the hint hit the same error again.
+  - MANUAL §1.5's "What isn't covered yet" paragraph was stale in both directions — all
+    five things it named were already covered, and it named none of the nine real gaps —
+    and is rewritten to state what the schema covers and what it deliberately leaves to
+    the parser. CLI_SPECIFICATION Appendix A's divergence note is replaced, and two claims
+    it made are corrected: `method` is optional, and `graphql.error_handling` accepts
+    `ignore` as well as `fail` and `warn`. (M21-001)
 - **The 53 failing web E2E specs never tested anything; replaced with component tests.**
   Fifteen Playwright specs stubbed backend calls with `context.route('**/api/v1/…')` and
   asserted the stub rendered. Every page they targeted loads its data in a SvelteKit
