@@ -1,6 +1,10 @@
 package parser
 
-import apierrors "github.com/weiqigod/curlew/internal/errors"
+import (
+	"strings"
+
+	apierrors "github.com/weiqigod/curlew/internal/errors"
+)
 
 func init() {
 	apierrors.RegisterPackage("parser",
@@ -82,7 +86,7 @@ func init() {
 			Hint: apierrors.ClassifiedHint{
 				Category: apierrors.CategoryParse,
 				Code:     "PARSE_UNSUPPORTED_PROTOCOL",
-				Hint:     "Use a supported protocol: http, https, graphql, or websocket.",
+				Hint:     "Use a supported protocol: " + strings.Join(SupportedProtocols, ", ") + ".",
 			},
 		},
 		apierrors.RegisteredError{

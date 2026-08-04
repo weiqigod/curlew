@@ -352,6 +352,50 @@ func reachableStructs(root reflect.Type) []reflect.Type {
 	return out
 }
 
+// TestSchema_enums_match_parser pins every closed-set enum in the schema to the
+// parser's own list, so adding a protocol or a websocket action without
+// touching the schema fails here instead of in a user's editor.
+func TestSchema_enums_match_parser(t *testing.T) {
+	doc := decodeSchemaDoc(t, collectionSchemaBytes())
+	tests := []struct {
+		name string
+		path string
+		want []string
+	}{
+		{"protocol", "$defs/request/properties/protocol", parser.SupportedProtocols},
+		{"websocket_action", "$defs/websocketStep/properties/action", parser.WebSocketActions},
+		{"reconnect_backoff", "$defs/websocketReconnect/properties/backoff", parser.WebSocketBackoffStrategies},
+		{"graphql_error_handling", "$defs/graphql/properties/error_handling", parser.GraphQLErrorHandlingValues},
+		{"output_format", "$defs/output/properties/format", output.SupportedFormats},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := schemaEnum(t, schemaObjectAt(t, doc, tc.path))
+			for _, d := range symmetricDiff(got, tc.want) {
+				t.Errorf("enum at %q: %s", tc.path, d)
+			}
+		})
+	}
+}
+
+// schemaEnum returns the enum values declared on a schema object.
+func schemaEnum(t *testing.T, obj map[string]any) []string {
+	t.Helper()
+	raw, ok := obj["enum"].([]any)
+	if !ok {
+		t.Fatalf("schema object declares no enum: %v", sortedKeys(anyKeys(obj)))
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		s, ok := v.(string)
+		if !ok {
+			t.Fatalf("enum value %v is not a string", v)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
 // TestSchema_dod_fixture_parses closes the loop the parity test opens. Parity
 // compares names; this proves the two agree on one real document: the fixture
 // exercising all nine previously-undescribed fields is accepted by the schema
