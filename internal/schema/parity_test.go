@@ -487,3 +487,64 @@ func TestSchema_observable_no_missing_fields(t *testing.T) {
 		})
 	}
 }
+
+// tierWords are the licensing terms the removed five-tier system used. A
+// published schema description must not name any of them: MANUAL §1.5 wires
+// these files into the user's editor, so a description claiming a feature
+// "requires Professional tier" is a tooltip advertising a product that does not
+// exist and cannot be bought. (M21-004)
+var tierWords = []string{"tier", "free", "solo", "professional", "enterprise", "upgrade", "license", "licence"}
+
+// TestSchema_descriptions_are_tier_free walks every description string in both
+// published schemas and fails on any that names a licensing tier.
+func TestSchema_descriptions_are_tier_free(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  []byte
+	}{
+		{"collection", schema.CollectionSchema},
+		{"project", schema.ProjectSchema},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for path, desc := range descriptionsIn(decodeSchemaDoc(t, tc.raw)) {
+				lower := strings.ToLower(desc)
+				for _, word := range tierWords {
+					if !strings.Contains(lower, word) {
+						continue
+					}
+					t.Errorf("%s: description names the removed licensing system (%q): %q",
+						path, word, desc)
+				}
+			}
+		})
+	}
+}
+
+// descriptionsIn collects every "description" string in a decoded schema,
+// keyed by its path so a failure names the offending property.
+func descriptionsIn(doc map[string]any) map[string]string {
+	out := map[string]string{}
+	var walk func(node any, path string)
+	walk = func(node any, path string) {
+		switch n := node.(type) {
+		case map[string]any:
+			for k, v := range n {
+				child := path + "/" + k
+				if k == "description" {
+					if s, ok := v.(string); ok {
+						out[path] = s
+						continue
+					}
+				}
+				walk(v, child)
+			}
+		case []any:
+			for i, v := range n {
+				walk(v, fmt.Sprintf("%s/%d", path, i))
+			}
+		}
+	}
+	walk(doc, "")
+	return out
+}
