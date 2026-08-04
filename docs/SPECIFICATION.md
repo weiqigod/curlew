@@ -1,18 +1,26 @@
-# API Testing Tool Specification
-## A File-Based HTTP Testing and Validation Platform
+# Curlew Platform Specification
+## Backend and Web Dashboard
 
 **Version:** 4.4  
 **Date:** May 17, 2026  
 **Status:** M18 Pre-Work — Compliance and Launch Readiness Design Pass: Audit-Log Bulk Export (JSONL+CSV streaming, retention + RBAC), GDPR Data Subject Rights (per-user export bundle, deletion state machine, anonymisation), Telemetry Phase 3 Implementation (persistent install-ID model — supersedes prior per-session-UUID), Encryption-at-Rest Extension (closes v3-10 `team_vaults` deferral + spec `:11057` `schedules.env_vars` deferral), Compliance Artifact Inventory (policies, vendor inventory, DFDs, pen-test cadence)  
 **Supersedes:** Version 4.3 (May 7, 2026)
 
-> **Status note (2026-08-03).** The Go CLI no longer implements the backend-connected
-> parts of this specification. `curlew login`, `curlew worker`, distributed execution,
-> report upload, PR-check posting, and backend telemetry ingest were removed; shared
-> vault templates load from a local file and telemetry writes to a local NDJSON file.
-> The `src/` backend and `web/` dashboard still implement their side of these designs.
-> For the CLI's actual behaviour, `docs/MANUAL.md` is authoritative — this document
-> describes the platform as designed through v4.4, not the CLI as shipped.
+> **Scope note (2026-08-04).** This document specifies the **platform** — the
+> `src/` .NET backend and the `web/` dashboard, which still implement it. It is
+> not the CLI's specification and has not been the CLI's specification since the
+> licensing and backend strips.
+>
+> **For the CLI, read [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md)**, which
+> describes the `curlew` binary as shipped: entirely local, no account, no tiers,
+> every feature unconditional. [MANUAL.md](MANUAL.md) remains the CLI's
+> user-facing reference.
+>
+> Sections here that describe CLI behaviour — `curlew login`, `curlew worker`,
+> distributed execution, report upload, PR-check posting, backend telemetry
+> ingest, the team-vault cache, and the five-tier feature gating throughout —
+> describe the platform as designed through v4.4, not code that exists. The
+> backend's own side of those designs is still live.
 
 ### Changelog — v4.4 (2026-05-17)
 

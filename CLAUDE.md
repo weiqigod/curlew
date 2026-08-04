@@ -19,11 +19,13 @@
 1. The five-tier licensing/feature-gating system was removed — every CLI feature is unconditional, and there is no `curlew license` command.
 2. All backend and login functionality was removed (2026-08-03). Gone: `curlew login`, `curlew worker`, distributed execution (`--workers`), report upload (`--report-upload`), and every `CURLEW_BACKEND_*` / `CURLEW_COORDINATOR_URL` variable. `pr-check` is now a local results-file gate, `telemetry` writes to a local NDJSON file, and shared vault templates load only from `CURLEW_TEAM_CONFIG`.
 
-`docs/MANUAL.md` is the authoritative feature reference; `docs/SPECIFICATION.md` describes the platform as designed and no longer matches the CLI. The Go CLI builds (`go build ./cmd/curlew`) and runs; the .NET backend, web dashboard, and local web UI are all built. `web/tests/e2e/` holds exactly five convergence Playwright specs; they seed the backend over HTTP (no `curlew` binary involved) and run in `scripts/ci-local.sh`. The route-mocking `org-*` specs that used to sit alongside them were deleted — dashboard routes are covered by component and `load` tests under `web/src/routes/` instead. New backlog work resumes the task lifecycle below.
+`docs/CLI_SPECIFICATION.md` (v1, 2026-08-04) is the CLI's specification — contracts, invariants, file formats, exit codes, and a conformance checklist — extracted from the platform spec and corrected against the shipped binary. `docs/MANUAL.md` is the CLI's user-facing reference. `docs/SPECIFICATION.md` is now scoped to the platform (`src/` backend + `web/` dashboard) and no longer claims to describe the CLI. The Go CLI builds (`go build ./cmd/curlew`) and runs; the .NET backend, web dashboard, and local web UI are all built. `web/tests/e2e/` holds exactly five convergence Playwright specs; they seed the backend over HTTP (no `curlew` binary involved) and run in `scripts/ci-local.sh`. The route-mocking `org-*` specs that used to sit alongside them were deleted — dashboard routes are covered by component and `load` tests under `web/src/routes/` instead. New backlog work resumes the task lifecycle below.
 
 ## Key Documentation
 
-- **docs/SPECIFICATION.md** — Full system specification (v4)
+- **docs/CLI_SPECIFICATION.md** — The CLI's specification: contracts, invariants, formats, exit codes (v1)
+- **docs/MANUAL.md** — The CLI's user-facing reference (how to use it)
+- **docs/SPECIFICATION.md** — Platform specification for the `src/` backend and `web/` dashboard (v4)
 - **docs/DEVELOPMENT_PHILOSOPHY.md** — Always-runnable, vertical slices, completeness contract
 - **docs/TECH_CHOICES.md** — Language choices, tooling, conventions for both codebases
 - **docs/WORKFLOW_TEMPLATE.md** — Reference template for the task-managed workflow

@@ -70,11 +70,12 @@ curlew run "collections/**/*.yaml"   # run everything matching a glob
 curlew ui                            # open the local web UI
 ```
 
-`curlew --help` lists all commands; every command supports `--format json` and `--non-interactive` for scripting.
+`curlew --help` lists all commands. `run`, `exec`, `validate`, and `info` support `--format json` for scripting; `exec` additionally takes `--non-interactive`.
 
 ## Documentation
 
-- **[docs/MANUAL.md](docs/MANUAL.md)** — the complete tutorial-style manual, from first request to distributed execution. Start here.
+- **[docs/MANUAL.md](docs/MANUAL.md)** — the complete tutorial-style manual, from your first request to parallel, data-driven suites. Start here.
+- **[docs/CLI_SPECIFICATION.md](docs/CLI_SPECIFICATION.md)** — what the CLI must do: contracts, file formats, precedence, exit codes, conformance.
 - **[docs/UI_SPECIFICATION.md](docs/UI_SPECIFICATION.md)** — the local web UI.
 - **[docs/EVENTS_SCHEMA_v1.3.md](docs/EVENTS_SCHEMA_v1.3.md)** — the NDJSON event stream contract.
 - **[site/](site/)** — a static examples cookbook.
