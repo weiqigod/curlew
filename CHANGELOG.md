@@ -56,6 +56,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **`docs/MANUAL.md` no longer describes the removed backend.** Four surfaces survived the
+  backend strip because that pass targeted code, and survived the CLI_SPECIFICATION
+  extraction because that produced a new document rather than editing this one:
+  - §1.1's installation check told a new user to expect `worker` in `curlew --help`. The
+    listed commands now match the binary exactly — `worker` gone, `ui` and `telemetry`
+    added — so the manual's own first-run verification step passes.
+  - §4.3, the exit-code master table the manual calls "the single source", and its §11D
+    duplicate both carried `10 | Worker unauthorized`. Nothing returns 10. Both now list
+    0–5 and 130 only, and both document the 1-versus-2 usage-error split verified in
+    `docs/CLI_SPECIFICATION.md` §17 rather than the flat "usage error" claim they carried.
+  - §11A still described `curlew pr-check` as "upload results and post a PR status check",
+    contradicting §8.1 in the same document. It now describes the local results-file gate,
+    with its actual exit codes and flags.
+  - The §7 migration table, which correctly documents `curlew worker` and `--report-upload`
+    as removed, is untouched.
+- **`docs/MANUAL.md`'s table of contents was substantially wrong.** Four entries pointed at
+  sections deleted with the backend — "8.1 Report upload", "8.2 PR checks", "8.3 Web
+  dashboard", "9.1 Distributed execution" — and the Part 8 header still read "Team
+  Features". Five sections added since the TOC was last touched (1.5, 3.6.1, 4.2b, 6.8,
+  6.9) were missing from it entirely. The TOC now matches the document exactly, 63 entries
+  to 63 headings, verified in both directions.
+  - Internal anchor links went from eight broken to zero. Four were the stale TOC entries
+    above; the other four were `#faker-locales-m20`, which pointed at a bold paragraph
+    carrying a `{#id}` attribute — kramdown syntax that GitHub-flavored Markdown does not
+    support, so the anchor never existed. Promoted to a real `####` heading, whose natural
+    slug is the one the links already used.
+  - Three cross-references cited `SPECIFICATION.md` by line number for CLI behaviour. That
+    document is now scoped to the backend and dashboard, and the line numbers had rotted
+    (`:812` is encoding and hashing, not `$faker.color`). The Conclusion also pointed
+    readers there as "the source of truth for subtler behavior edge cases" and recommended
+    scaling out to distributed execution. Both now point at `docs/CLI_SPECIFICATION.md`.
+    (M21-002)
 - **`TestTAPOutput_ParallelSpeedup` was flaky and is now deterministic.** It ran the same
   collection twice — once with `--format tap --parallel`, once with `--format json
   --parallel` — and asserted the two `speedup_factor` values agreed within 0.15.
