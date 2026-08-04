@@ -98,7 +98,7 @@ definition_of_done:
   - $id values resolve against the real remote
   - docs/MANUAL.md §1.5 caveat corrected
   - docs/CLI_SPECIFICATION.md Appendix A note on schema/parser divergence updated or removed
-  - `./scripts/ci-local.sh --go` passes
+  - "`./scripts/ci-local.sh --go` passes"
   - CHANGELOG.md updated
 
 complexity: medium

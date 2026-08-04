@@ -56,6 +56,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **Three task files were not parseable YAML, and nothing had ever noticed.**
+  `management/tasks/M21-001.yaml`, `M21-003.yaml` and `M21-004.yaml` each carried a
+  definition-of-done line beginning with a backtick, which cannot open a plain YAML
+  scalar. Every check that had ever "verified" the backlog was line-oriented
+  (`grep -h '^status:' management/tasks/*.yaml`), so it counted matching text in files no
+  parser could read and reported them as done. The lines are now quoted, and
+  `internal/backlog` parses every task file so this fails the build instead.
+
+- **`internal/backlog`: a traversal of `management/` that cannot report a false clear.**
+  Ad-hoc traversals of `backlog.yaml` had failed three times in one session, always the
+  same way: a wrong key path yields an empty result, and an empty result reads as good
+  news ("backlog exhausted, none open"). The index is easy to get wrong because a task
+  entry is *either* a bare id string *or* a mapping carrying its own status — 218 of 221
+  entries are mappings, 3 are bare strings.
+
+  `backlog.Load` reconciles `backlog.yaml` against `management/tasks/*.yaml` and returns an
+  error, never an empty success, on any structural surprise: an unknown or misspelled key
+  (the index is decoded with `KnownFields(true)`), a capability with no tasks or no
+  milestone, a task entry of an unexpected shape, a duplicate id, a task file that does not
+  parse, an id present in one source but not the other, a status outside the documented
+  lifecycle, and a missing status. Where both sources state a status they must agree, so
+  editing one alone cannot produce a clean result.
+
+  Each of the eleven guards was verified by mutation rather than by passing: neutering any
+  one of them fails a named test. Five of those tests initially passed against a neutered
+  guard for the wrong reason — a different check fired first and its message happened to
+  contain the asserted substring — and were retargeted at fixtures that isolate the guard
+  under test.
+
 - **The published schemas no longer advertise licensing tiers.** Four `description` strings
   still named the tier that used to gate a feature: `rate_limit_rps`, `include` and
   `assertions.schema` each said "(Professional tier)", and `ui.history.enabled` said "Solo
