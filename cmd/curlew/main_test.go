@@ -6785,20 +6785,22 @@ requests:
 	}
 }
 
-// TestTAPOutput_ParallelSpeedup verifies the parallel-execution YAML diagnostic
-// block is emitted with speedup_factor, wave_count, and max_parallelism, and that
-// speedup_factor is byte-equal to the JSON formatter's value for the same run.
-// (M11-003)
-func TestTAPOutput_ParallelSpeedup(t *testing.T) {
-	// Two leaves and one consumer so dependency analysis schedules two waves.
+// newParallelFixtureServer serves the JSON body the parallel fixture collection
+// extracts from. Shared with parallel_metadata_test.go.
+func newParallelFixtureServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"abc","ok":true}`))
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
+	return srv
+}
 
-	dir := t.TempDir()
-	col := fmt.Sprintf(`name: Parallel TAP
+// parallelFixtureCollection is two leaves and one consumer, so dependency
+// analysis schedules exactly two waves with a max parallelism of two.
+func parallelFixtureCollection(baseURL string) string {
+	return fmt.Sprintf(`name: Parallel TAP
 requests:
   - name: First
     request:
@@ -6820,8 +6822,23 @@ requests:
       url: "%s/third?id={{first_id}}"
     assertions:
       status: 200
-`, srv.URL, srv.URL, srv.URL)
-	colFile := writeCollection(t, dir, "col.yaml", col)
+`, baseURL, baseURL, baseURL)
+}
+
+// TestTAPOutput_ParallelSpeedup verifies the parallel-execution YAML diagnostic
+// block is emitted with speedup_factor, wave_count, and max_parallelism, in the
+// right position, and with speedup_factor in the documented %.1f form. (M11-003)
+//
+// It deliberately does NOT compare speedup_factor against a second run's value.
+// speedup_factor is sum(wave durations) / total duration, both wall-clock
+// measured, so two executions of this collection legitimately disagree — over 25
+// identical runs it produced 0.7, 0.9 and 1.0, a spread of 0.30 against the old
+// 0.15 tolerance. That comparison is now made deterministically in
+// parallel_metadata_test.go, against one summary rather than two runs. (M21-003)
+func TestTAPOutput_ParallelSpeedup(t *testing.T) {
+	srv := newParallelFixtureServer(t)
+	dir := t.TempDir()
+	colFile := writeCollection(t, dir, "col.yaml", parallelFixtureCollection(srv.URL))
 
 	tapStdout, _, tapExit := captureRunCmd(t, colFile, "--format", "tap", "--parallel")
 	if tapExit != 0 {
@@ -6847,52 +6864,23 @@ requests:
 		t.Errorf("block ordering wrong: headerIdx=%d summaryIdx=%d", headerIdx, summaryIdx)
 	}
 
-	// Parity with JSON: rerun with --format json --parallel and compare speedup_factor.
-	// Both paths share buildParallelMetadata, so the formula and formatting are identical
-	// (%.1f on math.Round(x*10)/10). Two separate runs have independent timing, so we
-	// allow ≤ 0.15 difference (one rounding step + half-step tolerance) rather than requiring byte-equality.
-	jsonStdout, _, jsonExit := captureRunCmd(t, colFile, "--format", "json", "--parallel")
-	if jsonExit != 0 {
-		t.Fatalf("json exit = %d, want 0\nstdout: %s", jsonExit, jsonStdout)
-	}
-	var jsonOut map[string]any
-	if err := json.Unmarshal([]byte(jsonStdout), &jsonOut); err != nil {
-		t.Fatalf("invalid JSON output: %v\nraw: %s", err, jsonStdout)
-	}
-	pe, ok := jsonOut["parallel_execution"].(map[string]any)
-	if !ok {
-		t.Fatalf("missing parallel_execution in JSON output: %v", jsonOut)
-	}
-	jsonSpeedup, _ := pe["speedup_factor"].(float64)
-
-	// Extract the TAP speedup_factor and compare with the JSON value.
-	// Both values are produced by the same buildParallelMetadata formula;
-	// tolerance of ≤ 0.15 (one rounding step + half-step) accounts for independent timing.
+	// speedup_factor must be present and in the documented one-decimal form. Its
+	// *value* is wall-clock derived and therefore not asserted here; see the
+	// doc comment above and parallel_metadata_test.go.
 	sfRe := regexp.MustCompile(`(?m)^\s+speedup_factor: ([0-9]+\.[0-9]+)`)
 	sfMatch := sfRe.FindStringSubmatch(tapStdout)
 	if len(sfMatch) != 2 {
-		t.Errorf("could not parse speedup_factor from TAP output:\n%s", tapStdout)
-	} else {
-		tapSpeedup, err := strconv.ParseFloat(sfMatch[1], 64)
-		if err != nil {
-			t.Errorf("speedup_factor %q is not a valid float: %v", sfMatch[1], err)
-		} else {
-			// Verify the TAP value uses the same %.1f format as the JSON value.
-			tapLine := fmt.Sprintf("  speedup_factor: %.1f", tapSpeedup)
-			if !strings.Contains(tapStdout, tapLine) {
-				t.Errorf("TAP speedup_factor not in %.1f form; parsed: %q\nTAP:\n%s", tapSpeedup, sfMatch[1], tapStdout)
-			}
-			// Verify parity: both values use math.Round(x*10)/10 via buildParallelMetadata.
-			// Independent runs have independent timing, so allow ≤ 0.15 (one rounding step + half-step).
-			diff := tapSpeedup - jsonSpeedup
-			if diff < 0 {
-				diff = -diff
-			}
-			if diff > 0.15 {
-				t.Errorf("TAP speedup_factor (%.1f) differs from JSON speedup_factor (%.1f) by more than one rounding step (%.2f); paths may have diverged\nTAP:\n%s\nJSON parallel_execution: %v",
-					tapSpeedup, jsonSpeedup, diff, tapStdout, pe)
-			}
-		}
+		t.Fatalf("could not parse speedup_factor from TAP output:\n%s", tapStdout)
+	}
+	tapSpeedup, err := strconv.ParseFloat(sfMatch[1], 64)
+	if err != nil {
+		t.Fatalf("speedup_factor %q is not a valid float: %v", sfMatch[1], err)
+	}
+	if tapLine := fmt.Sprintf("  speedup_factor: %.1f", tapSpeedup); !strings.Contains(tapStdout, tapLine) {
+		t.Errorf("TAP speedup_factor not in %%.1f form; parsed: %q\nTAP:\n%s", sfMatch[1], tapStdout)
+	}
+	if tapSpeedup < 0 {
+		t.Errorf("speedup_factor = %v, want a non-negative value", tapSpeedup)
 	}
 }
 

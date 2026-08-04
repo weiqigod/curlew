@@ -1,0 +1,70 @@
+id: M21-003
+title: "TestTAPOutput_ParallelSpeedup is flaky: it compares wall-clock speedup across two separate runs"
+status: done
+priority: 1
+created: 2026-08-04
+phase: "M21: Post-strip documentation and schema drift"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. The test is stable under repetition.
+  go test ./cmd/curlew/ -run TestTAPOutput_ParallelSpeedup -count=20
+  # Expected: ok. Today it fails roughly a quarter of the time — measured on main
+  # at 178ce00 in a clean worktree, 2 failures in 8 consecutive runs:
+  #
+  #   main_test.go:6892: TAP speedup_factor (1.0) differs from JSON speedup_factor
+  #   (0.8) by more than one rounding step (0.20); paths may have diverged
+
+  # 2. The invariant it claims to protect is still enforced, deterministically.
+  go test ./cmd/curlew/ -run 'TestBuildParallelMetadata|TestParallelMetadata' -v
+  # Expected: every case passes, with no dependency on wall-clock timing.
+
+behaviors:
+  - "Given TestTAPOutput_ParallelSpeedup, when it is run 20 times consecutively, then it passes every time."
+  - "Given buildParallelMetadata, when called with a summary whose wave count is 1 or whose duration is 0, then the speedup factor is 0."
+  - "Given buildParallelMetadata, when called with fixed wave durations and a fixed total duration, then the speedup factor is sum(waves)/duration rounded to one decimal."
+  - "Given one set of parallel metadata, when rendered through the TAP formatter and through the JSON formatter, then both report the same speedup_factor, wave_count, and max_parallelism."
+  - "Given a deliberate divergence between the TAP and JSON metadata paths (for example removing the rounding from buildParallelMetadata), when the suite runs, then a test fails — the flake fix must not be a weakened assertion."
+
+scope: |
+  `TestTAPOutput_ParallelSpeedup` (cmd/curlew/main_test.go:6792) executes the same
+  collection twice — once with `--format tap --parallel`, once with
+  `--format json --parallel` — and asserts the two `speedup_factor` values agree
+  within 0.15.
+
+  `speedup_factor` is `sum(WaveDurations) / Duration`, both wall-clock measured.
+  Two independent executions on a loaded machine legitimately produce different
+  speedups, so the assertion fails at random. The tolerance has already been
+  widened once (the comment reads "one rounding step + half-step tolerance") and
+  0.20 differences still occur.
+
+  The test's own doc comment states the intent: speedup_factor "is byte-equal to
+  the JSON formatter's value **for the same run**". It is not the same run. That
+  gap between stated intent and implementation is the defect.
+
+  One `curlew run` emits one format — `--report` is bound to the stdout format
+  rather than being an independent JSON emitter — so same-run parity cannot be
+  observed through the CLI. It has to be tested below it, where both paths meet:
+  `buildParallelMetadata` (cmd/curlew/main.go:1632) is called identically at
+  main.go:1106 (TAP) and main.go:1563 (JSON), and the results are rendered by
+  `output.WriteTAP` (`%.1f`) and `encoding/json` (raw float64) respectively.
+
+  Note that the formatting divergence is a real risk the current test does not
+  reliably catch: if the `math.Round(x*10)/10` were dropped from
+  buildParallelMetadata, TAP would still print `%.1f` while JSON emitted the full
+  float. Whatever replaces the flaky assertion must catch that.
+
+  Do not fix this by widening the tolerance again or by deleting the comparison.
+
+definition_of_done:
+  - TestTAPOutput_ParallelSpeedup passes 20 consecutive runs
+  - buildParallelMetadata has direct table-driven coverage including rounding boundaries and both zero cases
+  - A deterministic test asserts the TAP and JSON paths report identical metadata
+  - The new tests are shown to fail when a divergence is deliberately introduced
+  - `./scripts/ci-local.sh --go` passes
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "1-2 hours"

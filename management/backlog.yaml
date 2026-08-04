@@ -1872,3 +1872,9 @@ capabilities:
         branch: fix/M21-001-schema-completeness
       - id: M21-002
         status: backlog
+      - id: M21-003
+        status: done
+        planned_date: 2026-08-04
+        completed_date: 2026-08-04
+        verified_by: ai
+        branch: fix/M21-003-flaky-parallel-speedup

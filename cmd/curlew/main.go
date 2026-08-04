@@ -1103,12 +1103,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		}
 		var parallelInfo *output.ParallelTAP
 		if isParallel && summary.WaveCount > 1 {
-			wc, mp, sp := buildParallelMetadata(summary)
-			parallelInfo = &output.ParallelTAP{
-				WaveCount:      wc,
-				MaxParallelism: mp,
-				SpeedupFactor:  sp,
-			}
+			parallelInfo = newParallelTAP(summary)
 		}
 		if writeErr := output.WriteTAP(stdout, tapResults, passed, failed, parallelInfo); writeErr != nil {
 			_, _ = fmt.Fprintf(stderr, "tap encode error: %v\n", writeErr)
@@ -1560,12 +1555,7 @@ func buildJSONOutput(name string, results []runner.RequestResult, summary *runne
 		}
 		// Add parallel execution metadata
 		if summary.IsParallel {
-			wc, mp, sp := buildParallelMetadata(summary)
-			out.ParallelExecution = &output.ParallelExecutionJSON{
-				WaveCount:      wc,
-				MaxParallelism: mp,
-				SpeedupFactor:  sp,
-			}
+			out.ParallelExecution = newParallelExecutionJSON(summary)
 		}
 	}
 
@@ -1644,6 +1634,31 @@ func buildParallelMetadata(summary *runner.Summary) (waveCount, maxParallelism i
 		speedup = math.Round(speedup*10) / 10
 	}
 	return waveCount, maxParallelism, speedup
+}
+
+// newParallelTAP builds the TAP parallel-execution diagnostic for a summary.
+//
+// This and newParallelExecutionJSON exist so the two output paths cannot drift:
+// each is one call rather than a repeated three-field copy, and both are covered
+// by TestParallelMetadata_formatters_agree. (M21-003)
+func newParallelTAP(summary *runner.Summary) *output.ParallelTAP {
+	waveCount, maxParallelism, speedup := buildParallelMetadata(summary)
+	return &output.ParallelTAP{
+		WaveCount:      waveCount,
+		MaxParallelism: maxParallelism,
+		SpeedupFactor:  speedup,
+	}
+}
+
+// newParallelExecutionJSON builds the JSON parallel_execution block for a summary.
+// See newParallelTAP.
+func newParallelExecutionJSON(summary *runner.Summary) *output.ParallelExecutionJSON {
+	waveCount, maxParallelism, speedup := buildParallelMetadata(summary)
+	return &output.ParallelExecutionJSON{
+		WaveCount:      waveCount,
+		MaxParallelism: maxParallelism,
+		SpeedupFactor:  speedup,
+	}
 }
 
 // buildDataDrivenJSON computes data-driven aggregate entries from runner results.
