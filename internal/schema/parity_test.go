@@ -352,6 +352,75 @@ func reachableStructs(root reflect.Type) []reflect.Type {
 	return out
 }
 
+// TestSchema_dod_fixture_parses closes the loop the parity test opens. Parity
+// compares names; this proves the two agree on one real document: the fixture
+// exercising all nine previously-undescribed fields is accepted by the schema
+// (via TestSchema_accepts) and by the parser that schema claims to describe.
+func TestSchema_dod_fixture_parses(t *testing.T) {
+	path := filepath.Join(repoRoot(t), "internal", "schema", "testdata", "gap_15_all_nine_fields.yaml")
+	col, err := parser.ParseFile(path)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	tests := []struct {
+		name  string
+		check func(t *testing.T)
+	}{
+		{"collection_config_locale", func(t *testing.T) {
+			if col.Config.Locale != "de-DE" {
+				t.Errorf("config.locale = %q, want de-DE", col.Config.Locale)
+			}
+		}},
+		{"collection_signing", func(t *testing.T) {
+			if col.Signing == nil || col.Signing.Type != "aws-sigv4" {
+				t.Errorf("collection signing = %+v, want type aws-sigv4", col.Signing)
+			}
+		}},
+		{"item_if_and_signing_override", func(t *testing.T) {
+			a := col.Requests.Items[0]
+			if a.If == "" {
+				t.Error("item A: if: was dropped")
+			}
+			if a.Signing == nil || a.Signing.Type != "oauth1" {
+				t.Errorf("item A signing = %+v, want type oauth1", a.Signing)
+			}
+		}},
+		{"item_graphql_and_cel", func(t *testing.T) {
+			a := col.Requests.Items[0]
+			if a.Request.Protocol != "graphql" || a.Request.GraphQL == nil {
+				t.Errorf("item A protocol = %q, graphql = %+v", a.Request.Protocol, a.Request.GraphQL)
+			}
+			if len(a.Assertions.CEL.Items) != 2 {
+				t.Errorf("item A cel entries = %d, want 2", len(a.Assertions.CEL.Items))
+			}
+		}},
+		{"item_depends_on_and_explicit_null_signing", func(t *testing.T) {
+			b := col.Requests.Items[1]
+			if len(b.DependsOn) != 1 || b.DependsOn[0] != "A" {
+				t.Errorf("item B depends_on = %v, want [A]", b.DependsOn)
+			}
+			if !b.Signing.IsExplicitNull() {
+				t.Error("item B: signing: ~ did not survive as an explicit null")
+			}
+		}},
+		{"item_websocket_defaults_method", func(t *testing.T) {
+			b := col.Requests.Items[1]
+			if b.Request.Protocol != "websocket" || b.Request.WebSocket == nil {
+				t.Fatalf("item B protocol = %q, websocket = %+v", b.Request.Protocol, b.Request.WebSocket)
+			}
+			if b.Request.Method != "WS" {
+				t.Errorf("item B method = %q, want WS — the fixture declares none, which is why $defs.request no longer requires it", b.Request.Method)
+			}
+			if len(b.Request.WebSocket.Steps) != 4 {
+				t.Errorf("item B websocket steps = %d, want 4", len(b.Request.WebSocket.Steps))
+			}
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) { tc.check(t) })
+	}
+}
+
 // TestSchema_observable_no_missing_fields is the M21-001 observable as a Go
 // test: the nine keys the task names must be present at their schema locations.
 func TestSchema_observable_no_missing_fields(t *testing.T) {

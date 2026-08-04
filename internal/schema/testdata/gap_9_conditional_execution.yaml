@@ -1,0 +1,17 @@
+# M21-001: `if:` and `depends_on:` on a request item.
+name: Conditional Execution
+requests:
+  - name: Login
+    request:
+      method: POST
+      url: "https://example.com/login"
+    extract:
+      token: "$.token"
+  - name: Fetch Profile
+    depends_on: [Login]
+    if: 'vars.token != ""'
+    request:
+      method: GET
+      url: "https://example.com/me"
+    assertions:
+      status: 200

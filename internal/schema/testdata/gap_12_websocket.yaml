@@ -1,0 +1,50 @@
+# M21-001: `protocol: websocket` covering all four step actions, reconnect and
+# heartbeat. Declares no `method:` — the parser defaults it to WS, which is why
+# $defs.request no longer requires it.
+name: WebSocket Protocol
+requests:
+  - name: Order Stream
+    request:
+      url: "wss://example.com/socket"
+      protocol: websocket
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: subscribe
+              channel: orders
+          - action: expect
+            timeout_ms: 5000
+            count: 2
+            message:
+              $.type:
+                equals: subscribed
+            extract:
+              subscription_id: "$.id"
+          - action: expect
+            timeout_ms: 5000
+            any_of:
+              - message:
+                  $.type:
+                    equals: order
+              - message:
+                  $.type:
+                    equals: heartbeat
+          - action: wait
+            duration_ms: 1000
+          - action: close
+            code: 1000
+            reason: done
+        reconnect:
+          enabled: true
+          max_attempts: 3
+          initial_delay_ms: 1000
+          backoff: exponential
+        heartbeat:
+          enabled: true
+          interval_ms: 30000
+          message:
+            type: ping
+          expect:
+            $.type:
+              equals: pong

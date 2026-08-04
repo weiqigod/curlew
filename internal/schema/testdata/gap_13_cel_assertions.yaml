@@ -1,0 +1,12 @@
+# M21-001: `assertions.cel:` in both accepted entry forms.
+name: CEL Assertions
+requests:
+  - name: Check Response
+    request:
+      method: GET
+      url: "https://example.com/items"
+    assertions:
+      status: 200
+      cel:
+        - "response.status == 200"
+        - cel: "response.body.items.size() > 0"

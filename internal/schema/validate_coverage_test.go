@@ -412,6 +412,13 @@ func TestSchema_accepts(t *testing.T) {
 		{"request_retry", "gap_4_request_retry.yaml"},
 		{"data_driven_request", "gap_5_data_driven.yaml"},
 		{"variables_object_form", "gap_7_variables_object.yaml"},
+		{"conditional_execution", "gap_9_conditional_execution.yaml"},
+		{"request_signing", "gap_10_signing.yaml"},
+		{"graphql_protocol", "gap_11_graphql.yaml"},
+		{"websocket_protocol", "gap_12_websocket.yaml"},
+		{"cel_assertions", "gap_13_cel_assertions.yaml"},
+		{"collection_config_block", "gap_14_collection_config.yaml"},
+		{"all_nine_fields", "gap_15_all_nine_fields.yaml"},
 	}
 	if len(cases) == 0 {
 		t.Skip("no gap fixtures registered yet — populated incrementally by Steps 2–9")

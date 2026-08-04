@@ -1,0 +1,11 @@
+# M21-001: the top-level `config:` block.
+name: Collection Config Block
+config:
+  locale: de-DE
+requests:
+  - name: Localized Fake Data
+    request:
+      method: POST
+      url: "https://example.com/users"
+      body:
+        name: "{{$faker.name}}"
