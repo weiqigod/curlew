@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json",
+  "$id": "https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/project-v1.json",
   "title": "Curlew Project v1",
   "description": "Schema for curlew.yaml project configuration files",
   "type": "object",
@@ -71,10 +71,21 @@
           }
         }
       }
+    },
+    "config": {
+      "$ref": "#/$defs/config"
     }
   },
   "additionalProperties": false,
   "$defs": {
+    "config": {
+      "type": "object",
+      "description": "Cross-cutting configuration block. Same shape as the config: block in curlew.yaml (schemas/project-v1.json $defs.config).",
+      "properties": {
+        "locale": { "type": "string", "description": "Faker locale for $faker.* output, e.g. de-DE. Precedence: --locale > collection config.locale > project config.locale > en." }
+      },
+      "additionalProperties": false
+    },
     "output": {
       "type": "object",
       "description": "Default output configuration. Overridden by collection-level output and CLI flags (precedence: CLI > collection > project > built-in).",

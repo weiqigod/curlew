@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/collection-v1.json",
+  "$id": "https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/collection-v1.json",
   "title": "Curlew Collection v1",
   "description": "Schema for curlew collection YAML files",
   "type": "object",
@@ -59,6 +59,14 @@
     "output": {
       "$ref": "#/$defs/output",
       "description": "Per-collection output configuration. Overrides project-level output; overridden by CLI flags (precedence: CLI > collection > project > built-in)."
+    },
+    "config": {
+      "$ref": "#/$defs/config",
+      "description": "Collection-level config block. Currently holds the faker locale for this collection."
+    },
+    "signing": {
+      "$ref": "#/$defs/signing",
+      "description": "Collection-wide default signing, applied to every request item that neither sets its own signing: nor explicitly nulls it."
     }
   },
   "additionalProperties": false,
@@ -133,6 +141,19 @@
         "data_driven": {
           "$ref": "#/$defs/dataDriven",
           "description": "Data-driven configuration: run this request once per row in the source dataset."
+        },
+        "if": {
+          "type": "string",
+          "description": "CEL boolean guard evaluated before templating. A false result skips this item with reason \"if: false\". May reference vars.*, env.*, and previous.status / previous.headers / previous.body."
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "Names of request items in the same phase that must run before this one. Drives skip propagation in every mode and wave ordering under --parallel. A name matching no item in the phase is a parse error.",
+          "items": { "type": "string" }
+        },
+        "signing": {
+          "$ref": "#/$defs/signing",
+          "description": "Per-item signing override. An explicit null (signing: ~) disables an inherited collection-level default for this item; an absent field inherits it."
         }
       },
       "additionalProperties": false
@@ -140,11 +161,11 @@
     "request": {
       "type": "object",
       "description": "HTTP request definition",
-      "required": ["method", "url"],
+      "required": ["url"],
       "properties": {
         "method": {
           "type": "string",
-          "description": "HTTP method (GET, POST, PUT, DELETE, PATCH, etc.)"
+          "description": "HTTP method (GET, POST, PUT, DELETE, PATCH, etc.). Optional: defaults to GET, to POST when protocol is graphql, and to WS when protocol is websocket."
         },
         "url": {
           "type": "string",
@@ -174,6 +195,20 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "protocol": {
+          "type": "string",
+          "enum": ["http", "graphql", "websocket"],
+          "default": "http",
+          "description": "Protocol adapter. Defaults to http. A ws:// or wss:// URL auto-detects as websocket unless protocol is set explicitly."
+        },
+        "graphql": {
+          "$ref": "#/$defs/graphql",
+          "description": "GraphQL configuration. Meaningful when protocol is graphql."
+        },
+        "websocket": {
+          "$ref": "#/$defs/websocket",
+          "description": "WebSocket configuration. Meaningful when protocol is websocket."
         }
       },
       "additionalProperties": false
@@ -217,6 +252,10 @@
         "schema": {
           "type": "string",
           "description": "Path to a JSON Schema file (Professional tier). Path is relative to the collection file directory. The schema is compiled at parse time and validated against the response body."
+        },
+        "cel": {
+          "$ref": "#/$defs/celAssertions",
+          "description": "CEL boolean assertions evaluated against the activation {response, previous, vars, env}."
         }
       },
       "additionalProperties": false
@@ -299,6 +338,104 @@
         "parallel":       { "type": "boolean" },
         "rate_limit_rps": { "type": "integer", "minimum": 1 },
         "store_results":  { "type": "string", "enum": ["all", "summary", "failed_only"] }
+      },
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "description": "Cross-cutting configuration block. Same shape as the config: block in curlew.yaml (schemas/project-v1.json $defs.config).",
+      "properties": {
+        "locale": { "type": "string", "description": "Faker locale for $faker.* output, e.g. de-DE. Precedence: --locale > collection config.locale > project config.locale > en." }
+      },
+      "additionalProperties": false
+    },
+    "signing": {
+      "type": ["object", "null"],
+      "description": "Request signing, applied between variable templating and dispatch. An explicit null disables an inherited collection-level default, which is meaningful on a request item.",
+      "required": ["type"],
+      "properties": {
+        "type":   { "type": "string", "minLength": 1, "description": "Registered signer name. Built-ins: aws-sigv4, oauth1." },
+        "params": { "type": "object", "description": "Signer-specific parameters, forwarded verbatim to the signer factory. aws-sigv4: region, service, access_key, secret_key, session_token. oauth1: consumer_key, consumer_secret, token, token_secret, method, realm." }
+      },
+      "additionalProperties": false
+    },
+    "celAssertions": {
+      "type": "array",
+      "description": "CEL boolean assertions. Each entry is either the expression string itself or a single-key mapping { cel: \"<expr>\" }. A mapping carrying cel: alongside an operator key is rejected by the parser.",
+      "items": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          {
+            "type": "object",
+            "required": ["cel"],
+            "properties": { "cel": { "type": "string", "minLength": 1 } },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "graphql": {
+      "type": "object",
+      "description": "GraphQL request configuration. query and query_file are mutually exclusive; that constraint is enforced by the parser, not here.",
+      "properties": {
+        "query":          { "type": "string", "description": "Inline GraphQL document." },
+        "query_file":     { "type": "string", "description": "Path to an external .graphql file, relative to the collection file. Mutually exclusive with query." },
+        "fragments":      { "type": "array", "items": { "type": "string" }, "description": "Paths to .graphql fragment files, concatenated onto the query." },
+        "variables":      { "type": "object", "description": "GraphQL operation variables bound to $placeholders in the query." },
+        "error_handling": { "type": "string", "enum": ["fail", "warn", "ignore"], "description": "Partial-success policy for a 200 response carrying an errors array. Default fail." }
+      },
+      "additionalProperties": false
+    },
+    "websocket": {
+      "type": "object",
+      "description": "WebSocket request configuration. Steps execute sequentially within one connection lifecycle.",
+      "required": ["steps"],
+      "properties": {
+        "steps":     { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/websocketStep" } },
+        "reconnect": { "$ref": "#/$defs/websocketReconnect" },
+        "heartbeat": { "$ref": "#/$defs/websocketHeartbeat" }
+      },
+      "additionalProperties": false
+    },
+    "websocketStep": {
+      "type": "object",
+      "description": "A single action within a WebSocket request lifecycle. Which keys are meaningful depends on action.",
+      "required": ["action"],
+      "properties": {
+        "action":           { "type": "string", "enum": ["send", "expect", "wait", "close"] },
+        "message":          { "type": "object", "description": "send: literal JSON object payload. expect: JSONPath assertion map (path to {operator: value})." },
+        "message_raw":      { "type": "string", "description": "send: literal string payload." },
+        "message_template": { "type": "string", "description": "send: path to an external template file, loaded at parse time and interpolated at send time." },
+        "variables":        { "type": "object", "additionalProperties": { "type": "string" }, "description": "send: step-scoped variables merged in for message_template interpolation." },
+        "timeout_ms":       { "type": "integer", "minimum": 0, "description": "expect: bound on the wait for a matching message." },
+        "duration_ms":      { "type": "integer", "minimum": 0, "description": "wait: pause duration." },
+        "any_of":           { "type": "array", "description": "expect: alternative JSONPath assertion sets; the first that matches wins.", "items": { "type": "object", "properties": { "message": { "type": "object" } }, "additionalProperties": false } },
+        "count":            { "type": "integer", "minimum": 0, "description": "expect: number of matching messages to collect. 0 or absent means 1." },
+        "extract":          { "type": "object", "additionalProperties": { "type": "string" }, "description": "expect: variable name to JSONPath." },
+        "code":             { "type": "integer", "description": "close: WebSocket close code. Default 1000." },
+        "reason":           { "type": "string", "description": "close: optional close reason." }
+      },
+      "additionalProperties": false
+    },
+    "websocketReconnect": {
+      "type": "object",
+      "description": "Auto-reconnection on connection-level read failures during an expect step. Assertion failures, expect timeouts, and context cancellation are not retried.",
+      "properties": {
+        "enabled":          { "type": "boolean" },
+        "max_attempts":     { "type": "integer", "minimum": 0, "description": "Default 3." },
+        "initial_delay_ms": { "type": "integer", "minimum": 0, "description": "Default 1000." },
+        "backoff":          { "type": "string", "enum": ["exponential"], "description": "Default exponential." }
+      },
+      "additionalProperties": false
+    },
+    "websocketHeartbeat": {
+      "type": "object",
+      "description": "Periodic keepalive. With message unset the adapter sends a protocol ping frame; with message set it sends a data frame and matches the reply against expect.",
+      "properties": {
+        "enabled":     { "type": "boolean" },
+        "interval_ms": { "type": "integer", "minimum": 0, "description": "Default 30000. Must be greater than 0 when enabled is true — that conditional is enforced by the parser." },
+        "message":     { "type": "object" },
+        "expect":      { "type": "object", "additionalProperties": { "type": "object" }, "description": "JSONPath assertions matched against the pong reply." }
       },
       "additionalProperties": false
     }

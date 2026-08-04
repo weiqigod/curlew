@@ -1,0 +1,27 @@
+# M21-001: `signing:` at collection level, overridden per item, and disabled
+# with an explicit null.
+name: Request Signing
+signing:
+  type: aws-sigv4
+  params:
+    region: us-east-1
+    service: execute-api
+requests:
+  - name: Inherits The Collection Default
+    request:
+      method: GET
+      url: "https://example.com/signed"
+  - name: Overrides With OAuth 1.0
+    signing:
+      type: oauth1
+      params:
+        consumer_key: "{{consumer_key}}"
+        consumer_secret: "{{consumer_secret}}"
+    request:
+      method: GET
+      url: "https://example.com/oauth"
+  - name: Opts Out Entirely
+    signing: ~
+    request:
+      method: GET
+      url: "https://example.com/public"

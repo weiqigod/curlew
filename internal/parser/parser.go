@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,33 @@ import (
 	wstemplates "github.com/weiqigod/curlew/internal/websocket/templates"
 	"gopkg.in/yaml.v3"
 )
+
+// The parser validates four fields against closed sets of values. Each set is
+// duplicated as an enum in schemas/collection-v1.json and quoted in the error
+// hint the user sees, so the lists live here and the duplicates are pinned to
+// them by TestSchema_enums_match_parser and the tests in closedsets_test.go.
+// An empty value always means "unset" and resolves to the documented default.
+var (
+	// SupportedProtocols lists the values request.protocol accepts. Unset
+	// resolves to http.
+	SupportedProtocols = []string{"http", "graphql", "websocket"}
+
+	// WebSocketActions lists the values a websocket step's action: accepts.
+	WebSocketActions = []string{"send", "expect", "wait", "close"}
+
+	// WebSocketBackoffStrategies lists the values websocket.reconnect.backoff
+	// accepts. Unset resolves to exponential.
+	WebSocketBackoffStrategies = []string{"exponential"}
+
+	// GraphQLErrorHandlingValues lists the values graphql.error_handling
+	// accepts. Unset resolves to fail.
+	GraphQLErrorHandlingValues = []string{"fail", "warn", "ignore"}
+)
+
+// inClosedSet reports whether value is unset or a member of set.
+func inClosedSet(set []string, value string) bool {
+	return value == "" || slices.Contains(set, value)
+}
 
 // ParseFile reads and parses a collection YAML file.
 func ParseFile(path string) (*Collection, error) {
@@ -427,12 +455,12 @@ func parseCollectionBytes(path string, data []byte) (*Collection, error) {
 	for _, section := range []*[]RequestItem{&col.Setup.Items, &col.Requests.Items, &col.Teardown.Items} {
 		for i := range *section {
 			protocol := (*section)[i].Request.Protocol
-			if protocol != "" && protocol != "http" && protocol != "graphql" && protocol != "websocket" {
+			if !inClosedSet(SupportedProtocols, protocol) {
 				return nil, &apierrors.Structured{
 					Category: apierrors.CategoryParse,
 					FilePath: path,
 					Message:  fmt.Sprintf("unsupported protocol %q in request %q", protocol, (*section)[i].Name),
-					Hint:     "Allowed protocols: http, graphql, websocket",
+					Hint:     "Allowed protocols: " + strings.Join(SupportedProtocols, ", "),
 					Inner:    ErrUnsupportedProtocol,
 				}
 			}
@@ -448,15 +476,12 @@ func parseCollectionBytes(path string, data []byte) (*Collection, error) {
 					}
 				}
 				for j, step := range ws.Steps {
-					switch step.Action {
-					case "send", "expect", "wait", "close":
-						// valid
-					default:
+					if !slices.Contains(WebSocketActions, step.Action) {
 						return nil, &apierrors.Structured{
 							Category: apierrors.CategoryParse,
 							FilePath: path,
 							Message:  fmt.Sprintf("unsupported websocket action %q in request %q step %d", step.Action, (*section)[i].Name, j+1),
-							Hint:     "Allowed actions: send, expect, wait, close",
+							Hint:     "Allowed actions: " + strings.Join(WebSocketActions, ", "),
 							Inner:    ErrInvalidFieldValue,
 						}
 					}
@@ -468,7 +493,7 @@ func parseCollectionBytes(path string, data []byte) (*Collection, error) {
 				// Validate optional reconnect config.
 				if ws.Reconnect != nil {
 					backoff := ws.Reconnect.Backoff
-					if backoff != "" && backoff != "exponential" {
+					if !inClosedSet(WebSocketBackoffStrategies, backoff) {
 						return nil, &apierrors.Structured{
 							Category: apierrors.CategoryParse,
 							FilePath: path,
@@ -503,12 +528,12 @@ func parseCollectionBytes(path string, data []byte) (*Collection, error) {
 			// Validate graphql.error_handling values
 			if protocol == "graphql" && (*section)[i].Request.GraphQL != nil {
 				eh := (*section)[i].Request.GraphQL.ErrorHandling
-				if eh != "" && eh != "fail" && eh != "warn" && eh != "ignore" {
+				if !inClosedSet(GraphQLErrorHandlingValues, eh) {
 					return nil, &apierrors.Structured{
 						Category: apierrors.CategoryParse,
 						FilePath: path,
 						Message:  fmt.Sprintf("invalid error_handling value %q in request %q", eh, (*section)[i].Name),
-						Hint:     "Allowed values: fail, warn, ignore",
+						Hint:     "Allowed values: " + strings.Join(GraphQLErrorHandlingValues, ", "),
 						Inner:    ErrInvalidFieldValue,
 					}
 				}

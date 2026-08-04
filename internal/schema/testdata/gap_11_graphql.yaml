@@ -1,0 +1,24 @@
+# M21-001: `protocol: graphql` with both the inline and external query forms.
+name: GraphQL Protocol
+requests:
+  - name: Inline Query
+    request:
+      url: "https://example.com/graphql"
+      protocol: graphql
+      graphql:
+        query: "query Me { me { id name } }"
+        variables:
+          first: 10
+        error_handling: warn
+    assertions:
+      status: 200
+  - name: External Query With Fragments
+    request:
+      method: POST
+      url: "https://example.com/graphql"
+      protocol: graphql
+      graphql:
+        query_file: queries/me.graphql
+        fragments:
+          - queries/user_fields.graphql
+        error_handling: ignore

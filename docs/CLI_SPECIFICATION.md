@@ -399,7 +399,8 @@ Request item names must be unique within a phase; duplicates are a parse error
 
 ```yaml
 request:
-  method: string                  # required
+  method: string                  # optional; defaults to GET, POST when protocol
+                                  # is graphql, WS when protocol is websocket
   url: string                     # required
   headers: { Name: string }
   query:   { param: string }
@@ -1201,7 +1202,7 @@ request:
       - "graphql/fragments/user_fields.graphql"
     variables:
       id: "{{user_id}}"
-    error_handling: fail                              # fail (default) | warn
+    error_handling: fail                              # fail (default) | warn | ignore
 ```
 
 `query` and `query_file` are mutually exclusive. Listed `fragments` are
@@ -1882,17 +1883,22 @@ The schema describes structure, not cross-field constraints: mutual exclusions
 (`body` / `body_file` / `body_binary_file`, `query` / `query_file`,
 `path` / `request`) are enforced by the parser and stated in §5.
 
-> **The emitted schema is currently incomplete and is not the tiebreaker.** It is
-> maintained by hand rather than generated from the parser types, and it omits
-> nine fields the parser accepts — `if`, `depends_on`, and `signing` on a request
-> item; `protocol`, `graphql`, and `websocket` on a request; `cel` on assertions;
-> and top-level `config` and `signing`. Because both the request-item and request
-> definitions declare `additionalProperties: false`, an editor validating against
-> it reports errors on valid collections that use conditional execution, parallel
-> `depends_on`, GraphQL, WebSocket, CEL assertions, or request signing.
+> The schema is maintained by hand rather than generated, but it is kept honest:
+> a reflection test walks the parser structs in `internal/parser/collection.go`
+> and fails when a yaml-tagged field has no schema entry, or when the schema
+> describes a key the parser would ignore. A second test pins every closed-set
+> enum (`protocol`, WebSocket `action`, `reconnect.backoff`,
+> `graphql.error_handling`, `output.format`) to the parser's own list.
 >
-> Until that is fixed, §5 of this document is authoritative for the collection
-> format and the parser is the final tiebreaker. Tracked as **M21-001**.
+> Both `requestItem` and `request` declare `additionalProperties: false`, so a
+> misspelled key is reported by an editor wired up per MANUAL §1.5. Note that
+> the parser itself ignores unknown keys — the schema is the only place a typo
+> surfaces, which is why its completeness is a functional property rather than a
+> documentation nicety.
+>
+> One cross-field constraint is expressed in the schema as an exception to the
+> rule above: `$defs.variableEntry` forbids `from_command` and `value` together.
+> Every other mutual exclusion is the parser's.
 
 ---
 

@@ -1,0 +1,61 @@
+# M21-001: the Definition of Done fixture — one collection exercising all nine
+# fields the schema used to omit. Deliberately free of external file references
+# so the real parser can round-trip it (see TestSchema_dod_fixture_parses).
+name: All Nine Schema Gaps
+config:
+  locale: de-DE
+signing:
+  type: aws-sigv4
+  params:
+    region: us-east-1
+    service: execute-api
+requests:
+  - name: A
+    if: 'vars.x == "y"'
+    signing:
+      type: oauth1
+      params:
+        consumer_key: "{{consumer_key}}"
+        consumer_secret: "{{consumer_secret}}"
+    request:
+      method: GET
+      url: "https://example.com/graphql"
+      protocol: graphql
+      graphql:
+        query: "query Me { me { id } }"
+        error_handling: warn
+    assertions:
+      status: 200
+      cel:
+        - "response.status == 200"
+        - cel: "response.body.items.size() > 0"
+  - name: B
+    depends_on: [A]
+    signing: ~
+    request:
+      url: "wss://example.com/socket"
+      protocol: websocket
+      websocket:
+        steps:
+          - action: send
+            message:
+              type: subscribe
+              channel: orders
+          - action: expect
+            timeout_ms: 5000
+            count: 1
+            message:
+              $.type:
+                equals: subscribed
+          - action: wait
+            duration_ms: 1000
+          - action: close
+            code: 1000
+        reconnect:
+          enabled: true
+          max_attempts: 3
+          initial_delay_ms: 1000
+          backoff: exponential
+        heartbeat:
+          enabled: true
+          interval_ms: 30000

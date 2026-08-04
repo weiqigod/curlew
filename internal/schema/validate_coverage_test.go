@@ -229,6 +229,172 @@ func TestSchema_rejects_empty_output_path(t *testing.T) {
 	}
 }
 
+// collectionAround wraps a single request item in the minimal valid collection
+// envelope, so a table row only has to state the part under test. The item is
+// copied rather than filled in place, so a caller's map is never modified.
+func collectionAround(item map[string]any) map[string]any {
+	full := map[string]any{
+		"name":    "r",
+		"request": map[string]any{"method": "GET", "url": "https://example.com/"},
+	}
+	for k, v := range item {
+		full[k] = v
+	}
+	return map[string]any{"name": "x", "requests": []any{full}}
+}
+
+// TestSchema_method_is_optional_url_is_not mirrors the parser: url is the only
+// required request field. method defaults to GET for http, POST for graphql and
+// WS for websocket, so requiring it flagged valid collections — including the
+// WebSocket example in docs/CLI_SPECIFICATION.md §12.3.
+func TestSchema_method_is_optional_url_is_not(t *testing.T) {
+	tests := []struct {
+		name    string
+		request map[string]any
+		wantErr bool
+	}{
+		{"http_without_method", map[string]any{"url": "https://example.com/"}, false},
+		{"http_with_method", map[string]any{"method": "POST", "url": "https://example.com/"}, false},
+		{"websocket_without_method", map[string]any{
+			"url":       "wss://example.com/socket",
+			"protocol":  "websocket",
+			"websocket": map[string]any{"steps": []any{map[string]any{"action": "close"}}},
+		}, false},
+		{"graphql_without_method", map[string]any{
+			"url":      "https://example.com/graphql",
+			"protocol": "graphql",
+			"graphql":  map[string]any{"query": "{ me { id } }"},
+		}, false},
+		{"error case - request without url", map[string]any{"method": "GET"}, true},
+	}
+	sch := compileCollectionSchema(t)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := sch.Validate(collectionAround(map[string]any{"request": tc.request}))
+			if tc.wantErr && err == nil {
+				t.Fatal("expected a validation error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("expected clean validation, got %v", err)
+			}
+		})
+	}
+}
+
+// TestSchema_rejects_unknown_keys_in_new_definitions is the negative control
+// for the added definitions. additionalProperties:false is the schema's whole
+// value — the parser itself ignores unknown keys — so a typo inside the new
+// blocks must still be flagged.
+func TestSchema_rejects_unknown_keys_in_new_definitions(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  map[string]any
+	}{
+		{"typo in signing params key", collectionAround(map[string]any{
+			"signing": map[string]any{"type": "aws-sigv4", "parms": map[string]any{}},
+		})},
+		{"signing without type", collectionAround(map[string]any{
+			"signing": map[string]any{"params": map[string]any{"region": "us-east-1"}},
+		})},
+		{"unknown protocol", collectionAround(map[string]any{
+			"request": map[string]any{"url": "u", "protocol": "grpc"},
+		})},
+		{"typo in graphql key", collectionAround(map[string]any{
+			"request": map[string]any{"url": "u", "protocol": "graphql", "graphql": map[string]any{"querry": "{ me }"}},
+		})},
+		{"unknown graphql error_handling", collectionAround(map[string]any{
+			"request": map[string]any{"url": "u", "protocol": "graphql", "graphql": map[string]any{"query": "{me}", "error_handling": "explode"}},
+		})},
+		{"unknown websocket action", collectionAround(map[string]any{
+			"request": map[string]any{"url": "u", "protocol": "websocket", "websocket": map[string]any{"steps": []any{map[string]any{"action": "yell"}}}},
+		})},
+		{"websocket without steps", collectionAround(map[string]any{
+			"request": map[string]any{"url": "u", "protocol": "websocket", "websocket": map[string]any{}},
+		})},
+		{"depends_on as a bare string", collectionAround(map[string]any{"depends_on": "A"})},
+		{"cel entry carrying an operator key", collectionAround(map[string]any{
+			"assertions": map[string]any{"cel": []any{map[string]any{"cel": "x", "eq": 1}}},
+		})},
+		{"empty cel expression", collectionAround(map[string]any{
+			"assertions": map[string]any{"cel": []any{""}},
+		})},
+		{"typo in collection config key", map[string]any{
+			"name":     "x",
+			"config":   map[string]any{"locail": "de-DE"},
+			"requests": []any{map[string]any{"name": "r", "request": map[string]any{"url": "u"}}},
+		}},
+	}
+	sch := compileCollectionSchema(t)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := sch.Validate(tc.doc); err == nil {
+				t.Fatal("expected a validation error, got nil")
+			}
+		})
+	}
+}
+
+// TestSchema_accepts_null_signing pins the explicit-null semantics the parser
+// gives signing: ~ — an explicit null disables an inherited collection-level
+// default for that item, so it must validate at both levels.
+func TestSchema_accepts_null_signing(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  map[string]any
+	}{
+		{"null at request item", collectionAround(map[string]any{"signing": nil})},
+		{"null at collection level", map[string]any{
+			"name":     "x",
+			"signing":  nil,
+			"requests": []any{map[string]any{"name": "r", "request": map[string]any{"url": "u"}}},
+		}},
+		{"signing at both levels", map[string]any{
+			"name":    "x",
+			"signing": map[string]any{"type": "aws-sigv4", "params": map[string]any{"region": "us-east-1"}},
+			"requests": []any{map[string]any{
+				"name":    "r",
+				"signing": nil,
+				"request": map[string]any{"url": "u"},
+			}},
+		}},
+	}
+	sch := compileCollectionSchema(t)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := sch.Validate(tc.doc); err != nil {
+				t.Fatalf("expected clean validation, got %v", err)
+			}
+		})
+	}
+}
+
+// TestSchema_project_accepts_config_block is the acceptance test for the other
+// half of the same defect: internal/config binds config: from curlew.yaml, but
+// project-v1.json omitted it under additionalProperties:false.
+func TestSchema_project_accepts_config_block(t *testing.T) {
+	tests := []struct {
+		name    string
+		doc     map[string]any
+		wantErr bool
+	}{
+		{"config with locale", map[string]any{"project_name": "p", "config": map[string]any{"locale": "de-DE"}}, false},
+		{"empty config block", map[string]any{"project_name": "p", "config": map[string]any{}}, false},
+		{"error case - typo inside config", map[string]any{"project_name": "p", "config": map[string]any{"locail": "de-DE"}}, true},
+	}
+	sch := compileProjectSchema(t)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := sch.Validate(tc.doc)
+			if tc.wantErr && err == nil {
+				t.Fatal("expected a validation error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("expected clean validation, got %v", err)
+			}
+		})
+	}
+}
+
 // TestSchema_accepts is populated by Steps 2–9 (one sub-test per schema gap).
 // Each sub-test is a {name, fixture} row in a table; the body unmarshals the
 // fixture YAML and validates it against the embedded schema.
@@ -248,6 +414,13 @@ func TestSchema_accepts(t *testing.T) {
 		{"request_retry", "gap_4_request_retry.yaml"},
 		{"data_driven_request", "gap_5_data_driven.yaml"},
 		{"variables_object_form", "gap_7_variables_object.yaml"},
+		{"conditional_execution", "gap_9_conditional_execution.yaml"},
+		{"request_signing", "gap_10_signing.yaml"},
+		{"graphql_protocol", "gap_11_graphql.yaml"},
+		{"websocket_protocol", "gap_12_websocket.yaml"},
+		{"cel_assertions", "gap_13_cel_assertions.yaml"},
+		{"collection_config_block", "gap_14_collection_config.yaml"},
+		{"all_nine_fields", "gap_15_all_nine_fields.yaml"},
 	}
 	if len(cases) == 0 {
 		t.Skip("no gap fixtures registered yet — populated incrementally by Steps 2–9")

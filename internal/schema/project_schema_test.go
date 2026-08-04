@@ -34,7 +34,7 @@ func TestProjectSchema(t *testing.T) {
 		{"has_id", func(t *testing.T) {
 			var m map[string]any
 			_ = json.Unmarshal(schema.ProjectSchema, &m)
-			want := "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json"
+			want := "https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/project-v1.json"
 			if m["$id"] != want {
 				t.Errorf("$id = %v, want %v", m["$id"], want)
 			}

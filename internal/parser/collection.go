@@ -583,7 +583,7 @@ type GraphQLConfig struct {
 	QueryFile     string         `yaml:"query_file,omitempty"` // path to an external .graphql file (mutually exclusive with query)
 	Fragments     []string       `yaml:"fragments,omitempty"`  // paths to .graphql fragment files, concatenated onto the query
 	Variables     map[string]any `yaml:"variables,omitempty"`
-	ErrorHandling string         `yaml:"error_handling,omitempty"` // "fail" (default), "warn"
+	ErrorHandling string         `yaml:"error_handling,omitempty"` // GraphQLErrorHandlingValues; "fail" when unset
 }
 
 // ReconnectConfig controls auto-reconnection behaviour for a WebSocket request.
