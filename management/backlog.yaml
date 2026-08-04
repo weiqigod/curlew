@@ -1876,6 +1876,10 @@ capabilities:
         completed_date: 2026-08-04
         verified_by: ai
         branch: docs/M21-002-manual-backend-drift
+      - id: M21-004
+        status: in_progress
+        planned_date: 2026-08-04
+        branch: fix/M21-004-licensing-strip-remnants
       - id: M21-003
         status: done
         planned_date: 2026-08-04
