@@ -56,6 +56,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **`internal/requtil` covered directly: 76.8% → 96.8%.** Three exported converters sat at
+  0% — `ToHeaderInputs`, `ToBodyInputs` and `ToHTTPRequest`. None was dead code; all three
+  are called from the sequential runner, the parallel executor and the WebSocket executor,
+  so they were exercised indirectly and worked, but nothing pinned their behaviour.
+
+  Two behaviours are now pinned rather than merely executed. The assertion converters are
+  deliberately **asymmetric**: `ToHeaderInputs` stringifies via `fmt.Sprint` because
+  `assertion.HeaderInput.Value` is a `string`, while `ToBodyInputs` must not, because
+  `assertion.BodyInput.Value` is `any` and operators like `greater_than` compare on the
+  typed value. Making the two "consistent" is the obvious wrong edit and now fails a test.
+
+  `ToHTTPRequest` is a hand-maintained field copy that currently sets all five fields of
+  `httpexec.Request`; a sixth added later would reach the executor silently zero — the same
+  divergence class as the TAP/JSON speedup metadata in M21-003. The new guard walks the
+  destination struct by reflection, so a field added there fails on the day it is added
+  rather than the day someone notices requests losing it.
+
+  Also covers the previously unreached interpolation error branches (each failure must name
+  its own field: `URL:`, `headers:`, `query params:`, `body_file:`, `body:`) and the
+  `injectContentType` no-detected-type branch. All six new guards verified by mutation.
+
 - **`ci-local.sh` gates the backlog as a named, early step.** The consistency test already
   ran inside `go test $(go_pkgs)`, so this adds visibility and failure attribution rather
   than new enforcement — stated plainly so nobody later concludes the backlog was

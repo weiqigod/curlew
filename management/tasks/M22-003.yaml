@@ -1,0 +1,71 @@
+id: M22-003
+title: "Cover the requtil converters directly, and pin ToHTTPRequest to its destination struct"
+status: done
+priority: 2
+created: 2026-08-04
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # The package clears the 80% Definition-of-Done bar.
+  go test -cover ./internal/requtil/
+  # ok  ...  coverage: 96.8% of statements   (was 76.8%)
+
+  # All three converters are fully covered.
+  go test -coverprofile=/tmp/r.out ./internal/requtil/ && go tool cover -func=/tmp/r.out
+  # ToHeaderInputs 100.0%  ToBodyInputs 100.0%  ToHTTPRequest 100.0%
+
+  # Adding a field to the destination struct fails the converter's guard.
+  # (Append `Timeout string` to httpexec.Request, then:)
+  go test ./internal/requtil/ -run TestToHTTPRequest_populates_every_destination_field
+
+behaviors:
+  - "Given a header assertion whose value is not a string, when converted, then it is rendered with fmt.Sprint -- 200 becomes \"200\" and a missing value becomes \"<nil>\" -- because assertion.HeaderInput.Value is a string."
+  - "Given a body assertion whose value is not a string, when converted, then the value keeps its type, because operators such as greater_than compare on the typed value."
+  - "Given an empty or nil assertion slice, when converted, then the result is nil rather than an empty slice."
+  - "Given a field added to httpexec.Request that ToHTTPRequest does not map, when the suite runs, then a test fails naming that field."
+  - "Given a body file that resolved to no detected content type, when the request is interpolated, then no empty Content-Type header is injected."
+  - "Given an undefined variable in the URL, headers, query params, body_file or body, when the request is interpolated, then the error names the field that failed."
+
+scope: |
+  internal/requtil sat at 76.8%, below the 80% Definition-of-Done bar, with
+  three exported functions at 0%: ToHeaderInputs, ToBodyInputs and
+  ToHTTPRequest. None is dead code -- all three are called from the sequential
+  runner, the parallel executor and the WebSocket executor -- so they were
+  exercised indirectly and worked, but nothing pinned their behaviour.
+
+  Two behaviours were worth pinning rather than merely executing:
+
+  1. The two assertion converters are deliberately asymmetric. ToHeaderInputs
+     stringifies via fmt.Sprint because assertion.HeaderInput.Value is a
+     string; ToBodyInputs must not, because assertion.BodyInput.Value is any
+     and operators like greater_than compare on the typed value. Making them
+     "consistent" is the obvious wrong edit, and now fails a test.
+
+  2. ToHTTPRequest is a hand-maintained field copy. It currently sets all five
+     fields of httpexec.Request, but a sixth added later would arrive at the
+     executor silently zero -- the same divergence class as the TAP/JSON
+     speedup metadata in M21-003. The guard is driven by reflection over the
+     destination struct, so a new field fails on the day it is added.
+
+  Also covers the previously unreached error branches (each interpolation
+  failure must name its own field) and the injectContentType no-detected-type
+  branch, taking the package to 96.8%.
+
+  Out of scope, flagged separately: internal/appdir and
+  internal/uiserver/assets are both 0% (one function each), and appdir's
+  package comment still describes backend session tokens removed in the
+  2026-08-03 strip.
+
+definition_of_done:
+  - internal/requtil coverage is above 80%
+  - ToHeaderInputs, ToBodyInputs and ToHTTPRequest are each fully covered
+  - A field added to httpexec.Request fails a named test
+  - Every new test verified by mutation, not only by passing
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "1 hour"
