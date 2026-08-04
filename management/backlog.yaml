@@ -1865,7 +1865,7 @@ capabilities:
     milestone: M21
     tasks:
       - id: M21-001
-        status: planned
+        status: in_progress
         planned_date: 2026-08-04
         branch: fix/M21-001-schema-completeness
       - id: M21-002

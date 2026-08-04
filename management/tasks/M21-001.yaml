@@ -1,6 +1,6 @@
 id: M21-001
 title: "Collection/project JSON Schema completeness: 9 parser fields missing, editors flag valid collections"
-status: planned
+status: in_progress
 priority: 1
 created: 2026-08-04
 phase: "M21: Post-strip documentation and schema drift"
