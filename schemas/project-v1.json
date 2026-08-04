@@ -60,7 +60,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Persist run history under .curlew/ui/ (default true; Solo tier and above)."
+              "description": "Persist run history under .curlew/ui/ (default true)."
             },
             "max_runs": {
               "type": "integer",

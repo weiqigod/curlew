@@ -1882,3 +1882,9 @@ capabilities:
         completed_date: 2026-08-04
         verified_by: ai
         branch: fix/M21-003-flaky-parallel-speedup
+      - id: M21-004
+        status: done
+        planned_date: 2026-08-04
+        completed_date: 2026-08-04
+        verified_by: ai
+        branch: fix/M21-004-licensing-strip-remnants

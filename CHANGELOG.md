@@ -56,6 +56,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Licensing and tier gating removed from the CLI.** The five-tier model (Free/Solo/Professional/Team/Enterprise), license JWTs, feature gates, trials, upgrade URLs, the `curlew license` command, exit codes 6 (`feature_gated`) and 9 (grace expired), and the `CURLEW_TIER` / `CURLEW_LICENSE_BUNDLE` / `CURLEW_LAST_VALIDATION_OVERRIDE` environment variables are gone. Every CLI feature is now unconditionally available. `curlew login` remains for backend-connected features (team-vault fetch, scheduled runs, `pr-check`). Historical entries below describe the gating as it existed at the time.
 
 ### Fixed
+- **The published schemas no longer advertise licensing tiers.** Four `description` strings
+  still named the tier that used to gate a feature: `rate_limit_rps`, `include` and
+  `assertions.schema` each said "(Professional tier)", and `ui.history.enabled` said "Solo
+  tier and above". MANUAL §1.5 wires both schemas into the user's editor, so hovering
+  `rate_limit_rps` in VS Code advertised a paid tier of a product that has none and no way
+  to buy one. Same defect class as M21-001 — a schema description that does not match the
+  binary — and closed the same way: `TestSchema_descriptions_are_tier_free` walks every
+  description in both files and fails on any that names a tier, naming the offending
+  property by path.
+- **`docs/DEVELOPMENT_PHILOSOPHY.md` no longer prescribes deleted mechanisms.** CLAUDE.md
+  lists it under Key Documentation as active guidance, and two of its sections described
+  removed systems as current practice. "The feature-gate seam" told developers to park a
+  specified-but-unbuilt feature behind a gate reporting that it requires a higher tier;
+  there is no gate, no entitlement check and no exit code for one. It is now "No middle
+  state": a feature is either invisible or it works, and wanting to ship a deferred
+  interface is the signal to cut the slice smaller. "The Backend Boundary", which called
+  the CLI/backend network boundary the most significant in the process and required every
+  slice to span it, is now "No Backend Boundary" — the CLI makes no backend calls, so
+  "runnable" permanently means build the binary and run it, and the file-based equivalents
+  (`pr-check`, `telemetry`, `CURLEW_TEAM_CONFIG`) are the pattern to follow.
+- **CLAUDE.md's Current Status matched neither the backlog nor the tree.** It described M21
+  as open with two tasks. All four are done and the backlog is exhausted again. (M21-004)
 - **`docs/MANUAL.md` no longer describes the removed backend.** Four surfaces survived the
   backend strip because that pass targeted code, and survived the CLI_SPECIFICATION
   extraction because that produced a new document rather than editing this one:

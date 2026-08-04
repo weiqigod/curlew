@@ -1,0 +1,87 @@
+id: M21-004
+title: "Licensing-strip remnants: tier annotations in the published schemas, and stale guidance in DEVELOPMENT_PHILOSOPHY"
+status: done
+priority: 1
+created: 2026-08-04
+phase: "M21: Post-strip documentation and schema drift"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. No published schema description advertises a licensing tier.
+  grep -n -i "tier" schemas/*.json && echo "STALE" || echo "clear"
+  # Expected: "clear". Today four descriptions name a tier that no longer exists:
+  #   collection-v1.json  rate_limit_rps    "(Professional tier)"
+  #   collection-v1.json  include           "(Professional tier)"
+  #   collection-v1.json  assertions.schema "(Professional tier)"
+  #   project-v1.json     ui.history        "(Solo tier and above)"
+
+  # 2. A test fails if tier language returns to a schema description.
+  go test ./internal/schema/ -run TestSchema_descriptions_are_tier_free -v
+
+  # 3. The philosophy document no longer prescribes a mechanism that was deleted.
+  grep -n "feature-gate seam\|requires a higher tier" docs/DEVELOPMENT_PHILOSOPHY.md \
+    && echo "STALE" || echo "clear"
+
+  # 4. CLAUDE.md's status line matches the backlog.
+  grep -n "M21 (\`post_strip_drift\`) is open" CLAUDE.md && echo "STALE" || echo "clear"
+
+behaviors:
+  - "Given any description string in schemas/collection-v1.json or schemas/project-v1.json, when read, then it names no licensing tier — the CLI has none, so an editor tooltip must not claim a feature requires one."
+  - "Given a description that reacquires tier language, when the suite runs, then a test fails naming the offending property."
+  - "Given docs/DEVELOPMENT_PHILOSOPHY.md, which CLAUDE.md links as active guidance, when a developer reads it for how to handle a not-yet-built feature, then it does not prescribe the feature-gate mechanism that was deleted with the licensing system."
+  - "Given docs/DEVELOPMENT_PHILOSOPHY.md's Backend Boundary section, when read, then it does not instruct the reader to build CLI integration against a backend the CLI no longer talks to."
+  - "Given CLAUDE.md's Current Status paragraph, when read, then it agrees with management/backlog.yaml about which tasks are open."
+
+scope: |
+  Three surfaces the licensing and backend strips left behind. All are live —
+  none is a dated design record.
+
+  **The published schemas.** Four `description` strings still annotate a feature
+  with the tier that used to gate it. MANUAL §1.5 tells users to wire these
+  schemas into VS Code, so hovering `rate_limit_rps` tells a reader the feature
+  requires "Professional tier" for a product that has no tiers and no way to buy
+  one. This is the same defect class as M21-001 — a schema description that does
+  not match the binary — in the same files, and it should be closed the same way:
+  fix it, then add a guard so it cannot come back.
+
+  **docs/DEVELOPMENT_PHILOSOPHY.md.** CLAUDE.md lists it under Key Documentation
+  as active guidance. Two sections describe deleted systems as current practice:
+
+    "### The feature-gate seam" recommends parking specified-but-unbuilt features
+    behind a gate returning "this feature requires a higher tier". There is no
+    gate, no exit code 6, and no tier. The neighbouring "Invisible, not broken"
+    section is now the whole answer.
+
+    "## The Backend Boundary" instructs the reader to build every slice across
+    the CLI/backend network boundary and never to build one side alone. The CLI
+    makes no backend calls at all; `src/` and `web/` are developed independently.
+
+  **CLAUDE.md's Current Status.** It states M21 is open with two tasks. M21-001,
+  M21-002 and M21-003 are all done and the backlog is exhausted again.
+
+  Deliberately out of scope, checked and left alone:
+    - docs/SPECIFICATION.md, ASSESSMENT.md, REVIEW.md, SCRIPTING.md, the
+      M14/M16/M18 investigations, and the versioned EVENTS_SCHEMA files are dated
+      records of what was designed or observed at the time. Rewriting them would
+      falsify the history.
+    - docs/UI_SPECIFICATION.md carries 43 tier mentions but already opens with a
+      dated superseding note stating that all of them are historical. That is a
+      deliberate erratum, not drift.
+    - docs/COMPLIANCE.md's "four-tier data classification" is an unrelated sense
+      of the word.
+    - 24 tier mentions in test names and comments under cmd/ and internal/ are
+      cosmetic; the tests are correct. Separate cleanup if wanted.
+
+definition_of_done:
+  - No description in either published schema names a licensing tier
+  - A test fails if one does, naming the property
+  - Both schema files still validate every fixture, and additionalProperties:false still bites
+  - DEVELOPMENT_PHILOSOPHY's feature-gate and backend-boundary guidance matches the shipped tool
+  - CLAUDE.md's Current Status agrees with management/backlog.yaml
+  - `./scripts/ci-local.sh --go` passes
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "1-2 hours"

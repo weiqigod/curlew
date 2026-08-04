@@ -45,11 +45,11 @@
     "rate_limit_rps": {
       "type": "integer",
       "minimum": 0,
-      "description": "Global token-bucket rate limit in requests per second (Professional tier). 0 = unlimited."
+      "description": "Global token-bucket rate limit in requests per second, applied across the whole run. 0 = unlimited."
     },
     "include": {
       "type": "array",
-      "description": "Other collection files to include (Professional tier). Items are spliced into setup/requests/teardown in order. Variables in this collection form a snapshot the included children inherit; child variable changes never leak back to this collection.",
+      "description": "Other collection files to include. Items are spliced into setup/requests/teardown in order. Variables in this collection form a snapshot the included children inherit; child variable changes never leak back to this collection.",
       "items": { "type": "string" }
     },
     "retry": {
@@ -251,7 +251,7 @@
         },
         "schema": {
           "type": "string",
-          "description": "Path to a JSON Schema file (Professional tier). Path is relative to the collection file directory. The schema is compiled at parse time and validated against the response body."
+          "description": "Path to a JSON Schema file, relative to the collection file directory. The schema is compiled at parse time and validated against the response body."
         },
         "cel": {
           "$ref": "#/$defs/celAssertions",
