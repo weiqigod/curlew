@@ -235,6 +235,33 @@ func TestSchema_output_defs_match(t *testing.T) {
 	}
 }
 
+// TestSchema_config_defs_match mirrors TestSchema_output_defs_match: the
+// config: block has the same shape in a collection and in curlew.yaml, and JSON
+// Schema offers no cross-file include an editor can resolve offline, so the
+// definition is duplicated and pinned here.
+func TestSchema_config_defs_match(t *testing.T) {
+	var col, proj map[string]any
+	if err := json.Unmarshal(schema.CollectionSchema, &col); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(schema.ProjectSchema, &proj); err != nil {
+		t.Fatal(err)
+	}
+	colCfg, ok := col["$defs"].(map[string]any)["config"]
+	if !ok {
+		t.Fatal("collection schema $defs missing config")
+	}
+	projCfg, ok := proj["$defs"].(map[string]any)["config"]
+	if !ok {
+		t.Fatal("project schema $defs missing config")
+	}
+	colBytes, _ := json.Marshal(colCfg)
+	projBytes, _ := json.Marshal(projCfg)
+	if !bytes.Equal(colBytes, projBytes) {
+		t.Fatalf("$defs.config differs:\ncollection: %s\nproject:    %s", colBytes, projBytes)
+	}
+}
+
 // TestSchema_ids_match_module_path pins the $id of both published schemas to
 // the Go module path's org. MANUAL §1.5 hands out-of-tree users these URLs to
 // wire into yaml.schemas, so an org segment that does not match the remote
