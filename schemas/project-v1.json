@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/peterlindqvist/curlew/main/schemas/project-v1.json",
+  "$id": "https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/project-v1.json",
   "title": "Curlew Project v1",
   "description": "Schema for curlew.yaml project configuration files",
   "type": "object",
