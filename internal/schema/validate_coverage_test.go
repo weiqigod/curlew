@@ -230,15 +230,17 @@ func TestSchema_rejects_empty_output_path(t *testing.T) {
 }
 
 // collectionAround wraps a single request item in the minimal valid collection
-// envelope, so a table row only has to state the part under test.
+// envelope, so a table row only has to state the part under test. The item is
+// copied rather than filled in place, so a caller's map is never modified.
 func collectionAround(item map[string]any) map[string]any {
-	if _, ok := item["name"]; !ok {
-		item["name"] = "r"
+	full := map[string]any{
+		"name":    "r",
+		"request": map[string]any{"method": "GET", "url": "https://example.com/"},
 	}
-	if _, ok := item["request"]; !ok {
-		item["request"] = map[string]any{"method": "GET", "url": "https://example.com/"}
+	for k, v := range item {
+		full[k] = v
 	}
-	return map[string]any{"name": "x", "requests": []any{item}}
+	return map[string]any{"name": "x", "requests": []any{full}}
 }
 
 // TestSchema_method_is_optional_url_is_not mirrors the parser: url is the only

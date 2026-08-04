@@ -317,16 +317,29 @@ Curlew publishes its collection JSON Schema at a stable in-repo path so VS Code 
 }
 ```
 
-If you are using Curlew from outside its source tree and don't have the schema files on disk, point `yaml.schemas` at the published URLs instead:
+If you are using Curlew from outside its source tree and don't have the schema files on disk, ask the binary for them. This is the reliable option, and it has an advantage over any published copy: the schema you get is the one your installed binary actually enforces.
+
+```bash
+mkdir -p .curlew/schemas
+curlew schema           > .curlew/schemas/collection-v1.json
+curlew schema --project > .curlew/schemas/project-v1.json
+```
 
 ```json
 {
   "yaml.schemas": {
-    "https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/collection-v1.json": "collections/*.yaml",
-    "https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/project-v1.json":    "curlew.yaml"
+    "./.curlew/schemas/collection-v1.json": "collections/*.yaml",
+    "./.curlew/schemas/project-v1.json":    "curlew.yaml"
   }
 }
 ```
+
+Each schema also carries an `$id` pointing at its published location
+(`https://raw.githubusercontent.com/weiqigod/curlew/main/schemas/…`). That URL is
+an identifier, not a promise: it resolves only while the repository is public,
+and the repository is currently private, so pointing `yaml.schemas` at it gets
+you a 404 rather than autocomplete. `./scripts/check-schema-urls.sh` reports
+whether the URLs currently resolve.
 
 **What you get.** Typing `req<Ctrl-Space>` inside a collection file suggests `requests:`. Hovering `rate_limit_rps` shows its description. Removing a required field like `name:` gets a squiggle. Misspelling a key (`assertiosn:`) is flagged.
 

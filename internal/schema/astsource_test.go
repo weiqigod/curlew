@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/schema"
 )
 
 // Two parser types decode from YAML with a hand-rolled key switch instead of
@@ -151,7 +153,7 @@ func TestSchema_hand_rolled_decoder_keys_match_source(t *testing.T) {
 // source rather than by reflection.
 func TestSchema_project_root_properties_match_project_file(t *testing.T) {
 	want := structYAMLTags(t, projectConfigPath(t), "projectFile")
-	got := sortedKeys(schemaPropertyNames(t, decodeSchemaDoc(t, projectSchemaBytes())))
+	got := sortedKeys(schemaPropertyNames(t, decodeSchemaDoc(t, schema.ProjectSchema)))
 	for _, d := range symmetricDiff(got, want) {
 		t.Errorf("project-v1.json root vs projectFile: %s", d)
 	}

@@ -56,28 +56,40 @@ func TestParser_supported_protocols_are_accepted(t *testing.T) {
 	})
 }
 
+// plausibleButRejectedProtocols are values a reader could reasonably expect to
+// find in a protocol list and which the parser rejects. `https` was in the hint
+// for exactly that reason: it reads naturally and is wrong.
+var plausibleButRejectedProtocols = []string{"https", "http2", "ws", "wss", "grpc", "tcp", "rest", "soap"}
+
 // TestParser_protocol_hint_lists_only_accepted_values guards the failure mode
 // where a user follows the hint and hits the same error again: the registered
-// hint for ErrUnsupportedProtocol must name every accepted protocol and nothing
-// else.
+// hint for ErrUnsupportedProtocol must name every accepted protocol and none of
+// the plausible-looking values the parser turns down.
 func TestParser_protocol_hint_lists_only_accepted_values(t *testing.T) {
 	hint := registeredHint(t, ErrUnsupportedProtocol)
+	words := map[string]bool{}
+	for _, w := range strings.FieldsFunc(hint, func(r rune) bool {
+		return r == ' ' || r == ',' || r == '.' || r == ':' || r == '"'
+	}) {
+		words[w] = true
+	}
+
 	for _, proto := range SupportedProtocols {
-		if !strings.Contains(hint, proto) {
+		if !words[proto] {
 			t.Errorf("hint %q omits accepted protocol %q", hint, proto)
 		}
 	}
+
 	accepted := map[string]bool{}
 	for _, p := range SupportedProtocols {
 		accepted[p] = true
 	}
-	// "https" is the specific trap: it looks like a protocol, reads naturally
-	// in a hint, and is rejected by the parser.
-	for _, word := range strings.FieldsFunc(hint, func(r rune) bool {
-		return r == ' ' || r == ',' || r == '.' || r == ':'
-	}) {
-		if word == "https" && !accepted[word] {
-			t.Errorf("hint %q offers %q, which the parser rejects — a user who follows it hits the same error", hint, word)
+	for _, bad := range plausibleButRejectedProtocols {
+		if accepted[bad] {
+			continue // it became supported; nothing to guard
+		}
+		if words[bad] {
+			t.Errorf("hint %q offers %q, which the parser rejects — a user who follows it hits the same error", hint, bad)
 		}
 	}
 }

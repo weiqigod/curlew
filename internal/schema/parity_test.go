@@ -201,9 +201,6 @@ func decodeSchemaDoc(t *testing.T, raw []byte) map[string]any {
 	return m
 }
 
-func collectionSchemaBytes() []byte { return schema.CollectionSchema }
-func projectSchemaBytes() []byte    { return schema.ProjectSchema }
-
 // parserCollectionPath is the source file holding the collection parser types.
 func parserCollectionPath(t *testing.T) string {
 	t.Helper()
@@ -262,7 +259,7 @@ func symmetricDiff(got, want []string) []string {
 // requestItem and request declare additionalProperties: false, an undescribed
 // key turns a valid collection into an editor error.
 func TestSchema_parser_fields_are_described(t *testing.T) {
-	doc := decodeSchemaDoc(t, collectionSchemaBytes())
+	doc := decodeSchemaDoc(t, schema.CollectionSchema)
 	for _, tc := range collectionParity {
 		t.Run(tc.name, func(t *testing.T) {
 			props := schemaPropertyNames(t, schemaObjectAt(t, doc, tc.path))
@@ -280,7 +277,7 @@ func TestSchema_parser_fields_are_described(t *testing.T) {
 // the parser would silently ignore is a documentation lie, because it
 // autocompletes a key that does nothing.
 func TestSchema_properties_have_parser_fields(t *testing.T) {
-	doc := decodeSchemaDoc(t, collectionSchemaBytes())
+	doc := decodeSchemaDoc(t, schema.CollectionSchema)
 	for _, tc := range collectionParity {
 		t.Run(tc.name, func(t *testing.T) {
 			keys := map[string]bool{}
@@ -356,7 +353,7 @@ func reachableStructs(root reflect.Type) []reflect.Type {
 // parser's own list, so adding a protocol or a websocket action without
 // touching the schema fails here instead of in a user's editor.
 func TestSchema_enums_match_parser(t *testing.T) {
-	doc := decodeSchemaDoc(t, collectionSchemaBytes())
+	doc := decodeSchemaDoc(t, schema.CollectionSchema)
 	tests := []struct {
 		name string
 		path string
@@ -468,7 +465,7 @@ func TestSchema_dod_fixture_parses(t *testing.T) {
 // TestSchema_observable_no_missing_fields is the M21-001 observable as a Go
 // test: the nine keys the task names must be present at their schema locations.
 func TestSchema_observable_no_missing_fields(t *testing.T) {
-	doc := decodeSchemaDoc(t, collectionSchemaBytes())
+	doc := decodeSchemaDoc(t, schema.CollectionSchema)
 	tests := []struct {
 		name string
 		path string
