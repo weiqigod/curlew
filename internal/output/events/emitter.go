@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/weiqigod/curlew/internal/assertion"
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 	"github.com/weiqigod/curlew/internal/output/ids"
 )
@@ -251,8 +252,22 @@ func (e *Emitter) EmitRequestEnd(in RequestEndInput) error {
 	return e.writeEvent(ev)
 }
 
+// AssertionResultInput carries the fields of an assertion.result event. It is a
+// struct rather than a parameter list because the identity triple plus the
+// expected/actual pair would otherwise be six adjacent strings, where a
+// transposition compiles cleanly and fails silently.
+type AssertionResultInput struct {
+	RequestID string
+	Type      string // discriminator only — see AssertionResult
+	Target    string // JSONPath, header name, schema path, or assertions[N]
+	Operator  string // comparison applied; empty where the type implies it
+	Expected  string
+	Actual    string
+	Passed    bool
+}
+
 // EmitAssertionResult emits an assertion.result event.
-func (e *Emitter) EmitAssertionResult(requestID, aType, expected, actual string, passed bool) error {
+func (e *Emitter) EmitAssertionResult(in AssertionResultInput) error {
 	id := e.nextID()
 	ev := AssertionResult{
 		Header: Header{
@@ -262,11 +277,14 @@ func (e *Emitter) EmitAssertionResult(requestID, aType, expected, actual string,
 			AtMs:          e.atMs(),
 			Kind:          KindAssertionResult,
 		},
-		RequestID: requestID,
-		Type:      aType,
-		Passed:    passed,
-		Expected:  expected,
-		Actual:    actual,
+		RequestID: in.RequestID,
+		Type:      in.Type,
+		Target:    in.Target,
+		Operator:  in.Operator,
+		Label:     assertion.Label(in.Type, in.Target, in.Operator),
+		Passed:    in.Passed,
+		Expected:  in.Expected,
+		Actual:    in.Actual,
 	}
 	return e.writeEvent(ev)
 }

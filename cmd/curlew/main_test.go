@@ -2651,30 +2651,6 @@ requests:
 	}
 }
 
-func TestExtractJSONOperator(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"status", "status"},
-		{"timing", "timing"},
-		{"body $.id equals", "equals"},
-		{"body $.url contains", "contains"},
-		{"header Content-Type matches", "matches"},
-		{"header X-Custom-Header equals", "equals"},
-		{"body $.count greater_than", "greater_than"},
-		{"", ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := extractJSONOperator(tt.input)
-			if got != tt.want {
-				t.Errorf("extractJSONOperator(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestBuildJSONOutput(t *testing.T) {
 	passedResult := &httpexec.Result{StatusCode: 200, Duration: 10 * time.Millisecond}
 	failedAssertions := &assertion.Results{
@@ -2950,8 +2926,20 @@ func TestBuildJSONOutput_assertionFields(t *testing.T) {
 	if a.Passed {
 		t.Error("expected Passed=false")
 	}
-	if a.Operator == "" {
-		t.Error("expected non-empty Operator")
+	// A status assertion addresses the response as a whole: it has no target
+	// and no operator. Before the identity split, Operator was populated by
+	// taking the last word of the composite type, which yielded "status".
+	if a.Type != "status" {
+		t.Errorf("Type = %q, want %q", a.Type, "status")
+	}
+	if a.Target != "" {
+		t.Errorf("Target = %q, want empty for a status assertion", a.Target)
+	}
+	if a.Operator != "" {
+		t.Errorf("Operator = %q, want empty for a status assertion", a.Operator)
+	}
+	if a.Label != "status" {
+		t.Errorf("Label = %q, want %q", a.Label, "status")
 	}
 }
 
@@ -3165,10 +3153,18 @@ requests:
 	if a["passed"] != false {
 		t.Error("expected passed=false")
 	}
-	for _, field := range []string{"expected", "actual", "operator"} {
+	// "operator" and "target" are omitted for a status assertion, which has
+	// neither; "type" and "label" are always present.
+	for _, field := range []string{"expected", "actual", "type", "label"} {
 		if _, ok := a[field]; !ok {
 			t.Errorf("missing assertion field %q", field)
 		}
+	}
+	if a["type"] != "status" {
+		t.Errorf("type = %v, want \"status\"", a["type"])
+	}
+	if _, ok := a["operator"]; ok {
+		t.Error("status assertion should not carry an operator")
 	}
 }
 
@@ -8580,9 +8576,9 @@ requests:
 		t.Fatalf("first event kind = %q, want run.start", first["kind"])
 	}
 
-	// schema_version must be "1.3" (current version)
-	if sv := first["schema_version"]; sv != "1.3" {
-		t.Errorf("schema_version = %q, want 1.3", sv)
+	// schema_version must be "1.4" (current version)
+	if sv := first["schema_version"]; sv != "1.4" {
+		t.Errorf("schema_version = %q, want 1.4", sv)
 	}
 
 	// selection must contain both names.

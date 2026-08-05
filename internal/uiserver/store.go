@@ -250,7 +250,7 @@ func (st *Store) LoadDetails(runID, root string) (*DetailCollector, error) {
 		if d.Assertions != nil {
 			for _, item := range d.Assertions.Items {
 				if !item.Passed {
-					d.failMessage = fmt.Sprintf("%s: expected %s, got %s", item.Type, item.Expected, item.Actual)
+					d.failMessage = fmt.Sprintf("%s: expected %s, got %s", item.Label, item.Expected, item.Actual)
 					break
 				}
 			}

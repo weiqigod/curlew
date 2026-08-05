@@ -9,8 +9,8 @@ import (
 	"github.com/weiqigod/curlew/internal/output/events"
 )
 
-func TestSchemaVersion_Is13(t *testing.T) {
-	if events.SchemaVersion != "1.3" {
+func TestSchemaVersion_Is14(t *testing.T) {
+	if events.SchemaVersion != "1.4" {
 		t.Fatalf("SchemaVersion = %q, want \"1.3\"", events.SchemaVersion)
 	}
 }

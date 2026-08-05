@@ -100,7 +100,20 @@ type EventSink interface {
 	// mid-run inspection (curlew ui, events schema v1.3).
 	RequestEnd(requestID, requestSlug, outcome string, statusCode int, duration time.Duration, waveIndex int, reqBody, respBody []byte, err error, extra *EndExtra)
 	// AssertionResult fires once per individual assertion item.
-	AssertionResult(requestID, aType, expected, actual string, passed bool)
+	AssertionResult(ev AssertionEvent)
+}
+
+// AssertionEvent carries one assertion outcome across the sink boundary.
+// Type is a discriminator ("body", "header", ...); Target and Operator hold the
+// parts that vary, so consumers never have to parse a composite string.
+type AssertionEvent struct {
+	RequestID string
+	Type      string
+	Target    string
+	Operator  string
+	Expected  string
+	Actual    string
+	Passed    bool
 }
 
 // Config holds parallel execution configuration.
@@ -466,7 +479,15 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 	if cfg.EventSink != nil && reqID != "" {
 		if ar != nil {
 			for _, a := range ar.Items {
-				cfg.EventSink.AssertionResult(reqID, a.Type, a.Expected, a.Actual, a.Passed)
+				cfg.EventSink.AssertionResult(AssertionEvent{
+					RequestID: reqID,
+					Type:      a.Type,
+					Target:    a.Target,
+					Operator:  a.Operator,
+					Expected:  a.Expected,
+					Actual:    a.Actual,
+					Passed:    a.Passed,
+				})
 			}
 		}
 		outcomeStr := "passed"

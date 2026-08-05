@@ -15,11 +15,79 @@ import (
 )
 
 // Result represents the outcome of a single assertion.
+//
+// Type, Target and Operator together identify what was asserted. They are the
+// machine-readable form: Type is a fixed discriminator, and the other two carry
+// the parts that vary per assertion. Human-facing output uses Label instead,
+// which reassembles them into a readable phrase.
+//
+// Keeping these separate is load-bearing. Type was previously built as a
+// composite ("body $.user.name equals"), which meant no consumer could
+// discriminate on it and the published JSON Schema's enum was violated by every
+// assertion except status.
 type Result struct {
-	Type     string // e.g. "status", "body"
+	// Type is the assertion kind and is always one of the constants below.
+	Type string
+	// Target names what the assertion addressed: a JSONPath for body, a header
+	// name for header, a schema file or instance path for schema, and
+	// "assertions[N]" for cel. Empty for status and timing, which address the
+	// response as a whole.
+	Target string
+	// Operator is the comparison applied — "equals", "matches", "exists" and so
+	// on. Empty when the type implies the comparison (status, timing, schema,
+	// cel).
+	Operator string
 	Expected string // human-readable expected value
 	Actual   string // human-readable actual value
 	Passed   bool
+}
+
+// Assertion kinds. These are the complete vocabulary of Result.Type and must
+// stay in step with the assertion.result type enum published in
+// docs/events-schema/ — internal/output/events holds them to it.
+const (
+	TypeStatus = "status"
+	TypeBody   = "body"
+	TypeHeader = "header"
+	TypeSchema = "schema"
+	TypeTiming = "timing"
+	TypeCEL    = "cel"
+	// TypeGraphQLError is produced by the runner, not by this package's
+	// evaluators, when a GraphQL response carries errors under a failing
+	// error_handling mode. It addresses the response as a whole, so it has
+	// neither a target nor an operator.
+	TypeGraphQLError = "graphql_error"
+)
+
+// Label returns the human-readable description of the assertion, e.g.
+// "body $.user.name equals". Every human-facing surface (terminal output, HTML
+// reports, pr-check messages, the local UI) renders this, and the strings it
+// produces are the ones those surfaces have always shown.
+func (r Result) Label() string { return Label(r.Type, r.Target, r.Operator) }
+
+// Label builds the human-readable description from the identity triple. It is
+// exported so that packages carrying the triple in their own event types can
+// render the same string without restating the rules.
+func Label(typ, target, operator string) string {
+	switch {
+	case typ == TypeCEL:
+		// CEL is the one kind whose label puts the type last.
+		return target + ".cel"
+	case target == "" && operator == "":
+		return typ
+	case operator == "":
+		return typ + " " + target
+	default:
+		return typ + " " + target + " " + operator
+	}
+}
+
+// with returns a copy of r carrying the given outcome, preserving the identity
+// fields. Evaluators build the identity once and use this at each return, so a
+// branch cannot accidentally ship a result that has lost its target.
+func (r Result) with(expected, actual string, passed bool) Result {
+	r.Expected, r.Actual, r.Passed = expected, actual, passed
+	return r
 }
 
 // Results is a collection of assertion outcomes for one request.
@@ -58,76 +126,36 @@ func CheckHeaders(assertions []HeaderInput, headers http.Header) []Result {
 }
 
 func evalHeaderAssertion(a HeaderInput, headers http.Header) Result {
-	typeName := fmt.Sprintf("header %s %s", a.Name, a.Operator)
+	id := Result{Type: TypeHeader, Target: a.Name, Operator: a.Operator}
 
 	switch a.Operator {
 	case "equals":
 		actual := headers.Get(a.Name)
 		if headers == nil || len(headers.Values(a.Name)) == 0 {
-			return Result{
-				Type:     typeName,
-				Expected: a.Value,
-				Actual:   "header not present",
-				Passed:   false,
-			}
+			return id.with(a.Value, "header not present", false)
 		}
-		return Result{
-			Type:     typeName,
-			Expected: a.Value,
-			Actual:   actual,
-			Passed:   actual == a.Value,
-		}
+		return id.with(a.Value, actual, actual == a.Value)
 
 	case "exists":
 		if headers == nil || len(headers.Values(a.Name)) == 0 {
-			return Result{
-				Type:     typeName,
-				Expected: "exists",
-				Actual:   "header not present",
-				Passed:   false,
-			}
+			return id.with("exists", "header not present", false)
 		}
-		return Result{
-			Type:     typeName,
-			Expected: "exists",
-			Actual:   "exists",
-			Passed:   true,
-		}
+		return id.with("exists", "exists", true)
 
 	case "matches":
+		expected := fmt.Sprintf("matches %s", a.Value)
 		re, err := regexp.Compile(a.Value)
 		if err != nil {
-			return Result{
-				Type:     typeName,
-				Expected: fmt.Sprintf("matches %s", a.Value),
-				Actual:   fmt.Sprintf("invalid regex: %s", err),
-				Passed:   false,
-			}
+			return id.with(expected, fmt.Sprintf("invalid regex: %s", err), false)
 		}
 		actual := headers.Get(a.Name)
 		if headers == nil || len(headers.Values(a.Name)) == 0 {
-			return Result{
-				Type:     typeName,
-				Expected: fmt.Sprintf("matches %s", a.Value),
-				Actual:   "header not present",
-				Passed:   false,
-			}
+			return id.with(expected, "header not present", false)
 		}
-		passed := re.MatchString(actual)
-		return Result{
-			Type:     typeName,
-			Expected: fmt.Sprintf("matches %s", a.Value),
-			Actual:   actual,
-			Passed:   passed,
-		}
+		return id.with(expected, actual, re.MatchString(actual))
 
 	default:
-		return Result{
-			Type:     typeName,
-			Expected: a.Value,
-			Actual:   "unsupported operator",
-			Passed:   false,
-		}
+		return id.with(a.Value, "unsupported operator", false)
 	}
 }
 
@@ -139,7 +167,7 @@ func CheckTiming(maxDurationMs int, actual time.Duration) *Result {
 	}
 	passed := actual.Milliseconds() <= int64(maxDurationMs)
 	return &Result{
-		Type:     "timing",
+		Type:     TypeTiming,
 		Expected: fmt.Sprintf("<= %dms", maxDurationMs),
 		Actual:   fmt.Sprintf("%dms", actual.Milliseconds()),
 		Passed:   passed,
@@ -152,22 +180,16 @@ func CheckStatus(expected []int, actual int) *Result {
 	if len(expected) == 0 {
 		return nil
 	}
+	id := Result{Type: TypeStatus}
+	passed := false
 	for _, code := range expected {
 		if code == actual {
-			return &Result{
-				Type:     "status",
-				Expected: formatCodes(expected),
-				Actual:   fmt.Sprintf("%d", actual),
-				Passed:   true,
-			}
+			passed = true
+			break
 		}
 	}
-	return &Result{
-		Type:     "status",
-		Expected: formatCodes(expected),
-		Actual:   fmt.Sprintf("%d", actual),
-		Passed:   false,
-	}
+	r := id.with(formatCodes(expected), fmt.Sprintf("%d", actual), passed)
+	return &r
 }
 
 // CheckBody evaluates body assertions against the response body bytes.
@@ -183,12 +205,11 @@ func CheckBody(assertions []BodyInput, body []byte) []Result {
 	results := make([]Result, 0, len(assertions))
 	for _, a := range assertions {
 		if parseErr != nil {
-			results = append(results, Result{
-				Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-				Expected: formatExpected(a.Operator, a.Value),
-				Actual:   "response body is not valid JSON",
-				Passed:   false,
-			})
+			results = append(results, bodyID(a).with(
+				formatExpected(a.Operator, a.Value),
+				"response body is not valid JSON",
+				false,
+			))
 			continue
 		}
 		results = append(results, evalBodyAssertion(a, doc))
@@ -260,86 +281,49 @@ func Evaluate(in EvalInput) *Results {
 	return &Results{Items: items, Passed: passed}
 }
 
+// bodyID returns the identity fields shared by every result a body assertion
+// can produce. The operator is always the one the caller declared, so a branch
+// cannot silently relabel itself.
+func bodyID(a BodyInput) Result {
+	return Result{Type: TypeBody, Target: a.Path, Operator: a.Operator}
+}
+
 func evalBodyAssertion(a BodyInput, doc any) Result {
+	id := bodyID(a)
 	val, err := jsonpath.Evaluate(a.Path, doc)
 	notFound := errors.Is(err, jsonpath.ErrNotFound)
 
 	if err != nil && !notFound {
-		return Result{
-			Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-			Expected: formatExpected(a.Operator, a.Value),
-			Actual:   fmt.Sprintf("invalid path: %s", err),
-			Passed:   false,
-		}
+		return id.with(formatExpected(a.Operator, a.Value), fmt.Sprintf("invalid path: %s", err), false)
 	}
 
 	switch a.Operator {
 	case "exists":
 		if notFound {
-			return Result{
-				Type:     fmt.Sprintf("body %s exists", a.Path),
-				Expected: "exists",
-				Actual:   "no match at path",
-				Passed:   false,
-			}
+			return id.with("exists", "no match at path", false)
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s exists", a.Path),
-			Expected: "exists",
-			Actual:   "exists",
-			Passed:   true,
-		}
+		return id.with("exists", "exists", true)
 
 	case "not_exists":
 		if notFound {
-			return Result{
-				Type:     fmt.Sprintf("body %s not_exists", a.Path),
-				Expected: "not_exists",
-				Actual:   "not_exists",
-				Passed:   true,
-			}
+			return id.with("not_exists", "not_exists", true)
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s not_exists", a.Path),
-			Expected: "not_exists",
-			Actual:   fmt.Sprintf("found: %v", val),
-			Passed:   false,
-		}
+		return id.with("not_exists", fmt.Sprintf("found: %v", val), false)
 
 	case "type":
 		if notFound {
-			return Result{
-				Type:     fmt.Sprintf("body %s type", a.Path),
-				Expected: fmt.Sprintf("type %v", a.Value),
-				Actual:   "no match at path",
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("type %v", a.Value), "no match at path", false)
 		}
 		actualType := jsonType(val)
 		expectedType := fmt.Sprintf("%v", a.Value)
-		return Result{
-			Type:     fmt.Sprintf("body %s type", a.Path),
-			Expected: fmt.Sprintf("type %s", expectedType),
-			Actual:   fmt.Sprintf("type %s", actualType),
-			Passed:   actualType == expectedType,
-		}
+		return id.with(fmt.Sprintf("type %s", expectedType), fmt.Sprintf("type %s", actualType), actualType == expectedType)
 
 	case "equals":
 		if notFound {
-			return Result{
-				Type:     fmt.Sprintf("body %s equals", a.Path),
-				Expected: fmt.Sprintf("%v", a.Value),
-				Actual:   "no match at path",
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("%v", a.Value), "no match at path", false)
 		}
 		passed := valuesEqual(a.Value, val)
-		return Result{
-			Type:     fmt.Sprintf("body %s equals", a.Path),
-			Expected: fmt.Sprintf("%v", a.Value),
-			Actual:   fmt.Sprintf("%v", val),
-			Passed:   passed,
-		}
+		return id.with(fmt.Sprintf("%v", a.Value), fmt.Sprintf("%v", val), passed)
 
 	case "matches":
 		if notFound {
@@ -347,40 +331,20 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 		}
 		pattern, ok := a.Value.(string)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s matches", a.Path),
-				Expected: fmt.Sprintf("matches %v", a.Value),
-				Actual:   "pattern must be a string",
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("matches %v", a.Value), "pattern must be a string", false)
 		}
 		re, err2 := regexp.Compile(pattern)
 		if err2 != nil {
-			return Result{
-				Type:     fmt.Sprintf("body %s matches", a.Path),
-				Expected: fmt.Sprintf("matches %s", pattern),
-				Actual:   fmt.Sprintf("invalid regex: %s", err2),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("matches %s", pattern), fmt.Sprintf("invalid regex: %s", err2), false)
 		}
 		actual := fmt.Sprintf("%v", val)
-		return Result{
-			Type:     fmt.Sprintf("body %s matches", a.Path),
-			Expected: fmt.Sprintf("matches %s", pattern),
-			Actual:   actual,
-			Passed:   re.MatchString(actual),
-		}
+		return id.with(fmt.Sprintf("matches %s", pattern), actual, re.MatchString(actual))
 
 	case "contains":
 		if notFound {
 			return notFoundResult(a)
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s contains", a.Path),
-			Expected: fmt.Sprintf("contains %v", a.Value),
-			Actual:   fmt.Sprintf("%v", val),
-			Passed:   deepContains(val, a.Value),
-		}
+		return id.with(fmt.Sprintf("contains %v", a.Value), fmt.Sprintf("%v", val), deepContains(val, a.Value))
 
 	case "contains_all":
 		if notFound {
@@ -388,21 +352,11 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 		}
 		expectedItems, ok := a.Value.([]any)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s contains_all", a.Path),
-				Expected: fmt.Sprintf("contains all of %v", a.Value),
-				Actual:   "expected value must be a list",
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("contains all of %v", a.Value), "expected value must be a list", false)
 		}
 		actualArr, ok := val.([]any)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s contains_all", a.Path),
-				Expected: fmt.Sprintf("contains all of %v", a.Value),
-				Actual:   fmt.Sprintf("%v (not an array)", val),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("contains all of %v", a.Value), fmt.Sprintf("%v (not an array)", val), false)
 		}
 		allFound := true
 		for _, exp := range expectedItems {
@@ -418,12 +372,7 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 				break
 			}
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s contains_all", a.Path),
-			Expected: fmt.Sprintf("contains all of %v", a.Value),
-			Actual:   fmt.Sprintf("%v", val),
-			Passed:   allFound,
-		}
+		return id.with(fmt.Sprintf("contains all of %v", a.Value), fmt.Sprintf("%v", val), allFound)
 
 	case "length":
 		if notFound {
@@ -431,28 +380,13 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 		}
 		actualLen, ok := valueLength(val)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s length", a.Path),
-				Expected: fmt.Sprintf("length %v", a.Value),
-				Actual:   fmt.Sprintf("%v (not countable)", val),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("length %v", a.Value), fmt.Sprintf("%v (not countable)", val), false)
 		}
 		expectedF, ok := toFloat64(a.Value)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s length", a.Path),
-				Expected: fmt.Sprintf("length %v", a.Value),
-				Actual:   fmt.Sprintf("expected %v is not numeric", a.Value),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("length %v", a.Value), fmt.Sprintf("expected %v is not numeric", a.Value), false)
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s length", a.Path),
-			Expected: fmt.Sprintf("length %v", a.Value),
-			Actual:   fmt.Sprintf("length %d", actualLen),
-			Passed:   float64(actualLen) == expectedF,
-		}
+		return id.with(fmt.Sprintf("length %v", a.Value), fmt.Sprintf("length %d", actualLen), float64(actualLen) == expectedF)
 
 	case "greater_than":
 		return numericCompare(a, val, notFound, func(act, exp float64) bool { return act > exp }, ">")
@@ -472,46 +406,21 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 		}
 		m, ok := a.Value.(map[string]any)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s approximately", a.Path),
-				Expected: fmt.Sprintf("≈ %v", a.Value),
-				Actual:   "expected must be {value, tolerance}",
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("≈ %v", a.Value), "expected must be {value, tolerance}", false)
 		}
 		expVal, err2 := parseMapValue(m, "value")
 		if err2 != nil {
-			return Result{
-				Type:     fmt.Sprintf("body %s approximately", a.Path),
-				Expected: fmt.Sprintf("≈ %v", a.Value),
-				Actual:   err2.Error(),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("≈ %v", a.Value), err2.Error(), false)
 		}
 		tolerance, err2 := parseMapValue(m, "tolerance")
 		if err2 != nil {
-			return Result{
-				Type:     fmt.Sprintf("body %s approximately", a.Path),
-				Expected: fmt.Sprintf("≈ %v", a.Value),
-				Actual:   err2.Error(),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("≈ %v", a.Value), err2.Error(), false)
 		}
 		actualF, ok := toFloat64(val)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s approximately", a.Path),
-				Expected: fmt.Sprintf("≈ %v", a.Value),
-				Actual:   fmt.Sprintf("%v (not numeric)", val),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("≈ %v", a.Value), fmt.Sprintf("%v (not numeric)", val), false)
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s approximately", a.Path),
-			Expected: fmt.Sprintf("≈ %v", a.Value),
-			Actual:   fmt.Sprintf("%v", val),
-			Passed:   math.Abs(actualF-expVal) <= tolerance,
-		}
+		return id.with(fmt.Sprintf("≈ %v", a.Value), fmt.Sprintf("%v", val), math.Abs(actualF-expVal) <= tolerance)
 
 	case "in_range":
 		if notFound {
@@ -519,94 +428,45 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 		}
 		m, ok := a.Value.(map[string]any)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s in_range", a.Path),
-				Expected: fmt.Sprintf("in range %v", a.Value),
-				Actual:   "expected must be {min, max}",
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("in range %v", a.Value), "expected must be {min, max}", false)
 		}
 		minVal, err2 := parseMapValue(m, "min")
 		if err2 != nil {
-			return Result{
-				Type:     fmt.Sprintf("body %s in_range", a.Path),
-				Expected: fmt.Sprintf("in range %v", a.Value),
-				Actual:   err2.Error(),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("in range %v", a.Value), err2.Error(), false)
 		}
 		maxVal, err2 := parseMapValue(m, "max")
 		if err2 != nil {
-			return Result{
-				Type:     fmt.Sprintf("body %s in_range", a.Path),
-				Expected: fmt.Sprintf("in range %v", a.Value),
-				Actual:   err2.Error(),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("in range %v", a.Value), err2.Error(), false)
 		}
 		actualF, ok := toFloat64(val)
 		if !ok {
-			return Result{
-				Type:     fmt.Sprintf("body %s in_range", a.Path),
-				Expected: fmt.Sprintf("in range %v", a.Value),
-				Actual:   fmt.Sprintf("%v (not numeric)", val),
-				Passed:   false,
-			}
+			return id.with(fmt.Sprintf("in range %v", a.Value), fmt.Sprintf("%v (not numeric)", val), false)
 		}
-		return Result{
-			Type:     fmt.Sprintf("body %s in_range", a.Path),
-			Expected: fmt.Sprintf("in range %v", a.Value),
-			Actual:   fmt.Sprintf("%v", val),
-			Passed:   actualF >= minVal && actualF <= maxVal,
-		}
+		return id.with(fmt.Sprintf("in range %v", a.Value), fmt.Sprintf("%v", val), actualF >= minVal && actualF <= maxVal)
 
 	default:
-		return Result{
-			Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-			Expected: fmt.Sprintf("%v", a.Value),
-			Actual:   "unsupported operator",
-			Passed:   false,
-		}
+		return id.with(fmt.Sprintf("%v", a.Value), "unsupported operator", false)
 	}
 }
 
 func notFoundResult(a BodyInput) Result {
-	return Result{
-		Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-		Expected: formatExpected(a.Operator, a.Value),
-		Actual:   "no match at path",
-		Passed:   false,
-	}
+	return bodyID(a).with(formatExpected(a.Operator, a.Value), "no match at path", false)
 }
 
 func numericCompare(a BodyInput, val any, notFound bool, cmp func(actual, expected float64) bool, opSymbol string) Result {
+	id := bodyID(a)
 	if notFound {
 		return notFoundResult(a)
 	}
 	actualF, ok := toFloat64(val)
 	if !ok {
-		return Result{
-			Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-			Expected: fmt.Sprintf("%s %v", opSymbol, a.Value),
-			Actual:   fmt.Sprintf("%v (not numeric)", val),
-			Passed:   false,
-		}
+		return id.with(fmt.Sprintf("%s %v", opSymbol, a.Value), fmt.Sprintf("%v (not numeric)", val), false)
 	}
 	expectedF, ok := toFloat64(a.Value)
 	if !ok {
-		return Result{
-			Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-			Expected: fmt.Sprintf("%s %v", opSymbol, a.Value),
-			Actual:   fmt.Sprintf("expected %v is not numeric", a.Value),
-			Passed:   false,
-		}
+		return id.with(fmt.Sprintf("%s %v", opSymbol, a.Value), fmt.Sprintf("expected %v is not numeric", a.Value), false)
 	}
-	return Result{
-		Type:     fmt.Sprintf("body %s %s", a.Path, a.Operator),
-		Expected: fmt.Sprintf("%s %v", opSymbol, a.Value),
-		Actual:   fmt.Sprintf("%v", val),
-		Passed:   cmp(actualF, expectedF),
-	}
+	return id.with(fmt.Sprintf("%s %v", opSymbol, a.Value), fmt.Sprintf("%v", val), cmp(actualF, expectedF))
 }
 
 func deepContains(actual, expected any) bool {

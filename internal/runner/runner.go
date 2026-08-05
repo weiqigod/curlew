@@ -177,10 +177,20 @@ type RequestEndEvent struct {
 // AssertionEvent describes one evaluated assertion for event emission.
 type AssertionEvent struct {
 	RequestID string
-	Type      string
-	Expected  string
-	Actual    string
-	Passed    bool
+	// Type, Target and Operator mirror assertion.Result's identity triple.
+	// Type is a discriminator only; use Label for anything a human reads.
+	Type     string
+	Target   string
+	Operator string
+	Expected string
+	Actual   string
+	Passed   bool
+}
+
+// Label returns the human-readable description of the assertion, e.g.
+// "body $.user.name equals".
+func (e AssertionEvent) Label() string {
+	return assertion.Label(e.Type, e.Target, e.Operator)
 }
 
 // Phase identifies the execution phase of a request.
@@ -2195,7 +2205,7 @@ func executePhase(
 					errMsg = fmt.Sprintf("GraphQL error: %s", check.Errors[0].Message)
 				}
 				ar.Items = append(ar.Items, assertion.Result{
-					Type:     "graphql_error",
+					Type:     assertion.TypeGraphQLError,
 					Expected: "no errors",
 					Actual:   errMsg,
 					Passed:   false,
@@ -2212,7 +2222,7 @@ func executePhase(
 						errMsg = fmt.Sprintf("GraphQL error: %s", check.Errors[0].Message)
 					}
 					ar.Items = append(ar.Items, assertion.Result{
-						Type:     "graphql_error",
+						Type:     assertion.TypeGraphQLError,
 						Expected: "no errors",
 						Actual:   errMsg,
 						Passed:   false,
@@ -3206,6 +3216,8 @@ func emitAssertionResults(sink EventSink, reqID string, ar *assertion.Results) {
 		sink.AssertionResult(AssertionEvent{
 			RequestID: reqID,
 			Type:      a.Type,
+			Target:    a.Target,
+			Operator:  a.Operator,
 			Expected:  a.Expected,
 			Actual:    a.Actual,
 			Passed:    a.Passed,
@@ -3256,12 +3268,14 @@ func (a *parallelSinkAdapter) RequestEnd(requestID, requestSlug, outcome string,
 	a.inner.RequestEnd(ev)
 }
 
-func (a *parallelSinkAdapter) AssertionResult(requestID, aType, expected, actual string, passed bool) {
+func (a *parallelSinkAdapter) AssertionResult(ev parallel.AssertionEvent) {
 	a.inner.AssertionResult(AssertionEvent{
-		RequestID: requestID,
-		Type:      aType,
-		Expected:  expected,
-		Actual:    actual,
-		Passed:    passed,
+		RequestID: ev.RequestID,
+		Type:      ev.Type,
+		Target:    ev.Target,
+		Operator:  ev.Operator,
+		Expected:  ev.Expected,
+		Actual:    ev.Actual,
+		Passed:    ev.Passed,
 	})
 }

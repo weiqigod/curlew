@@ -401,7 +401,7 @@ func renderAssertions(w *bytes.Buffer, entry *RequestEntry) {
 		if !it.Passed {
 			marker = "[ ]"
 		}
-		fmt.Fprintf(w, "- %s %s expected=%q actual=%q\n", marker, it.Type, it.Expected, it.Actual)
+		fmt.Fprintf(w, "- %s %s expected=%q actual=%q\n", marker, it.Label(), it.Expected, it.Actual)
 	}
 }
 

@@ -1130,10 +1130,12 @@ func TestEvaluate_with_schema(t *testing.T) {
 	}
 	sawStatus, sawSchema := false, false
 	for _, r := range got.Items {
-		if r.Type == "status" && r.Passed {
+		if r.Type == TypeStatus && r.Passed {
 			sawStatus = true
 		}
-		if len(r.Type) >= 7 && r.Type[:7] == "schema " && !r.Passed {
+		// Exact discriminator match: before the identity split this had to
+		// prefix-test "schema " because Type carried the instance path too.
+		if r.Type == TypeSchema && !r.Passed {
 			sawSchema = true
 		}
 	}

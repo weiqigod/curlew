@@ -82,6 +82,7 @@ function assertion(
     kind: 'assertion.result',
     request_id,
     type: 'status',
+    label: 'status',
     passed: false,
     expected: '201',
     actual: '422',

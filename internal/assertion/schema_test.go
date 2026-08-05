@@ -192,8 +192,8 @@ func TestCheckSchema(t *testing.T) {
 			if r.Passed != tt.wantPassed {
 				t.Errorf("Passed = %v, want %v", r.Passed, tt.wantPassed)
 			}
-			if tt.wantType != "" && !strings.Contains(r.Type, tt.wantType) {
-				t.Errorf("Type %q does not contain %q", r.Type, tt.wantType)
+			if tt.wantType != "" && !strings.Contains(r.Label(), tt.wantType) {
+				t.Errorf("Label() %q does not contain %q", r.Label(), tt.wantType)
 			}
 			if tt.wantExp != "" && !strings.Contains(r.Expected, tt.wantExp) {
 				t.Errorf("Expected %q does not contain %q", r.Expected, tt.wantExp)

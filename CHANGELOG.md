@@ -7,6 +7,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Assertion results claimed a structure they did not have** (M24-001). `assertion.Result`
+  carried a single `Type` field doing two incompatible jobs — a machine-readable
+  discriminator and a human-readable label — and the label won. For every kind except
+  `status` the field was built as a composite, `fmt.Sprintf("body %s %s", path, operator)`,
+  producing values like `body $.user.name equals`.
+
+  Every published events JSON Schema since v1.0 has declared that field as
+  `enum: ["status","body","header","schema"]`, so every body, header, schema and CEL
+  assertion violated the schema, and `timing` and `graphql_error` were never in the enum at
+  all. Of the four declared members exactly one (`status`) was ever emitted verbatim — an
+  agent following the documented contract and switching on `type == "body"` matched nothing.
+
+  The existing schema tests did not catch it because every golden fixture and every direct
+  `EmitAssertionResult` call used `"status"`: the single conforming value. A corpus that
+  exercises only the passing case is not a guard.
+
+  `Type` is now the discriminator alone, with `Target` (JSONPath, header name, schema path,
+  or `assertions[N]`) and `Operator` carrying the parts that vary. `Label()` reassembles the
+  historical phrase, so terminal, HTML, TAP, markdown, pr-check and UI output are unchanged —
+  pinned by a test asserting the exact pre-change string for all seven kinds.
+  `extractJSONOperator`, which recovered the operator by taking the last whitespace-delimited
+  word and returned `"status"` as the operator of a status assertion, is deleted.
+
+  Two guards were added and mutation-verified: assertion types must be compile-time constants
+  (a computed discriminator now fails the build), and the emitted vocabulary is held to the
+  published enum in both directions, so neither an undeclared type nor a declared-but-unemitted
+  one survives. The walk covers the whole tree rather than `internal/assertion` alone — the
+  runner builds an `assertion.Result` of its own, and a package-scoped walk had already
+  declared the vocabulary complete without it.
+
 - **Three flags reached users that `curlew --help` never mentioned** (M23-001). `--events`
   was implemented, working, and advertised in the README, but absent from help — a user
   reading the README got no confirmation from the tool that the flag existed.
@@ -23,6 +53,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   when its guard is removed.
 
 ### Changed
+- **Events schema v1.4** (M24-001). `assertion.result` gains `target` and `operator`
+  (optional) and `label` (required), and `type` now emits the discriminator the schema has
+  declared since v1.0. This is a conformance fix rather than a v2.0 semantic change: no
+  published schema version ever permitted the composite, so the emission was non-conformant
+  rather than contractual — the same reasoning v1.3 applied to the `wave_index` `minimum`
+  correction. Migration is mechanical: read `label` wherever you read `type`. The enum is
+  widened to the seven kinds that can actually be produced. `--format json` gains the same
+  `target`/`operator`/`label` fields, and the UI renders `type` as its chip and `label` as
+  the description.
+
 - **The README now describes the whole tool** (M23-001). It had covered roughly half of it:
   retry with backoff, rate limiting, CEL `if:` conditionals, redaction-on-by-default,
   `--only`, `--events`, agent-skill scaffolding, binary request bodies, and four of the
