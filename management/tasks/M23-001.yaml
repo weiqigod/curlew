@@ -1,0 +1,76 @@
+id: M23-001
+title: "Close the help/README gap and guard it against reopening"
+status: done
+priority: 1
+created: 2026-08-05
+phase: "M23: Documentation completeness"
+track: go-cli
+
+dependencies:
+  - M22-008
+
+observable: |
+  # 1. Every flag an argument parser accepts appears in some help output.
+  go test ./cmd/curlew/ -run TestHelp_documents_every_accepted_flag -v
+
+  # 2. The Run Options --format line and the CLI's own "unknown format"
+  #    error message list the same formats.
+  go test ./cmd/curlew/ -run TestHelp_run_format_list_matches_the_error_message -v
+
+  # 3. Every command in --help is mentioned in the README.
+  go test ./cmd/curlew/ -run TestReadme_lists_every_command_the_CLI_advertises -v
+
+  # 4. The three previously-undocumented surfaces are now visible.
+  go build ./cmd/curlew
+  ./curlew --help | grep -- '--events'
+  ./curlew --help | grep -- 'markdown'
+  ./curlew --help | grep -- '--project'
+
+behaviors:
+  - "Given a flag accepted by any argument parser in cmd/curlew, when --help is printed, then the flag appears in the top-level help or in its subcommand's help."
+  - "Given the set of output formats the run command accepts, when the Run Options help is printed, then every accepted format is listed on the --format line."
+  - "Given a command advertised in the Commands section of --help, when README.md is read, then the command is mentioned."
+  - "Given a new flag added to a parser without a help line, when the test suite runs, then it fails."
+
+scope: |
+  Three surfaces had drifted apart from the shipped binary:
+
+    1. --events was implemented, working, and advertised in the README, but
+       absent from `curlew --help`. A user reading the README got no
+       confirmation from the tool itself that the flag existed.
+    2. --format markdown was accepted, and the CLI's own "unknown output
+       format" error message listed it as supported, but the Run Options
+       --format line did not.
+    3. curlew schema --project (which emits the curlew.yaml project schema
+       rather than the collection schema) was documented nowhere at all.
+
+  Each arrived the same way: a `case "--flag":` added to a parser with no
+  corresponding Fprintln. Nothing failed, because nothing was checking.
+
+  The fix is the three help lines plus three parity tests that derive the
+  truth from the code rather than from a hand-maintained list:
+
+    - accepted flags come from an AST walk of the package's case clauses
+    - accepted formats come from the CLI's own error message
+    - advertised commands come from the help output itself
+
+  The README's Features section was also rewritten. It had described roughly
+  half the tool: retry, rate limiting, CEL conditionals, redaction-by-default,
+  --only, --events, agent-skill scaffolding, binary bodies and four of the
+  fourteen commands were all missing. Two claims drafted during this work were
+  corrected against the runner before landing — `required:` is honoured only
+  in the setup phase (executePhase is called with checkRequired=false for main
+  and teardown), and stop_on_failure halts only the main phase while teardown
+  still runs.
+
+definition_of_done:
+  - "--events, --format markdown and schema --project are documented in help"
+  - Three parity tests pass, and each was mutation-verified to fail when its guard is removed
+  - README Features section covers every shipped capability
+  - README documents all 14 commands
+  - No claim in the README is unverified against the source
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "1-2 hours"

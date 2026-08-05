@@ -1941,3 +1941,14 @@ capabilities:
         completed_date: 2026-08-05
         verified_by: ai
         branch: chore/M22-008-copyright-holder
+
+  documentation_completeness:
+    description: 'Help text and README held to the shipped binary by parity tests'
+    milestone: 'M23'
+    tasks:
+      - id: M23-001
+        status: done
+        planned_date: 2026-08-05
+        completed_date: 2026-08-05
+        verified_by: ai
+        branch: feature/M23-001-help-and-readme-completeness
