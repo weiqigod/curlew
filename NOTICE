@@ -1,0 +1,47 @@
+Curlew
+Copyright 2026 weiqigod
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License in the LICENSE file at the root of this repository, or at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+SCOPE
+--------------------------------------------------------------------------------
+
+The Apache License 2.0 applies to this repository EXCEPT for the following
+directories, which are proprietary and each carry their own LICENSE file
+reserving all rights:
+
+    src/            the .NET backend service
+    web/            the web dashboard
+    deploy/         deployment configuration for the above
+
+Everything else -- including the `curlew` command-line tool (cmd/, internal/),
+its local web UI (ui/), the published JSON Schemas (schemas/), the project
+templates (templates/), the examples (examples/, sample/, site/) and the
+documentation (docs/) -- is Apache-2.0 licensed.
+
+The command-line tool does not call, depend on, or require any of the
+proprietary components. It is entirely local: no account, no login, and no
+network traffic beyond the HTTP requests a collection defines. A binary built
+from this repository contains no proprietary code.
+
+--------------------------------------------------------------------------------
+THIRD-PARTY DEPENDENCIES
+--------------------------------------------------------------------------------
+
+The CLI links the following direct dependencies, all under permissive terms.
+No dependency in the tree is under a copyleft license.
+
+    github.com/fsnotify/fsnotify                     BSD-3-Clause
+    github.com/getkin/kin-openapi                    MIT
+    github.com/gofrs/flock                           BSD-3-Clause
+    github.com/google/cel-go                         Apache-2.0
+    github.com/gorilla/websocket                     BSD-2-Clause
+    github.com/santhosh-tekuri/jsonschema/v6         Apache-2.0
+    github.com/zalando/go-keyring                    MIT
+    golang.org/x/text                                BSD-3-Clause
+    gopkg.in/yaml.v3                                 MIT and Apache-2.0

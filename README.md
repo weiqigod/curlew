@@ -110,4 +110,9 @@ The UI lives in `ui/` (`npm ci && npm run build` rebuilds the embedded assets; `
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+This covers the `curlew` CLI and everything you need to build, run and extend it.
+The `src/` (.NET backend), `web/` (dashboard) and `deploy/` directories are proprietary
+and carry their own LICENSE files. The CLI does not depend on any of them: a binary built
+from this repository contains no proprietary code.

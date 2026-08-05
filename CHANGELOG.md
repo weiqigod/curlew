@@ -7,6 +7,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The Apache-2.0 license now states its scope, carving out the commercial components.**
+  The repository has carried a root Apache-2.0 `LICENSE` since commit `3d3d956`, but with
+  **no statement of what it covers** — so by default it applied to the whole tree,
+  including `src/`, the .NET backend holding Stripe subscriptions, a billing portal and
+  proration logic. Anyone with repository access could lawfully take that code and operate
+  a competing service. Permissively licensing the monetizable asset was almost certainly
+  not the intent of a commit described as adding a "public README".
+
+  The CLI stays Apache-2.0: it is the product distributed as a binary and it wants
+  adoption. `src/`, `web/` and `deploy/` each gain a LICENSE reserving all rights —
+  `deploy/` because it holds only self-hosting configuration for the backend and is
+  useless without a component nobody is licensed to run. `NOTICE` states the split, and
+  the root LICENSE text itself is unchanged.
+
+  The `NOTICE` scope section is written as an **exclusion** list, not an inclusion list —
+  enumerating covered directories invites omission, and the first draft did exactly that,
+  silently failing to mention `deploy/`, `site/`, `examples/`, `sample/`, `scripts/` and
+  `testdata/`.
+
+  The existing LICENSE was verified byte-identical to the canonical Apache-2.0 text
+  (sha256 `cfc7749b…23d30`, cross-checked against two independent vendored copies) and left
+  untouched. No dependency constrains the choice: every direct dependency is MIT,
+  Apache-2.0 or BSD, and nothing in the tree is copyleft.
+
+- **Release archives now ship `LICENSE` and `NOTICE`.** Apache-2.0 §4(a) requires the
+  License to accompany any distribution and §4(d) requires the NOTICE to travel with it.
+  The archives added in M22-006 carried README, CHANGELOG and docs but neither, so every
+  artifact produced before this change would have been non-compliant. Verified by
+  extracting a built archive rather than by reading the config.
+
 - **Release pipeline: link-time version injection and cross-platform artifacts.**
   `cmd/curlew/main.go` declared `const version = "0.1.0-dev"`. The Go linker **silently
   ignores `-X` for constants** — `go build -ldflags "-X main.version=1.2.3"` exits 0 and
