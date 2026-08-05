@@ -40,7 +40,16 @@ import (
 	"github.com/weiqigod/curlew/templates"
 )
 
-const version = "0.1.0-dev"
+// version is the build's reported version. It is deliberately a var, not a
+// const: release builds overwrite it at link time with
+//
+//	go build -ldflags "-X main.version=$(git describe --tags)"
+//
+// and -ldflags -X is silently ignored for constants — the build would succeed
+// and every released binary would claim to be the development version. The
+// default applies to a plain `go build` or `go install`, which must still
+// report something rather than an empty string.
+var version = "0.1.0-dev"
 
 func main() {
 	os.Exit(run(os.Args[1:]))

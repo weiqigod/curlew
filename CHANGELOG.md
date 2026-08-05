@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Release pipeline: link-time version injection and cross-platform artifacts.**
+  `cmd/curlew/main.go` declared `const version = "0.1.0-dev"`. The Go linker **silently
+  ignores `-X` for constants** — `go build -ldflags "-X main.version=1.2.3"` exits 0 and
+  produces a binary still claiming `0.1.0-dev`. Any release pipeline built on that would
+  have shipped every binary mislabelled, with no step failing to warn. `version` is now a
+  `var`, pinned by a test that builds the real binary with the flag and asserts what it
+  reports, so a revert to `const` fails the suite rather than the release.
+
+  The injected value was verified to reach `--version`, `--help` and `info --format json`
+  (machine-readable provenance for a results consumer). It does not reach plain-text
+  `info`, which reports no version at all — an initial test asserted otherwise on an
+  assumption; the test was corrected rather than the CLI changed to satisfy it.
+
+  Adds `.goreleaser.yaml` building six targets (linux/darwin/windows × amd64/arm64) with
+  `CGO_ENABLED=0`, archives carrying README, CHANGELOG, MANUAL and CLI_SPECIFICATION, and a
+  checksums file. Validated with `goreleaser check` and proven by a full local snapshot
+  build: the linux artifact was confirmed **statically linked** with `file(1)`, and the
+  extracted darwin binary confirmed to report the injected version. Releases are drafts so
+  a human reviews notes and artifacts before anything is public.
+
+  Adds a `Release` workflow, `workflow_dispatch` only to match every other workflow here
+  while Actions billing is paused (tag trigger documented in a comment). It runs the Go
+  gate before publishing anything.
+
 ### Removed
 - **All backend and login functionality removed from the CLI.** `curlew` is now entirely
   local: no account, no authentication, and no network calls beyond the HTTP requests a

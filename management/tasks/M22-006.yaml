@@ -1,0 +1,87 @@
+id: M22-006
+title: "Release pipeline: link-time version injection and cross-platform artifacts"
+status: done
+priority: 1
+created: 2026-08-05
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. The version is settable at link time (it was a const, which -X ignores).
+  go build -ldflags "-X main.version=1.2.3-demo" -o /tmp/cw ./cmd/curlew
+  /tmp/cw --version          # curlew 1.2.3-demo
+
+  # 2. A test fails if it ever regresses to a const.
+  go test ./cmd/curlew/ -run TestVersion_ -v
+
+  # 3. The release config is valid and produces real artifacts.
+  goreleaser check
+  goreleaser release --snapshot --clean --skip=publish
+  ls dist/
+  # six archives (tar.gz for unix, zip for windows) plus checksums.txt
+
+  # 4. The shipped binary is genuinely static.
+  tar -xzf dist/curlew_*_linux_amd64.tar.gz -C /tmp curlew && file /tmp/curlew
+  # ELF 64-bit LSB executable, x86-64, statically linked, stripped
+
+behaviors:
+  - "Given a build with -ldflags -X main.version=<v>, when the binary reports its version, then it reports <v> rather than the development default."
+  - "Given a plain go build or go install with no linker flags, when the binary reports its version, then it still reports a non-empty default."
+  - "Given an injected version, when --help or `info --format json` is read, then both carry it — the JSON form is machine-readable provenance for a results consumer."
+  - "Given the version declaration regresses from var to const, when the suite runs, then a test fails — the linker silently ignores -X on a constant, so nothing else would notice."
+  - "Given the release config, when goreleaser builds a snapshot, then it produces linux/darwin/windows on amd64 and arm64, with zip for windows, plus a checksums file."
+
+scope: |
+  Closes two of the four gaps between "builds on my machine" and "someone else
+  can install it", identified while assessing release readiness. The other two
+  — no LICENSE file, and a private repository that makes the README's
+  `go install ...@latest` impossible for anyone else — are decisions for the
+  owner, not engineering tasks, and are deliberately not addressed here.
+
+  **Link-time version injection.** cmd/curlew/main.go declared
+  `const version = "0.1.0-dev"`. The Go linker silently ignores -X for
+  constants: `go build -ldflags "-X main.version=1.2.3"` exits 0 and produces a
+  binary still claiming 0.1.0-dev. A release pipeline built on that would ship
+  every binary mislabelled with no step failing to warn. Changed to a var and
+  pinned by a test that builds the real binary with the flag and asserts the
+  reported version, so a revert to const fails the suite rather than the
+  release.
+
+  Verified the injected value reaches --version, --help, and
+  `info --format json`. It does not reach plain-text `info`, which reports no
+  version at all — an initial test asserted that it did, on an assumption
+  rather than a reading of the code. The test was corrected rather than the CLI
+  changed to satisfy it; adding a version line to `info` output would be an
+  unrequested product change.
+
+  **Release artifacts.** A goreleaser config building six targets
+  (linux/darwin/windows x amd64/arm64), CGO_ENABLED=0 for genuinely static
+  binaries, archives carrying README, CHANGELOG, MANUAL and CLI_SPECIFICATION,
+  and a checksums file. Releases are drafts so a human reviews the notes and
+  artifact list before anything is public. Validated with `goreleaser check`
+  and proven by a full local snapshot build — the linux binary was confirmed
+  statically linked with `file`, and the extracted darwin binary confirmed to
+  report the injected version.
+
+  A Release workflow is added as workflow_dispatch only, matching every other
+  workflow here while Actions billing is paused, with the tag trigger
+  documented in a comment for when it is restored. It runs the Go gate before
+  publishing anything.
+
+  Not done: the README still documents only source installs. Advertising
+  binary downloads before a tag exists would document something that is not
+  there — that section belongs in the same change as the first real tag.
+
+definition_of_done:
+  - Version is injectable at link time and defaults sensibly without flags
+  - A test fails if the declaration regresses to a const
+  - goreleaser check passes and a snapshot build produces all six archives plus checksums
+  - The linux artifact is verified statically linked
+  - Release workflow runs the Go gate before publishing and drafts the release
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "2-3 hours"
