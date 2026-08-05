@@ -1,0 +1,81 @@
+id: M22-007
+title: "License the repository: Apache-2.0 for the CLI, proprietary for the backend"
+status: done
+priority: 1
+created: 2026-08-05
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies:
+  - M22-006
+
+observable: |
+  # 1. The Apache license now states its scope; the proprietary dirs are carved out.
+  ls LICENSE NOTICE src/LICENSE web/LICENSE deploy/LICENSE
+  sed -n '/^SCOPE/,/^----/p' NOTICE
+
+  # 2. The Apache text is the canonical one, byte for byte.
+  shasum -a 256 LICENSE
+  # cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+
+  # 3. Release archives carry LICENSE and NOTICE, as Apache-2.0 4(a) and 4(d) require.
+  goreleaser release --snapshot --clean --skip=publish
+  tar -tzf dist/curlew_*_linux_amd64.tar.gz | grep -E "LICENSE|NOTICE"
+
+behaviors:
+  - "Given the root Apache-2.0 LICENSE, when a reader asks what it covers, then NOTICE answers — previously it was unscoped, so it applied to the Stripe billing backend in src/ as well as the CLI."
+  - "Given the NOTICE scope section, when read, then it states which directories are excluded rather than which are included, so no directory is left unaddressed."
+  - "Given src/, web/ or deploy/, when a user looks for terms, then each carries its own LICENSE reserving all rights and pointing at the root NOTICE."
+  - "Given a release archive, when extracted, then it contains LICENSE and NOTICE alongside the binary."
+
+scope: |
+  The repository has carried a root Apache-2.0 LICENSE since commit 3d3d956
+  ("docs: add Apache-2.0 LICENSE and public README"), byte-identical to the
+  canonical text. An earlier readiness assessment in this session reported the
+  repository as unlicensed; that was wrong, caused by a zsh globbing artifact
+  (`ls -1 LICENSE* CONTRIBUTING*` aborts entirely when the second glob matches
+  nothing, so the `||` fallback fired without `ls` ever running).
+
+  The actual defect is more serious than a missing license. The root LICENSE
+  carried no statement of scope, so Apache-2.0 applied to the whole repository
+  by default -- including src/, the .NET backend containing Stripe
+  subscriptions, a billing portal and proration logic. Anyone with access to
+  the repository could lawfully take that code and operate a competing
+  service. Permissively licensing the monetizable asset was almost certainly
+  not the intent of a commit whose message describes adding a "public README".
+
+  Fix: keep Apache-2.0 for the CLI, which is the product being distributed and
+  wants adoption, and carve out the commercial components. src/, web/ and
+  deploy/ each gain a LICENSE reserving all rights; deploy/ because it holds
+  only self-hosting configuration for the backend and is useless without a
+  component nobody is licensed to run. NOTICE states the split.
+
+  The NOTICE scope section is written as an exclusion list rather than an
+  inclusion list. Enumerating covered directories invites omission -- the
+  first draft did exactly that and silently failed to mention deploy/, site/,
+  examples/, sample/, scripts/ and testdata/.
+
+  Confirmed no dependency constrains the choice: every direct dependency is
+  MIT, Apache-2.0 or BSD, and nothing in the tree is copyleft.
+
+  Also fixes a compliance gap in the M22-006 release pipeline: the archives
+  shipped README, CHANGELOG and docs but not LICENSE or NOTICE. Apache-2.0
+  4(a) requires the License to accompany any distribution and 4(d) requires
+  the NOTICE to travel with it, so every archive produced before this change
+  would have been non-compliant.
+
+  Not addressed: the copyright line reads "weiqigod", taken from the git
+  identity on every commit here. Replace it with a legal name or company
+  before cutting a public release.
+
+definition_of_done:
+  - LICENSE at the root is unchanged and still the canonical Apache-2.0 text
+  - NOTICE states scope as an exclusion list and names the copyright holder
+  - src/, web/ and deploy/ each carry a LICENSE reserving all rights
+  - Release archives contain LICENSE and NOTICE, verified by extracting one
+  - README's license section matches the actual split
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "1 hour"
