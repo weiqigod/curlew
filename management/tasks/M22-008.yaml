@@ -1,0 +1,67 @@
+id: M22-008
+title: "Name the copyright holder: weiqigod -> Peter Lindqvist"
+status: done
+priority: 1
+created: 2026-08-05
+phase: "M22: Backlog integrity"
+track: go-cli
+
+dependencies:
+  - M22-007
+
+observable: |
+  # 1. Every copyright line names a person, not a handle.
+  grep -rn "^Copyright" NOTICE src/LICENSE web/LICENSE deploy/LICENSE
+
+  # 2. No copyright anywhere still names the handle.
+  grep -rn "Copyright.*weiqigod" . | grep -v node_modules || echo "clear"
+
+  # 3. Module paths and schema $id URLs are untouched -- those are the GitHub
+  #    org, not the copyright holder, and changing them would break the build
+  #    and re-break the $id URLs fixed in M21-001.
+  grep -c "github.com/weiqigod/curlew" go.mod
+  grep -o '"\$id": "[^"]*"' schemas/*.json
+
+  # 4. The updated NOTICE reaches the release archives.
+  goreleaser release --snapshot --clean --skip=publish
+  tar -xzOf dist/curlew_*_linux_amd64.tar.gz NOTICE | head -2
+
+behaviors:
+  - "Given any copyright notice in the repository, when read, then it names Peter Lindqvist rather than a GitHub handle."
+  - "Given the Go module path and the schema $id URLs, when the holder name changes, then they are unaffected — they encode the GitHub org, which is a different thing from the copyright holder."
+  - "Given a release archive, when extracted, then the NOTICE inside carries the corrected holder."
+
+scope: |
+  M22-007 set the copyright line from the git identity on every commit in this
+  repository, which is the handle "weiqigod", and flagged it as needing a real
+  name before any public release. A copyright notice naming a pseudonymous
+  handle is weak: it does not identify a legal person who can assert or
+  transfer the right.
+
+  Four lines change: NOTICE and the three proprietary LICENSE files for src/,
+  web/ and deploy/.
+
+  Deliberately unchanged, and verified so:
+    - go.mod's module path github.com/weiqigod/curlew, and every import of it.
+      This is the GitHub org, not the holder; renaming it would break the
+      build and every downstream import path.
+    - The $id URLs in schemas/collection-v1.json and schemas/project-v1.json,
+      which point at raw.githubusercontent.com/weiqigod/... and were corrected
+      in M21-001 precisely to match the real org.
+    - Historical records under management/plans/ and management/reviews/, and
+      the CHANGELOG entry describing the M21-001 $id fix.
+    - The root LICENSE, which is the canonical unmodified Apache-2.0 text;
+      the appendix placeholders stay as-is by convention, with the actual
+      holder named in NOTICE.
+
+definition_of_done:
+  - All four copyright lines name Peter Lindqvist
+  - No copyright line anywhere still names the handle
+  - go.mod, imports and schema $id URLs unchanged, verified
+  - Root LICENSE sha256 unchanged
+  - The corrected NOTICE ships inside a rebuilt release archive
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "15 minutes"

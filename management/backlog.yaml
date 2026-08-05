@@ -1935,3 +1935,9 @@ capabilities:
         completed_date: 2026-08-05
         verified_by: ai
         branch: chore/M22-007-license
+      - id: M22-008
+        status: done
+        planned_date: 2026-08-05
+        completed_date: 2026-08-05
+        verified_by: ai
+        branch: chore/M22-008-copyright-holder
