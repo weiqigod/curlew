@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  # Auto-triggers disabled while GitHub Actions billing is paused, matching
+  # every other workflow in this directory. To cut releases automatically once
+  # billing is resolved, restore:
+  #
+  #   push:
+  #     tags:
+  #       - 'v*'
+  #
+  # Until then a release is cut by dispatching this workflow against a tag, or
+  # locally with `goreleaser release --clean`.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0). Must already exist."
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    name: Build and publish binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          # goreleaser derives the version and changelog from tag history, so
+          # a shallow clone would silently produce wrong release notes.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      # The gate runs before anything is published. A release is the one build
+      # that must not be the first place a failure is noticed.
+      - name: Go gate
+        run: ./scripts/ci-local.sh --go
+
+      - name: Run goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

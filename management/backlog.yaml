@@ -1923,3 +1923,9 @@ capabilities:
         completed_date: 2026-08-04
         verified_by: ai
         branch: docs/M22-005-help-text-config-paths
+      - id: M22-006
+        status: done
+        planned_date: 2026-08-05
+        completed_date: 2026-08-05
+        verified_by: ai
+        branch: feat/M22-006-release-pipeline

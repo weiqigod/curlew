@@ -1,0 +1,88 @@
+# goreleaser configuration for the curlew CLI.
+#
+# The CLI is the shipped product: a single static binary with no runtime
+# dependencies, no account, and no backend calls. That is what makes
+# cross-compilation trivial here — CGO_ENABLED=0 below is not an optimisation,
+# it is what keeps the binary genuinely static and the "download and run"
+# promise true on every target.
+#
+# Local checks (no publishing, no network side effects):
+#   goreleaser check
+#   goreleaser build --snapshot --clean --single-target
+#
+# A real release is cut from a tag:
+#   git tag -a v0.1.0 -m "v0.1.0" && git push origin v0.1.0
+#   goreleaser release --clean
+#
+# The .NET backend in src/ and the dashboard in web/ are deliberately not part
+# of this: the CLI no longer talks to them, and they are deployed separately.
+version: 2
+
+project_name: curlew
+
+before:
+  hooks:
+    # Deliberately `download`, not `tidy` — a release must not be able to
+    # rewrite go.mod as a side effect of being built.
+    - go mod download
+
+builds:
+  - id: curlew
+    main: ./cmd/curlew
+    binary: curlew
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      # -X main.version is the whole point of version being a var rather than
+      # a const; see cmd/curlew/main.go. TestVersion_is_injectable_at_link_time
+      # fails if that ever regresses to a const, which the linker would
+      # otherwise ignore in silence.
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    ids:
+      - curlew
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats:
+      - tar.gz
+    # Windows users expect a zip; a .tar.gz needs a third-party tool on older
+    # Windows and is a needless first-run obstacle.
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - CHANGELOG.md
+      - docs/MANUAL.md
+      - docs/CLI_SPECIFICATION.md
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^Merge"
+
+release:
+  # Draft so a human reviews the notes and the artifact list before anything
+  # becomes public. Publishing is not a step to automate away.
+  draft: true
