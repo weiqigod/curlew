@@ -1958,6 +1958,8 @@ capabilities:
     milestone: 'M24'
     tasks:
       - id: M24-001
-        status: review
+        status: done
         planned_date: 2026-08-05
+        completed_date: 2026-08-05
+        verified_by: ai
         branch: fix/M24-001-assertion-identity-fields

@@ -1,6 +1,6 @@
 id: M24-001
 title: "Give assertion results a real identity: type, target, operator"
-status: review
+status: done
 priority: 1
 created: 2026-08-05
 phase: "M24: Agent output fidelity"
