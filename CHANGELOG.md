@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The copyright holder is named: Peter Lindqvist.** The notices previously read
+  `weiqigod`, taken from the git identity on every commit here. A copyright notice naming a
+  pseudonymous handle is weak — it does not identify a legal person who can assert or
+  transfer the right. Four lines change: `NOTICE` and the three proprietary LICENSE files.
+
+  The Go module path `github.com/weiqigod/curlew` and the schema `$id` URLs are
+  **deliberately unchanged** and verified so: those encode the GitHub organisation, which is
+  a different thing from the copyright holder. Renaming them would break every import path
+  and re-break the `$id` URLs corrected in M21-001. The root LICENSE is likewise untouched
+  (sha256 unchanged) — the Apache appendix placeholders stay as-is by convention, with the
+  actual holder named in `NOTICE`.
+
 - **The Apache-2.0 license now states its scope, carving out the commercial components.**
   The repository has carried a root Apache-2.0 `LICENSE` since commit `3d3d956`, but with
   **no statement of what it covers** — so by default it applied to the whole tree,
