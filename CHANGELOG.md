@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Three flags reached users that `curlew --help` never mentioned** (M23-001). `--events`
+  was implemented, working, and advertised in the README, but absent from help — a user
+  reading the README got no confirmation from the tool that the flag existed.
+  `--format markdown` was accepted, and the CLI's own "unknown output format" error message
+  listed it as supported, but the Run Options `--format` line did not. And
+  `curlew schema --project`, which emits the `curlew.yaml` project schema instead of the
+  collection schema, was documented nowhere at all.
+
+  All three arrived the same way: a `case "--flag":` added to a parser with no matching
+  help line. Nothing failed, because nothing was checking. Three parity tests now derive
+  the truth from the code rather than a hand-maintained list — accepted flags from an AST
+  walk of the package's case clauses, accepted formats from the CLI's own error message,
+  and advertised commands from the help output itself. Each was mutation-verified to fail
+  when its guard is removed.
+
+### Changed
+- **The README now describes the whole tool** (M23-001). It had covered roughly half of it:
+  retry with backoff, rate limiting, CEL `if:` conditionals, redaction-on-by-default,
+  `--only`, `--events`, agent-skill scaffolding, binary request bodies, and four of the
+  fourteen commands were all missing. Features are now grouped, and a command table lists
+  every command. `TestReadme_lists_every_command_the_CLI_advertises` keeps it honest.
+
+  Two claims drafted for the new section were corrected against the runner before landing:
+  `required:` is honoured only in the `setup:` phase (`executePhase` receives
+  `checkRequired=false` for main and teardown), and `options.stop_on_failure` halts only
+  the main phase — `teardown:` still runs.
+
 ### Added
 - **The copyright holder is named: Peter Lindqvist.** The notices previously read
   `weiqigod`, taken from the git identity on every commit here. A copyright notice naming a
