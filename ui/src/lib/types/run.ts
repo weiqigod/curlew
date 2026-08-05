@@ -192,7 +192,14 @@ export interface SourceRef {
 }
 
 export interface AssertionItem {
+  /** Discriminator only. Rendered as the type chip. */
   type: string;
+  /** JSONPath, header name, schema path, or assertions[N]. */
+  target?: string;
+  /** Comparison applied; absent where the type implies it. */
+  operator?: string;
+  /** Assembled human-readable phrase, e.g. "body $.user.name equals". */
+  label: string;
   expected: string;
   actual: string;
   passed: boolean;

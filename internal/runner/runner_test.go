@@ -7146,7 +7146,7 @@ func TestRun_graphql_assertion_on_errors_extensions_code(t *testing.T) {
 	// The body assertion on $.errors[0].extensions.code should pass
 	var codeAssertionPassed bool
 	for _, ar := range results[0].AssertionResults.Items {
-		if strings.Contains(ar.Type, "$.errors[0].extensions.code") && ar.Passed {
+		if ar.Target == "$.errors[0].extensions.code" && ar.Passed {
 			codeAssertionPassed = true
 		}
 	}
@@ -10897,7 +10897,7 @@ func TestCelAssertion_TruePasses(t *testing.T) {
 	if results[0].AssertionResults == nil {
 		t.Fatal("want assertion results, got nil")
 	}
-	celResult := findAssertionByType(results[0].AssertionResults, "assertions[0].cel")
+	celResult := findAssertionByLabel(results[0].AssertionResults, "assertions[0].cel")
 	if celResult == nil {
 		t.Fatal("want assertions[0].cel result, got nil")
 	}
@@ -10933,7 +10933,7 @@ func TestCelAssertion_FalseFails(t *testing.T) {
 	if results[0].AssertionResults == nil {
 		t.Fatal("want assertion results, got nil")
 	}
-	celResult := findAssertionByType(results[0].AssertionResults, "assertions[0].cel")
+	celResult := findAssertionByLabel(results[0].AssertionResults, "assertions[0].cel")
 	if celResult == nil {
 		t.Fatal("want assertions[0].cel result, got nil")
 	}
@@ -11101,12 +11101,15 @@ func TestRun_CelAssertion_SkippedByIf_NotEvaluated(t *testing.T) {
 
 // findAssertionByType returns the first Result whose Type matches the given
 // string, or nil if none is found.
-func findAssertionByType(ar *assertion.Results, typ string) *assertion.Result {
+// findAssertionByLabel locates an assertion by its human-readable label
+// ("assertions[0].cel", "body $.id equals"). Before the identity split this
+// matched on Type, which carried that composite phrase.
+func findAssertionByLabel(ar *assertion.Results, label string) *assertion.Result {
 	if ar == nil {
 		return nil
 	}
 	for i := range ar.Items {
-		if ar.Items[i].Type == typ {
+		if ar.Items[i].Label() == label {
 			return &ar.Items[i]
 		}
 	}

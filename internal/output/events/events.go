@@ -1,6 +1,6 @@
 // Package events defines the NDJSON agent event stream emitted by `curlew run`
 // when the --events flag is provided. The current schema is documented in
-// docs/events-schema/v1.3.json. v1.2, v1.1 and v1.0 are retained at their
+// docs/events-schema/v1.4.json. v1.3, v1.2, v1.1 and v1.0 are retained at their
 // respective paths as historical anchors.
 //
 // v1.0 → v1.1 (M8-004): additive change — run.start gains an optional
@@ -13,12 +13,19 @@
 // v1.2 → v1.3: additive change — request.end gains an optional "timing"
 // object carrying the connection-phase breakdown (integer microseconds)
 // measured via net/http/httptrace, plus the retry attempt count.
+//
+// v1.3 → v1.4 (M24-001): assertion.result gains "target", "operator" and
+// "label", and "type" is corrected to emit the discriminator the schema has
+// declared since v1.0. Through v1.3 it carried a composite string
+// ("body $.user.name equals") that no published schema permitted, so no
+// consumer could discriminate on it; "label" now carries that phrase.
 package events
 
 // SchemaVersion is the current event-stream schema version. Promoted from
-// "1.2" to "1.3" with an additive optional "timing" object on request.end.
+// "1.3" to "1.4" with the assertion.result identity split (target/operator/
+// label) and the conformance fix to the type discriminator.
 // Removals and renames now require a v2.0 bump.
-const SchemaVersion = "1.3"
+const SchemaVersion = "1.4"
 
 // DefaultBodyLimit is the byte threshold above which request and response
 // bodies are truncated in event payloads.
@@ -134,13 +141,25 @@ type TimingInfo struct {
 }
 
 // AssertionResult records one assertion outcome.
+//
+// Type is a discriminator and nothing else. Through v1.3 it was emitted as a
+// composite ("body $.user.name equals"), which no published schema permitted
+// and which no consumer could switch on; Target and Operator now carry the
+// parts that vary. See docs/EVENTS_SCHEMA_v1.4.md.
 type AssertionResult struct {
 	Header
 	RequestID string `json:"request_id"`
-	Type      string `json:"type"` // "status" | "body" | "header" | "schema"
-	Passed    bool   `json:"passed"`
-	Expected  string `json:"expected,omitempty"`
-	Actual    string `json:"actual,omitempty"`
+	Type      string `json:"type"` // "status" | "body" | "header" | "schema" | "timing" | "cel"
+	Target    string `json:"target,omitempty"`
+	Operator  string `json:"operator,omitempty"`
+	// Label is the assembled human-readable phrase ("body $.user.name equals").
+	// It is emitted so consumers never have to reimplement the assembly rules,
+	// and it is exactly the value Type carried through v1.3 — a v1.3 consumer
+	// that string-matched the composite migrates by reading this field.
+	Label    string `json:"label"`
+	Passed   bool   `json:"passed"`
+	Expected string `json:"expected,omitempty"`
+	Actual   string `json:"actual,omitempty"`
 }
 
 // RunEnd is the terminal event for every run.

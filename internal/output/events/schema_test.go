@@ -33,11 +33,11 @@ func schemaPath(t *testing.T, version string) string {
 	return filepath.Join(root, "docs", "events-schema", version+".json")
 }
 
-// compileEventSchema compiles the current (v1.3) JSON Schema. Callers that
+// compileEventSchema compiles the current (v1.4) JSON Schema. Callers that
 // exercise the live emitter call this; most tests should use this helper.
 func compileEventSchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
-	return compileEventSchemaVersion(t, "v1.3")
+	return compileEventSchemaVersion(t, "v1.4")
 }
 
 // compileEventSchemaVersion compiles the JSON Schema for the given version
@@ -91,7 +91,7 @@ func goldenDir(t *testing.T) string {
 }
 
 // TestEmitter_AllKindsValidateAgainstSchema emits one event of each kind into a
-// buffer and validates every line against the v1.3 JSON Schema.
+// buffer and validates every line against the v1.4 JSON Schema.
 func TestEmitter_AllKindsValidateAgainstSchema(t *testing.T) {
 	sch := compileEventSchema(t)
 
@@ -112,7 +112,9 @@ func TestEmitter_AllKindsValidateAgainstSchema(t *testing.T) {
 	if err := em.EmitRequestStart("req-1", "get-user", "Get user", "GET", "https://example.com/user", "setup", "test.yaml", 3); err != nil {
 		t.Fatalf("EmitRequestStart: %v", err)
 	}
-	if err := em.EmitAssertionResult("req-1", "status", "200", "200", true); err != nil {
+	if err := em.EmitAssertionResult(events.AssertionResultInput{
+		RequestID: "req-1", Type: "status", Expected: "200", Actual: "200", Passed: true,
+	}); err != nil {
 		t.Fatalf("EmitAssertionResult: %v", err)
 	}
 	if err := em.EmitRequestEnd(events.RequestEndInput{
@@ -158,7 +160,7 @@ func kindFromLine(t *testing.T, line string) string {
 }
 
 // TestEmitter_GoldenSchemaValidates reads every golden NDJSON file in
-// testdata/golden/ and validates each line against the v1.3 JSON Schema.
+// testdata/golden/ and validates each line against the v1.4 JSON Schema.
 func TestEmitter_GoldenSchemaValidates(t *testing.T) {
 	sch := compileEventSchema(t)
 	dir := goldenDir(t)
@@ -230,7 +232,9 @@ func TestEmitter_GoldenRunHappy(t *testing.T) {
 	if err := em.EmitRequestStart("req-1", "create-user", "Create user", "POST", "https://api.example.com/users", "", "happy.yaml", 1); err != nil {
 		t.Fatalf("EmitRequestStart: %v", err)
 	}
-	if err := em.EmitAssertionResult("req-1", "status", "201", "201", true); err != nil {
+	if err := em.EmitAssertionResult(events.AssertionResultInput{
+		RequestID: "req-1", Type: "status", Expected: "201", Actual: "201", Passed: true,
+	}); err != nil {
 		t.Fatalf("EmitAssertionResult: %v", err)
 	}
 	if err := em.EmitRequestEnd(events.RequestEndInput{
@@ -299,7 +303,9 @@ func TestEmitter_GoldenRunFailedAssertion(t *testing.T) {
 	if err := em.EmitRequestStart("req-1", "get-user", "Get user", "GET", "https://api.example.com/users/1", "", "assert.yaml", 3); err != nil {
 		t.Fatalf("EmitRequestStart: %v", err)
 	}
-	if err := em.EmitAssertionResult("req-1", "status", "200", "404", false); err != nil {
+	if err := em.EmitAssertionResult(events.AssertionResultInput{
+		RequestID: "req-1", Type: "status", Expected: "200", Actual: "404", Passed: false,
+	}); err != nil {
 		t.Fatalf("EmitAssertionResult: %v", err)
 	}
 	if err := em.EmitRequestEnd(events.RequestEndInput{
@@ -316,6 +322,63 @@ func TestEmitter_GoldenRunFailedAssertion(t *testing.T) {
 	}
 
 	compareOrUpdateGolden(t, "run_failed_assertion.ndjson", buf.Bytes())
+}
+
+// TestEmitter_GoldenAllAssertionKinds pins one event of every assertion kind.
+//
+// M24-001: until this existed, every golden fixture and every direct
+// EmitAssertionResult call used "status" — the single kind whose emitted type
+// happened to satisfy the published enum. The schema tests passed for four
+// versions while body, header, schema, cel and timing assertions all violated
+// it. A corpus that only exercises the conforming case is not a guard, so this
+// fixture deliberately covers each kind including the ones that carry a target.
+func TestEmitter_GoldenAllAssertionKinds(t *testing.T) {
+	var buf bytes.Buffer
+	em, err := events.NewEmitter(&buf, events.Options{
+		Clock:         fixedClock(t, "2026-04-21T10:00:00Z"),
+		RunID:         "golden-all-assertion-kinds",
+		CurlewVersion: "0.1.0-test",
+	})
+	if err != nil {
+		t.Fatalf("NewEmitter: %v", err)
+	}
+
+	if err := em.EmitRunStart([]string{"run", "kinds.yaml"}, "kinds.yaml", ""); err != nil {
+		t.Fatalf("EmitRunStart: %v", err)
+	}
+	if err := em.EmitRequestStart("req-1", "get-user", "Get user", "GET", "https://api.example.com/users/1", "main", "kinds.yaml", 3); err != nil {
+		t.Fatalf("EmitRequestStart: %v", err)
+	}
+
+	kinds := []events.AssertionResultInput{
+		{RequestID: "req-1", Type: "status", Expected: "200", Actual: "404", Passed: false},
+		{RequestID: "req-1", Type: "body", Target: "$.user.name", Operator: "equals", Expected: "alice", Actual: "bob", Passed: false},
+		{RequestID: "req-1", Type: "body", Target: "$.items", Operator: "contains_all", Expected: "contains all of [a b]", Actual: "[a]", Passed: false},
+		{RequestID: "req-1", Type: "header", Target: "X-Request-Id", Operator: "exists", Expected: "exists", Actual: "header not present", Passed: false},
+		{RequestID: "req-1", Type: "schema", Target: "$.user.id", Expected: "required: id", Actual: "missing", Passed: false},
+		{RequestID: "req-1", Type: "timing", Expected: "<= 100ms", Actual: "250ms", Passed: false},
+		{RequestID: "req-1", Type: "cel", Target: "assertions[0]", Expected: "compiled CEL bool expression", Actual: "got int, expected bool", Passed: false},
+	}
+	for _, k := range kinds {
+		if err := em.EmitAssertionResult(k); err != nil {
+			t.Fatalf("EmitAssertionResult(%s): %v", k.Type, err)
+		}
+	}
+
+	if err := em.EmitRequestEnd(events.RequestEndInput{
+		RequestID:   "req-1",
+		RequestSlug: "get-user",
+		Outcome:     events.OutcomeFailed,
+		StatusCode:  404,
+		Duration:    28 * time.Millisecond,
+	}); err != nil {
+		t.Fatalf("EmitRequestEnd: %v", err)
+	}
+	if err := em.EmitRunEnd(1, 0, 1, 0, 1); err != nil {
+		t.Fatalf("EmitRunEnd: %v", err)
+	}
+
+	compareOrUpdateGolden(t, "all_assertion_kinds.ndjson", buf.Bytes())
 }
 
 // compareOrUpdateGolden compares got to the golden file at testdata/golden/name,
@@ -373,7 +436,7 @@ func eventSchemaDocPath(t *testing.T, version string) string {
 
 // TestSchema_DocInSyncWithCode verifies that every exported field on the Go
 // event structs in events.go appears in the corresponding schema definition in
-// docs/events-schema/v1.3.json, and that every field without an ",omitempty"
+// docs/events-schema/v1.4.json, and that every field without an ",omitempty"
 // JSON tag is listed in that definition's "required" array.
 //
 // This test prevents silent drift: when a developer adds, removes, or renames
@@ -382,7 +445,7 @@ func eventSchemaDocPath(t *testing.T, version string) string {
 func TestSchema_DocInSyncWithCode(t *testing.T) {
 	// Load the raw JSON schema document (we need to introspect "required" and
 	// "properties" text directly, not compile it).
-	path := schemaPath(t, "v1.3")
+	path := schemaPath(t, "v1.4")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read schema: %v", err)
@@ -601,15 +664,15 @@ func extractJSONFences(src string) []fenceBlock {
 }
 
 // TestSchema_MarkdownExamplesValidate extracts every fenced code block tagged
-// ```json or ```ndjson from docs/EVENTS_SCHEMA_v1.3.md and validates each
-// non-blank line against the v1.3 JSON Schema.
+// ```json or ```ndjson from docs/EVENTS_SCHEMA_v1.4.md and validates each
+// non-blank line against the v1.4 JSON Schema.
 //
 // Ensures the examples embedded in the agent-facing documentation stay
 // consistent with the checked-in schema. A broken example fails fast.
 func TestSchema_MarkdownExamplesValidate(t *testing.T) {
 	sch := compileEventSchema(t)
 
-	docPath := eventSchemaDocPath(t, "v1.3")
+	docPath := eventSchemaDocPath(t, "v1.4")
 	src, err := os.ReadFile(docPath)
 	if err != nil {
 		t.Fatalf("read doc: %v", err)
@@ -721,12 +784,12 @@ func TestSchema_v11_validates(t *testing.T) {
 	}
 }
 
-// TestSchema_v13_validates compiles docs/events-schema/v1.3.json and validates
+// TestSchema_v14_validates compiles docs/events-schema/v1.4.json and validates
 // one event of each kind against it, including request.start and request.end
 // with request_slug set. This is the authoritative regression test for the
 // current schema.
-func TestSchema_v13_validates(t *testing.T) {
-	sch := compileEventSchemaVersion(t, "v1.3")
+func TestSchema_v14_validates(t *testing.T) {
+	sch := compileEventSchemaVersion(t, "v1.4")
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{
@@ -749,7 +812,9 @@ func TestSchema_v13_validates(t *testing.T) {
 	if err := em.EmitRequestStart("req-1", "get-user", "Get user", "GET", "https://example.com/users", "main", "test.yaml", 5); err != nil {
 		t.Fatalf("EmitRequestStart: %v", err)
 	}
-	if err := em.EmitAssertionResult("req-1", "status", "200", "200", true); err != nil {
+	if err := em.EmitAssertionResult(events.AssertionResultInput{
+		RequestID: "req-1", Type: "status", Expected: "200", Actual: "200", Passed: true,
+	}); err != nil {
 		t.Fatalf("EmitAssertionResult: %v", err)
 	}
 	if err := em.EmitRequestEnd(events.RequestEndInput{

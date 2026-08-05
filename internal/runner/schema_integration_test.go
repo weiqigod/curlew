@@ -96,7 +96,7 @@ func TestRun_schema_assertion_fail_missing_field(t *testing.T) {
 	// At least one schema result item should be present
 	sawSchemaResult := false
 	for _, r := range results[0].AssertionResults.Items {
-		if len(r.Type) >= 7 && r.Type[:7] == "schema " {
+		if r.Type == assertion.TypeSchema {
 			sawSchemaResult = true
 			break
 		}
@@ -161,7 +161,7 @@ func TestRun_schema_assertion_combined_with_status(t *testing.T) {
 		if r.Type == "status" {
 			sawStatus = true
 		}
-		if len(r.Type) >= 7 && r.Type[:7] == "schema " {
+		if r.Type == assertion.TypeSchema {
 			sawSchema = true
 		}
 	}

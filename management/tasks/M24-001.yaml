@@ -1,0 +1,77 @@
+id: M24-001
+title: "Give assertion results a real identity: type, target, operator"
+status: done
+priority: 1
+created: 2026-08-05
+phase: "M24: Agent output fidelity"
+track: go-cli
+
+dependencies:
+  - M23-001
+
+observable: |
+  # 1. The emitted assertion vocabulary conforms to the published schema.
+  go test ./internal/output/events/ -run TestAssertionType_conforms_to_published_enum -v
+
+  # 2. Human labels are byte-identical to the pre-change strings.
+  go test ./internal/assertion/ -run TestResult_Label_reproduces_historical_strings -v
+
+  # 3. A real run emits the triple, not a composite string.
+  go build ./cmd/curlew
+  ./curlew run <collection with a failing body assertion> --events ev.ndjson
+  grep assertion.result ev.ndjson
+  # -> "type":"body","target":"$.user.name","operator":"equals"
+
+behaviors:
+  - "Given a body assertion on $.user.name with operator equals, when the result is emitted, then type is \"body\", target is \"$.user.name\" and operator is \"equals\"."
+  - "Given any assertion result, when Label() is called, then it returns the same string the composite Type field carried before this change."
+  - "Given every assertion kind the package can produce, when each is validated against the published JSON Schema, then all conform."
+  - "Given a status or timing assertion, when it is emitted, then target and operator are absent rather than empty strings."
+  - "Given the JSON report format, when an assertion is rendered, then operator comes from the Result field and not from re-parsing a label."
+
+scope: |
+  assertion.Result carried a single Type field doing two incompatible jobs: a
+  machine-readable discriminator and a human-readable label. For every kind
+  except status it was built as a composite string —
+  fmt.Sprintf("body %s %s", path, operator) -> "body $.user.name equals".
+
+  The published v1.3 JSON Schema declares that field as
+  enum: ["status","body","header","schema"], so every body, header, schema and
+  cel assertion event violated the schema, and "timing" was never in the enum
+  at all. Of the four declared members exactly one ("status") was ever emitted
+  verbatim. An agent following the documented contract and switching on
+  type == "body" matched nothing.
+
+  The existing schema test did not catch this because every golden fixture and
+  every direct emitter call used "status" — the single value that conforms.
+
+  The fix splits the field:
+
+    Type     -> discriminator: status|body|header|schema|timing|cel
+    Target   -> JSONPath, header name, schema path, or assertions[N]
+    Operator -> equals|matches|exists|...
+
+  Label() reconstructs the historical human string so terminal, HTML, pr-check
+  and UI output are byte-identical. cmd/curlew's extractJSONOperator — which
+  recovered the operator by taking the last whitespace-delimited word, and
+  returned "status" as the operator for status assertions — is deleted.
+
+  Events go to schema v1.4: target and operator are new optional fields
+  (additive), and the type field's emission is corrected to conform to the enum
+  the schema has declared since v1.0. That correction is a conformance fix
+  rather than a v2.0 semantic change, because the composite value was never
+  permitted by any published schema version.
+
+definition_of_done:
+  - assertion.Result carries Type, Target and Operator as separate fields
+  - Label() reproduces the pre-change string for all six assertion kinds, proven by test
+  - A parity test validates every assertion kind the package can emit against the published enum
+  - Golden fixtures exercise every assertion kind, not only status
+  - extractJSONOperator is deleted
+  - events schema v1.4 published (JSON + markdown) with the conformance note
+  - "`./scripts/ci-local.sh --go` passes"
+  - Coverage >= 80%
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "3-4 hours"

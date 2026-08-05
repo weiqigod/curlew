@@ -81,12 +81,13 @@ func CheckSchema(compiled *CompiledSchema, body []byte) []Result {
 		return nil
 	}
 
-	typeTag := fmt.Sprintf("schema %s", compiled.path)
+	target := compiled.path
 
 	var doc any
 	if err := json.Unmarshal(body, &doc); err != nil {
 		return []Result{{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: "valid JSON",
 			Actual:   "response body is not JSON",
 			Passed:   false,
@@ -96,7 +97,8 @@ func CheckSchema(compiled *CompiledSchema, body []byte) []Result {
 	err := compiled.sch.Validate(doc)
 	if err == nil {
 		return []Result{{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: "valid",
 			Actual:   "valid",
 			Passed:   true,
@@ -110,7 +112,8 @@ func CheckSchema(compiled *CompiledSchema, body []byte) []Result {
 		// unreachable in practice. It is retained to guard against future
 		// library changes that might introduce other error types.
 		return []Result{{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: "valid",
 			Actual:   err.Error(),
 			Passed:   false,
@@ -123,7 +126,8 @@ func CheckSchema(compiled *CompiledSchema, body []byte) []Result {
 	}
 	if len(results) == 0 {
 		results = append(results, Result{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: "valid",
 			Actual:   "validation failed",
 			Passed:   false,
@@ -152,13 +156,14 @@ func flattenLeafErrors(e *jsonschema.ValidationError) []*jsonschema.ValidationEr
 // For all other kinds it falls back to the library's LocalizedString.
 func leafToResult(leaf *jsonschema.ValidationError, root any) Result {
 	path := toJSONPath(leaf.InstanceLocation)
-	typeTag := fmt.Sprintf("schema %s", path)
+	target := path
 
 	switch k := leaf.ErrorKind.(type) {
 	case *kind.Type:
 		val, _ := lookupAt(root, leaf.InstanceLocation)
 		return Result{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: fmt.Sprintf("type %s", strings.Join(k.Want, " or ")),
 			Actual:   fmt.Sprintf("%s (%v)", k.Got, val),
 			Passed:   false,
@@ -166,7 +171,8 @@ func leafToResult(leaf *jsonschema.ValidationError, root any) Result {
 	case *kind.Required:
 		missing := strings.Join(k.Missing, ", ")
 		return Result{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: fmt.Sprintf("required: %s", missing),
 			Actual:   "missing",
 			Passed:   false,
@@ -181,7 +187,8 @@ func leafToResult(leaf *jsonschema.ValidationError, root any) Result {
 		// rather than calling ErrorKind.LocalizedString(nil), which panics for
 		// kinds (e.g. Minimum, Maximum, Enum) that use x/text/message.Printer.
 		return Result{
-			Type:     typeTag,
+			Type:     TypeSchema,
+			Target:   target,
 			Expected: leaf.Error(),
 			Actual:   actual,
 			Passed:   false,

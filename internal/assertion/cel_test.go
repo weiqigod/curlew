@@ -121,9 +121,9 @@ func TestCelAssertion_TypeErrorBecomesFailedAssertion(t *testing.T) {
 	if results[0].Passed {
 		t.Fatal("want fail (type error)")
 	}
-	// Type field must be attributed to assertions[0].cel
-	if results[0].Type != "assertions[0].cel" {
-		t.Errorf("Type = %q, want %q", results[0].Type, "assertions[0].cel")
+	// The human label must stay attributed to assertions[0].cel
+	if results[0].Label() != "assertions[0].cel" {
+		t.Errorf("Label() = %q, want %q", results[0].Label(), "assertions[0].cel")
 	}
 	// Actual must contain the CEL type-error framing ("expected" is present
 	// in the cel-go "got int, expected bool" message).
@@ -159,8 +159,8 @@ func TestCelAssertion_MutualExclusionWithOperatorAssertion(t *testing.T) {
 	if results[0].Passed {
 		t.Error("want fail for 'false' expression")
 	}
-	if results[0].Type != "assertions[0].cel" {
-		t.Errorf("Type = %q, want %q", results[0].Type, "assertions[0].cel")
+	if results[0].Label() != "assertions[0].cel" {
+		t.Errorf("Label() = %q, want %q", results[0].Label(), "assertions[0].cel")
 	}
 }
 
@@ -196,11 +196,11 @@ func TestCheckCEL_MultipleInputs(t *testing.T) {
 	if results[1].Passed {
 		t.Errorf("results[1] want fail, got pass")
 	}
-	// Type names should reflect index
-	if results[0].Type != "assertions[0].cel" {
-		t.Errorf("results[0].Type = %q, want %q", results[0].Type, "assertions[0].cel")
+	// Labels should reflect index
+	if results[0].Label() != "assertions[0].cel" {
+		t.Errorf("results[0].Label() = %q, want %q", results[0].Label(), "assertions[0].cel")
 	}
-	if results[1].Type != "assertions[1].cel" {
-		t.Errorf("results[1].Type = %q, want %q", results[1].Type, "assertions[1].cel")
+	if results[1].Label() != "assertions[1].cel" {
+		t.Errorf("results[1].Label() = %q, want %q", results[1].Label(), "assertions[1].cel")
 	}
 }

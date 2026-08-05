@@ -30,7 +30,7 @@
           <Icon name={a.passed ? 'check' : 'x'} size={12} sw={1.8} />
         </span>
         <span class="typechip">{a.type}</span>
-        <span class="expect at-mono">{a.type} · expected {a.expected}</span>
+        <span class="expect at-mono">{a.label} · expected {a.expected}</span>
         <span class="affix" class:ok={a.passed} class:err={!a.passed}>
           {a.passed ? 'passed' : 'failed'}
         </span>

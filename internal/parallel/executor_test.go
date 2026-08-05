@@ -1465,9 +1465,9 @@ func (r *parallelRecordingSink) RequestEnd(reqID, requestSlug, outcome string, s
 	r.mu.Unlock()
 }
 
-func (r *parallelRecordingSink) AssertionResult(reqID, aType, expected, actual string, passed bool) {
+func (r *parallelRecordingSink) AssertionResult(ev AssertionEvent) {
 	r.mu.Lock()
-	r.asserts = append(r.asserts, struct{ reqID string }{reqID})
+	r.asserts = append(r.asserts, struct{ reqID string }{ev.RequestID})
 	r.mu.Unlock()
 }
 

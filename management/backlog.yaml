@@ -1952,3 +1952,14 @@ capabilities:
         completed_date: 2026-08-05
         verified_by: ai
         branch: feature/M23-001-help-and-readme-completeness
+
+  agent_output_fidelity:
+    description: 'Structured output is actually structured, and held to its published schema'
+    milestone: 'M24'
+    tasks:
+      - id: M24-001
+        status: done
+        planned_date: 2026-08-05
+        completed_date: 2026-08-05
+        verified_by: ai
+        branch: fix/M24-001-assertion-identity-fields

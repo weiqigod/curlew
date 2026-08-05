@@ -88,7 +88,12 @@ export interface RequestEndEvent extends EventHeader {
 export interface AssertionResultEvent extends EventHeader {
   kind: 'assertion.result';
   request_id: string;
-  type: 'status' | 'body' | 'header' | 'schema';
+  type: 'status' | 'body' | 'header' | 'schema' | 'timing' | 'cel';
+  target?: string;
+  operator?: string;
+  /** Assembled human-readable phrase. Through schema v1.3 this was the value
+   *  of `type`, which never matched the union above. */
+  label: string;
   passed: boolean;
   expected?: string;
   actual?: string;

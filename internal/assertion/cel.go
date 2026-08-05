@@ -64,12 +64,13 @@ func CheckCEL(inputs []CELInput, ctx CELContext) []Result {
 
 // evalCELAssertion evaluates a single CEL assertion and returns the Result.
 func evalCELAssertion(in CELInput, ctx CELContext) Result {
-	typeName := fmt.Sprintf("assertions[%d].cel", in.Index)
+	target := fmt.Sprintf("assertions[%d]", in.Index)
 
 	prog, compileErr := compileCELAssertion(ctx, in.Source)
 	if compileErr != nil {
 		return Result{
-			Type:     typeName,
+			Type:     TypeCEL,
+			Target:   target,
 			Expected: "compiled CEL bool expression",
 			Actual:   redactSensitive(compileErr.Error(), ctx.SensitiveValues),
 			Passed:   false,
@@ -87,7 +88,8 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 	})
 	if evalErr != nil {
 		return Result{
-			Type:     typeName,
+			Type:     TypeCEL,
+			Target:   target,
 			Expected: in.Source,
 			Actual:   redactSensitive(evalErr.Error(), ctx.SensitiveValues),
 			Passed:   false,
@@ -99,7 +101,8 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 		// Should not happen if Compile correctly enforced bool type,
 		// but handle defensively.
 		return Result{
-			Type:     typeName,
+			Type:     TypeCEL,
+			Target:   target,
 			Expected: "boolean result",
 			Actual:   fmt.Sprintf("non-bool %T", out),
 			Passed:   false,
@@ -108,7 +111,8 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 
 	if b {
 		return Result{
-			Type:     typeName,
+			Type:     TypeCEL,
+			Target:   target,
 			Expected: in.Source,
 			Actual:   "true",
 			Passed:   true,
@@ -119,7 +123,8 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 	// expression source and the resolved value of each top-level named ref.
 	msg := buildCELFailureMessage(in.Source, ctx)
 	return Result{
-		Type:     typeName,
+		Type:     TypeCEL,
+		Target:   target,
 		Expected: in.Source,
 		Actual:   redactSensitive(msg, ctx.SensitiveValues),
 		Passed:   false,

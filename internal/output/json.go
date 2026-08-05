@@ -103,8 +103,13 @@ type JSONRequest struct {
 
 // JSONAssertion represents one assertion outcome in JSON output.
 type JSONAssertion struct {
+	// Type is the discriminator; Target and Operator carry the parts that vary.
+	// Label is the assembled human-readable phrase and is what Type contained
+	// before the identity split.
 	Type     string `json:"type"`
-	Operator string `json:"operator"`
+	Target   string `json:"target,omitempty"`
+	Operator string `json:"operator,omitempty"`
+	Label    string `json:"label"`
 	Expected string `json:"expected"`
 	Actual   string `json:"actual"`
 	Passed   bool   `json:"passed"`

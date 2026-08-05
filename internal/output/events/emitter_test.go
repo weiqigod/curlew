@@ -70,7 +70,7 @@ func TestEmitter_RunStart_MinimalFields(t *testing.T) {
 
 	checks := map[string]any{
 		"kind":           "run.start",
-		"schema_version": "1.3",
+		"schema_version": "1.4",
 		"run_id":         "test-run-001",
 		"curlew_version": "0.1.0-dev",
 	}
@@ -770,7 +770,9 @@ func TestEmitter_AssertionResult(t *testing.T) {
 		t.Fatalf("NewEmitter: %v", err)
 	}
 
-	if err := em.EmitAssertionResult("req-1", "status", "200", "404", false); err != nil {
+	if err := em.EmitAssertionResult(events.AssertionResultInput{
+		RequestID: "req-1", Type: "status", Expected: "200", Actual: "404", Passed: false,
+	}); err != nil {
 		t.Fatalf("EmitAssertionResult: %v", err)
 	}
 
@@ -855,9 +857,9 @@ func TestEvents_v11_Selection(t *testing.T) {
 			}
 			m := parseLine(t, lines[0])
 
-			// schema_version must be "1.3" (current version).
-			if sv := m["schema_version"]; sv != "1.3" {
-				t.Errorf("schema_version = %q, want %q", sv, "1.3")
+			// schema_version must be "1.4" (current version).
+			if sv := m["schema_version"]; sv != "1.4" {
+				t.Errorf("schema_version = %q, want %q", sv, "1.4")
 			}
 
 			// selection field presence.
@@ -896,7 +898,7 @@ func TestEvents_v11_Selection(t *testing.T) {
 	}
 }
 
-// TestEvents_v12_SchemaVersionOnAllEvents verifies that schema_version is "1.3"
+// TestEvents_v12_SchemaVersionOnAllEvents verifies that schema_version is "1.4"
 // on every emitted event kind (M9-001 promoted the schema from 1.1 to 1.2).
 func TestEvents_v12_SchemaVersionOnAllEvents(t *testing.T) {
 	var buf bytes.Buffer
@@ -911,15 +913,17 @@ func TestEvents_v12_SchemaVersionOnAllEvents(t *testing.T) {
 
 	_ = em.EmitRunStart([]string{"run"}, "test.yaml", "")
 	_ = em.EmitRequestStart("r1", "test", "Test", "GET", "https://example.com", "main", "test.yaml", 1)
-	_ = em.EmitAssertionResult("r1", "status", "200", "200", true)
+	_ = em.EmitAssertionResult(events.AssertionResultInput{
+		RequestID: "r1", Type: "status", Expected: "200", Actual: "200", Passed: true,
+	})
 	_ = em.EmitRequestEnd(events.RequestEndInput{RequestID: "r1", Outcome: events.OutcomePassed, StatusCode: 200, Duration: 1 * time.Millisecond})
 	_ = em.EmitRunError(fmt.Errorf("some error"))
 	_ = em.EmitRunEnd(1, 1, 0, 0, 0)
 
 	for i, line := range splitLines(&buf) {
 		m := parseLine(t, line)
-		if sv := m["schema_version"]; sv != "1.3" {
-			t.Errorf("line %d: schema_version = %q, want %q (kind: %v)", i, sv, "1.3", m["kind"])
+		if sv := m["schema_version"]; sv != "1.4" {
+			t.Errorf("line %d: schema_version = %q, want %q (kind: %v)", i, sv, "1.4", m["kind"])
 		}
 	}
 }
@@ -945,7 +949,7 @@ func TestEmitter_RequestStartCarriesSlug(t *testing.T) {
 	if err := json.Unmarshal([]byte(line), &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got["schema_version"] != "1.3" {
+	if got["schema_version"] != "1.4" {
 		t.Errorf("schema_version = %v, want 1.3", got["schema_version"])
 	}
 	if got["request_slug"] != "get-user" {
@@ -990,7 +994,7 @@ func TestEmitter_RequestEndCarriesSlug(t *testing.T) {
 // The test covers every emit path that produces request.start / request.end:
 //   - EmitRequestStart with a slug → slug appears in request.start
 //   - EmitRequestEnd with a slug → slug appears in request.end
-//   - A full paired start+end sequence verifies schema_version "1.3" on both
+//   - A full paired start+end sequence verifies schema_version "1.4" on both
 //   - omitempty: empty slug is omitted from both events
 //   - Multiple request pairs with distinct slugs (simulating sequential run output)
 func TestEvents_v12_RequestSlug(t *testing.T) {
@@ -1018,7 +1022,7 @@ func TestEvents_v12_RequestSlug(t *testing.T) {
 		}
 		for _, line := range lines {
 			m := parseLine(t, line)
-			if sv := m["schema_version"]; sv != "1.3" {
+			if sv := m["schema_version"]; sv != "1.4" {
 				t.Errorf("schema_version = %v, want 1.3 (kind: %v)", sv, m["kind"])
 			}
 		}

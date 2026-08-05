@@ -1337,7 +1337,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			if r.AssertionResults != nil {
 				for _, ar := range r.AssertionResults.Items {
 					if !ar.Passed {
-						out.AssertionDetail(ar.Type, ar.Expected, ar.Actual)
+						out.AssertionDetail(ar.Label(), ar.Expected, ar.Actual)
 					}
 				}
 			}
@@ -1510,7 +1510,9 @@ func buildJSONOutput(name string, results []runner.RequestResult, summary *runne
 				for _, ar := range r.AssertionResults.Items {
 					jr.Assertions = append(jr.Assertions, output.JSONAssertion{
 						Type:     ar.Type,
-						Operator: extractJSONOperator(ar.Type),
+						Target:   ar.Target,
+						Operator: ar.Operator,
+						Label:    ar.Label(),
 						Expected: ar.Expected,
 						Actual:   ar.Actual,
 						Passed:   ar.Passed,
@@ -1747,7 +1749,7 @@ func buildTAPOutput(results []runner.RequestResult, parallel bool) []output.TAPR
 					for _, ar := range r.AssertionResults.Items {
 						if !ar.Passed {
 							tr.Failures = append(tr.Failures, output.TAPFailure{
-								Type:     ar.Type,
+								Type:     ar.Label(),
 								Expected: ar.Expected,
 								Actual:   ar.Actual,
 							})
@@ -1843,7 +1845,7 @@ func renderDataDrivenGroup(out, errOut *output.Printer, group []runner.RequestRe
 				if r.AssertionResults != nil {
 					for _, ar := range r.AssertionResults.Items {
 						if !ar.Passed {
-							out.AssertionDetail(ar.Type, ar.Expected, ar.Actual)
+							out.AssertionDetail(ar.Label(), ar.Expected, ar.Actual)
 						}
 					}
 				}
@@ -1866,7 +1868,7 @@ func renderDataDrivenGroup(out, errOut *output.Printer, group []runner.RequestRe
 				if r.AssertionResults != nil {
 					for _, ar := range r.AssertionResults.Items {
 						if !ar.Passed {
-							out.AssertionDetail(ar.Type, ar.Expected, ar.Actual)
+							out.AssertionDetail(ar.Label(), ar.Expected, ar.Actual)
 						}
 					}
 				}
@@ -1905,7 +1907,7 @@ func buildJUnitOutput(name string, results []runner.RequestResult, summary *runn
 				var msgs []string
 				for _, ar := range r.AssertionResults.Items {
 					if !ar.Passed {
-						msgs = append(msgs, fmt.Sprintf("Expected %s %s, got %s", ar.Type, ar.Expected, ar.Actual))
+						msgs = append(msgs, fmt.Sprintf("Expected %s %s, got %s", ar.Label(), ar.Expected, ar.Actual))
 					}
 				}
 				if len(msgs) > 0 {
@@ -2008,7 +2010,7 @@ func buildHTMLReport(name string, results []runner.RequestResult, summary *runne
 				hr.Status = "failed"
 				for _, ar := range r.AssertionResults.Items {
 					hr.Assertions = append(hr.Assertions, output.HTMLAssertion{
-						Type:     ar.Type,
+						Type:     ar.Label(),
 						Expected: ar.Expected,
 						Actual:   ar.Actual,
 						Passed:   ar.Passed,
@@ -2250,17 +2252,6 @@ func writeHTMLError(path string, err error) error {
 		Failed: 1,
 	}
 	return writeHTMLFile(path, htmlReport)
-}
-
-// extractJSONOperator extracts the operator keyword from an assertion Type string.
-// Types are structured as e.g. "status", "timing", "body $.id equals", "header Name matches".
-// For single-word types the type itself is the operator; for multi-word types the last word is.
-func extractJSONOperator(assertionType string) string {
-	parts := strings.Fields(assertionType)
-	if len(parts) == 0 {
-		return ""
-	}
-	return parts[len(parts)-1]
 }
 
 // validateCmdOut validates one or more collection files without executing HTTP requests.
@@ -3312,8 +3303,8 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  --format <type>     Output format: terminal (default), json, tap, junit, html, markdown")
 	_, _ = fmt.Fprintln(w, "  --report <file>     Write report to file (required for --format html, optional for --format junit)")
 	_, _ = fmt.Fprintln(w, "                      --format markdown requires --report <dir>")
-	_, _ = fmt.Fprintln(w, "  --events <file>     Write an NDJSON event stream for the run (schema v1.3)")
-	_, _ = fmt.Fprintln(w, "                      One JSON object per line; see docs/EVENTS_SCHEMA_v1.3.md")
+	_, _ = fmt.Fprintln(w, "  --events <file>     Write an NDJSON event stream for the run (schema v1.4)")
+	_, _ = fmt.Fprintln(w, "                      One JSON object per line; see docs/EVENTS_SCHEMA_v1.4.md")
 	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (also respects NO_COLOR env var)")
 	_, _ = fmt.Fprintln(w, "  -v                  Verbose: show request/response headers")
 	_, _ = fmt.Fprintln(w, "  -vv                 Very verbose: full HTTP request/response dump")

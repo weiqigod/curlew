@@ -96,7 +96,7 @@ func resultToItem(r runner.RequestResult) ResultItem {
 		var msgs []string
 		for _, ar := range r.AssertionResults.Items {
 			if !ar.Passed {
-				msgs = append(msgs, ar.Type+": expected "+ar.Expected+" got "+ar.Actual)
+				msgs = append(msgs, ar.Label()+": expected "+ar.Expected+" got "+ar.Actual)
 			}
 		}
 		if len(msgs) > 0 {

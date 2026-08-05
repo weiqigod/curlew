@@ -131,7 +131,7 @@ curlew ui                            # open the local web UI
 - **[docs/MANUAL.md](docs/MANUAL.md)** — the complete tutorial-style manual, from your first request to parallel, data-driven suites. Start here.
 - **[docs/CLI_SPECIFICATION.md](docs/CLI_SPECIFICATION.md)** — what the CLI must do: contracts, file formats, precedence, exit codes, conformance.
 - **[docs/UI_SPECIFICATION.md](docs/UI_SPECIFICATION.md)** — the local web UI.
-- **[docs/EVENTS_SCHEMA_v1.3.md](docs/EVENTS_SCHEMA_v1.3.md)** — the NDJSON event stream contract.
+- **[docs/EVENTS_SCHEMA_v1.4.md](docs/EVENTS_SCHEMA_v1.4.md)** — the NDJSON event stream contract.
 - **[site/](site/)** — a static examples cookbook.
 
 ## Repository layout

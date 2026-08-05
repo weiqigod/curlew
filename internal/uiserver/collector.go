@@ -117,7 +117,12 @@ type sourceJSON struct {
 }
 
 type assertionItemJSON struct {
+	// Type is the discriminator, which the UI renders as a chip; Label is the
+	// assembled phrase it renders as the description.
 	Type     string `json:"type"`
+	Target   string `json:"target,omitempty"`
+	Operator string `json:"operator,omitempty"`
+	Label    string `json:"label"`
 	Expected string `json:"expected"`
 	Actual   string `json:"actual"`
 	Passed   bool   `json:"passed"`
@@ -344,12 +349,13 @@ func (c *DetailCollector) AssertionResult(e runner.AssertionEvent) {
 		d.Assertions = &assertionsJSON{Passed: true, Items: []assertionItemJSON{}}
 	}
 	d.Assertions.Items = append(d.Assertions.Items, assertionItemJSON{
-		Type: e.Type, Expected: e.Expected, Actual: e.Actual, Passed: e.Passed,
+		Type: e.Type, Target: e.Target, Operator: e.Operator, Label: e.Label(),
+		Expected: e.Expected, Actual: e.Actual, Passed: e.Passed,
 	})
 	if !e.Passed {
 		d.Assertions.Passed = false
 		if d.failMessage == "" {
-			d.failMessage = fmt.Sprintf("%s: expected %s, got %s", e.Type, e.Expected, e.Actual)
+			d.failMessage = fmt.Sprintf("%s: expected %s, got %s", e.Label(), e.Expected, e.Actual)
 		}
 	}
 }
@@ -549,10 +555,11 @@ func (c *DetailCollector) fillFromResult(d *RequestDetail, rr *runner.RequestRes
 		aj := &assertionsJSON{Passed: rr.AssertionResults.Passed, Items: []assertionItemJSON{}}
 		for _, item := range rr.AssertionResults.Items {
 			aj.Items = append(aj.Items, assertionItemJSON{
-				Type: item.Type, Expected: item.Expected, Actual: item.Actual, Passed: item.Passed,
+				Type: item.Type, Target: item.Target, Operator: item.Operator, Label: item.Label(),
+				Expected: item.Expected, Actual: item.Actual, Passed: item.Passed,
 			})
 			if !item.Passed && d.failMessage == "" {
-				d.failMessage = fmt.Sprintf("%s: expected %s, got %s", item.Type, item.Expected, item.Actual)
+				d.failMessage = fmt.Sprintf("%s: expected %s, got %s", item.Label(), item.Expected, item.Actual)
 			}
 		}
 		d.Assertions = aj
