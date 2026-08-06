@@ -65,14 +65,15 @@ func Init(opts Options) error {
 		projectName = filepath.Base(abs)
 	}
 
-	// Determine the format that drives the output: block.
+	// Determine the format that drives the output: block. Keyed on "a skill
+	// was requested", not on which name was used — the names are aliases for
+	// one payload (templates.SupportedSkills), and the CLI layer has already
+	// rejected anything outside that set. Matching a single literal here
+	// silently gave later names a lesser scaffold.
 	formatForBlock := opts.OutputFormat
-	enableEvents := false
-	if opts.SkillName == "claude" {
-		enableEvents = true
-		if formatForBlock == "" {
-			formatForBlock = "markdown"
-		}
+	enableEvents := opts.SkillName != ""
+	if enableEvents && formatForBlock == "" {
+		formatForBlock = "markdown"
 	}
 
 	gitignoreEntries := []string{".env"}

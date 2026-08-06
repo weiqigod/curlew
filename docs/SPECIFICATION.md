@@ -3136,12 +3136,14 @@ CLI > collection > project > built-in precedence (see §Output Block).
 
 #### `--skill <name>` flag
 
-Scaffolds an agent-driven workflow alongside the standard project files. v1
-ships with one skill, `claude`, which targets Claude Code's skill loader. The
-flag is opt-in; bare `curlew init` is byte-identical to its pre-M10
-behaviour.
+Scaffolds an agent-driven workflow alongside the standard project files.
+curlew ships one Agent Skill, accepted under the canonical name `agent` or
+the compatibility alias `claude`; both scaffold the identical payload. The
+skill targets the `.claude/skills/` project skill directory, which is read
+by Claude Code and by GitHub Copilot. The flag is opt-in; bare `curlew init`
+is byte-identical to its pre-M10 behaviour.
 
-When `--skill claude` is passed, three additional things happen:
+When `--skill` is passed, three additional things happen:
 
 1. `.claude/skills/curlew/SKILL.md` is written with the embedded skill
    template. The template carries trigger phrases, the canonical
@@ -3159,7 +3161,7 @@ When `--skill claude` is passed, three additional things happen:
 If a `.claude/skills/curlew/SKILL.md` already exists, it is left
 untouched (matches the `curlew.yaml` no-overwrite rule). The skill is
 checked in to the user's repo so they can edit it freely; subsequent
-`curlew init --skill claude` runs are no-ops on the skill file.
+`curlew init --skill agent` runs are no-ops on the skill file.
 
 The agent-driven workflow is walked through with a worked example in
 MANUAL.md §4.9. The original design rationale is preserved in

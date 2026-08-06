@@ -14,8 +14,8 @@ import (
 	"github.com/weiqigod/curlew/internal/runner"
 )
 
-// TestSkillClaude_PlaybookMatchesBinary asserts every exit code documented in
-// templates/skills/claude/curlew/SKILL.md's failure playbook matches the
+// TestSkillAgent_PlaybookMatchesBinary asserts every exit code documented in
+// templates/skills/agent/curlew/SKILL.md's failure playbook matches the
 // binary's actual behaviour. One sub-test per documented exit code: it
 // constructs the scenario, runs the binary, asserts the exit code, and asserts
 // the artifact the playbook tells the agent to read exists and is parseable.
@@ -24,7 +24,7 @@ import (
 // changing, or the binary changes without the table changing. Either way, an
 // agent reading the skill would receive stale instructions, and that is what
 // this test prevents.
-func TestSkillClaude_PlaybookMatchesBinary(t *testing.T) {
+func TestSkillAgent_PlaybookMatchesBinary(t *testing.T) {
 	t.Run("exit_0_all_passed", testPlaybookExit0)
 	t.Run("exit_1_assertion_failed", testPlaybookExit1)
 	t.Run("exit_2_guard_rail", testPlaybookExit2)
@@ -327,11 +327,11 @@ func ndjsonContainsRequestEndNetworkError(t *testing.T, path string) bool {
 	return false
 }
 
-// TestSkillClaude_MultiFile_PresentAfterInit asserts that all per-topic files
-// are materialised after `curlew init --skill claude`.
-func TestSkillClaude_MultiFile_PresentAfterInit(t *testing.T) {
+// TestSkillAgent_MultiFile_PresentAfterInit asserts that all per-topic files
+// are materialised after `curlew init --skill agent`.
+func TestSkillAgent_MultiFile_PresentAfterInit(t *testing.T) {
 	dir := t.TempDir()
-	if _, _, code := captureRun(t, "init", "--skill", "claude", "--project-name", "p", dir); code != 0 {
+	if _, _, code := captureRun(t, "init", "--skill", "agent", "--project-name", "p", dir); code != 0 {
 		t.Fatalf("init failed: code=%d", code)
 	}
 	root := filepath.Join(dir, ".claude", "skills", "curlew")
@@ -346,11 +346,11 @@ func TestSkillClaude_MultiFile_PresentAfterInit(t *testing.T) {
 	}
 }
 
-// TestSkillClaude_MultiFile_SkillMdIndexesTopicFiles asserts the root SKILL.md
+// TestSkillAgent_MultiFile_SkillMdIndexesTopicFiles asserts the root SKILL.md
 // names each per-topic file in a "Topic files" index section.
-func TestSkillClaude_MultiFile_SkillMdIndexesTopicFiles(t *testing.T) {
+func TestSkillAgent_MultiFile_SkillMdIndexesTopicFiles(t *testing.T) {
 	dir := t.TempDir()
-	if _, _, code := captureRun(t, "init", "--skill", "claude", "--project-name", "p", dir); code != 0 {
+	if _, _, code := captureRun(t, "init", "--skill", "agent", "--project-name", "p", dir); code != 0 {
 		t.Fatalf("init failed: code=%d", code)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "SKILL.md"))
@@ -368,12 +368,12 @@ func TestSkillClaude_MultiFile_SkillMdIndexesTopicFiles(t *testing.T) {
 	}
 }
 
-// TestSkillClaude_MultiFile_ExpressionsDocumentsCEL asserts that expressions.md
+// TestSkillAgent_MultiFile_ExpressionsDocumentsCEL asserts that expressions.md
 // documents the CEL surface: if:, cel:, standard activation bindings, and
 // disabled functions.
-func TestSkillClaude_MultiFile_ExpressionsDocumentsCEL(t *testing.T) {
+func TestSkillAgent_MultiFile_ExpressionsDocumentsCEL(t *testing.T) {
 	dir := t.TempDir()
-	if _, _, code := captureRun(t, "init", "--skill", "claude", "--project-name", "p", dir); code != 0 {
+	if _, _, code := captureRun(t, "init", "--skill", "agent", "--project-name", "p", dir); code != 0 {
 		t.Fatalf("init failed: code=%d", code)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "expressions.md"))
@@ -388,11 +388,11 @@ func TestSkillClaude_MultiFile_ExpressionsDocumentsCEL(t *testing.T) {
 	}
 }
 
-// TestSkillClaude_MultiFile_PlaybookHasCELErrorCodes asserts that
+// TestSkillAgent_MultiFile_PlaybookHasCELErrorCodes asserts that
 // failure-playbook.md includes entries for ERR_CEL_PARSE and ERR_CEL_TYPE.
-func TestSkillClaude_MultiFile_PlaybookHasCELErrorCodes(t *testing.T) {
+func TestSkillAgent_MultiFile_PlaybookHasCELErrorCodes(t *testing.T) {
 	dir := t.TempDir()
-	if _, _, code := captureRun(t, "init", "--skill", "claude", "--project-name", "p", dir); code != 0 {
+	if _, _, code := captureRun(t, "init", "--skill", "agent", "--project-name", "p", dir); code != 0 {
 		t.Fatalf("init failed: code=%d", code)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "failure-playbook.md"))
@@ -407,11 +407,11 @@ func TestSkillClaude_MultiFile_PlaybookHasCELErrorCodes(t *testing.T) {
 	}
 }
 
-// TestSkillClaude_MultiFile_TriggerPhrasesPreserved asserts the root SKILL.md
+// TestSkillAgent_MultiFile_TriggerPhrasesPreserved asserts the root SKILL.md
 // still contains the original trigger phrases that agents key off.
-func TestSkillClaude_MultiFile_TriggerPhrasesPreserved(t *testing.T) {
+func TestSkillAgent_MultiFile_TriggerPhrasesPreserved(t *testing.T) {
 	dir := t.TempDir()
-	if _, _, code := captureRun(t, "init", "--skill", "claude", "--project-name", "p", dir); code != 0 {
+	if _, _, code := captureRun(t, "init", "--skill", "agent", "--project-name", "p", dir); code != 0 {
 		t.Fatalf("init failed: code=%d", code)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "SKILL.md"))
@@ -426,15 +426,15 @@ func TestSkillClaude_MultiFile_TriggerPhrasesPreserved(t *testing.T) {
 	}
 }
 
-// TestSkillClaude_SkillFileSnapshot asserts the rendered SKILL.md from
-// init --skill claude matches a golden snapshot byte-for-byte (modulo the
+// TestSkillAgent_SkillFileSnapshot asserts the rendered SKILL.md from
+// init --skill agent matches a golden snapshot byte-for-byte (modulo the
 // {{curlew_version}} substitution). Guards against accidental edits to the
 // embedded template.
 //
 // Set CURLEW_UPDATE_SNAPSHOTS=1 to regenerate the golden file.
-func TestSkillClaude_SkillFileSnapshot(t *testing.T) {
+func TestSkillAgent_SkillFileSnapshot(t *testing.T) {
 	dir := t.TempDir()
-	if _, _, code := captureRun(t, "init", "--skill", "claude", "--project-name", "snapshot-test", dir); code != 0 {
+	if _, _, code := captureRun(t, "init", "--skill", "agent", "--project-name", "snapshot-test", dir); code != 0 {
 		t.Fatalf("init failed: code=%d", code)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "SKILL.md"))
@@ -449,7 +449,7 @@ func TestSkillClaude_SkillFileSnapshot(t *testing.T) {
 	got = bytes.ReplaceAll(got, []byte("curlew "+version), []byte("curlew v0.0.0-test"))
 	got = bytes.ReplaceAll(got, []byte("**"+version+"**"), []byte("**v0.0.0-test**"))
 
-	goldenPath := filepath.Join("testdata", "skill_claude_golden.md")
+	goldenPath := filepath.Join("testdata", "skill_agent_golden.md")
 	if os.Getenv("CURLEW_UPDATE_SNAPSHOTS") == "1" {
 		if err := os.WriteFile(goldenPath, got, 0o644); err != nil {
 			t.Fatal(err)

@@ -339,7 +339,7 @@ func TestSchema_scaffolded_all_output_formats_validate(t *testing.T) {
 }
 
 // TestSchema_skill_claude_scaffold_matches_fixture asserts that the scaffolded
-// curlew.yaml for --skill claude contains the output: block from the checked-in
+// curlew.yaml for --skill agent contains the output: block from the checked-in
 // fixture file.
 func TestSchema_skill_claude_scaffold_matches_fixture(t *testing.T) {
 	tmp := t.TempDir()

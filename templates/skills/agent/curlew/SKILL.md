@@ -3,7 +3,7 @@ name: curlew
 description: Run Curlew collections and interpret results. Use when the user asks to run, test, hit, exercise, or check an HTTP API; or when the user mentions a collection file (e.g. "run the users collection", "hit the staging API", "test the auth flow"). The CLI never calls an LLM — the agent reads deterministic artifacts (markdown reports + NDJSON event stream) and narrates them.
 ---
 
-<!-- curlew-skill: claude v1.0 (curlew {{curlew_version}}) -->
+<!-- curlew-skill: agent v1.0 (curlew {{curlew_version}}) -->
 
 # curlew skill
 
@@ -142,9 +142,9 @@ one you need; do not load all of them by default.
 
 - This skill was scaffolded for curlew **{{curlew_version}}**. If your
   CLI binary is much newer or older, regenerate it with
-  `curlew init --skill claude` in a fresh directory and diff.
+  `curlew init --skill agent` in a fresh directory and diff.
 - For a human-friendly walk-through of the same workflow, see
-  `docs/MANUAL.md` §4.9 ("Driving curlew with Claude Code").
+  `docs/MANUAL.md` §4.9 ("Driving curlew with an AI agent").
 - The skill is checked in. Edit it freely for your team's conventions —
-  the next `curlew init --skill claude` will not overwrite a
+  the next `curlew init --skill agent` will not overwrite a
   pre-existing `.claude/skills/curlew/SKILL.md`.
