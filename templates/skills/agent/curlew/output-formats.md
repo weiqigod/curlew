@@ -30,7 +30,7 @@ output:
   verbosity: normal
 ```
 
-`curlew init --skill claude` scaffolds this block automatically.
+`curlew init --skill agent` scaffolds this block automatically.
 
 ### Fields
 

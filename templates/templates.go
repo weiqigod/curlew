@@ -13,22 +13,30 @@ import (
 	"strings"
 )
 
-//go:embed all:skills/claude/curlew
-var claudeSkillFS embed.FS
+//go:embed all:skills/agent/curlew
+var skillFS embed.FS
 
 // ErrUnknownSkill is returned by Render and Walk when the named skill has no
 // embedded template. Sentinel so the CLI layer can branch on it cleanly.
 var ErrUnknownSkill = errors.New("unknown skill")
 
-// SupportedSkills lists the skill enum accepted by Render, Walk, and by the
-// CLI layer's --skill flag. v1 ships with "claude" only; the slice is the
-// extension point for copilot/cursor in later slices.
-var SupportedSkills = []string{"claude"}
+// SupportedSkills lists the values accepted by Render, Walk, and the CLI
+// layer's --skill flag. "agent" is canonical and leads the slice because the
+// order is user-visible in --help and in the rejected-value error; "claude"
+// is a compatibility alias kept for projects and scripts written against the
+// original spelling.
+//
+// Every name resolves to the same payload. curlew ships one Agent Skill, not
+// one per vendor: SKILL.md with name/description frontmatter is the common
+// format, and .claude/skills/ is a project skill directory read by both
+// Claude Code and GitHub Copilot. Adding a name here is a naming decision,
+// not a packaging one — see embeddedBase.
+var SupportedSkills = []string{"agent", "claude"}
 
 // SkillRelativePath returns the in-project path where a skill's SKILL.md
-// should land (e.g. ".claude/skills/curlew/SKILL.md"). Currently identical
-// for every skill name; kept as a function so the path can vary by skill if
-// a future agent platform expects a different layout.
+// should land (e.g. ".claude/skills/curlew/SKILL.md"). Identical for every
+// accepted name; kept as a function so the path can vary if a future agent
+// platform expects a layout that .claude/skills/ does not satisfy.
 func SkillRelativePath(_ string) string {
 	return ".claude/skills/curlew/SKILL.md"
 }
@@ -64,12 +72,12 @@ func Walk(skillName string) (iter.Seq2[string, []byte], error) {
 		// fs.WalkDir error is intentionally discarded: embedded.FS cannot fail
 		// at runtime (files are baked into the binary); if yield returns false
 		// the callback returns fs.SkipAll, terminating the walk cleanly.
-		_ = fs.WalkDir(claudeSkillFS, base, func(p string, d fs.DirEntry, err error) error {
+		_ = fs.WalkDir(skillFS, base, func(p string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
 			}
 			// CutPrefix strips the embedded base path to produce the skill-relative
-			// name (e.g. "skills/claude/curlew/SKILL.md" → "SKILL.md"). The prefix
+			// name (e.g. "skills/agent/curlew/SKILL.md" → "SKILL.md"). The prefix
 			// must always be present for entries under base; the !ok branch is a
 			// structural invariant guard that keeps rel well-formed if the FS
 			// somehow yields a path outside the expected subtree.
@@ -80,7 +88,7 @@ func Walk(skillName string) (iter.Seq2[string, []byte], error) {
 				// creating a file at the wrong location.
 				rel = p
 			}
-			body, rerr := claudeSkillFS.ReadFile(p)
+			body, rerr := skillFS.ReadFile(p)
 			if rerr != nil {
 				return rerr
 			}
@@ -92,11 +100,12 @@ func Walk(skillName string) (iter.Seq2[string, []byte], error) {
 	}, nil
 }
 
-// embeddedBase returns the embedded FS path prefix for the named skill.
+// embeddedBase returns the embedded FS path prefix for the named skill. All
+// accepted names share one payload — see SupportedSkills for why.
 func embeddedBase(skillName string) (string, error) {
 	switch skillName {
-	case "claude":
-		return "skills/claude/curlew", nil
+	case "agent", "claude":
+		return "skills/agent/curlew", nil
 	default:
 		return "", fmt.Errorf("%w %q (supported: %s)", ErrUnknownSkill, skillName, strings.Join(SupportedSkills, ", "))
 	}
@@ -113,7 +122,7 @@ func Render(skillName, version string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	raw, err := claudeSkillFS.ReadFile(base + "/SKILL.md")
+	raw, err := skillFS.ReadFile(base + "/SKILL.md")
 	if err != nil {
 		return "", fmt.Errorf("reading embedded %s/SKILL.md: %w", base, err)
 	}

@@ -1620,7 +1620,7 @@ Scaffold a project: `curlew.yaml`, `.gitignore`, `.env.example`,
 |---|---|
 | `--project-name <name>` | Override the project name; defaults to the directory basename |
 | `--output <format>` | Scaffold an `output:` block for `terminal`, `json`, `tap`, `junit`, `html`, or `markdown` |
-| `--skill <name>` | Scaffold an agent skill template at `.claude/skills/curlew/SKILL.md`. Currently `claude`. Implies `--output markdown`, appends `events: .curlew/run.ndjson`, and adds `.curlew/` to `.gitignore` |
+| `--skill <name>` | Scaffold an Agent Skill at `.claude/skills/curlew/SKILL.md`. One of `agent` (canonical) or `claude` (compatibility alias); both scaffold the identical payload. Implies `--output markdown`, appends `events: .curlew/run.ndjson`, and adds `.curlew/` to `.gitignore` |
 
 ### 18.5 `info`
 

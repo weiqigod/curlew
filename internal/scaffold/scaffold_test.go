@@ -375,7 +375,7 @@ func TestInit_SkillClaude_CopiesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read SKILL.md: %v", err)
 	}
-	if !strings.Contains(string(body), "curlew-skill: claude v1.0 (curlew 9.9.9)") {
+	if !strings.Contains(string(body), "curlew-skill: agent v1.0 (curlew 9.9.9)") {
 		t.Errorf("missing version comment with substituted version:\n%s", body)
 	}
 	if strings.Contains(string(body), "{{curlew_version}}") {

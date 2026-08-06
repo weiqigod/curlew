@@ -95,7 +95,7 @@ func TestRender_VersionCommentPresent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "<!-- curlew-skill: claude v1.0 (curlew 9.9.9) -->"
+	want := "<!-- curlew-skill: agent v1.0 (curlew 9.9.9) -->"
 	if !strings.Contains(got, want) {
 		t.Errorf("missing version comment %q in output:\n%s", want, got)
 	}
@@ -107,6 +107,7 @@ func TestIsSupportedSkill(t *testing.T) {
 		in   string
 		want bool
 	}{
+		{"agent is supported", "agent", true},
 		{"claude is supported", "claude", true},
 		{"empty string is not supported", "", false},
 		{"unknown name is not supported", "madeup", false},
@@ -126,4 +127,78 @@ func TestSkillRelativePath_Claude(t *testing.T) {
 	if got != want {
 		t.Errorf("SkillRelativePath(claude) = %q, want %q", got, want)
 	}
+}
+
+// TestSupportedSkills_LeadWithVendorNeutralName pins "agent" first in the
+// enum. Order is user-visible: it is the order printed by --help and by the
+// rejected-value error, so the vendor-neutral name must lead.
+func TestSupportedSkills_LeadWithVendorNeutralName(t *testing.T) {
+	if len(templates.SupportedSkills) == 0 || templates.SupportedSkills[0] != "agent" {
+		t.Errorf("SupportedSkills = %v; want the vendor-neutral %q first",
+			templates.SupportedSkills, "agent")
+	}
+}
+
+// TestSkillNames_AreAliasesOfOnePayload holds every accepted --skill value to
+// the same bytes and the same destination. curlew ships one Agent Skill, not
+// one per vendor: the SKILL.md format and the .claude/skills/ project
+// directory are both read by Claude Code and by GitHub Copilot. If a future
+// name ever needs a distinct payload, this test is the thing that has to be
+// deliberately rewritten rather than silently outgrown.
+func TestSkillNames_AreAliasesOfOnePayload(t *testing.T) {
+	canonical := templates.SupportedSkills[0]
+	wantFiles := walkToMap(t, canonical)
+	wantRender, err := templates.Render(canonical, "1.2.3")
+	if err != nil {
+		t.Fatalf("Render(%q): %v", canonical, err)
+	}
+
+	for _, alias := range templates.SupportedSkills[1:] {
+		t.Run(alias, func(t *testing.T) {
+			gotFiles := walkToMap(t, alias)
+			if len(gotFiles) != len(wantFiles) {
+				t.Fatalf("Walk(%q) yielded %d files, Walk(%q) yielded %d",
+					alias, len(gotFiles), canonical, len(wantFiles))
+			}
+			for rel, want := range wantFiles {
+				got, ok := gotFiles[rel]
+				if !ok {
+					t.Errorf("Walk(%q) is missing %q", alias, rel)
+					continue
+				}
+				if got != want {
+					t.Errorf("Walk(%q)[%q] differs from Walk(%q)[%q]", alias, rel, canonical, rel)
+				}
+			}
+			gotRender, err := templates.Render(alias, "1.2.3")
+			if err != nil {
+				t.Fatalf("Render(%q): %v", alias, err)
+			}
+			if gotRender != wantRender {
+				t.Errorf("Render(%q) differs from Render(%q)", alias, canonical)
+			}
+			if got, want := templates.SkillRootDir(alias), templates.SkillRootDir(canonical); got != want {
+				t.Errorf("SkillRootDir(%q) = %q, want %q", alias, got, want)
+			}
+			if got, want := templates.SkillRelativePath(alias), templates.SkillRelativePath(canonical); got != want {
+				t.Errorf("SkillRelativePath(%q) = %q, want %q", alias, got, want)
+			}
+		})
+	}
+}
+
+func walkToMap(t *testing.T, skillName string) map[string]string {
+	t.Helper()
+	seq, err := templates.Walk(skillName)
+	if err != nil {
+		t.Fatalf("Walk(%q): %v", skillName, err)
+	}
+	out := map[string]string{}
+	for rel, body := range seq {
+		out[rel] = string(body)
+	}
+	if len(out) == 0 {
+		t.Fatalf("Walk(%q) yielded no files", skillName)
+	}
+	return out
 }

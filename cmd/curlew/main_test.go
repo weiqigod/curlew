@@ -8695,9 +8695,9 @@ requests:
 	}
 }
 
-func TestInit_SkillClaude_FullPipeline(t *testing.T) {
+func TestInit_SkillAgent_FullPipeline(t *testing.T) {
 	dir := t.TempDir()
-	stdout, stderr, code := captureRun(t, "init", "--skill", "claude", dir)
+	stdout, stderr, code := captureRun(t, "init", "--skill", "agent", dir)
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0; stderr=%q", code, stderr)
 	}
@@ -8739,9 +8739,9 @@ func TestInit_SkillClaude_FullPipeline(t *testing.T) {
 	}
 }
 
-func TestInit_SkillClaude_OutputJSON_FullPipeline(t *testing.T) {
+func TestInit_SkillAgent_OutputJSON_FullPipeline(t *testing.T) {
 	dir := t.TempDir()
-	_, stderr, code := captureRun(t, "init", "--skill", "claude", "--output", "json", dir)
+	_, stderr, code := captureRun(t, "init", "--skill", "agent", "--output", "json", dir)
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0; stderr=%q", code, stderr)
 	}
@@ -8778,7 +8778,7 @@ func TestInit_SkillFlag_DocumentsInHelp(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("init --help exit = %d, want 0", code)
 	}
-	for _, want := range []string{"--skill", "claude", ".curlew/run.ndjson", ".claude/skills/curlew/SKILL.md"} {
+	for _, want := range []string{"--skill", "agent", ".curlew/run.ndjson", ".claude/skills/curlew/SKILL.md"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("init --help missing %q:\n%s", want, stdout)
 		}
@@ -8809,14 +8809,14 @@ func TestInit_BareInit_ByteIdenticalToM9005(t *testing.T) {
 	}
 }
 
-// TestInit_SkillClaude_VersionInTemplate verifies at the binary level that
-// --skill claude produces a SKILL.md with no untouched {{curlew_version}}
+// TestInit_SkillAgent_VersionInTemplate verifies at the binary level that
+// --skill agent produces a SKILL.md with no untouched {{curlew_version}}
 // tokens and that the version comment reflects the live binary version.
-func TestInit_SkillClaude_VersionInTemplate(t *testing.T) {
+func TestInit_SkillAgent_VersionInTemplate(t *testing.T) {
 	dir := t.TempDir()
-	_, stderr, code := captureRun(t, "init", "--skill", "claude", dir)
+	_, stderr, code := captureRun(t, "init", "--skill", "agent", dir)
 	if code != 0 {
-		t.Fatalf("init --skill claude exit = %d; stderr=%q", code, stderr)
+		t.Fatalf("init --skill agent exit = %d; stderr=%q", code, stderr)
 	}
 	body, err := os.ReadFile(filepath.Join(dir, ".claude", "skills", "curlew", "SKILL.md"))
 	if err != nil {
@@ -8826,7 +8826,7 @@ func TestInit_SkillClaude_VersionInTemplate(t *testing.T) {
 		t.Errorf("SKILL.md still contains untouched {{curlew_version}} token:\n%s", body)
 	}
 	// The version comment must contain the live binary version constant.
-	wantComment := "<!-- curlew-skill: claude v1.0 (curlew " + version + ") -->"
+	wantComment := "<!-- curlew-skill: agent v1.0 (curlew " + version + ") -->"
 	if !strings.Contains(string(body), wantComment) {
 		t.Errorf("SKILL.md missing version comment %q;\ngot:\n%s", wantComment, body)
 	}

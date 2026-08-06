@@ -52,7 +52,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and advertised commands from the help output itself. Each was mutation-verified to fail
   when its guard is removed.
 
+- **`init --skill agent` scaffolded a lesser project than `--skill claude`.** The scaffolder
+  keyed the `output:` extensions on `opts.SkillName == "claude"` while keying the `.gitignore`
+  extension on `opts.SkillName != ""`, contradicting its own documented contract ("when
+  non-empty"). Any name other than `claude` got the skill files but not `format: markdown`,
+  not `events: .curlew/run.ndjson`. Found by the new test asserting every accepted `--skill`
+  value scaffolds a byte-identical project.
+
 ### Changed
+- **The agent skill is no longer presented as Claude-only.** `curlew init --skill claude`
+  scaffolds a standard Agent Skill — `SKILL.md` with `name`/`description` frontmatter plus
+  per-topic reference files — into `.claude/skills/curlew/`. That directory is a project
+  skill directory for GitHub Copilot as well as Claude Code, so the artifact already worked
+  with both; only curlew's naming and documentation said otherwise. The flag value `claude`,
+  the help text, the README, `docs/MANUAL.md` §4.9 and `docs/CLI_SPECIFICATION.md` §18.4 all
+  implied a vendor lock that does not exist, and a code comment described the enum as "the
+  extension point for copilot/cursor in later slices" — an extension that was never needed.
+
+  `agent` is now the canonical `--skill` value and leads the enum, since that order is what
+  `--help` and the rejected-value error print. `claude` remains accepted as a compatibility
+  alias; a test holds every accepted name to the same payload and the same destination, so
+  the two cannot drift apart. Docs now name both agents. No collection, project file, or
+  scaffolded skill needs to change.
+
 - **Events schema v1.4** (M24-001). `assertion.result` gains `target` and `operator`
   (optional) and `label` (required), and `type` now emits the discriminator the schema has
   declared since v1.0. This is a conformance fix rather than a v2.0 semantic change: no

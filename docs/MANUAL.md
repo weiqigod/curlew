@@ -51,7 +51,7 @@
 - [4.6 CI recipes](#46-ci-recipes)
 - [4.7 Project utility commands](#47-project-utility-commands)
 - [4.8 AI-agent commands](#48-ai-agent-commands)
-- [4.9 Driving curlew with Claude Code](#49-driving-curlew-with-claude-code)
+- [4.9 Driving curlew with an AI agent](#49-driving-curlew-with-an-ai-agent)
 
 **Part 5 — Test Authoring at Scale**
 - [5.1 Setup and teardown phases](#51-setup-and-teardown-phases)
@@ -2057,7 +2057,7 @@ byte-identical across runs except for explicitly volatile lines
 prefix so a `git diff` mask is one regex.
 
 **See also:** §5.7 for the watch-mode workflow and §4.9 for using
-markdown files with Claude Code; `docs/CLI_SPECIFICATION.md` §16 for
+markdown files with an AI agent; `docs/CLI_SPECIFICATION.md` §16 for
 the formal output contract.
 
 ### 4.2 Streams, verbosity, and color
@@ -2424,18 +2424,25 @@ curlew run collections/users.yaml --format json \
 
 ---
 
-### 4.9 Driving curlew with Claude Code
+### 4.9 Driving curlew with an AI agent
 
-Curlew ships a default Claude Code skill that teaches a Claude Code agent
-how to invoke the CLI, where artifacts land, and how to narrate results.
-The skill is opt-in via `curlew init --skill claude`.
+Curlew ships a default Agent Skill that teaches a coding agent how to
+invoke the CLI, where artifacts land, and how to narrate results. The
+skill is opt-in via `curlew init --skill agent`.
+
+The scaffolded file is a standard Agent Skill — a `SKILL.md` with `name`
+and `description` frontmatter plus per-topic reference files — and it
+lands in `.claude/skills/`, which is a project skill directory for both
+Claude Code and GitHub Copilot. One file serves both; there is no
+per-vendor variant to choose between. `--skill claude` is accepted as a
+compatibility alias and scaffolds exactly the same project.
 
 **Worked example.** Scaffold a new project with the skill enabled, open it
-in Claude Code, and ask the agent to run a collection in natural language.
+in your agent, and ask it to run a collection in natural language.
 
 ```bash
 mkdir users-api && cd users-api
-curlew init --skill claude
+curlew init --skill agent
 ```
 
 The following are created or modified in addition to the standard scaffold:
@@ -2445,11 +2452,13 @@ The following are created or modified in addition to the standard scaffold:
   `events: .curlew/run.ndjson` appended (modified)
 - `.gitignore` — gains `.curlew/` (modified)
 
-Open the directory in Claude Code (`claude` CLI or the desktop app). Ask:
+Open the directory in your agent — Claude Code (`claude` CLI or the
+desktop app), or GitHub Copilot (coding agent, Copilot CLI, or VS Code
+agent mode). Ask:
 
 > Run the sample collection and tell me what happened.
 
-Claude Code reads `.claude/skills/curlew/SKILL.md`, recognises the trigger
+The agent reads `.claude/skills/curlew/SKILL.md`, recognises the trigger
 phrasing, and invokes:
 
 ```bash
@@ -2458,20 +2467,20 @@ curlew run collections/sample.yaml
 
 No extra flags. The `output:` block in `curlew.yaml` declares everything:
 markdown reports land in `responses/`, the event stream lands in
-`.curlew/run.ndjson`. After the run, Claude reads `responses/run.md`
+`.curlew/run.ndjson`. After the run, the agent reads `responses/run.md`
 first (summary), then drills into `responses/<slug>.md` for any failing
 request, then `.curlew/run.ndjson` for structured error details. It
 narrates with file paths, never paraphrasing response bodies.
 
-If you ask Claude to fix a failing assertion, it edits the YAML — never a
+If you ask it to fix a failing assertion, it edits the YAML — never a
 one-off curl command. Re-run with `curlew watch collections/sample.yaml
---only "<request name>"` for tight inner-loop iteration; Claude reads the
-re-spliced markdown on every save.
+--only "<request name>"` for tight inner-loop iteration; the agent reads
+the re-spliced markdown on every save.
 
 **Customise the skill.** The skill is a checked-in file. Edit
 `.claude/skills/curlew/SKILL.md` for your team's conventions — preferred
 environments, project-specific triggers, narration tone, additional
-playbook entries. Subsequent `curlew init --skill claude` runs do not
+playbook entries. Subsequent `curlew init --skill agent` runs do not
 overwrite a pre-existing skill file.
 
 **See also.** §3.6.1 (the `output:` block precedence ladder), §4.3 (exit

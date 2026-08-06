@@ -75,7 +75,7 @@ Sample Collection
 - **OpenAPI import** — turn a 3.x spec into a collection with headers, request bodies and status assertions.
 - **Plugins** — external processes registering `on_request`, `on_response` and `on_result` hooks, each with a 10-second timeout.
 - **CI gate** — `curlew pr-check` turns a results file into a pass/fail exit code with a summary.
-- **Agent-friendly** — `curlew exec` for one-shot requests (`--stdin`, `--dry-run`, `--log`, `--non-interactive`), and `curlew init --skill claude` scaffolds an agent skill for the project.
+- **Agent-friendly** — `curlew exec` for one-shot requests (`--stdin`, `--dry-run`, `--log`, `--non-interactive`), and `curlew init --skill agent` scaffolds an Agent Skill at `.claude/skills/curlew/` — a project skill directory read by both Claude Code and GitHub Copilot.
 
 Everything is available unconditionally — this repository contains no feature gating.
 
@@ -86,7 +86,7 @@ Everything is available unconditionally — this repository contains no feature 
 | `run <file\|glob>` | Execute a collection, or everything matching a pattern |
 | `exec <url>` | Execute a single request — built for scripts and AI agents |
 | `validate <file>` | Check collections (and shared vault templates) without sending requests |
-| `init [dir]` | Scaffold a project; `--output <fmt>`, `--skill claude` |
+| `init [dir]` | Scaffold a project; `--output <fmt>`, `--skill agent` |
 | `info` | Show project metadata — collections, environments, root |
 | `schema` | Print the collection JSON Schema; `--project` for `curlew.yaml` |
 | `watch <file>` | Re-run on file changes |
