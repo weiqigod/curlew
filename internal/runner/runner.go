@@ -177,6 +177,9 @@ type RequestEndEvent struct {
 // AssertionEvent describes one evaluated assertion for event emission.
 type AssertionEvent struct {
 	RequestID string
+	// RequestSlug is the paired RequestEvent's slug, carried so consumers can
+	// name the request without joining on the positional RequestID.
+	RequestSlug string
 	// Type, Target and Operator mirror assertion.Result's identity triple.
 	// Type is a discriminator only; use Label for anything a human reads.
 	Type     string
@@ -2016,7 +2019,7 @@ func executePhase(
 				}
 			}
 			if vars.OnEvent != nil {
-				emitAssertionResults(vars.OnEvent, wsReqID, rr.AssertionResults)
+				emitAssertionResults(vars.OnEvent, wsReqID, item.Slug, rr.AssertionResults)
 				emitRequestEnd(vars.OnEvent, wsReqID, item.Slug, rr, -1)
 			}
 			results = append(results, rr)
@@ -2249,7 +2252,7 @@ func executePhase(
 
 		if ar != nil && !ar.Passed {
 			if vars.OnEvent != nil {
-				emitAssertionResults(vars.OnEvent, reqID, ar)
+				emitAssertionResults(vars.OnEvent, reqID, item.Slug, ar)
 				emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 			}
 			if checkRequired && item.IsRequired() {
@@ -2271,7 +2274,7 @@ func executePhase(
 			if extErr != nil {
 				rr.Err = extErr
 				if vars.OnEvent != nil {
-					emitAssertionResults(vars.OnEvent, reqID, ar)
+					emitAssertionResults(vars.OnEvent, reqID, item.Slug, ar)
 					emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 				}
 				if checkRequired && item.IsRequired() {
@@ -2290,7 +2293,7 @@ func executePhase(
 
 		// Emit assertion results and request end for passing requests.
 		if vars.OnEvent != nil {
-			emitAssertionResults(vars.OnEvent, reqID, ar)
+			emitAssertionResults(vars.OnEvent, reqID, item.Slug, ar)
 			emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 		}
 
@@ -2624,7 +2627,7 @@ func executeDataDriven(
 
 		if ar != nil && !ar.Passed {
 			if vars.OnEvent != nil {
-				emitAssertionResults(vars.OnEvent, iterReqID, ar)
+				emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, ar)
 				emitRequestEnd(vars.OnEvent, iterReqID, iterSlug, rr, -1)
 			}
 			results = append(results, rr)
@@ -2655,7 +2658,7 @@ func executeDataDriven(
 
 		// Emit assertion results and request end for passing iterations.
 		if vars.OnEvent != nil {
-			emitAssertionResults(vars.OnEvent, iterReqID, ar)
+			emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, ar)
 			emitRequestEnd(vars.OnEvent, iterReqID, iterSlug, rr, -1)
 		}
 
@@ -2877,7 +2880,7 @@ func executeDataDrivenParallel(
 				AssertionResults: ar,
 				Err:              ir.Err,
 			}
-			emitAssertionResults(vars.OnEvent, iterReqID, ar)
+			emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, ar)
 			emitRequestEnd(vars.OnEvent, iterReqID, iterSlug, rr, -1)
 		}
 
@@ -3208,19 +3211,20 @@ func emitRequestEnd(sink EventSink, reqID, reqSlug string, rr RequestResult, wav
 }
 
 // emitAssertionResults fires one AssertionResult per assertion item in ar.
-func emitAssertionResults(sink EventSink, reqID string, ar *assertion.Results) {
+func emitAssertionResults(sink EventSink, reqID, reqSlug string, ar *assertion.Results) {
 	if sink == nil || ar == nil {
 		return
 	}
 	for _, a := range ar.Items {
 		sink.AssertionResult(AssertionEvent{
-			RequestID: reqID,
-			Type:      a.Type,
-			Target:    a.Target,
-			Operator:  a.Operator,
-			Expected:  a.Expected,
-			Actual:    a.Actual,
-			Passed:    a.Passed,
+			RequestID:   reqID,
+			RequestSlug: reqSlug,
+			Type:        a.Type,
+			Target:      a.Target,
+			Operator:    a.Operator,
+			Expected:    a.Expected,
+			Actual:      a.Actual,
+			Passed:      a.Passed,
 		})
 	}
 }
@@ -3270,12 +3274,13 @@ func (a *parallelSinkAdapter) RequestEnd(requestID, requestSlug, outcome string,
 
 func (a *parallelSinkAdapter) AssertionResult(ev parallel.AssertionEvent) {
 	a.inner.AssertionResult(AssertionEvent{
-		RequestID: ev.RequestID,
-		Type:      ev.Type,
-		Target:    ev.Target,
-		Operator:  ev.Operator,
-		Expected:  ev.Expected,
-		Actual:    ev.Actual,
-		Passed:    ev.Passed,
+		RequestID:   ev.RequestID,
+		RequestSlug: ev.RequestSlug,
+		Type:        ev.Type,
+		Target:      ev.Target,
+		Operator:    ev.Operator,
+		Expected:    ev.Expected,
+		Actual:      ev.Actual,
+		Passed:      ev.Passed,
 	})
 }

@@ -71,8 +71,15 @@ After every `curlew run`, three artifact streams exist:
 Three correlation IDs span all three streams:
 
 - `run_id` (32-char lowercase hex) — one per `curlew run` invocation.
-- `request_id` (`req-N`) — stable per request within a run.
-- `request_slug` (URL-safe) — matches the per-request markdown filename.
+- `request_id` (`req-N`) — pairs events within one run only. It is minted
+  in execution order, so the same id means a different request in the next
+  run if the collection changed. Never store it as a request's identity.
+- `request_slug` (URL-safe) — derived from the request name and stable
+  across runs. It matches the per-request markdown filename, and it rides
+  on `request.start`, `request.end` and `assertion.result` alike — so a
+  single failing `assertion.result` line tells you both which request
+  failed and which file to open (`responses/<request_slug>.md`), with no
+  need to read the rest of the stream.
 
 ## How to narrate
 

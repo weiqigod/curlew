@@ -100,13 +100,14 @@ func (a *EmitterSink) RequestEnd(e runner.RequestEndEvent) {
 // AssertionResult implements runner.EventSink.
 func (a *EmitterSink) AssertionResult(e runner.AssertionEvent) {
 	if err := a.em.EmitAssertionResult(events.AssertionResultInput{
-		RequestID: e.RequestID,
-		Type:      e.Type,
-		Target:    e.Target,
-		Operator:  e.Operator,
-		Expected:  e.Expected,
-		Actual:    e.Actual,
-		Passed:    e.Passed,
+		RequestID:   e.RequestID,
+		RequestSlug: e.RequestSlug,
+		Type:        e.Type,
+		Target:      e.Target,
+		Operator:    e.Operator,
+		Expected:    e.Expected,
+		Actual:      e.Actual,
+		Passed:      e.Passed,
 	}); err != nil {
 		_, _ = fmt.Fprintf(a.errOut, "events: emit assertion.result: %v\n", err)
 	}

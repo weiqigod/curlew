@@ -8577,8 +8577,8 @@ requests:
 	}
 
 	// schema_version must be "1.4" (current version)
-	if sv := first["schema_version"]; sv != "1.4" {
-		t.Errorf("schema_version = %q, want 1.4", sv)
+	if sv := first["schema_version"]; sv != "1.5" {
+		t.Errorf("schema_version = %q, want 1.5", sv)
 	}
 
 	// selection must contain both names.
