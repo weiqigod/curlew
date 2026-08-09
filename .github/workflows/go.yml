@@ -1,0 +1,56 @@
+name: Go CLI
+
+on:
+  # Auto-triggers disabled while GitHub Actions billing is paused.
+  # Re-enable by restoring the push/pull_request blocks once billing is resolved.
+  #
+  # push:
+  #   branches: [main]
+  # pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: go-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Go gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Installed with `go install` rather than golangci/golangci-lint-action:
+      # ci-local.sh resolves the linter from ~/go/bin before PATH, which is
+      # exactly where this lands, and the action's job is to run the linter —
+      # the script already does that. The version is pinned to the one the
+      # local gate uses so a new lint rule cannot fail a branch on a day
+      # nobody changed any Go.
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.2
+
+      # The gate is scripts/ci-local.sh, not a copy of it. Restating the steps
+      # here is how a workflow and the local gate drift until "CI is green"
+      # and "ci-local passed" stop meaning the same thing — so this job shells
+      # out to the same script a developer runs, and the two cannot disagree.
+      #
+      # --go skips the docker test stack; the .NET, web and Playwright gates
+      # have their own workflows (e2e-*.yml).
+      - name: Run the Go gate
+        run: ./scripts/ci-local.sh --go
+
+      - name: Upload coverage profile
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7

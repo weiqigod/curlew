@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # ci-local.sh — Run the CI gate locally, scoped to what changed.
 #
-# Mirrors the steps in .github/workflows/e2e-m4.yml and e2e-m5.yml so a local
-# green run is a strong signal that CI will be green too. The Go gate always
-# runs; .NET, web, and E2E gates run only when their files changed on this
-# branch (detected via `git diff --name-only main...HEAD`).
+# This script is the gate. .github/workflows/go.yml runs `ci-local.sh --go`
+# rather than restating its steps, so the two cannot drift into disagreeing
+# about what "green" means; the .NET, web and Playwright gates mirrored here
+# live in .github/workflows/e2e-m4.yml and e2e-m5.yml.
+#
+# Note that no workflow auto-triggers today — all of them are gated on
+# workflow_dispatch while GitHub Actions billing is paused — so a local run of
+# this script is currently the only thing that verifies a change.
+#
+# The Go gate always runs; .NET, web, and E2E gates run only when their files
+# changed on this branch (detected via `git diff --name-only main...HEAD`).
 #
 # Usage:
 #   ./scripts/ci-local.sh                  # Auto-scope from git diff vs main
@@ -74,7 +81,9 @@ case "$MODE" in
     exec "$REPO_ROOT/scripts/check-signing-keys.sh"
     ;;
   -h|--help)
-    sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+    # Print the whole leading comment block. A hardcoded line range silently
+    # truncated --help the first time the header grew past it.
+    awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
     exit 0
     ;;
   *)

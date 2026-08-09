@@ -199,9 +199,13 @@ Before any commit:
 - [ ] `golangci-lint run` passes
 
 Before task completion (`/verify`):
-- [ ] `./scripts/ci-local.sh` passes — this is the authoritative gate and mirrors the GitHub workflows
+- [ ] `./scripts/ci-local.sh` passes — this is the authoritative gate, and right now it is the *only* one (see below)
 - [ ] Coverage >= 80%
 - [ ] All Definition of Done items verified
 - [ ] CHANGELOG.md updated
 
-`ci-local.sh` auto-detects scope via `git diff --name-only main...HEAD`: it always runs Go build/test/race/lint/smoke, and additionally runs `dotnet test`, `npm run test:unit`, and the Playwright E2E specs (against the `docker-compose.test.yml` stack) when backend, web, or stack files have changed. Running it locally before pushing avoids the ~5-minute CI round-trip per attempt for failures that reproduce on the developer's machine.
+`ci-local.sh` auto-detects scope via `git diff --name-only main...HEAD`: it always runs Go build/test/race/lint/smoke, and additionally runs `dotnet test`, `npm run test:unit`, and the Playwright E2E specs (against the `docker-compose.test.yml` stack) when backend, web, or stack files have changed.
+
+**Nothing runs in CI today.** Every workflow in `.github/workflows/` carries `# Auto-triggers disabled while GitHub Actions billing is paused` and fires only on `workflow_dispatch`, so pushing a branch and opening a PR verifies nothing. `ci-local.sh` is not a fast pre-check ahead of CI — it is the whole gate, and skipping it means the change was never tested by anything but the author's judgement.
+
+`.github/workflows/go.yml` runs `./scripts/ci-local.sh --go` rather than restating its steps, so the workflow and the local gate cannot drift into disagreeing about what "green" means. Re-enabling it is one uncommented block in that file; the same applies to the `e2e-*` workflows, which cover the .NET, web and Playwright gates.
