@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **`assertion.result` now says where the assertion is written.** v1.5 let a failing
+  assertion name its request; it still could not say which line defines it. On a request
+  carrying a dozen assertions, an agent wanting to open the YAML at the failure had to
+  search the file for a JSONPath or header name and guess which occurrence was the right
+  one.
+
+  The event now carries `source_file` and `source_line`, and the line is the one a
+  developer would edit — the operator key (`equals:`, `exists:`, …) for body and header
+  assertions, the `status:` value, the `max_duration_ms:` key, the `schema:` key, and the
+  list entry for a `cel:` expression. Pointing at the enclosing request would have been
+  cheap and useless.
+
+  This needed positions the parser was discarding. `BodyAssertion`, `HeaderAssertion`,
+  `CELAssertion` and `StatusCodes` now record their YAML node's line; `TimingAssertion` and
+  the `assertions:` block gained unmarshalers to reach `max_duration_ms:` and `schema:`.
+  A binary-level test pins all six kinds to an anchor string in the collection, so a
+  regression names the wrong line rather than merely omitting one.
+
 ### Fixed
 - **A failing assertion could not say which request it belonged to.** `assertion.result`
   carried only `request_id` — which the schema defines as an opaque pairing key, and which
@@ -80,9 +99,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   value scaffolds a byte-identical project.
 
 ### Changed
+- **Events schema v1.6.** `assertion.result` gains the optional `source_file` and
+  `source_line`. Additive over v1.5. Published at `docs/events-schema/v1.6.json` with the
+  per-kind line table in `docs/EVENTS_SCHEMA_v1.6.md`.
+
 - **Events schema v1.5.** `assertion.result` gains the optional `request_slug`. Additive
   over v1.4; a v1.4 consumer is unaffected. Published at `docs/events-schema/v1.5.json`
   with the field reference and rationale in `docs/EVENTS_SCHEMA_v1.5.md`.
+
+- **CEL assertion results share one identity.** `evalCELAssertion` built five separate
+  `Result` literals, one per return path. They are now one `id` value reused via `with(…)`,
+  the same shape body assertions took in the v1.4 fix — five places to keep in step was how
+  the source pointer would have gone missing on the compile-error branch.
 
 - **The agent skill is no longer presented as Claude-only.** `curlew init --skill claude`
   scaffolds a standard Agent Skill — `SKILL.md` with `name`/`description` frontmatter plus

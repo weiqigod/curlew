@@ -109,6 +109,8 @@ type EventSink interface {
 type AssertionEvent struct {
 	RequestID   string
 	RequestSlug string
+	SourceFile  string
+	SourceLine  int
 	Type        string
 	Target      string
 	Operator    string
@@ -474,6 +476,9 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 		MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 		ActualDuration:   result.Duration,
 		Schema:           item.Assertions.CompiledSchema,
+		StatusLine:       item.Assertions.Status.Line,
+		TimingLine:       item.Assertions.Timing.Line,
+		SchemaLine:       item.Assertions.SchemaLine,
 	})
 
 	// Emit assertion results and request.end.
@@ -483,6 +488,8 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 				cfg.EventSink.AssertionResult(AssertionEvent{
 					RequestID:   reqID,
 					RequestSlug: item.Slug,
+					SourceFile:  item.SourceFile,
+					SourceLine:  a.SourceLine,
 					Type:        a.Type,
 					Target:      a.Target,
 					Operator:    a.Operator,

@@ -81,6 +81,12 @@ Three correlation IDs span all three streams:
   failed and which file to open (`responses/<request_slug>.md`), with no
   need to read the rest of the stream.
 
+An `assertion.result` also carries `source_file` and `source_line`, pointing
+at the line that defines the assertion — the operator key for a body or
+header assertion, the `status:` / `max_duration_ms:` / `schema:` key
+otherwise, the list entry for a `cel:` expression. Open the file at that line
+to fix a failing assertion; do not search the request for it.
+
 ## How to narrate
 
 File-path narration is mandatory. Do not paraphrase response bodies; the

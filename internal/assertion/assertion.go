@@ -40,6 +40,12 @@ type Result struct {
 	Expected string // human-readable expected value
 	Actual   string // human-readable actual value
 	Passed   bool
+	// SourceLine is the 1-based line in the request's source file where this
+	// assertion is written — the operator key for body and header assertions,
+	// the status:/max_duration_ms:/schema: key otherwise. Zero when the
+	// assertion has no YAML origin (a runner-synthesised graphql_error, or an
+	// input built by a caller that did not supply one).
+	SourceLine int
 }
 
 // Assertion kinds. These are the complete vocabulary of Result.Type and must
@@ -101,6 +107,7 @@ type BodyInput struct {
 	Path     string // JSONPath, e.g. "$.data.id"
 	Operator string // e.g. "equals", "exists", "matches", "contains", "greater_than"
 	Value    any    // expected value (operator-dependent)
+	Line     int    // 1-based source line of the operator key; 0 when unknown
 }
 
 // HeaderInput describes a single header assertion to evaluate.
@@ -108,6 +115,7 @@ type HeaderInput struct {
 	Name     string // Header name (matched case-insensitively)
 	Operator string // "equals", "exists", "matches"
 	Value    string // expected value (for equals/matches)
+	Line     int    // 1-based source line of the operator key; 0 when unknown
 }
 
 // CheckHeaders evaluates header assertions against response headers.
@@ -126,7 +134,7 @@ func CheckHeaders(assertions []HeaderInput, headers http.Header) []Result {
 }
 
 func evalHeaderAssertion(a HeaderInput, headers http.Header) Result {
-	id := Result{Type: TypeHeader, Target: a.Name, Operator: a.Operator}
+	id := Result{Type: TypeHeader, Target: a.Name, Operator: a.Operator, SourceLine: a.Line}
 
 	switch a.Operator {
 	case "equals":
@@ -229,6 +237,14 @@ type EvalInput struct {
 	ActualDuration   time.Duration
 	Schema           *CompiledSchema // optional JSON Schema for body validation
 
+	// StatusLine, TimingLine and SchemaLine carry the 1-based source line of
+	// the status:, max_duration_ms: and schema: keys. Body, header and CEL
+	// assertions carry their own line on each input item instead, because
+	// there can be many of each per request.
+	StatusLine int
+	TimingLine int
+	SchemaLine int
+
 	// CELInputs carries zero or more CEL boolean assertion expressions to
 	// evaluate. Each entry produces one Result. When empty, no CEL evaluation
 	// is performed and CELCtx is ignored.
@@ -244,6 +260,7 @@ func Evaluate(in EvalInput) *Results {
 	var items []Result
 
 	if r := CheckStatus(in.StatusCodes, in.ActualStatus); r != nil {
+		r.SourceLine = in.StatusLine
 		items = append(items, *r)
 	}
 
@@ -256,6 +273,9 @@ func Evaluate(in EvalInput) *Results {
 	}
 
 	if schemaResults := CheckSchema(in.Schema, in.Body); schemaResults != nil {
+		for i := range schemaResults {
+			schemaResults[i].SourceLine = in.SchemaLine
+		}
 		items = append(items, schemaResults...)
 	}
 
@@ -264,6 +284,7 @@ func Evaluate(in EvalInput) *Results {
 	}
 
 	if r := CheckTiming(in.MaxDurationMs, in.ActualDuration); r != nil {
+		r.SourceLine = in.TimingLine
 		items = append(items, *r)
 	}
 
@@ -285,7 +306,7 @@ func Evaluate(in EvalInput) *Results {
 // can produce. The operator is always the one the caller declared, so a branch
 // cannot silently relabel itself.
 func bodyID(a BodyInput) Result {
-	return Result{Type: TypeBody, Target: a.Path, Operator: a.Operator}
+	return Result{Type: TypeBody, Target: a.Path, Operator: a.Operator, SourceLine: a.Line}
 }
 
 func evalBodyAssertion(a BodyInput, doc any) Result {

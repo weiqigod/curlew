@@ -259,6 +259,8 @@ func (e *Emitter) EmitRequestEnd(in RequestEndInput) error {
 type AssertionResultInput struct {
 	RequestID   string
 	RequestSlug string // stable, name-derived; mirrors the paired request.start
+	SourceFile  string // collection (or external request) file this assertion is written in
+	SourceLine  int    // 1-based line of the assertion within SourceFile
 	Type        string // discriminator only — see AssertionResult
 	Target      string // JSONPath, header name, schema path, or assertions[N]
 	Operator    string // comparison applied; empty where the type implies it
@@ -280,6 +282,8 @@ func (e *Emitter) EmitAssertionResult(in AssertionResultInput) error {
 		},
 		RequestID:   in.RequestID,
 		RequestSlug: in.RequestSlug,
+		SourceFile:  in.SourceFile,
+		SourceLine:  in.SourceLine,
 		Type:        in.Type,
 		Target:      in.Target,
 		Operator:    in.Operator,

@@ -180,6 +180,9 @@ type AssertionEvent struct {
 	// RequestSlug is the paired RequestEvent's slug, carried so consumers can
 	// name the request without joining on the positional RequestID.
 	RequestSlug string
+	// SourceFile and SourceLine locate the assertion in the collection.
+	SourceFile string
+	SourceLine int
 	// Type, Target and Operator mirror assertion.Result's identity triple.
 	// Type is a discriminator only; use Label for anything a human reads.
 	Type     string
@@ -2019,7 +2022,7 @@ func executePhase(
 				}
 			}
 			if vars.OnEvent != nil {
-				emitAssertionResults(vars.OnEvent, wsReqID, item.Slug, rr.AssertionResults)
+				emitAssertionResults(vars.OnEvent, wsReqID, item.Slug, item.SourceFile, rr.AssertionResults)
 				emitRequestEnd(vars.OnEvent, wsReqID, item.Slug, rr, -1)
 			}
 			results = append(results, rr)
@@ -2166,6 +2169,9 @@ func executePhase(
 			MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 			ActualDuration:   result.Duration,
 			Schema:           item.Assertions.CompiledSchema,
+			StatusLine:       item.Assertions.Status.Line,
+			TimingLine:       item.Assertions.Timing.Line,
+			SchemaLine:       item.Assertions.SchemaLine,
 			CELInputs:        toCELInputs(item.Assertions.CEL.Items),
 			CELCtx:           celCtx,
 		})
@@ -2252,7 +2258,7 @@ func executePhase(
 
 		if ar != nil && !ar.Passed {
 			if vars.OnEvent != nil {
-				emitAssertionResults(vars.OnEvent, reqID, item.Slug, ar)
+				emitAssertionResults(vars.OnEvent, reqID, item.Slug, item.SourceFile, ar)
 				emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 			}
 			if checkRequired && item.IsRequired() {
@@ -2274,7 +2280,7 @@ func executePhase(
 			if extErr != nil {
 				rr.Err = extErr
 				if vars.OnEvent != nil {
-					emitAssertionResults(vars.OnEvent, reqID, item.Slug, ar)
+					emitAssertionResults(vars.OnEvent, reqID, item.Slug, item.SourceFile, ar)
 					emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 				}
 				if checkRequired && item.IsRequired() {
@@ -2293,7 +2299,7 @@ func executePhase(
 
 		// Emit assertion results and request end for passing requests.
 		if vars.OnEvent != nil {
-			emitAssertionResults(vars.OnEvent, reqID, item.Slug, ar)
+			emitAssertionResults(vars.OnEvent, reqID, item.Slug, item.SourceFile, ar)
 			emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 		}
 
@@ -2333,7 +2339,7 @@ func toCELInputs(items []parser.CELAssertion) []assertion.CELInput {
 	}
 	out := make([]assertion.CELInput, len(items))
 	for i, it := range items {
-		out[i] = assertion.CELInput{Index: i, Source: it.Source}
+		out[i] = assertion.CELInput{Index: i, Source: it.Source, Line: it.Line}
 	}
 	return out
 }
@@ -2610,6 +2616,9 @@ func executeDataDriven(
 			MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 			ActualDuration:   result.Duration,
 			Schema:           item.Assertions.CompiledSchema,
+			StatusLine:       item.Assertions.Status.Line,
+			TimingLine:       item.Assertions.Timing.Line,
+			SchemaLine:       item.Assertions.SchemaLine,
 			CELInputs:        toCELInputs(item.Assertions.CEL.Items),
 			CELCtx:           ddCelCtx,
 		})
@@ -2627,7 +2636,7 @@ func executeDataDriven(
 
 		if ar != nil && !ar.Passed {
 			if vars.OnEvent != nil {
-				emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, ar)
+				emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, item.SourceFile, ar)
 				emitRequestEnd(vars.OnEvent, iterReqID, iterSlug, rr, -1)
 			}
 			results = append(results, rr)
@@ -2658,7 +2667,7 @@ func executeDataDriven(
 
 		// Emit assertion results and request end for passing iterations.
 		if vars.OnEvent != nil {
-			emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, ar)
+			emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, item.SourceFile, ar)
 			emitRequestEnd(vars.OnEvent, iterReqID, iterSlug, rr, -1)
 		}
 
@@ -2831,6 +2840,9 @@ func executeDataDrivenParallel(
 			MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 			ActualDuration:   result.Duration,
 			Schema:           item.Assertions.CompiledSchema,
+			StatusLine:       item.Assertions.Status.Line,
+			TimingLine:       item.Assertions.Timing.Line,
+			SchemaLine:       item.Assertions.SchemaLine,
 			CELInputs:        toCELInputs(item.Assertions.CEL.Items),
 			CELCtx:           pddCelCtx,
 		})
@@ -2880,7 +2892,7 @@ func executeDataDrivenParallel(
 				AssertionResults: ar,
 				Err:              ir.Err,
 			}
-			emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, ar)
+			emitAssertionResults(vars.OnEvent, iterReqID, iterSlug, item.SourceFile, ar)
 			emitRequestEnd(vars.OnEvent, iterReqID, iterSlug, rr, -1)
 		}
 
@@ -3211,7 +3223,7 @@ func emitRequestEnd(sink EventSink, reqID, reqSlug string, rr RequestResult, wav
 }
 
 // emitAssertionResults fires one AssertionResult per assertion item in ar.
-func emitAssertionResults(sink EventSink, reqID, reqSlug string, ar *assertion.Results) {
+func emitAssertionResults(sink EventSink, reqID, reqSlug, sourceFile string, ar *assertion.Results) {
 	if sink == nil || ar == nil {
 		return
 	}
@@ -3219,6 +3231,8 @@ func emitAssertionResults(sink EventSink, reqID, reqSlug string, ar *assertion.R
 		sink.AssertionResult(AssertionEvent{
 			RequestID:   reqID,
 			RequestSlug: reqSlug,
+			SourceFile:  sourceFile,
+			SourceLine:  a.SourceLine,
 			Type:        a.Type,
 			Target:      a.Target,
 			Operator:    a.Operator,
@@ -3276,6 +3290,8 @@ func (a *parallelSinkAdapter) AssertionResult(ev parallel.AssertionEvent) {
 	a.inner.AssertionResult(AssertionEvent{
 		RequestID:   ev.RequestID,
 		RequestSlug: ev.RequestSlug,
+		SourceFile:  ev.SourceFile,
+		SourceLine:  ev.SourceLine,
 		Type:        ev.Type,
 		Target:      ev.Target,
 		Operator:    ev.Operator,

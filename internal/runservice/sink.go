@@ -102,6 +102,8 @@ func (a *EmitterSink) AssertionResult(e runner.AssertionEvent) {
 	if err := a.em.EmitAssertionResult(events.AssertionResultInput{
 		RequestID:   e.RequestID,
 		RequestSlug: e.RequestSlug,
+		SourceFile:  e.SourceFile,
+		SourceLine:  e.SourceLine,
 		Type:        e.Type,
 		Target:      e.Target,
 		Operator:    e.Operator,

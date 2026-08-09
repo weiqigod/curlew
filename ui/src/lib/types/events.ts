@@ -92,6 +92,11 @@ export interface AssertionResultEvent extends EventHeader {
    *  `request.start`. Added in schema v1.5 so the event names its request
    *  without a join against a positional, run-local `request_id`. */
   request_slug?: string;
+  /** Where the assertion is written: the operator key for body and header
+   *  assertions, the `status:` / `max_duration_ms:` / `schema:` key otherwise,
+   *  the list entry for `cel`. Added in schema v1.6. */
+  source_file?: string;
+  source_line?: number;
   type: 'status' | 'body' | 'header' | 'schema' | 'timing' | 'cel';
   target?: string;
   operator?: string;
