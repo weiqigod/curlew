@@ -163,6 +163,7 @@ func ToHeaderInputs(items []parser.HeaderAssertion) []assertion.HeaderInput {
 			Name:     item.Name,
 			Operator: item.Operator,
 			Value:    fmt.Sprint(item.Value),
+			Line:     item.Line,
 		}
 	}
 	return inputs
@@ -179,6 +180,7 @@ func ToBodyInputs(items []parser.BodyAssertion) []assertion.BodyInput {
 			Path:     item.Path,
 			Operator: item.Operator,
 			Value:    item.Value,
+			Line:     item.Line,
 		}
 	}
 	return inputs

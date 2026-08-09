@@ -14,6 +14,8 @@ type CELInput struct {
 	Index int
 	// Source is the CEL expression string.
 	Source string
+	// Line is the 1-based source line of this cel: list entry; 0 when unknown.
+	Line int
 }
 
 // CELContext bundles the activation, evaluator, compile cache, and
@@ -64,17 +66,17 @@ func CheckCEL(inputs []CELInput, ctx CELContext) []Result {
 
 // evalCELAssertion evaluates a single CEL assertion and returns the Result.
 func evalCELAssertion(in CELInput, ctx CELContext) Result {
-	target := fmt.Sprintf("assertions[%d]", in.Index)
+	// Built once so every return below keeps the same identity and source
+	// pointer; a literal per branch is how those drift apart.
+	id := Result{
+		Type:       TypeCEL,
+		Target:     fmt.Sprintf("assertions[%d]", in.Index),
+		SourceLine: in.Line,
+	}
 
 	prog, compileErr := compileCELAssertion(ctx, in.Source)
 	if compileErr != nil {
-		return Result{
-			Type:     TypeCEL,
-			Target:   target,
-			Expected: "compiled CEL bool expression",
-			Actual:   redactSensitive(compileErr.Error(), ctx.SensitiveValues),
-			Passed:   false,
-		}
+		return id.with("compiled CEL bool expression", redactSensitive(compileErr.Error(), ctx.SensitiveValues), false)
 	}
 
 	out, evalErr := prog.Eval(apicel.StandardActivation{
@@ -87,48 +89,24 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 		SensitiveObserver: ctx.SensitiveObserve,
 	})
 	if evalErr != nil {
-		return Result{
-			Type:     TypeCEL,
-			Target:   target,
-			Expected: in.Source,
-			Actual:   redactSensitive(evalErr.Error(), ctx.SensitiveValues),
-			Passed:   false,
-		}
+		return id.with(in.Source, redactSensitive(evalErr.Error(), ctx.SensitiveValues), false)
 	}
 
 	b, ok := out.(bool)
 	if !ok {
 		// Should not happen if Compile correctly enforced bool type,
 		// but handle defensively.
-		return Result{
-			Type:     TypeCEL,
-			Target:   target,
-			Expected: "boolean result",
-			Actual:   fmt.Sprintf("non-bool %T", out),
-			Passed:   false,
-		}
+		return id.with("boolean result", fmt.Sprintf("non-bool %T", out), false)
 	}
 
 	if b {
-		return Result{
-			Type:     TypeCEL,
-			Target:   target,
-			Expected: in.Source,
-			Actual:   "true",
-			Passed:   true,
-		}
+		return id.with(in.Source, "true", true)
 	}
 
 	// Assertion failed: build a failure message that includes the literal
 	// expression source and the resolved value of each top-level named ref.
 	msg := buildCELFailureMessage(in.Source, ctx)
-	return Result{
-		Type:     TypeCEL,
-		Target:   target,
-		Expected: in.Source,
-		Actual:   redactSensitive(msg, ctx.SensitiveValues),
-		Passed:   false,
-	}
+	return id.with(in.Source, redactSensitive(msg, ctx.SensitiveValues), false)
 }
 
 // compileCELAssertion retrieves a compiled program from the cache or compiles

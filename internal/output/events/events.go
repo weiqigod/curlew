@@ -1,7 +1,7 @@
 // Package events defines the NDJSON agent event stream emitted by `curlew run`
 // when the --events flag is provided. The current schema is documented in
-// docs/events-schema/v1.5.json. v1.4, v1.3, v1.2, v1.1 and v1.0 are retained at
-// their respective paths as historical anchors.
+// docs/events-schema/v1.6.json. v1.5, v1.4, v1.3, v1.2, v1.1 and v1.0 are
+// retained at their respective paths as historical anchors.
 //
 // v1.0 → v1.1 (M8-004): additive change — run.start gains an optional
 // "selection" field carrying the --only values for the run.
@@ -27,12 +27,19 @@
 // against any other run. The slug is derived from the request name and is
 // stable, so a tailing consumer (curlew watch) and a run-over-run comparison
 // both work from the event alone.
+//
+// v1.5 -> v1.6: additive change - assertion.result gains "source_file" and
+// "source_line", locating the assertion at the line a developer would edit to
+// change it: the operator key for body and header assertions, the status:,
+// max_duration_ms: or schema: key otherwise, and the list-entry line for cel.
+// Pointing at the enclosing request instead would be useless on a request
+// carrying a dozen assertions.
 package events
 
 // SchemaVersion is the current event-stream schema version. Promoted from
-// "1.4" to "1.5" with the additive assertion.result "request_slug" field.
+// "1.5" to "1.6" with the additive assertion.result source pointer.
 // Removals and renames now require a v2.0 bump.
-const SchemaVersion = "1.5"
+const SchemaVersion = "1.6"
 
 // DefaultBodyLimit is the byte threshold above which request and response
 // bodies are truncated in event payloads.
@@ -161,9 +168,14 @@ type AssertionResult struct {
 	// run-local; a consumer tailing the stream or comparing two runs needs a
 	// stable key on the event itself. v1.5 additive.
 	RequestSlug string `json:"request_slug,omitempty"`
-	Type        string `json:"type"` // "status" | "body" | "header" | "schema" | "timing" | "cel"
-	Target      string `json:"target,omitempty"`
-	Operator    string `json:"operator,omitempty"`
+	// SourceFile and SourceLine point at where this assertion is written, so a
+	// consumer can open the YAML at the failing line instead of searching the
+	// request for it. v1.6 additive.
+	SourceFile string `json:"source_file,omitempty"`
+	SourceLine int    `json:"source_line,omitempty"`
+	Type       string `json:"type"` // "status" | "body" | "header" | "schema" | "timing" | "cel"
+	Target     string `json:"target,omitempty"`
+	Operator   string `json:"operator,omitempty"`
 	// Label is the assembled human-readable phrase ("body $.user.name equals").
 	// It is emitted so consumers never have to reimplement the assembly rules,
 	// and it is exactly the value Type carried through v1.3 — a v1.3 consumer

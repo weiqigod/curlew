@@ -370,12 +370,32 @@ type Assertions struct {
 	// {response, previous, vars, env}. Mutually exclusive with operator assertions
 	// on a per-entry basis (see CELAssertions.UnmarshalYAML).
 	CEL CELAssertions `yaml:"cel,omitempty"`
+	// SchemaLine is the 1-based YAML line of the schema: key. Schema is a
+	// plain scalar with no unmarshaler of its own, so the position is captured
+	// here by the enclosing block.
+	SchemaLine int `yaml:"-"`
+}
+
+// UnmarshalYAML decodes the assertions block via the default struct rules and
+// then records the position of the schema: key. The alias type is what keeps
+// the decode behaviour identical — without it this method would recurse.
+func (a *Assertions) UnmarshalYAML(value *yaml.Node) error {
+	type rawAssertions Assertions
+	var raw rawAssertions
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	*a = Assertions(raw)
+	a.SchemaLine = keyLine(value, "schema")
+	return nil
 }
 
 // CELAssertion describes a single CEL boolean assertion.
 type CELAssertion struct {
 	// Source is the CEL expression string.
 	Source string
+	// Line is the 1-based YAML line of this list entry. See BodyAssertion.Line.
+	Line int `yaml:"-"`
 }
 
 // CELAssertions holds the list of cel: assertion entries under assertions:.
@@ -405,7 +425,7 @@ func (c *CELAssertions) UnmarshalYAML(value *yaml.Node) error {
 			if item.Value == "" {
 				return fmt.Errorf("cel assertion entry: expression must not be empty")
 			}
-			c.Items = append(c.Items, CELAssertion{Source: item.Value})
+			c.Items = append(c.Items, CELAssertion{Source: item.Value, Line: item.Line})
 		case yaml.MappingNode:
 			// Explicit form: - { cel: "<expr>" } — reject extra keys.
 			var src string
@@ -429,7 +449,7 @@ func (c *CELAssertions) UnmarshalYAML(value *yaml.Node) error {
 			if src == "" {
 				return fmt.Errorf("cel assertion entry: cel: expression must not be empty")
 			}
-			c.Items = append(c.Items, CELAssertion{Source: src})
+			c.Items = append(c.Items, CELAssertion{Source: src, Line: item.Line})
 		default:
 			return fmt.Errorf("cel assertion entry: expected string or mapping, got kind %v", item.Kind)
 		}
@@ -442,6 +462,10 @@ type BodyAssertion struct {
 	Path     string // JSONPath expression, e.g. "$.data.id"
 	Operator string // "equals", "exists", "not_exists", "type"
 	Value    any    // expected value (meaning depends on operator)
+	// Line is the 1-based YAML line of the operator key, relative to the
+	// request's SourceFile. That is the line a developer edits to change this
+	// assertion, which is what makes it worth reporting.
+	Line int `yaml:"-"`
 }
 
 // BodyAssertions handles the YAML map-of-maps format for body assertions.
@@ -485,6 +509,7 @@ func (b *BodyAssertions) UnmarshalYAML(value *yaml.Node) error {
 				Path:     path,
 				Operator: opNode.Value,
 				Value:    v,
+				Line:     opNode.Line,
 			})
 		}
 	}
@@ -497,6 +522,8 @@ type HeaderAssertion struct {
 	Name     string // Header name (case-insensitive matching at evaluation)
 	Operator string // "equals", "exists", "matches"
 	Value    any    // expected value (operator-dependent)
+	// Line is the 1-based YAML line of the operator key. See BodyAssertion.Line.
+	Line int `yaml:"-"`
 }
 
 // HeaderAssertions handles the YAML map-of-maps format for header assertions.
@@ -538,6 +565,7 @@ func (h *HeaderAssertions) UnmarshalYAML(value *yaml.Node) error {
 				Name:     name,
 				Operator: opNode.Value,
 				Value:    v,
+				Line:     opNode.Line,
 			})
 		}
 	}
@@ -548,11 +576,45 @@ func (h *HeaderAssertions) UnmarshalYAML(value *yaml.Node) error {
 // TimingAssertion holds timing-related assertion configuration.
 type TimingAssertion struct {
 	MaxDurationMs int `yaml:"max_duration_ms"`
+	// Line is the 1-based YAML line of the max_duration_ms key.
+	Line int `yaml:"-"`
+}
+
+// UnmarshalYAML decodes the timing block and records the line of the
+// max_duration_ms key, so a timing failure can point at the threshold rather
+// than at the enclosing request.
+func (t *TimingAssertion) UnmarshalYAML(value *yaml.Node) error {
+	type rawTiming struct {
+		MaxDurationMs int `yaml:"max_duration_ms"`
+	}
+	var raw rawTiming
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	t.MaxDurationMs = raw.MaxDurationMs
+	t.Line = keyLine(value, "max_duration_ms")
+	return nil
+}
+
+// keyLine returns the 1-based line of the named key in a mapping node, or 0
+// when the node is not a mapping or the key is absent.
+func keyLine(node *yaml.Node, key string) int {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return 0
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i].Line
+		}
+	}
+	return 0
 }
 
 // StatusCodes handles both `status: 200` and `status: [200, 201]` in YAML.
 type StatusCodes struct {
 	Codes []int
+	// Line is the 1-based YAML line of the status: value node.
+	Line int `yaml:"-"`
 }
 
 // UnmarshalYAML handles scalar int and sequence forms for status codes.
@@ -564,6 +626,7 @@ func (s *StatusCodes) UnmarshalYAML(value *yaml.Node) error {
 			return fmt.Errorf("invalid status code %q: %w", value.Value, err)
 		}
 		s.Codes = []int{code}
+		s.Line = value.Line
 		return nil
 	case yaml.SequenceNode:
 		var codes []int
@@ -571,6 +634,7 @@ func (s *StatusCodes) UnmarshalYAML(value *yaml.Node) error {
 			return fmt.Errorf("invalid status code list: %w", err)
 		}
 		s.Codes = codes
+		s.Line = value.Line
 		return nil
 	default:
 		return fmt.Errorf("status must be an integer or list of integers")

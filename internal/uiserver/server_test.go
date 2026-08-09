@@ -175,8 +175,8 @@ func TestMeta_Shape(t *testing.T) {
 	if server["api_version"] != float64(1) {
 		t.Errorf("server.api_version = %v, want 1", server["api_version"])
 	}
-	if server["events_schema_version"] != "1.5" {
-		t.Errorf("events_schema_version = %v, want 1.5", server["events_schema_version"])
+	if server["events_schema_version"] != "1.6" {
+		t.Errorf("events_schema_version = %v, want 1.6", server["events_schema_version"])
 	}
 	project, _ := m["project"].(map[string]any)
 	if project["name"] != "Test Project" {
