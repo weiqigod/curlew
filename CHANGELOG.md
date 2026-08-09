@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A CI workflow for the Go CLI** (`.github/workflows/go.yml`). There has never been one:
+  the seven existing workflows cover the .NET backend, the web dashboard, email templates
+  and releases, and none of them builds or tests the CLI. The new job runs
+  `./scripts/ci-local.sh --go` rather than restating its steps, so the workflow and the
+  local gate cannot drift into disagreeing about what "green" means.
+
+  It follows the repository convention of `workflow_dispatch:` only, with the
+  `push`/`pull_request` block present but commented out — enabling it is a cost decision
+  about GitHub Actions billing, not a code change.
+
 - **`assertion.result` now says where the assertion is written.** v1.5 let a failing
   assertion name its request; it still could not say which line defines it. On a request
   carrying a dozen assertions, an agent wanting to open the YAML at the failure had to
@@ -26,6 +36,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   regression names the wrong line rather than merely omitting one.
 
 ### Fixed
+- **CLAUDE.md claimed `ci-local.sh` "mirrors the GitHub workflows".** It did not: no
+  workflow built or tested the Go CLI, and every workflow has auto-triggers disabled
+  pending Actions billing, so pushing a branch verified nothing. The quality-gate section
+  now says plainly that `ci-local.sh` is currently the only gate, and `ci-local.sh`'s own
+  header — which claimed to mirror the two `e2e-*` workflows — says the same.
+
+- **`ci-local.sh --help` silently truncated its own output.** It printed a hardcoded line
+  range (`sed -n '2,22p'`) of the header comment, so growing the header past line 22 cut
+  off the exit-code table without any error. It now prints the leading comment block by
+  tracking where the block ends.
+
 - **A failing assertion could not say which request it belonged to.** `assertion.result`
   carried only `request_id` — which the schema defines as an opaque pairing key, and which
   is minted positionally (`req-1`, `req-2`, …) in execution order. `request.start` and
