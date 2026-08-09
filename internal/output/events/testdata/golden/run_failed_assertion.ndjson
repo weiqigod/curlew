@@ -1,5 +1,5 @@
-{"schema_version":"1.4","run_id":"golden-run-failed","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","curlew_version":"0.1.0-test","cli_args":["run","assert.yaml"],"collection_file":"assert.yaml","env_name":"prod"}
-{"schema_version":"1.4","run_id":"golden-run-failed","id":2,"at_ms":0,"kind":"request.start","request_id":"req-1","request_slug":"get-user","name":"Get user","method":"GET","url":"https://api.example.com/users/1","source_file":"assert.yaml","source_line":3}
-{"schema_version":"1.4","run_id":"golden-run-failed","id":3,"at_ms":0,"kind":"assertion.result","request_id":"req-1","type":"status","label":"status","passed":false,"expected":"200","actual":"404"}
-{"schema_version":"1.4","run_id":"golden-run-failed","id":4,"at_ms":0,"kind":"request.end","request_id":"req-1","request_slug":"get-user","outcome":"failed","status_code":404,"duration_ms":28}
-{"schema_version":"1.4","run_id":"golden-run-failed","id":5,"at_ms":0,"kind":"run.end","duration_ms":0,"total":1,"passed":0,"failed":1,"skipped":0,"exit_code":1,"event_count":5}
+{"schema_version":"1.5","run_id":"golden-run-failed","id":1,"at_ms":0,"kind":"run.start","started_at":"2026-04-21T10:00:00Z","curlew_version":"0.1.0-test","cli_args":["run","assert.yaml"],"collection_file":"assert.yaml","env_name":"prod"}
+{"schema_version":"1.5","run_id":"golden-run-failed","id":2,"at_ms":0,"kind":"request.start","request_id":"req-1","request_slug":"get-user","name":"Get user","method":"GET","url":"https://api.example.com/users/1","source_file":"assert.yaml","source_line":3}
+{"schema_version":"1.5","run_id":"golden-run-failed","id":3,"at_ms":0,"kind":"assertion.result","request_id":"req-1","type":"status","label":"status","passed":false,"expected":"200","actual":"404"}
+{"schema_version":"1.5","run_id":"golden-run-failed","id":4,"at_ms":0,"kind":"request.end","request_id":"req-1","request_slug":"get-user","outcome":"failed","status_code":404,"duration_ms":28}
+{"schema_version":"1.5","run_id":"golden-run-failed","id":5,"at_ms":0,"kind":"run.end","duration_ms":0,"total":1,"passed":0,"failed":1,"skipped":0,"exit_code":1,"event_count":5}

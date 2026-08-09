@@ -2268,7 +2268,7 @@ and a specific JSONL entry, so an agent can fan out from any fragment
 back to the whole run.
 
 For the full schema — every field, every enum, every ordering guarantee,
-the v1.x stability policy — see [`docs/EVENTS_SCHEMA_v1.3.md`](EVENTS_SCHEMA_v1.3.md).
+the v1.x stability policy — see [`docs/EVENTS_SCHEMA_v1.5.md`](EVENTS_SCHEMA_v1.5.md).
 
 ### 4.6 CI recipes
 

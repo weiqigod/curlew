@@ -10,7 +10,7 @@ import (
 )
 
 func TestSchemaVersion_Is14(t *testing.T) {
-	if events.SchemaVersion != "1.4" {
+	if events.SchemaVersion != "1.5" {
 		t.Fatalf("SchemaVersion = %q, want \"1.3\"", events.SchemaVersion)
 	}
 }

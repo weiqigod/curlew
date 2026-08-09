@@ -107,13 +107,14 @@ type EventSink interface {
 // Type is a discriminator ("body", "header", ...); Target and Operator hold the
 // parts that vary, so consumers never have to parse a composite string.
 type AssertionEvent struct {
-	RequestID string
-	Type      string
-	Target    string
-	Operator  string
-	Expected  string
-	Actual    string
-	Passed    bool
+	RequestID   string
+	RequestSlug string
+	Type        string
+	Target      string
+	Operator    string
+	Expected    string
+	Actual      string
+	Passed      bool
 }
 
 // Config holds parallel execution configuration.
@@ -480,13 +481,14 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 		if ar != nil {
 			for _, a := range ar.Items {
 				cfg.EventSink.AssertionResult(AssertionEvent{
-					RequestID: reqID,
-					Type:      a.Type,
-					Target:    a.Target,
-					Operator:  a.Operator,
-					Expected:  a.Expected,
-					Actual:    a.Actual,
-					Passed:    a.Passed,
+					RequestID:   reqID,
+					RequestSlug: item.Slug,
+					Type:        a.Type,
+					Target:      a.Target,
+					Operator:    a.Operator,
+					Expected:    a.Expected,
+					Actual:      a.Actual,
+					Passed:      a.Passed,
 				})
 			}
 		}

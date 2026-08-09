@@ -33,11 +33,11 @@ func schemaPath(t *testing.T, version string) string {
 	return filepath.Join(root, "docs", "events-schema", version+".json")
 }
 
-// compileEventSchema compiles the current (v1.4) JSON Schema. Callers that
+// compileEventSchema compiles the current (v1.5) JSON Schema. Callers that
 // exercise the live emitter call this; most tests should use this helper.
 func compileEventSchema(t *testing.T) *jsonschema.Schema {
 	t.Helper()
-	return compileEventSchemaVersion(t, "v1.4")
+	return compileEventSchemaVersion(t, "v1.5")
 }
 
 // compileEventSchemaVersion compiles the JSON Schema for the given version
@@ -91,7 +91,7 @@ func goldenDir(t *testing.T) string {
 }
 
 // TestEmitter_AllKindsValidateAgainstSchema emits one event of each kind into a
-// buffer and validates every line against the v1.4 JSON Schema.
+// buffer and validates every line against the v1.5 JSON Schema.
 func TestEmitter_AllKindsValidateAgainstSchema(t *testing.T) {
 	sch := compileEventSchema(t)
 
@@ -160,7 +160,7 @@ func kindFromLine(t *testing.T, line string) string {
 }
 
 // TestEmitter_GoldenSchemaValidates reads every golden NDJSON file in
-// testdata/golden/ and validates each line against the v1.4 JSON Schema.
+// testdata/golden/ and validates each line against the v1.5 JSON Schema.
 func TestEmitter_GoldenSchemaValidates(t *testing.T) {
 	sch := compileEventSchema(t)
 	dir := goldenDir(t)
@@ -436,7 +436,7 @@ func eventSchemaDocPath(t *testing.T, version string) string {
 
 // TestSchema_DocInSyncWithCode verifies that every exported field on the Go
 // event structs in events.go appears in the corresponding schema definition in
-// docs/events-schema/v1.4.json, and that every field without an ",omitempty"
+// docs/events-schema/v1.5.json, and that every field without an ",omitempty"
 // JSON tag is listed in that definition's "required" array.
 //
 // This test prevents silent drift: when a developer adds, removes, or renames
@@ -445,7 +445,7 @@ func eventSchemaDocPath(t *testing.T, version string) string {
 func TestSchema_DocInSyncWithCode(t *testing.T) {
 	// Load the raw JSON schema document (we need to introspect "required" and
 	// "properties" text directly, not compile it).
-	path := schemaPath(t, "v1.4")
+	path := schemaPath(t, "v1.5")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read schema: %v", err)
@@ -664,15 +664,15 @@ func extractJSONFences(src string) []fenceBlock {
 }
 
 // TestSchema_MarkdownExamplesValidate extracts every fenced code block tagged
-// ```json or ```ndjson from docs/EVENTS_SCHEMA_v1.4.md and validates each
-// non-blank line against the v1.4 JSON Schema.
+// ```json or ```ndjson from docs/EVENTS_SCHEMA_v1.5.md and validates each
+// non-blank line against the v1.5 JSON Schema.
 //
 // Ensures the examples embedded in the agent-facing documentation stay
 // consistent with the checked-in schema. A broken example fails fast.
 func TestSchema_MarkdownExamplesValidate(t *testing.T) {
 	sch := compileEventSchema(t)
 
-	docPath := eventSchemaDocPath(t, "v1.4")
+	docPath := eventSchemaDocPath(t, "v1.5")
 	src, err := os.ReadFile(docPath)
 	if err != nil {
 		t.Fatalf("read doc: %v", err)
@@ -784,12 +784,12 @@ func TestSchema_v11_validates(t *testing.T) {
 	}
 }
 
-// TestSchema_v14_validates compiles docs/events-schema/v1.4.json and validates
+// TestSchema_v15_validates compiles docs/events-schema/v1.5.json and validates
 // one event of each kind against it, including request.start and request.end
 // with request_slug set. This is the authoritative regression test for the
 // current schema.
-func TestSchema_v14_validates(t *testing.T) {
-	sch := compileEventSchemaVersion(t, "v1.4")
+func TestSchema_v15_validates(t *testing.T) {
+	sch := compileEventSchemaVersion(t, "v1.5")
 
 	var buf bytes.Buffer
 	em, err := events.NewEmitter(&buf, events.Options{

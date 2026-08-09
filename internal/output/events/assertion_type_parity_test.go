@@ -218,7 +218,7 @@ func publishedAssertionEnum(t *testing.T, version string) []string {
 
 func TestAssertionType_conforms_to_published_enum(t *testing.T) {
 	emitted := assertionTypeLiterals(t)
-	declared := publishedAssertionEnum(t, "v1.4")
+	declared := publishedAssertionEnum(t, "v1.5")
 
 	declaredSet := map[string]bool{}
 	for _, d := range declared {

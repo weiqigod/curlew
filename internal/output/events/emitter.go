@@ -257,13 +257,14 @@ func (e *Emitter) EmitRequestEnd(in RequestEndInput) error {
 // expected/actual pair would otherwise be six adjacent strings, where a
 // transposition compiles cleanly and fails silently.
 type AssertionResultInput struct {
-	RequestID string
-	Type      string // discriminator only — see AssertionResult
-	Target    string // JSONPath, header name, schema path, or assertions[N]
-	Operator  string // comparison applied; empty where the type implies it
-	Expected  string
-	Actual    string
-	Passed    bool
+	RequestID   string
+	RequestSlug string // stable, name-derived; mirrors the paired request.start
+	Type        string // discriminator only — see AssertionResult
+	Target      string // JSONPath, header name, schema path, or assertions[N]
+	Operator    string // comparison applied; empty where the type implies it
+	Expected    string
+	Actual      string
+	Passed      bool
 }
 
 // EmitAssertionResult emits an assertion.result event.
@@ -277,14 +278,15 @@ func (e *Emitter) EmitAssertionResult(in AssertionResultInput) error {
 			AtMs:          e.atMs(),
 			Kind:          KindAssertionResult,
 		},
-		RequestID: in.RequestID,
-		Type:      in.Type,
-		Target:    in.Target,
-		Operator:  in.Operator,
-		Label:     assertion.Label(in.Type, in.Target, in.Operator),
-		Passed:    in.Passed,
-		Expected:  in.Expected,
-		Actual:    in.Actual,
+		RequestID:   in.RequestID,
+		RequestSlug: in.RequestSlug,
+		Type:        in.Type,
+		Target:      in.Target,
+		Operator:    in.Operator,
+		Label:       assertion.Label(in.Type, in.Target, in.Operator),
+		Passed:      in.Passed,
+		Expected:    in.Expected,
+		Actual:      in.Actual,
 	}
 	return e.writeEvent(ev)
 }

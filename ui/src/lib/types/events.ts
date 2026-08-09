@@ -88,6 +88,10 @@ export interface RequestEndEvent extends EventHeader {
 export interface AssertionResultEvent extends EventHeader {
   kind: 'assertion.result';
   request_id: string;
+  /** Slug of the request this assertion belongs to, mirroring the paired
+   *  `request.start`. Added in schema v1.5 so the event names its request
+   *  without a join against a positional, run-local `request_id`. */
+  request_slug?: string;
   type: 'status' | 'body' | 'header' | 'schema' | 'timing' | 'cel';
   target?: string;
   operator?: string;

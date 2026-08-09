@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **A failing assertion could not say which request it belonged to.** `assertion.result`
+  carried only `request_id` — which the schema defines as an opaque pairing key, and which
+  is minted positionally (`req-1`, `req-2`, …) in execution order. `request.start` and
+  `request.end` have carried the stable, name-derived `request_slug` since v1.2;
+  `assertion.result` did not.
+
+  So the one event an agent reads first could not be read alone. A consumer had to buffer
+  the whole stream, collect every `request.start`, and join on `request_id` before it could
+  name the failure — and the resulting table was run-local. Inserting a request at the top
+  of a collection shifts every id after it, so a stored "failure at `req-3`" points at a
+  different request on the next run. A consumer tailing a live stream (`curlew watch`)
+  maintained that join by hand.
+
+  `assertion.result` now carries `request_slug`. One line names the request, the assertion,
+  and expected vs actual, and the slug is also the `responses/<slug>.md` filename — so the
+  agent knows which file to open without reading anything else. `request_id` is unchanged
+  and remains the pairing key.
+
+  A stream-level test asserts the invariant across all three execution paths (serial,
+  parallel waves, data-driven iterations), each of which builds its own assertion events.
 - **Assertion results claimed a structure they did not have** (M24-001). `assertion.Result`
   carried a single `Type` field doing two incompatible jobs — a machine-readable
   discriminator and a human-readable label — and the label won. For every kind except
@@ -60,6 +80,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   value scaffolds a byte-identical project.
 
 ### Changed
+- **Events schema v1.5.** `assertion.result` gains the optional `request_slug`. Additive
+  over v1.4; a v1.4 consumer is unaffected. Published at `docs/events-schema/v1.5.json`
+  with the field reference and rationale in `docs/EVENTS_SCHEMA_v1.5.md`.
+
 - **The agent skill is no longer presented as Claude-only.** `curlew init --skill claude`
   scaffolds a standard Agent Skill — `SKILL.md` with `name`/`description` frontmatter plus
   per-topic reference files — into `.claude/skills/curlew/`. That directory is a project
