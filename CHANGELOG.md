@@ -7,6 +7,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Mudflat, a dedicated test API — curlew is now dogfooded (Phase 1).** Every one of
+  curlew's 1,963 tests that executes a request used to terminate at a server curlew's own
+  suite had written: 23 files construct `httptest.NewServer`, and the smoke suite runs a
+  local echo fixture. A Go test server and a Go HTTP client agree by construction about
+  header canonicalisation, body framing, chunking and HTTP/2, so every bug living in that
+  shared reading was invisible to the entire suite.
+
+  `testapi/` adds a server curlew did not write — 31 endpoints across six families —
+  plus the dogfood suite that runs against it. `./scripts/ci-local.sh` now runs
+  `curlew run 'testapi/collections/*.yaml'` as a gate step, so dogfooding happens on
+  every change rather than when someone remembers. 53 assertions, all passing.
+
+  The design is specified in `docs/TESTAPI_SPECIFICATION.md`. The two pieces worth
+  knowing: the echo envelope reports headers as ordered pairs with the client's original
+  casing and the body as base64 that is never decoded — each refusing a convenience that
+  would hide the bug class the endpoint exists to find — and a parity test derives both
+  sides of its comparison from the artefacts themselves, so an endpoint nobody calls or a
+  URL that hits nothing fails the build.
+
+  **What the first run found.** Three defects, reproducible against mudflat, kept as
+  executable expected-to-fail requests in `testapi/gaps/curlew-defects.yaml` rather than
+  as prose in a backlog. **None is fixed yet** — they are recorded here because finding
+  them is what the change delivers:
+
+  1. **Assertion expected values are never interpolated.** `equals: "{{var}}"` compares
+     against the literal seven-character template. The same variable interpolates
+     correctly in a URL, which is what makes it confusing: a request fetches exactly the
+     right resource and then fails to assert anything about it.
+  2. **Header `exists: false` is not honoured**, so header *absence* cannot be asserted
+     at all — "this response must not carry Set-Cookie" is unexpressible.
+     `docs/CLI_SPECIFICATION.md` §7.2 documents the operator as "Presence (`true`) or
+     absence (`false`)", and the body path has a working `not_exists`.
+  3. **A body that fails to decode is classified as a network error.** A lying
+     `Content-Encoding: gzip` over plain bytes reports `network error: reading response
+     body`, so `retry_on.network_errors` retries a response that can never decode,
+     burning every attempt before failing with the same message.
+
 - **A CI workflow for the Go CLI** (`.github/workflows/go.yml`). There has never been one:
   the seven existing workflows cover the .NET backend, the web dashboard, email templates
   and releases, and none of them builds or tests the CLI. The new job runs

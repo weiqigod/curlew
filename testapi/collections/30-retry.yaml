@@ -1,0 +1,157 @@
+# Retry, against failures that are deterministic rather than hoped-for.
+#
+# Attempt counters live on the server and key on (session, endpoint, query), so
+# "fails twice then succeeds" means exactly that, every run.
+name: Retry against deterministic failures
+description: |
+  Exercises retry triggers, backoff strategies, network-error classification and
+  Retry-After handling. Delays are kept small so the suite stays fast; the
+  behaviour under test is which attempt succeeds, not how long it waited.
+
+requests:
+  - name: recovers after two 503s
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=2&status=503"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        # Attempt 3 is the first success. A retry that fired the wrong number of
+        # times lands on a different number here, which is a far sharper signal
+        # than a pass or fail alone.
+        $.attempt: { equals: 3 }
+        $.failing: { equals: false }
+
+  - name: status range shorthand triggers a retry
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=1&status=502"
+    retry:
+      enabled: true
+      max_attempts: 3
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_ranges: ["5xx"]
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 2 }
+
+  - name: exponential backoff reaches the success attempt
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=3&status=503&tag=exp"
+    retry:
+      enabled: true
+      max_attempts: 5
+      initial_delay_ms: 5
+      max_delay_ms: 50
+      backoff_strategy: exponential
+      jitter: true
+      jitter_factor: 0.2
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 4 }
+
+  - name: recovery followed by another failure
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-on?attempts=1,2&status=503"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 3 }
+
+  - name: do_not_retry_on wins over retry_on
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=5&status=503&tag=excluded"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_ranges: ["5xx"]
+      do_not_retry_on:
+        status_codes: [503]
+    assertions:
+      # 503 appears in both lists. The specification says exclusion always wins,
+      # so this must fail on the first attempt without retrying.
+      status: 503
+      body:
+        $.attempt: { equals: 1 }
+
+  - name: a network reset is retried
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/reset-then-succeed?times=1"
+    retry:
+      enabled: true
+      max_attempts: 3
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        network_errors: true
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 2 }
+
+  - name: retry-after in delta-seconds
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/seconds?n=1"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { equals: "1" }
+      body:
+        $.retry_after: { equals: "1" }
+
+  - name: retry-after as an HTTP-date
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/date?ms=1000"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { matches: "GMT$" }
+
+  - name: an oversized retry-after is still just a header
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/huge"
+    assertions:
+      # Retry is off here on purpose. With retry enabled and no clamp this waits
+      # an hour, which is what the Phase 2 gap harness will assert.
+      status: 429
+      headers:
+        Retry-After: { equals: "3600" }
+
+  - name: a malformed retry-after is passed through
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/malformed"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { equals: "soon" }

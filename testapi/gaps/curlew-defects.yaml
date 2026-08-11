@@ -1,0 +1,114 @@
+# Defects found by the first dogfood run. EVERY REQUEST HERE IS EXPECTED TO FAIL.
+#
+# See README.md in this directory. Phase 1 does not run this file in CI; the
+# harness that asserts the expected failure — and fails on an unexpected pass —
+# is Phase 2 (specification §12.3).
+name: "GAPS: curlew defects found by dogfooding"
+description: |
+  Three defects, each reproducible against mudflat and each a case where the
+  shipped binary does not do what docs/CLI_SPECIFICATION.md says it does.
+
+requests:
+  - name: "GAP 1a: a collection variable in an assertion value"
+    description: |
+      gap: assertion expected values are not interpolated.
+
+      `{{expected_variant}}` is defined in this collection's variables block and
+      interpolates correctly in the URL. In an assertion's expected value it is
+      compared as the literal seven-character string "{{expected_variant}}".
+
+      Expected:  the assertion compares against "vendor" and passes.
+      Actual:    'header Content-Type equals: expected {{expected_variant}}'.
+
+      Impact: every assertion written against a configured value silently
+      compares against a template. The failure looks like a server problem.
+    request:
+      method: GET
+      url: "{{mud}}/content-type/vendor"
+    assertions:
+      status: 200
+      body:
+        $.variant: { equals: "{{expected_variant}}" }
+
+  - name: "GAP 1b: an extracted value in an assertion"
+    description: |
+      gap: same defect, reached the way a user is most likely to hit it.
+
+      The id extracted from the create below interpolates correctly into this
+      request's URL — the fetch succeeds and returns the right resource — and is
+      then compared as a literal in the assertion.
+
+      Expected:  $.id equals the extracted id.
+      Actual:    'expected {{gap_id}}, got res_<session>_1'.
+    request:
+      method: POST
+      url: "{{mud}}/s/{{run}}-gaps/resources"
+      body:
+        marker: "interpolation"
+    assertions:
+      status: 201
+    extract:
+      gap_id: "$.id"
+
+  - name: "GAP 1c: the extracted value compared against itself"
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-gaps/resources/{{gap_id}}"
+    assertions:
+      status: 200
+      body:
+        # The URL above interpolated {{gap_id}} correctly to fetch this very
+        # resource. The same variable here does not interpolate.
+        $.id: { equals: "{{gap_id}}" }
+
+  - name: "GAP 2: header absence cannot be asserted"
+    description: |
+      gap: header `exists: false` is not honoured.
+
+      docs/CLI_SPECIFICATION.md §7.2 documents the header `exists` operator as
+      "Presence (`true`) or absence (`false`)". Passing false behaves the same
+      as passing true: an absent header reports
+      'expected exists, got header not present'.
+
+      Body assertions have a working `not_exists` operator, so the capability
+      exists on the body path and is missing on the header path.
+
+      Impact: there is no way to assert that a header is absent. "This response
+      must not carry Set-Cookie" is unexpressible.
+    request:
+      method: GET
+      url: "{{mud}}/content-type/plain"
+    assertions:
+      status: 200
+      headers:
+        X-Definitely-Not-Sent: { exists: false }
+
+  - name: "GAP 3: an undecodable body is classified as a network error"
+    description: |
+      gap: response-decoding failures are reported as network errors.
+
+      /encoding/lying/gzip declares Content-Encoding: gzip and sends plain
+      bytes. curlew reports:
+
+        network error: reading response body: gzip: invalid header
+
+      The message itself is legible. The classification is not: this is a
+      content-encoding failure, not a network failure, and the difference is
+      load-bearing. With `retry_on.network_errors: true` — which this request
+      sets — curlew retries a response that cannot ever decode, burning every
+      attempt before failing with the same error.
+
+      Expected:  a decode error, not retried under network_errors.
+      Actual:    three attempts, all pointless, then the same message.
+    request:
+      method: GET
+      url: "{{mud}}/encoding/lying/gzip"
+    retry:
+      enabled: true
+      max_attempts: 3
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        network_errors: true
+    assertions:
+      status: 200

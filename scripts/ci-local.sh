@@ -98,6 +98,30 @@ echo
 
 step() { echo; echo "=== $* ==="; }
 
+# Cleanup is registered before the first gate runs, not next to the docker
+# section it used to live beside. The dogfood gate starts a background server
+# during the Go gate, and a trap installed after that point would not fire if an
+# earlier step failed — leaving a listener behind for the next run to collide
+# with.
+mudflat_pid=""
+stack_started=0
+stripe_mock_started=0
+cleanup() {
+  if [ -n "$mudflat_pid" ]; then
+    kill "$mudflat_pid" 2>/dev/null || true
+    wait "$mudflat_pid" 2>/dev/null || true
+  fi
+  if (( stripe_mock_started )); then
+    step "stripe-mock down"
+    docker compose -f docker-compose.test.yml stop stripe-mock 2>/dev/null || true
+  fi
+  if (( stack_started )); then
+    step "test-stack down"
+    ./scripts/test-stack.sh down || true
+  fi
+}
+trap cleanup EXIT
+
 # Resolve golangci-lint (CLAUDE.md notes it lives at ~/go/bin and may not be in PATH).
 lint_cmd() {
   if [ -x "$HOME/go/bin/golangci-lint" ]; then
@@ -177,21 +201,50 @@ awk '
 step "smoke"
 ./smoke/run.sh
 
-# --- Test stack (only if an E2E gate will run) ---
-stack_started=0
-stripe_mock_started=0
-cleanup() {
-  if (( stripe_mock_started )); then
-    step "stripe-mock down"
-    docker compose -f docker-compose.test.yml stop stripe-mock 2>/dev/null || true
-  fi
-  if (( stack_started )); then
-    step "test-stack down"
-    ./scripts/test-stack.sh down || true
-  fi
-}
-trap cleanup EXIT
+# --- Dogfood gate: curlew against mudflat ---
+#
+# The only step in this script that points curlew at a server curlew did not
+# write. Everything above it terminates at an httptest handler or the local echo
+# fixture, both of which share curlew's own assumptions about HTTP.
+#
+# Port 18080 rather than mudflat's default 8080, so a developer running the
+# server by hand does not collide with the gate. --var overrides every other
+# variable source, so the environment file stays pointed at 8080 for manual use.
+#
+# The testapi/ import guard (§13.1 — nothing under testapi/ may depend on
+# curlew) is enforced by TestParity_NoCurlewImportsUnderTestapi in the go test
+# step above, rather than restated as a grep here.
+step "dogfood: build mudflat"
+go build -o mudflat ./testapi/cmd/mudflat
 
+step "dogfood: curlew against mudflat"
+MUDFLAT_PORT=18080
+./mudflat serve --port "$MUDFLAT_PORT" &
+mudflat_pid=$!
+
+mudflat_ready=0
+for _ in $(seq 1 50); do
+  if curl -fsS -o /dev/null "http://127.0.0.1:${MUDFLAT_PORT}/capabilities" 2>/dev/null; then
+    mudflat_ready=1
+    break
+  fi
+  sleep 0.1
+done
+if (( ! mudflat_ready )); then
+  echo "mudflat did not become ready on port ${MUDFLAT_PORT}" >&2
+  exit 1
+fi
+
+./curlew run 'testapi/collections/*.yaml' \
+  --env local \
+  --var "mud=http://127.0.0.1:${MUDFLAT_PORT}" \
+  --var "run=ci$$"
+
+kill "$mudflat_pid" 2>/dev/null || true
+wait "$mudflat_pid" 2>/dev/null || true
+mudflat_pid=""
+
+# --- Test stack (only if an E2E gate will run) ---
 if (( run_e2e )); then
   step "test-stack up"
   ./scripts/test-stack.sh up

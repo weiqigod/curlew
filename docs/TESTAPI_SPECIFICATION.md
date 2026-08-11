@@ -2,9 +2,9 @@
 
 ## A Deliberately Difficult HTTP Server for Exercising Curlew
 
-**Version:** 0.1 (draft)
-**Status:** proposed, unimplemented
-**Date:** 2026-08-10
+**Version:** 0.2
+**Status:** Phase 1 implemented (`testapi/`); Phases 2–3 specified, not built
+**Date:** 2026-08-11
 **Applies to:** curlew 0.1.0-dev and later
 
 > *A curlew feeds by probing soft ground for what it cannot see. This is the
@@ -28,6 +28,7 @@ substitute freely. Everything below is independent of it.
 9. [Endpoint Families](#9-endpoint-families)
 10. [Coverage Matrix](#10-coverage-matrix)
 11. [Gaps This API Will Expose](#11-gaps-this-api-will-expose)
+11A. [What Phase 1 Actually Found](#11a-what-phase-1-actually-found)
 12. [The Dogfood Suite](#12-the-dogfood-suite)
 13. [Testing the Tester](#13-testing-the-tester)
 14. [Operations](#14-operations)
@@ -870,6 +871,78 @@ perfectly correct; nothing has ever checked.
 
 ---
 
+## 11A. What Phase 1 Actually Found
+
+The four gaps above were predicted from reading the source. These three were
+not: they came out of the first run of the dogfood suite, which is the return on
+building it. All three are reproducible, all three are held as executable
+expected-to-fail requests in `testapi/gaps/curlew-defects.yaml`, and none is
+fixed.
+
+Two of them are places where `docs/CLI_SPECIFICATION.md` documents behaviour the
+binary does not have — the more interesting category, because a specification
+that is wrong about the shipped tool is worse than one that is silent.
+
+### 11A.1 Assertion expected values are never interpolated
+
+`equals: "{{var}}"` compares the response against the literal template text, for
+collection variables and for extracted values alike, on both the header and body
+paths.
+
+What makes this hard to diagnose from the outside is that the *same* variable
+interpolates correctly everywhere else. A request can extract an id, use it to
+build a URL, fetch exactly the right resource — and then fail to assert anything
+about it:
+
+```
+✓ create                       201
+✗ fetch it by the extracted id 200
+    ✗ body $.id equals: expected {{rid}}, got res_r9-interp_1
+```
+
+The URL used `{{rid}}` and hit the right resource. The assertion did not.
+
+**Impact.** Every assertion written against a configured or extracted value
+silently compares against a template string. The failure reads as a server
+problem.
+**Endpoints:** any; `/content-type/{variant}` and the resource family reproduce
+it in two lines.
+
+### 11A.2 Header absence cannot be asserted
+
+`headers: { X-Thing: { exists: false } }` behaves identically to `exists: true`:
+an absent header reports `expected exists, got header not present`, which is the
+condition the assertion asked for.
+
+§7.2 of the CLI specification documents the operator as "Presence (`true`) or
+absence (`false`)". The body path has a working `not_exists` operator, so the
+capability exists on one path and is missing on the other.
+
+**Impact.** "This response must not carry `Set-Cookie`" is unexpressible. That
+is a security-relevant assertion, and the redaction work in family O will want
+it.
+**Endpoint:** `/content-type/plain`.
+
+### 11A.3 A body that fails to decode is reported as a network error
+
+`/encoding/lying/gzip` declares `Content-Encoding: gzip` and sends plain bytes.
+curlew reports:
+
+```
+network error: reading response body: gzip: invalid header
+```
+
+The message is legible. The classification is wrong, and the difference is
+load-bearing: with `retry_on.network_errors: true` curlew retries a response
+that can never decode, spending every attempt before failing with the same
+error. A network error may succeed on retry; a lying content-encoding header
+will not.
+
+**Impact.** Wasted attempts, and a misleading error class in the events stream.
+**Endpoint:** `/encoding/lying/{enc}`.
+
+---
+
 ## 12. The Dogfood Suite
 
 The suite is the deliverable. Mudflat without it is a server nobody calls.
@@ -1140,7 +1213,7 @@ the parity test in §16 can see both sides. It builds and runs independently:
 Each phase ends with something runnable, per the repository's vertical-slice
 commitment.
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation ✅ implemented
 
 Session model, echo envelope, status, body encodings and content types, failure
 injection, resources. `00-smoke`, `10-assertions`, `20-extraction`, `30-retry`
@@ -1148,6 +1221,13 @@ collections. Parity test. Wired into `ci-local.sh`.
 
 **Observable:** `curlew run testapi/collections/*.yaml` passes against a server
 curlew did not write. Dogfooding exists.
+
+**Delivered.** 31 endpoints across six families, 53 dogfood assertions passing,
+82.3% coverage on `testapi/mudflat`. Three previously unknown defects found on
+the first run (§11A). The `--only` flag and `mudflat certs` from §14.1 are not
+implemented, because the families they would gate do not exist yet; a flag that
+accepts a value and does nothing is exactly the kind of false clear this
+specification exists to avoid.
 
 ### Phase 2 — Adversarial and verification
 

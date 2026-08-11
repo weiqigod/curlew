@@ -260,7 +260,7 @@ func resetConnection(w http.ResponseWriter) error {
 	return nil
 }
 
-func writeRetryAfter(w http.ResponseWriter, value string, note string) {
+func writeRetryAfter(w http.ResponseWriter, value, note string) {
 	w.Header().Set("Retry-After", value)
 	writeJSON(w, http.StatusTooManyRequests, map[string]string{
 		"error":       "Too Many Requests",

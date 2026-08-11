@@ -130,7 +130,8 @@ func (s *Server) handleEncoding(w http.ResponseWriter, r *http.Request) {
 		// test server is a real cost (CLAUDE.md: evaluate every go get), and the
 		// lying variant below already covers the high-value case with none.
 		writeProblem(w, http.StatusBadRequest, fmt.Sprintf(
-			"unsupported encoding %q: gzip, deflate and identity are available; br and zstd need a dependency and are Phase 3", enc))
+			"unsupported encoding %q: gzip, deflate and identity are available; br and zstd need a dependency and are Phase 3", enc,
+		))
 		return
 	}
 
