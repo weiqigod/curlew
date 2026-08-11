@@ -106,6 +106,10 @@ func New(opts Options) *Server {
 
 	s.registerMeta()
 	s.registerEcho()
+	s.registerStatus()
+	s.registerEncoding()
+	s.registerFlaky()
+	s.registerResources()
 
 	s.http = &http.Server{
 		Handler:           s.mux,

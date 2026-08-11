@@ -395,3 +395,66 @@ func TestSessions_ConcurrentUseIsSafe(t *testing.T) {
 		t.Errorf("Len() = %d, want 4 distinct sessions", n)
 	}
 }
+
+func TestSession_DocumentStoreRoundTrips(t *testing.T) {
+	// The ETag endpoint needs one mutable document per session. Resources are
+	// sequence-addressed, so they cannot serve a fixed well-known slot.
+	s, _ := newTestSessions(t)
+	sess, _ := s.Get("abc")
+
+	if _, ok := sess.Doc("etag"); ok {
+		t.Error("Doc returned present for a slot never written")
+	}
+
+	sess.SetDoc("etag", []byte(`{"v":1}`))
+	got, ok := sess.Doc("etag")
+	if !ok {
+		t.Fatal("Doc reported absent after SetDoc")
+	}
+	if string(got) != `{"v":1}` {
+		t.Errorf("Doc = %q, want the stored bytes", got)
+	}
+
+	sess.SetDoc("etag", []byte(`{"v":2}`))
+	got, _ = sess.Doc("etag")
+	if string(got) != `{"v":2}` {
+		t.Errorf("Doc after overwrite = %q, want the second value", got)
+	}
+
+	if _, ok := sess.Doc("other"); ok {
+		t.Error("a different slot returned the first slot's value")
+	}
+}
+
+func TestSession_DocumentStoreIsClearedByReset(t *testing.T) {
+	s, _ := newTestSessions(t)
+
+	sess, _ := s.Get("abc")
+	sess.SetDoc("etag", []byte("x"))
+	s.Reset("abc")
+
+	after, _ := s.Get("abc")
+	if _, ok := after.Doc("etag"); ok {
+		t.Error("document survived a session reset")
+	}
+}
+
+func TestSession_DocumentCopiesOnReadAndWrite(t *testing.T) {
+	s, _ := newTestSessions(t)
+	sess, _ := s.Get("abc")
+
+	original := []byte(`{"v":1}`)
+	sess.SetDoc("etag", original)
+	original[2] = 'X'
+
+	got, _ := sess.Doc("etag")
+	if string(got) != `{"v":1}` {
+		t.Errorf("stored document = %q; mutating the caller's slice changed it", got)
+	}
+
+	got[2] = 'Y'
+	again, _ := sess.Doc("etag")
+	if string(again) != `{"v":1}` {
+		t.Errorf("stored document = %q; mutating the returned slice changed it", again)
+	}
+}

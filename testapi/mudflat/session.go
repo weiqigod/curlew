@@ -41,6 +41,7 @@ type Session struct {
 	order     []string
 	seq       int
 	idem      map[string][]byte
+	docs      map[string][]byte
 }
 
 func newSession(id string) *Session {
@@ -49,6 +50,7 @@ func newSession(id string) *Session {
 		attempts:  make(map[string]int),
 		resources: make(map[string]*Resource),
 		idem:      make(map[string][]byte),
+		docs:      make(map[string][]byte),
 	}
 }
 
@@ -309,4 +311,35 @@ func ValidateSessionID(id string) error {
 		}
 	}
 	return nil
+}
+
+// Doc returns the document stored at name. The ETag endpoint needs one mutable
+// slot per session, which resources cannot provide: their ids are
+// sequence-addressed, so there is no fixed well-known key.
+//
+// Returns a copy. Handing back the stored slice would let a caller mutate
+// session state through a read, which is the same class of bug CreateResource
+// had.
+func (s *Session) Doc(name string) ([]byte, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stored, ok := s.docs[name]
+	if !ok {
+		return nil, false
+	}
+	out := make([]byte, len(stored))
+	copy(out, stored)
+	return out, true
+}
+
+// SetDoc stores body at name, copying it so a later mutation by the caller does
+// not reach into the session.
+func (s *Session) SetDoc(name string, body []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stored := make([]byte, len(body))
+	copy(stored, body)
+	s.docs[name] = stored
 }
