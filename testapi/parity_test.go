@@ -218,10 +218,23 @@ func loadUsages(t *testing.T) []usage {
 			continue
 		}
 
-		matches, err := filepath.Glob(filepath.Join(root, "*.yaml"))
+		// Walk rather than glob: collections/parallel/ holds the requests that
+		// only pass under --parallel, and they still count as coverage.
+		var matches []string
+		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.HasSuffix(path, ".yaml") {
+				matches = append(matches, path)
+			}
+			return nil
+		})
 		if err != nil {
-			t.Fatalf("glob %s: %v", root, err)
+			t.Fatalf("walk %s: %v", root, err)
 		}
+		sort.Strings(matches)
+
 		for _, file := range matches {
 			raw, err := os.ReadFile(file)
 			if err != nil {

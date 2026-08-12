@@ -77,6 +77,10 @@ type Options struct {
 	// Sessions may be supplied to control TTL, capacity, or the clock. A nil
 	// value gets the specification's defaults.
 	Sessions *Sessions
+
+	// Now is the clock the rate limiter refills against. Injectable so a test
+	// can drive refill without sleeping; nil means time.Now.
+	Now func() time.Time
 }
 
 // Server is the structured layer (§5.1).
@@ -89,6 +93,7 @@ type Server struct {
 	connSeq  atomic.Int64
 	closed   atomic.Bool
 	shutdown chan struct{}
+	now      func() time.Time
 }
 
 // New builds a server with every Phase 1 family registered.
@@ -98,10 +103,16 @@ func New(opts Options) *Server {
 		sessions = NewSessions(SessionOptions{})
 	}
 
+	now := opts.Now
+	if now == nil {
+		now = time.Now
+	}
+
 	s := &Server{
 		mux:      http.NewServeMux(),
 		sessions: sessions,
 		shutdown: make(chan struct{}),
+		now:      now,
 	}
 
 	s.registerMeta()
@@ -111,6 +122,7 @@ func New(opts Options) *Server {
 	s.registerFlaky()
 	s.registerResources()
 	s.registerVerify()
+	s.registerConcurrency()
 
 	s.http = &http.Server{
 		Handler:           s.mux,
