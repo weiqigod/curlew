@@ -125,6 +125,7 @@ func New(opts Options) *Server {
 	s.registerConcurrency()
 	s.registerLeak()
 	s.registerGraphQL()
+	s.registerWebSocket()
 
 	s.http = &http.Server{
 		Handler:           s.mux,

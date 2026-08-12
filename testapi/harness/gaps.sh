@@ -33,6 +33,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# The WebSocket family needs a ws:// URL: a protocol: websocket request is
+# dialled with gorilla, which rejects http:// outright.
+WS_URL="ws${MUD_URL#http}"
+
 CURLEW="./curlew"
 [ -x "$CURLEW" ] || { echo "build ./curlew first" >&2; exit 2; }
 
@@ -68,7 +72,7 @@ for collection in testapi/gaps/*.parse-fail.yaml; do
 
   set +e
   run_bounded 60 "$CURLEW" run "$collection" \
-    --var "mud=$MUD_URL" --var "run=gaps$$" >"$WORK/$label.out" 2>&1
+    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "run=gaps$$" >"$WORK/$label.out" 2>&1
   code=$?
   set -e
 
@@ -98,7 +102,7 @@ for collection in testapi/gaps/*.run-abort.yaml; do
 
   set +e
   run_bounded 60 "$CURLEW" run "$collection" \
-    --var "mud=$MUD_URL" --var "run=gaps$$" \
+    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "run=gaps$$" \
     --format json >"$WORK/$label.json" 2>"$WORK/$label.err"
   code=$?
   set -e
@@ -145,6 +149,7 @@ for collection in testapi/gaps/*.yaml; do
   set +e
   run_bounded 120 "$CURLEW" run "$collection" \
     --var "mud=$MUD_URL" \
+    --var "ws=$WS_URL" \
     --var "run=gaps$$" \
     --format json >"$out" 2>"$WORK/$label.err"
   set -e

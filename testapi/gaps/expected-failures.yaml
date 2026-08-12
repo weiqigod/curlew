@@ -116,3 +116,107 @@ requests:
       body:
         $.data: { exists: true }
         $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }
+
+  - name: "a refused WebSocket upgrade loses its status and its body"
+    description: |
+      gap: a non-101 upgrade response is reported as "bad handshake" and
+      nothing else.
+
+      /ws/reject answers 426 Upgrade Required with a JSON body explaining
+      itself. curlew reports:
+
+        websocket dial failed: websocket: bad handshake
+
+      No status code, no body, no headers. 426, 401, 403 and 500 are
+      indistinguishable, and the one thing a server can do to explain a refused
+      upgrade — put it in the response — is discarded.
+
+      §9.L predicted the shape: "a refused upgrade produces a legible error
+      naming the status". The dialer has the response; it is thrown away before
+      the message is built.
+
+      This is the same class as §11A.3: the failure is correct, the diagnosis
+      is not.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/reject"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 3000
+            message:
+              $.error: { exists: true }
+
+  - name: "a heartbeat reports a healthy peer as dead while a step is idle"
+    description: |
+      gap: the heartbeat only survives while a step is actively reading.
+
+      This is the B half of an A/B pair against one server at one interval.
+      A — in 91-websocket.yaml — runs a heartbeat at 100ms through an expect
+      step that reads for 750ms, and passes. B is this request: the same
+      100ms heartbeat, an idle `wait` step, and mudflat's /ws/echo, which
+      answers every ping with a pong (pinned server-side by
+      TestWS_EchoAnswersAClientPing). It fails at the first interval:
+
+        step 1 (wait): websocket heartbeat timeout after 100ms
+
+      internal/websocket/heartbeat.go registers a pong handler with gorilla and
+      then checks a flag on a ticker. gorilla dispatches control frames from
+      inside ReadMessage, so while no step is reading, the pong arrives on the
+      socket and the handler never runs. The flag stays false and the next tick
+      declares the peer dead.
+
+      That inverts the feature. A heartbeat exists to hold an idle connection
+      open and to notice a peer that has stopped answering; this one fails
+      exactly when the connection is idle, and reports a server that answered
+      correctly as dead.
+
+      Detection of a genuinely dead peer works — /ws/no-pong produces
+      "websocket heartbeat timeout after 200ms" from inside an expect step —
+      so the mechanism is right and only the dispatch is missing.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/echo"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 100
+        steps:
+          - action: wait
+            duration_ms: 400
+          - action: send
+            message: { after: "an idle period" }
+          - action: expect
+            timeout_ms: 3000
+            message:
+              $.type: { equals: "echo" }
+
+  - name: "a peer that never pongs is detected — and the request still fails"
+    description: |
+      AFFIRMATIVE, kept here because there is no other way to express it.
+
+      /ws/no-pong reads pings and answers nothing while holding the socket
+      open, which is the failure a heartbeat exists to detect and which cannot
+      be simulated by closing the connection. curlew detects it correctly:
+
+        step 2 (expect): websocket heartbeat timeout after 200ms
+
+      That is the right answer. It is also a failed request, and curlew has no
+      way to say "this request is expected to fail" — so the only place this
+      can live is a file whose harness asserts failure.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/no-pong?hold_ms=3000"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 200
+        steps:
+          - action: expect
+            timeout_ms: 2000
+            message:
+              $.type: { equals: "alive" }
+          - action: expect
+            timeout_ms: 2000
+            message:
+              $.type: { equals: "never arrives" }
