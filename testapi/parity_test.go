@@ -30,6 +30,42 @@ import (
 // coverage, because the endpoint they exercise is doing its job.
 var collectionDirs = []string{"collections", "gaps"}
 
+// allEndpoints merges the structured and raw registries. The parity rule is
+// about mudflat's whole surface; how many listeners implement it is an
+// implementation detail the rule should not have to know.
+func allEndpoints() []mudflat.IndexEntry {
+	structured := mudflat.New(mudflat.Options{}).Index()
+	raw := mudflat.NewRaw(mudflat.RawOptions{}).Index()
+	return append(structured, raw...)
+}
+
+// loadGoldens returns the set of golden transcript names present on disk.
+func loadGoldens(t *testing.T) map[string]bool {
+	t.Helper()
+
+	out := map[string]bool{}
+	matches, err := filepath.Glob(filepath.Join(repoRelative(t, "golden"), "raw", "*.txt"))
+	if err != nil {
+		t.Fatalf("glob goldens: %v", err)
+	}
+	for _, file := range matches {
+		out[strings.TrimSuffix(filepath.Base(file), ".txt")] = true
+	}
+	return out
+}
+
+// goldenName maps an endpoint pattern to its transcript file name, matching
+// goldenFile in raw_test.go.
+func goldenName(pattern string) string {
+	return strings.ReplaceAll(strings.TrimPrefix(pattern, "/raw/"), "/", "-")
+}
+
+// coveredByTest lists endpoints whose only possible coverage is a Go test, with
+// the reason. Each entry is a deliberate exemption from §16, not an oversight.
+var coveredByTest = map[string]string{
+	"/raw/reset-after/{n}": "the response is cut mid-flight, so its bytes depend on TCP timing rather than on what the server wrote; TestRaw_ResetAfterNBytes asserts the reset instead",
+}
+
 // intentionallyUnrouted lists paths a collection requests on purpose without
 // any endpoint behind them. Each needs a reason: the default assumption for an
 // unresolvable URL is a typo, and a typo becomes a 404 that reads like a curlew
@@ -56,8 +92,9 @@ type usage struct {
 }
 
 func TestParity_EveryEndpointIsExercised(t *testing.T) {
-	endpoints := mudflat.New(mudflat.Options{}).Index()
+	endpoints := allEndpoints()
 	uses := loadUsages(t)
+	goldens := loadGoldens(t)
 
 	if len(uses) == 0 {
 		t.Fatal("no request URLs found; the parity test would pass vacuously")
@@ -65,9 +102,20 @@ func TestParity_EveryEndpointIsExercised(t *testing.T) {
 
 	var orphans []string
 	for _, ep := range endpoints {
-		if !anyUsageMatches(ep, uses) {
-			orphans = append(orphans, fmt.Sprintf("  %-34s %v  (%s)", ep.Pattern, ep.Methods, ep.Summary))
+		if anyUsageMatches(ep, uses) {
+			continue
 		}
+		// §16 accepts either form of coverage. Most raw endpoints cannot appear
+		// in a collection at all — their responses are unparseable by design —
+		// so a golden transcript is how they prove they are exercised.
+		if goldens[goldenName(ep.Pattern)] {
+			continue
+		}
+		if reason, ok := coveredByTest[ep.Pattern]; ok {
+			t.Logf("%s: covered by a Go test (%s)", ep.Pattern, reason)
+			continue
+		}
+		orphans = append(orphans, fmt.Sprintf("  %-34s %v  (%s)", ep.Pattern, ep.Methods, ep.Summary))
 	}
 
 	if len(orphans) > 0 {
@@ -80,7 +128,7 @@ func TestParity_EveryEndpointIsExercised(t *testing.T) {
 }
 
 func TestParity_EveryCollectionURLResolves(t *testing.T) {
-	endpoints := mudflat.New(mudflat.Options{}).Index()
+	endpoints := allEndpoints()
 	uses := loadUsages(t)
 
 	var unresolved []string
@@ -112,7 +160,7 @@ func TestParity_EveryCollectionURLResolves(t *testing.T) {
 func TestParity_EveryEndpointCitesACurlewBehaviour(t *testing.T) {
 	// §P3. The citation is what stops the endpoint set from drifting into a
 	// museum of HTTP trivia.
-	for _, ep := range mudflat.New(mudflat.Options{}).Index() {
+	for _, ep := range allEndpoints() {
 		if strings.TrimSpace(ep.Exercises) == "" {
 			t.Errorf("endpoint %s has no Exercises citation", ep.Pattern)
 		}

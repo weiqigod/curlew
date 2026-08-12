@@ -1,0 +1,5 @@
+# Golden wire transcripts are byte-exact captures of what mudflat writes to a
+# socket, CRLF and all. Git must not normalise line endings in them: a CRLF→LF
+# conversion on checkout would rewrite every response's framing and fail every
+# golden comparison on a machine configured differently from the author's.
+testapi/golden/** -text -diff
