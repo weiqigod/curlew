@@ -1,0 +1,6 @@
+query ListUsers($limit: Int!) {
+  users(first: $limit) {
+    ...UserFields
+    ...Contact
+  }
+}

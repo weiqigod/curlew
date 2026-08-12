@@ -1,0 +1,3 @@
+fragment Contact on User {
+  email
+}

@@ -79,3 +79,40 @@ requests:
       status: 200
       body:
         $.authorization: { equals: "this assertion fails so actual is printed" }
+
+  - name: "a GraphQL full failure ignores error_handling: ignore"
+    description: |
+      gap: error_handling is inert for the full-failure outcome.
+
+      docs/MANUAL.md §7.1 documents four outcomes and three modes as a matrix:
+
+        | outcome          | fail | warn | ignore |
+        | partial-success  | fail | warn | pass   |
+        | full-failure     | fail | warn | pass   |
+
+      Partial success honours the mode — verified in 90-graphql.yaml, where
+      `ignore` and `warn` both pass against /graphql/partial. Full failure does
+      not: /graphql/errors fails identically under fail, warn AND ignore.
+
+      internal/runner/runner.go handles OutcomeFullFailure before the mode is
+      consulted, under the comment "Full failure always fails regardless of
+      mode (per spec)". docs/CLI_SPECIFICATION.md §12.2 does not say that; it
+      describes the setting only in terms of partial success, and the manual's
+      table says the opposite. One of the two documents is wrong about the
+      shipped binary, which is the category §11A calls the more interesting one.
+
+      The assertions below are the ones that cannot be written today. They are
+      about the response document, not the outcome: `data: null` and an absent
+      `data` are different documents, and $.data is addressable only in the
+      first.
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/errors"
+      graphql:
+        query: "query ListUsers { users { id } }"
+        error_handling: ignore
+    assertions:
+      status: 200
+      body:
+        $.data: { exists: true }
+        $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }

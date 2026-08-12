@@ -79,8 +79,9 @@ type collectionFile struct {
 	Requests []struct {
 		Name    string `yaml:"name"`
 		Request struct {
-			Method string `yaml:"method"`
-			URL    string `yaml:"url"`
+			Method   string `yaml:"method"`
+			URL      string `yaml:"url"`
+			Protocol string `yaml:"protocol"`
 		} `yaml:"request"`
 	} `yaml:"requests"`
 }
@@ -250,7 +251,11 @@ func loadUsages(t *testing.T) []usage {
 				}
 				method := strings.ToUpper(req.Request.Method)
 				if method == "" {
-					method = "GET"
+					// A graphql request carries no method: curlew sets POST
+					// and the Content-Type itself, which is exactly the
+					// behaviour §9.K checks. Defaulting it to GET here would
+					// report every GraphQL request as an unresolved URL.
+					method = defaultMethodFor(req.Request.Protocol)
 				}
 				out = append(out, usage{
 					method: method,
@@ -368,4 +373,14 @@ func repoRelative(t *testing.T, rel string) string {
 		t.Fatalf("getwd: %v", err)
 	}
 	return filepath.Join(wd, rel)
+}
+
+// defaultMethodFor returns the method curlew uses when a request declares none.
+// http requests default to GET; a graphql request is always a POST, chosen by
+// the adapter rather than by the collection author.
+func defaultMethodFor(protocol string) string {
+	if strings.EqualFold(protocol, "graphql") {
+		return "POST"
+	}
+	return "GET"
 }
