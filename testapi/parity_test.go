@@ -64,6 +64,7 @@ func goldenName(pattern string) string {
 // the reason. Each entry is a deliberate exemption from §16, not an oversight.
 var coveredByTest = map[string]string{
 	"/raw/reset-after/{n}": "the response is cut mid-flight, so its bytes depend on TCP timing rather than on what the server wrote; TestRaw_ResetAfterNBytes asserts the reset instead",
+	"/stream/infinite":     "curlew has no request timeout (§11.1), so a collection request would sit for the full 120s ceiling — two minutes of gate time to re-demonstrate a documented gap; TestStream_InfiniteKeepsProducingAndIsBounded reads a few objects and hangs up the way a client with a timeout would",
 }
 
 // intentionallyUnrouted lists paths a collection requests on purpose without

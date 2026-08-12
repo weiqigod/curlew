@@ -1,0 +1,144 @@
+# Streams, read by a client that is not a streaming client.
+#
+# curlew reads a body to completion and asserts on the whole thing. That is what
+# this collection measures rather than an obstacle to it.
+#
+# What it can measure is narrower than it should be. A body assertion parses the
+# body as JSON (CLI_SPECIFICATION §7.3), and `cel:` — the documented escape
+# hatch for what the operator catalogue cannot express — sees `response.body` as
+# null for anything that does not decode, because the decode is best-effort.
+# Between them, a text/event-stream and an NDJSON body are assertable only by
+# status, headers and timing. The reproduction is in
+# testapi/gaps/expected-failures.yaml; /stream/json/{n} exists so that chunked
+# transfer still gets its content checked by something.
+#
+# /stream/infinite is deliberately absent. curlew has no request timeout
+# (§11.1), so a request to it would sit for the full 120-second server-side
+# ceiling — two minutes of gate time to re-demonstrate a documented gap. It is
+# covered by TestStream_InfiniteKeepsProducingAndIsBounded, which reads a few
+# objects and hangs up the way a client with a timeout would.
+name: Streaming and SSE
+description: |
+  Server-Sent Events with ids and a retry hint, resumption via Last-Event-ID,
+  and chunked transfer with and without a JSON body.
+
+requests:
+  - name: an event stream is served without a length
+    description: |
+      No Content-Length is the header that makes the body chunked: a stream
+      cannot declare a length it does not know. Everything assertable about
+      this response is in this block — the events themselves are text, and
+      text is out of reach.
+    request:
+      method: GET
+      url: "{{mud}}/sse?events=3&ms=0"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "text/event-stream" }
+        Cache-Control: { equals: "no-cache" }
+        Content-Length: { exists: false }
+
+  - name: a stream delivered over time still completes
+    description: |
+      Three events 40ms apart. A client that stopped at the first chunk would
+      return in ~0ms; one that reads to completion takes at least 120. The
+      timing assertion is the only evidence available that the whole stream
+      was consumed, since the content cannot be inspected.
+    request:
+      method: GET
+      url: "{{mud}}/sse?events=3&ms=40"
+    assertions:
+      status: 200
+      timing:
+        max_duration_ms: 5000
+
+  - name: Last-Event-ID is accepted as a resumption point
+    description: |
+      curlew has no SSE support, so it sets the header itself — the
+      interesting half: the resumption protocol is expressible with the tools
+      curlew does have, even though the events it resumes cannot be read.
+    request:
+      method: GET
+      url: "{{mud}}/sse/reconnect"
+      headers:
+        Last-Event-ID: "2"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "text/event-stream" }
+
+  - name: a malformed Last-Event-ID is refused
+    description: |
+      The negative control, and the one request in this family whose body IS
+      assertable — because an error is JSON while a stream is not.
+    request:
+      method: GET
+      url: "{{mud}}/sse/reconnect"
+      headers:
+        Last-Event-ID: "not-a-number"
+    assertions:
+      status: 400
+      body:
+        $.detail: { contains: "Last-Event-ID" }
+
+  - name: newline-delimited JSON is served as a sequence
+    description: |
+      application/x-ndjson, not application/json: the body is four documents,
+      and a client that treats it as one will fail to parse it. Which curlew
+      does — see the gap file. Here only the framing is assertable.
+    request:
+      method: GET
+      url: "{{mud}}/stream/4?ms=0"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/x-ndjson" }
+        Content-Length: { exists: false }
+
+  - name: a chunked JSON body arrives complete and parses
+    description: |
+      One JSON document written element by element, each flushed separately,
+      so the body only becomes parseable when the last chunk lands. This is
+      where chunked transfer is actually verified: every assertion below is
+      about content that crossed the wire in pieces.
+    request:
+      method: GET
+      url: "{{mud}}/stream/json/6?ms=5"
+    assertions:
+      status: 200
+      headers:
+        Content-Length: { exists: false }
+      body:
+        $.streamed: { equals: true }
+        $.total: { equals: 6 }
+        $.items: { length: 6 }
+        $.items[0].seq: { equals: 1 }
+        $.items[0].last: { equals: false }
+        $.items[5].seq: { equals: 6 }
+        $.items[5].last: { equals: true }
+
+  - name: a long chunked body is not truncated
+    request:
+      method: GET
+      url: "{{mud}}/stream/json/50?ms=2"
+    assertions:
+      status: 200
+      timing:
+        max_duration_ms: 8000
+      body:
+        $.items: { length: 50 }
+        $.items[49].seq: { equals: 50 }
+
+  - name: a schedule that would outlast the ceiling is refused
+    description: |
+      §6.4 caps any endpoint that can stall. n × ms is the one place a caller
+      can ask this family to run for a week, and the refusal is a 400 rather
+      than a stream nobody can stop.
+    request:
+      method: GET
+      url: "{{mud}}/stream/1000?ms=1000"
+    assertions:
+      status: 400
+      body:
+        $.detail: { contains: "past the" }

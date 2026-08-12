@@ -273,6 +273,9 @@ step "dogfood: expected failures still fail"
 step "dogfood: no secret reached an output artefact"
 ./testapi/harness/redaction.sh --url "${MUDFLAT_URL}"
 
+step "dogfood: a slow body is still missing from the reported duration"
+./testapi/harness/timing.sh --url "${MUDFLAT_URL}"
+
 step "dogfood: curl agrees with the raw layer"
 ./testapi/harness/crosscheck.sh --raw-url "${MUDFLAT_RAW_URL}"
 

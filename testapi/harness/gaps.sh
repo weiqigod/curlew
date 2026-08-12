@@ -164,21 +164,28 @@ for collection in testapi/gaps/*.yaml; do
   # Every request must have failed. A request with no result at all counts as
   # failed too: an error before the response is exactly what several of these
   # document.
-  while IFS=$'\t' read -r name passed; do
+  while IFS=$'\t' read -r name status; do
     CHECKED=$((CHECKED + 1))
-    if [ "$passed" = "True" ] || [ "$passed" = "true" ]; then
+    if [ "$status" = "passed" ]; then
       echo "  UNEXPECTED PASS: $name" >&2
       echo "    This request documents a defect that is now fixed. Move it into" >&2
       echo "    testapi/collections/ and delete the entry here." >&2
       FAILURES=$((FAILURES + 1))
     else
-      echo "  failed as expected: $name" >&2
+      echo "  failed as expected: $name ($status)" >&2
     fi
   done < <(python3 -c '
 import json, sys
+
+# The per-request outcome is a STATUS STRING — "passed" / "failed" / "error" /
+# "skipped" — not a boolean. An earlier version of this read r["passed"], a
+# field that does not exist, so every request looked failed and the one thing
+# this harness exists to catch, an unexpected PASS, could never fire. Any row
+# whose status is missing is reported as such rather than defaulting to a
+# verdict.
 doc = json.load(open(sys.argv[1]))
 for r in doc.get("requests", []):
-    print("%s\t%s" % (r.get("name", "?"), r.get("passed", False)))
+    print("%s\t%s" % (r.get("name", "?"), r.get("status") or "MISSING-STATUS"))
 ' "$out")
 
   if [ "$CHECKED" -eq "$before" ]; then

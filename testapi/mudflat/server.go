@@ -126,6 +126,7 @@ func New(opts Options) *Server {
 	s.registerLeak()
 	s.registerGraphQL()
 	s.registerWebSocket()
+	s.registerStreaming()
 
 	s.http = &http.Server{
 		Handler:           s.mux,
