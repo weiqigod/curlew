@@ -8,3 +8,6 @@ variables:
   # with gorilla, which requires a ws:// or wss:// URL and rejects http:// with
   # "malformed ws or wss URL". Same host and port as mud.
   ws: "ws://127.0.0.1:8080"
+  # The TLS listener is the structured port + 2. curlew cannot trust its
+  # per-process CA (§11.3), so only the gap collection uses this.
+  tls: "https://127.0.0.1:8082"

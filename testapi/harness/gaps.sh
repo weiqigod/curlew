@@ -37,6 +37,11 @@ done
 # dialled with gorilla, which rejects http:// outright.
 WS_URL="ws${MUD_URL#http}"
 
+# The TLS listener is the structured port + 2. Nothing curlew sends can trust
+# its CA (§11.3), which is the point: the gap entry asserts that the failure is
+# legible and classified, not that the request succeeds.
+TLS_URL="https://127.0.0.1:$(( ${MUD_URL##*:} + 2 ))"
+
 CURLEW="./curlew"
 [ -x "$CURLEW" ] || { echo "build ./curlew first" >&2; exit 2; }
 
@@ -72,7 +77,7 @@ for collection in testapi/gaps/*.parse-fail.yaml; do
 
   set +e
   run_bounded 60 "$CURLEW" run "$collection" \
-    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "run=gaps$$" >"$WORK/$label.out" 2>&1
+    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "tls=$TLS_URL" --var "run=gaps$$" >"$WORK/$label.out" 2>&1
   code=$?
   set -e
 
@@ -102,7 +107,7 @@ for collection in testapi/gaps/*.run-abort.yaml; do
 
   set +e
   run_bounded 60 "$CURLEW" run "$collection" \
-    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "run=gaps$$" \
+    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "tls=$TLS_URL" --var "run=gaps$$" \
     --format json >"$WORK/$label.json" 2>"$WORK/$label.err"
   code=$?
   set -e
@@ -150,6 +155,7 @@ for collection in testapi/gaps/*.yaml; do
   run_bounded 120 "$CURLEW" run "$collection" \
     --var "mud=$MUD_URL" \
     --var "ws=$WS_URL" \
+    --var "tls=$TLS_URL" \
     --var "run=gaps$$" \
     --format json >"$out" 2>"$WORK/$label.err"
   set -e

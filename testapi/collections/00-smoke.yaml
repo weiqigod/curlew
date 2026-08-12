@@ -94,3 +94,24 @@ requests:
       url: "{{mud}}/no-such-endpoint-exists"
     assertions:
       status: 404
+
+  - name: the OpenAPI document is served
+    description: |
+      The §9.P round trip runs in testapi/harness/openapi.sh — importing a
+      document and running the result is a command, not a response, so no
+      collection can express it. What a collection can check is that the
+      document is here and is the version-controlled one.
+    request:
+      method: GET
+      url: "{{mud}}/openapi.json"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/json" }
+      body:
+        $.openapi: { equals: "3.1.0" }
+        $.info.title: { equals: "Mudflat" }
+        # Hand-written, not generated from the handlers: a generated document
+        # would make the round trip a tautology.
+        $.info.description: { contains: "HAND-WRITTEN" }
+        $.paths./echo.get.operationId: { equals: "echoGet" }

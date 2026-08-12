@@ -253,3 +253,41 @@ requests:
         $: { contains: "id: 1" }
       cel:
         - 'response.body.contains("id: 1")'
+
+  - name: "TLS is unreachable, and the failure is at least legible"
+    description: |
+      AFFIRMATIVE AND GAP IN ONE REQUEST.
+
+      The affirmative: curlew's TLS failure path is correct. The message names
+      the cause exactly —
+
+        Get "https://…/protocol": tls: failed to verify certificate:
+        x509: certificate signed by unknown authority
+
+      — and the run exits 4, which CLI_SPECIFICATION §17 assigns to "execution
+      error: network failure, connection refused, TLS error". Nothing had ever
+      checked that against a real TLS server.
+
+      The gap: this is the ONLY answer curlew can get from any TLS posture.
+      §11.3 records that there is no --insecure, no CA option, no client
+      certificate support and no minimum version. §14.3 proposed SSL_CERT_FILE
+      as the way around that; it was measured on go1.25.5 darwin/arm64 and does
+      not work — not with SSL_CERT_DIR either, and not with
+      GODEBUG=x509usefallbackroots=1. The same run with explicit RootCAs
+      succeeds, so the certificates are sound and the trust mechanism is not.
+
+      Chain building fails before expiry, hostname or intermediate are ever
+      considered, so an expired leaf, a self-signed leaf and a wrong-hostname
+      leaf would all produce this same string. That is why the other eight
+      postures of §9.N are not built: eight endpoints a client cannot tell
+      apart are what §16 deletes.
+
+      curl reaches the same listener with --cacert and reports HTTP/2 over
+      TLS 1.3, so the listener is real and the limit is on this side.
+    request:
+      method: GET
+      url: "{{tls}}/protocol"
+    assertions:
+      status: 200
+      body:
+        $.tls.version: { matches: "^TLS 1\\." }
