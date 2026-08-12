@@ -110,6 +110,7 @@ func New(opts Options) *Server {
 	s.registerEncoding()
 	s.registerFlaky()
 	s.registerResources()
+	s.registerVerify()
 
 	s.http = &http.Server{
 		Handler:           s.mux,
