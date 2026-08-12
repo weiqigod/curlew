@@ -1,0 +1,10 @@
+# Project config for the dogfood suite. The suite runs curlew against mudflat —
+# a server curlew did not write — which is the whole point of testapi/.
+#
+# Run it with:
+#   mudflat serve &
+#   curlew run 'testapi/collections/*.yaml' --env local --var run=$(date +%s)
+#
+# The run variable namespaces every session, so two concurrent runs cannot
+# contaminate each other (§6.2) and a rerun starts from empty state.
+project_name: "mudflat-dogfood"

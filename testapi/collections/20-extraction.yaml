@@ -1,0 +1,196 @@
+# Values produced by one request and consumed by a later one.
+#
+# This is the collection that needs real server state: a resource id that came
+# from somewhere, a cursor that advances, an entity tag that changes when the
+# body does.
+name: Extraction and chaining
+description: |
+  Creates, reads, updates and deletes resources in a per-run session, driving
+  every later request from a value extracted from an earlier response.
+
+requests:
+  - name: create a resource
+    request:
+      method: POST
+      url: "{{mud}}/s/{{run}}-chain/resources"
+      body:
+        name: "first"
+        kind: "widget"
+    assertions:
+      status: 201
+      headers:
+        Location: { matches: "/resources/res_" }
+        ETag: { matches: "^\"[0-9a-f]{32}\"$" }
+      body:
+        # Ids are derived from (session, sequence), so a failing assertion here
+        # quotes a value a rerun reproduces.
+        $.id: { matches: "^res_.+_1$" }
+        $.seq: { equals: 1 }
+        $.body.name: { equals: "first" }
+    extract:
+      first_id: "$.id"
+      first_etag: "$.etag"
+
+  - name: fetch it by the extracted id
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-chain/resources/{{first_id}}"
+    assertions:
+      status: 200
+      body:
+        $.body.name: { equals: "first" }
+        $.body.kind: { equals: "widget" }
+        $.seq: { equals: 1 }
+        # The extracted id, compared against itself. This is the assertion that
+        # exposed the interpolation defect: the URL above resolved {{first_id}}
+        # and fetched exactly this resource, while the assertion compared
+        # against the literal ten characters "{{first_id}}".
+        $.id: { equals: "{{first_id}}" }
+        $.etag: { equals: "{{first_etag}}" }
+
+  - name: update it
+    request:
+      method: PUT
+      url: "{{mud}}/s/{{run}}-chain/resources/{{first_id}}"
+      body:
+        name: "second"
+        kind: "widget"
+    assertions:
+      status: 200
+      body:
+        $.body.name: { equals: "second" }
+
+  - name: create three more for pagination
+    request:
+      method: POST
+      url: "{{mud}}/s/{{run}}-chain/resources"
+      body:
+        name: "{{name}}"
+        kind: "{{kind}}"
+    assertions:
+      status: 201
+    data_driven:
+      source: "./data/bulk.csv"
+      format: csv
+
+  - name: list with offset pagination
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-chain/resources?offset=1&limit=2"
+    assertions:
+      status: 200
+      body:
+        $.total: { equals: 4 }
+        $.items: { length: 2 }
+        $.limit: { equals: 2 }
+        $.offset: { equals: 1 }
+        $.items[0].seq: { equals: 2 }
+
+  - name: list with cursor pagination
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-chain/resources?limit=2"
+    assertions:
+      status: 200
+      headers:
+        Link: { matches: "rel=\"next\"" }
+      body:
+        $.items: { length: 2 }
+        $.next_cursor: { equals: "2" }
+    extract:
+      cursor: "$.next_cursor"
+
+  - name: follow the extracted cursor
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-chain/resources?limit=2&cursor={{cursor}}"
+    assertions:
+      status: 200
+      body:
+        $.items: { length: 2 }
+        $.items[0].seq: { equals: 3 }
+
+  - name: delete the first resource
+    request:
+      method: DELETE
+      url: "{{mud}}/s/{{run}}-chain/resources/{{first_id}}"
+    assertions:
+      status: 204
+
+  - name: it is gone
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-chain/resources/{{first_id}}"
+    assertions:
+      status: 404
+      body:
+        $.detail: { contains: "no resource" }
+
+  - name: etag document has an entity tag
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-chain/etag"
+    assertions:
+      status: 200
+      headers:
+        ETag: { matches: "^\"[0-9a-f]{32}\"$" }
+      body:
+        $.version: { equals: 1 }
+    extract:
+      doc_etag: "$.version"
+
+  - name: if-match with a wrong tag is a precondition failure
+    request:
+      method: PUT
+      url: "{{mud}}/s/{{run}}-chain/etag"
+      headers:
+        If-Match: "\"definitely-not-the-current-tag\""
+      body:
+        version: 2
+    assertions:
+      status: 412
+      body:
+        $.detail: { contains: "does not match" }
+
+  - name: put without a precondition succeeds
+    request:
+      method: PUT
+      url: "{{mud}}/s/{{run}}-chain/etag"
+      body:
+        version: 2
+    assertions:
+      status: 200
+      body:
+        $.updated: { equals: true }
+
+  - name: idempotency key replays the first response
+    request:
+      method: POST
+      url: "{{mud}}/s/{{run}}-chain/idempotency"
+      headers:
+        Idempotency-Key: "dogfood-key-1"
+      body:
+        attempt: 1
+    assertions:
+      status: 200
+      headers:
+        Idempotent-Replay: { equals: "false" }
+      body:
+        $.received.attempt: { equals: 1 }
+
+  - name: the same key replays, ignoring the new body
+    request:
+      method: POST
+      url: "{{mud}}/s/{{run}}-chain/idempotency"
+      headers:
+        Idempotency-Key: "dogfood-key-1"
+      body:
+        attempt: 2
+    assertions:
+      status: 200
+      headers:
+        Idempotent-Replay: { equals: "true" }
+      body:
+        # The replayed body is the first one, so attempt is still 1. A server
+        # that re-ran the request would report 2 here.
+        $.received.attempt: { equals: 1 }

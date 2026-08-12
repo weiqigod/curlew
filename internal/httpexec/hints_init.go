@@ -13,5 +13,14 @@ func init() {
 				Hint:     "Check network connectivity to the target host and that the server is reachable.",
 			},
 		},
+		apierrors.RegisteredError{
+			Name: "ErrDecode",
+			Err:  ErrDecode,
+			Hint: apierrors.ClassifiedHint{
+				Category: apierrors.CategoryNetwork,
+				Code:     "RESPONSE_DECODE_FAILED",
+				Hint:     "The server declared a Content-Encoding its body does not use. This is a server-side defect: retrying will produce the same result.",
+			},
+		},
 	)
 }

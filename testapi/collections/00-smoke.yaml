@@ -1,0 +1,96 @@
+# The server is up, describes itself, and round-trips a request.
+#
+# If this collection fails, nothing else in the suite is worth reading.
+name: Mudflat smoke
+description: |
+  Proves mudflat is running and that curlew can reach it. Every later
+  collection assumes this one passes.
+
+requests:
+  - name: index lists endpoints
+    request:
+      method: GET
+      url: "{{mud}}/"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/json" }
+      body:
+        $.name: { equals: "mudflat" }
+        $.endpoints: { type: array }
+      cel:
+        - "response.body.endpoints.size() > 20"
+
+  - name: capabilities reports the phase and what is absent
+    request:
+      method: GET
+      url: "{{mud}}/capabilities"
+    assertions:
+      status: 200
+      body:
+        $.phase: { equals: 1 }
+        $.families: { type: array }
+        # Absent families are reported so a caller can tell a missing family
+        # from a broken one.
+        $.Absent: { exists: true }
+
+  - name: echo round-trips a request
+    request:
+      method: POST
+      url: "{{mud}}/echo"
+      headers:
+        X-Dogfood: "smoke"
+      query:
+        k: "v"
+      body:
+        hello: "mudflat"
+    assertions:
+      status: 200
+      body:
+        $.request.method: { equals: "POST" }
+        $.server.name: { equals: "mudflat" }
+        $.request.body_len: { greater_than: 0 }
+        # The envelope reports headers as ordered pairs, so a header curlew
+        # claims to send either appears here or it was never sent.
+        $.request.header_names_in_order: { contains: "X-Dogfood" }
+        $.request.query: { length: 1 }
+
+  - name: echo reports the session from the path
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-smoke/echo"
+    assertions:
+      status: 200
+      body:
+        $.server.session: { exists: true }
+        $.connection.id: { exists: true }
+
+  - name: anything accepts any path depth
+    request:
+      method: GET
+      url: "{{mud}}/anything/deeply/nested/path/segments"
+    assertions:
+      status: 200
+      body:
+        $.request.target: { contains: "deeply/nested" }
+
+  - name: empty body is distinguishable from a missing one
+    request:
+      method: GET
+      url: "{{mud}}/empty"
+    assertions:
+      status: 200
+
+  - name: session reset is idempotent
+    request:
+      method: DELETE
+      url: "{{mud}}/s/{{run}}-smoke"
+    assertions:
+      status: 204
+
+  - name: unknown path is a clean 404
+    request:
+      method: GET
+      url: "{{mud}}/no-such-endpoint-exists"
+    assertions:
+      status: 404

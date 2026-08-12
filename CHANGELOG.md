@@ -7,6 +7,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Mudflat, a dedicated test API — curlew is now dogfooded (Phase 1).** Every one of
+  curlew's 1,963 tests that executes a request used to terminate at a server curlew's own
+  suite had written: 23 files construct `httptest.NewServer`, and the smoke suite runs a
+  local echo fixture. A Go test server and a Go HTTP client agree by construction about
+  header canonicalisation, body framing, chunking and HTTP/2, so every bug living in that
+  shared reading was invisible to the entire suite.
+
+  `testapi/` adds a server curlew did not write — 31 endpoints across six families —
+  plus the dogfood suite that runs against it. `./scripts/ci-local.sh` now runs
+  `curlew run 'testapi/collections/*.yaml'` as a gate step, so dogfooding happens on
+  every change rather than when someone remembers. 53 assertions, all passing.
+
+  The design is specified in `docs/TESTAPI_SPECIFICATION.md`. The two pieces worth
+  knowing: the echo envelope reports headers as ordered pairs with the client's original
+  casing and the body as base64 that is never decoded — each refusing a convenience that
+  would hide the bug class the endpoint exists to find — and a parity test derives both
+  sides of its comparison from the artefacts themselves, so an endpoint nobody calls or a
+  URL that hits nothing fails the build.
+
+  **What the first run found.** Three defects, all now fixed — see the Fixed
+  section below. The requests that reproduced them have moved into the passing
+  collections, which is where a closed gap belongs.
+
 - **A CI workflow for the Go CLI** (`.github/workflows/go.yml`). There has never been one:
   the seven existing workflows cover the .NET backend, the web dashboard, email templates
   and releases, and none of them builds or tests the CLI. The new job runs
@@ -36,6 +59,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   regression names the wrong line rather than merely omitting one.
 
 ### Fixed
+- **Assertion expected values now interpolate.** `equals: "{{var}}"` compared the
+  response against the literal template text — for collection variables and for
+  values extracted earlier in the run, on both the header and body paths. The same
+  variable interpolated correctly everywhere else, so a request could resolve
+  `{{first_id}}` into its URL, fetch exactly the right resource, and then compare
+  `$.id` against the twelve characters `{{first_id}}`.
+
+  `requtil.ToHeaderInputs` and `ToBodyInputs` take the scope and interpolate.
+  Body values go through `InterpolateBody`, which walks strings wherever they
+  appear — including inside the map an operator like `in_range` takes — and
+  leaves every other type alone, so an expected integer is never routed through a
+  string round trip. An unresolvable reference is now an error, the same as at
+  every other interpolation site.
+
+- **Header `exists: false` asserts absence.** It behaved identically to
+  `exists: true`, so an absent header reported "expected exists, got header not
+  present" — the very condition the assertion had asked for — and
+  "this response must not carry `Set-Cookie`" was unexpressible. `docs/CLI_SPECIFICATION.md`
+  §7.2 has always documented the operator as "Presence (`true`) or absence
+  (`false`)".
+
+  The body path had the same hole and is fixed with it: `exists: false` and
+  `not_exists: true` are now two spellings of one intent instead of disagreeing.
+  A value that is not a recognisable boolean keeps the historical meaning —
+  assert presence — so no collection that was passing can start failing.
+
+- **Response-body failures are classified correctly.** Everything that went wrong
+  while reading a body was reported as `network error: reading response body`,
+  and none of it was classified as a `*errors.NetworkError`. The label was wrong
+  in one direction and the retry classification in the other:
+
+  - a lying `Content-Encoding` was *called* a network failure, though no retry
+    can fix it;
+  - and a genuine transport failure mid-body — a connection dying partway
+    through a response — was never classified as one, so
+    `retry_on.network_errors` silently covered only the failures that happened
+    *before* the body started.
+
+  `httpexec.classifyBodyError` now splits the two. A decode failure returns the
+  new `ErrDecode` sentinel with a message naming the header responsible, and no
+  retry rule matches it. Everything else becomes a `*errors.NetworkError`, so
+  `retry_on.network_errors` fires for a truncated body, which it never did.
+
 - **CLAUDE.md claimed `ci-local.sh` "mirrors the GitHub workflows".** It did not: no
   workflow built or tested the Go CLI, and every workflow has auto-triggers disabled
   pending Actions billing, so pushing a branch verified nothing. The quality-gate section

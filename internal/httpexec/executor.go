@@ -2,9 +2,12 @@ package httpexec
 
 import (
 	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -95,7 +98,7 @@ func Execute(ctx context.Context, req *Request) (*Result, error) {
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	if err != nil {
-		return nil, fmt.Errorf("%w: reading response body: %w", ErrNetwork, err)
+		return nil, classifyBodyError(err, duration)
 	}
 
 	return &Result{
@@ -213,4 +216,46 @@ func prepareBody(body any) (io.Reader, string, error) {
 		}
 		return bytes.NewReader(data), "application/json", nil
 	}
+}
+
+// classifyBodyError distinguishes a body that could not be decoded from a
+// connection that failed while the body was being read.
+//
+// The distinction decides whether retrying is worth anything. A truncated or
+// reset connection may well succeed on a second attempt, so it is returned as a
+// *errors.NetworkError, which is what retry_on.network_errors keys on. A body
+// whose Content-Encoding is a lie will fail identically every time, so it is
+// returned as a plain ErrDecode that no retry rule matches.
+//
+// Go's transport only decompresses gzip transparently, and it strips the
+// Content-Encoding header when it does, so the encoding cannot be read back off
+// the response here — the error identity is what names it.
+func classifyBodyError(err error, duration time.Duration) error {
+	if isDecodeError(err) {
+		return fmt.Errorf(
+			"%w: the server declared Content-Encoding: gzip but the body is not valid gzip: %w",
+			ErrDecode, err)
+	}
+
+	netErr := apierrors.ClassifyNetworkError(err)
+	netErr.Duration = duration
+	if netErr.Kind == apierrors.NetworkOther {
+		netErr.Message = fmt.Sprintf("connection failed while reading the response body: %s", err)
+		netErr.Hint = "The response headers arrived but the body did not complete — the connection was closed early"
+	}
+	netErr.Inner = fmt.Errorf("%w: reading response body: %w", ErrNetwork, err)
+	return netErr
+}
+
+// isDecodeError reports whether err came from decompressing the body rather
+// than from transporting it.
+//
+// io.ErrUnexpectedEOF is deliberately absent: a compressed stream that stops
+// early almost always means the connection died, which is the retriable case.
+func isDecodeError(err error) bool {
+	if errors.Is(err, gzip.ErrHeader) || errors.Is(err, gzip.ErrChecksum) {
+		return true
+	}
+	var corrupt flate.CorruptInputError
+	return errors.As(err, &corrupt)
 }

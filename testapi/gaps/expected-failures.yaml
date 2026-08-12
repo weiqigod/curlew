@@ -1,0 +1,47 @@
+# Requests that MUST fail, because the server is deliberately broken.
+#
+# This is not a list of curlew defects. Every request here fails because mudflat
+# sent something no client can succeed against, and the question each one asks is
+# whether the resulting error is *legible* — does it name the cause, and is it
+# classified so that retry rules treat it correctly?
+#
+# Phase 1 does not run this file in CI. The harness that asserts the expected
+# failure — and fails on an unexpected PASS — is Phase 2 (specification §12.3).
+name: "EXPECTED FAILURES: deliberately broken responses"
+description: |
+  Run by hand until the Phase 2 harness exists:
+    curlew run 'testapi/gaps/*.yaml' --env local --var run=manual
+
+requests:
+  - name: "a lying Content-Encoding is a decode error, not a network error"
+    description: |
+      expected-failure: this request cannot succeed, and should not.
+
+      /encoding/lying/gzip declares Content-Encoding: gzip and sends plain
+      bytes. No retry can fix that, so the two things worth checking are the
+      message and the classification:
+
+        response decoding error: the server declared Content-Encoding: gzip
+        but the body is not valid gzip: gzip: invalid header
+
+      It must NOT be reported as a network error and must NOT be retried under
+      retry_on.network_errors — which this request enables precisely so that a
+      regression putting it back in the network class shows up as three
+      pointless attempts.
+
+      Everything read off a response body used to be labelled a network error
+      while not actually classifying as one, so the label was wrong in one
+      direction and the retry behaviour in the other. See internal/httpexec:
+      ErrDecode versus errors.NetworkError.
+    request:
+      method: GET
+      url: "{{mud}}/encoding/lying/gzip"
+    retry:
+      enabled: true
+      max_attempts: 3
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        network_errors: true
+    assertions:
+      status: 200

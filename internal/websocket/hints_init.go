@@ -59,6 +59,15 @@ func init() {
 			},
 		},
 		apierrors.RegisteredError{
+			Name: "ErrExpectAssertionVars",
+			Err:  ErrExpectAssertionVars,
+			Hint: apierrors.ClassifiedHint{
+				Category: apierrors.CategoryAssertion,
+				Code:     "WS_EXPECT_ASSERTION_VARS",
+				Hint:     "An expect assertion referenced a variable that is not defined. Check the name, or extract it in an earlier step.",
+			},
+		},
+		apierrors.RegisteredError{
 			Name: "ErrContextCanceled",
 			Err:  ErrContextCanceled,
 			Hint: apierrors.ClassifiedHint{Category: apierrors.CategoryInternal, Code: "WS_CONTEXT_CANCELED"},

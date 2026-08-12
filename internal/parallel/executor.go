@@ -438,6 +438,15 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 	execErr := outcome.Err
 	retryCount := outcome.Attempts - 1
 
+	// Assertion expected values interpolate against the same scope the request
+	// used. Folding a failure into execErr rather than returning early keeps one
+	// error path: the outcome, the event stream and the retry bookkeeping below
+	// are all built in the block that follows.
+	headerInputs, bodyInputs, assertErr := requtil.ToAssertionInputs(scope, item.Assertions)
+	if execErr == nil && assertErr != nil {
+		execErr = fmt.Errorf("request %q: %w", item.Name, assertErr)
+	}
+
 	if execErr != nil {
 		ro := RequestOutcome{
 			Index:          idx,
@@ -469,9 +478,9 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 	ar := assertion.Evaluate(assertion.EvalInput{
 		StatusCodes:      item.Assertions.Status.Codes,
 		ActualStatus:     result.StatusCode,
-		HeaderAssertions: requtil.ToHeaderInputs(item.Assertions.Headers.Items),
+		HeaderAssertions: headerInputs,
 		Headers:          result.Headers,
-		BodyAssertions:   requtil.ToBodyInputs(item.Assertions.Body.Items),
+		BodyAssertions:   bodyInputs,
 		Body:             result.Body,
 		MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 		ActualDuration:   result.Duration,

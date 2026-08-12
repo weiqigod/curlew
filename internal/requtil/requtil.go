@@ -152,38 +152,60 @@ func interpolateWebSocketStep(scope *variable.Scope, step parser.WebSocketStep) 
 	return out, nil
 }
 
-// ToHeaderInputs converts parser.HeaderAssertion to assertion.HeaderInput.
-func ToHeaderInputs(items []parser.HeaderAssertion) []assertion.HeaderInput {
+// ToHeaderInputs converts parser.HeaderAssertion to assertion.HeaderInput,
+// interpolating the expected value against scope.
+//
+// The interpolation is the point. Without it, `equals: "{{expected_ct}}"`
+// compared the response against the literal template text — including for a
+// value extracted earlier in the same run, so a request could interpolate a
+// variable into its URL, fetch exactly the right resource, and then fail to
+// assert anything about it.
+func ToHeaderInputs(scope *variable.Scope, items []parser.HeaderAssertion) ([]assertion.HeaderInput, error) {
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
 	inputs := make([]assertion.HeaderInput, len(items))
 	for i, item := range items {
+		value, err := scope.Interpolate(fmt.Sprint(item.Value))
+		if err != nil {
+			return nil, fmt.Errorf("header assertion %q: %w", item.Name, err)
+		}
 		inputs[i] = assertion.HeaderInput{
 			Name:     item.Name,
 			Operator: item.Operator,
-			Value:    fmt.Sprint(item.Value),
+			Value:    value,
 			Line:     item.Line,
 		}
 	}
-	return inputs
+	return inputs, nil
 }
 
-// ToBodyInputs converts parser.BodyAssertion to assertion.BodyInput.
-func ToBodyInputs(items []parser.BodyAssertion) []assertion.BodyInput {
+// ToBodyInputs converts parser.BodyAssertion to assertion.BodyInput,
+// interpolating the expected value against scope. See ToHeaderInputs.
+//
+// InterpolateBody walks strings wherever they appear — a bare value, or one
+// nested inside the map an operator like in_range takes — and leaves every
+// other type alone. That matters more than it looks: routing an expected value
+// through a string round trip would turn 9007199254740993 into a different
+// number, which is exactly the comparison /json/bignum exists to protect.
+func ToBodyInputs(scope *variable.Scope, items []parser.BodyAssertion) ([]assertion.BodyInput, error) {
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
 	inputs := make([]assertion.BodyInput, len(items))
 	for i, item := range items {
+		value, err := scope.InterpolateBody(item.Value)
+		if err != nil {
+			return nil, fmt.Errorf("body assertion %q: %w", item.Path, err)
+		}
 		inputs[i] = assertion.BodyInput{
 			Path:     item.Path,
 			Operator: item.Operator,
-			Value:    item.Value,
+			Value:    value,
 			Line:     item.Line,
 		}
 	}
-	return inputs
+	return inputs, nil
 }
 
 // injectContentType returns a headers map with an auto-detected Content-Type
@@ -215,4 +237,20 @@ func ToHTTPRequest(req *parser.Request) *httpexec.Request {
 		Body:        req.Body,
 		QueryParams: req.QueryParams,
 	}
+}
+
+// ToAssertionInputs converts both assertion kinds for one request, interpolating
+// each against scope. Callers evaluating a whole assertion block want both and
+// want a single error path, which keeps the three runner call sites from
+// restating the same two checks.
+func ToAssertionInputs(scope *variable.Scope, a parser.Assertions) ([]assertion.HeaderInput, []assertion.BodyInput, error) {
+	headers, err := ToHeaderInputs(scope, a.Headers.Items)
+	if err != nil {
+		return nil, nil, err
+	}
+	body, err := ToBodyInputs(scope, a.Body.Items)
+	if err != nil {
+		return nil, nil, err
+	}
+	return headers, body, nil
 }

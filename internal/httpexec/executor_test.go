@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -487,4 +488,105 @@ func sliceEqual(a, b []byte) bool {
 		}
 	}
 	return true
+}
+
+// --- Response-body failures must be classified correctly (dogfood defect 3) ---
+//
+// Found by running curlew against mudflat's /encoding/lying/gzip, which declares
+// Content-Encoding: gzip and sends plain bytes. Everything that went wrong while
+// reading a response body was reported as "network error", and none of it was
+// classified as a *apierrors.NetworkError — so the label was wrong in one
+// direction and the retry classification was wrong in the other:
+//
+//   - a decode failure was CALLED a network error, though no retry can fix it
+//   - a genuine transport failure mid-body was not classified as one, so
+//     retry_on.network_errors never fired for it
+
+func TestExecute_LyingContentEncodingIsADecodeError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("this was never gzip"))
+	}))
+	defer srv.Close()
+
+	_, err := Execute(context.Background(), &Request{Method: "GET", URL: srv.URL})
+	if err == nil {
+		t.Fatal("Execute = nil error, want a decode failure")
+	}
+
+	if !errors.Is(err, ErrDecode) {
+		t.Errorf("error does not match ErrDecode: %v", err)
+	}
+	if errors.Is(err, ErrNetwork) {
+		t.Errorf("a lying Content-Encoding is reported as a network error: %v", err)
+	}
+
+	var netErr *apierrors.NetworkError
+	if errors.As(err, &netErr) {
+		t.Errorf("decode failure classified as *apierrors.NetworkError; "+
+			"retry_on.network_errors would retry something that can never succeed: %v", err)
+	}
+
+	if !strings.Contains(err.Error(), "gzip") {
+		t.Errorf("error = %q, want it to name the encoding that failed", err)
+	}
+	if !strings.Contains(err.Error(), "Content-Encoding") {
+		t.Errorf("error = %q, want it to name the header responsible", err)
+	}
+}
+
+func TestExecute_TruncatedBodyIsARetriableNetworkError(t *testing.T) {
+	// The other half of the same defect. A connection that dies mid-body is a
+	// real network failure and must classify as one, or retry_on.network_errors
+	// silently covers only the errors that happen before the body starts.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer func() { _ = ln.Close() }()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		buf := make([]byte, 4096)
+		_, _ = conn.Read(buf)
+		// Promise 1000 bytes, send 10, then hang up.
+		_, _ = io.WriteString(conn, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n0123456789")
+		_ = conn.Close()
+	}()
+
+	_, err = Execute(context.Background(), &Request{Method: "GET", URL: "http://" + ln.Addr().String()})
+	if err == nil {
+		t.Fatal("Execute = nil error, want a truncated-body failure")
+	}
+
+	var netErr *apierrors.NetworkError
+	if !errors.As(err, &netErr) {
+		t.Errorf("truncated body is not a *apierrors.NetworkError, so "+
+			"retry_on.network_errors will not fire for it: %v (%T)", err, err)
+	}
+	if errors.Is(err, ErrDecode) {
+		t.Errorf("truncated body misreported as a decode error: %v", err)
+	}
+}
+
+func TestExecute_DecodeErrorSurvivesADeflateBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Encoding", "deflate")
+		_, _ = w.Write([]byte("not deflate either"))
+	}))
+	defer srv.Close()
+
+	// Go's transport only decodes gzip transparently, so a deflate body comes
+	// back undecoded and this must NOT be reported as a decode failure.
+	result, err := Execute(context.Background(), &Request{Method: "GET", URL: srv.URL})
+	if err != nil {
+		t.Fatalf("Execute = %v, want the raw deflate body handed back untouched", err)
+	}
+	if string(result.Body) != "not deflate either" {
+		t.Errorf("body = %q, want the bytes as sent", result.Body)
+	}
 }

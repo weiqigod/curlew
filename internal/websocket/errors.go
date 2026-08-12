@@ -22,6 +22,10 @@ var (
 	ErrCloseFailed = errors.New("websocket close failed")
 	// ErrExtractFailed indicates variable extraction from an expect match failed.
 	ErrExtractFailed = errors.New("websocket expect extract failed")
+	// ErrExpectAssertionVars indicates an expect step's assertion values could
+	// not be interpolated — typically a reference to a variable no earlier step
+	// extracted.
+	ErrExpectAssertionVars = errors.New("websocket expect assertion variables")
 	// ErrContextCanceled indicates the caller canceled the context mid-step.
 	ErrContextCanceled = errors.New("websocket context canceled")
 	// ErrNoSteps indicates a WebSocket request was constructed with no steps.
