@@ -132,10 +132,15 @@ func Execute(ctx context.Context, req Request, exec runner.ExecuteFunc) (*Result
 		Parallel:          req.Parallel,
 		CollectionDir:     collectionDir,
 		OnEvent:           sink,
-		Selection:         req.Selection,
-		RunID:             req.RunID,
-		RequestIDPrefix:   req.RequestIDPrefix,
-		Diagnostics:       req.Diagnostics,
+		// The sinks above redact with preSensitive as the run proceeds, so
+		// the runner registers mid-run discoveries into that same set — an
+		// extracted token must be known before the event carrying it is
+		// emitted, not after the run.
+		RuntimeSensitive: preSensitive,
+		Selection:        req.Selection,
+		RunID:            req.RunID,
+		RequestIDPrefix:  req.RequestIDPrefix,
+		Diagnostics:      req.Diagnostics,
 		// ConfirmLargeDataset stays false: oversized data-driven sets fail
 		// with the runner's guard error (no interactive prompt in services).
 	})

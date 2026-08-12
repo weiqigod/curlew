@@ -9,9 +9,10 @@
 # Markdown, event streams and JSONL logs. Each is a separate code path.
 name: Redaction bait
 description: |
-  Extracts realistic secrets from the /leak/* family under names the
-  sensitivity heuristic should catch, then sends them back in a later request
-  so they appear on the way out as well as on the way in.
+  Extracts realistic secrets from the /leak/* family by both routes to
+  sensitivity — the §6.5 name heuristic and an explicit `sensitive: true` — then
+  sends them back in a later request so they appear on the way out as well as on
+  the way in.
 
 requests:
   - name: extract a bearer token
@@ -24,10 +25,10 @@ requests:
         $.access_token: { type: string }
         $.token_type: { equals: "Bearer" }
     extract:
-      # "token" matches the §6.5 name heuristic, so this should be sensitive
-      # with no explicit declaration. leaked_key declares it anyway, so the
-      # harness covers both routes to sensitivity.
+      # Both names contain "token", so the §6.5 heuristic marks them sensitive
+      # with no declaration. leaked_key below takes the other route.
       leaked_token: "$.access_token"
+      leaked_refresh_token: "$.refresh_token"
 
   - name: extract a key from six levels down
     request:
@@ -38,12 +39,13 @@ requests:
       body:
         $.account.profile.integrations.provider.credentials.api_key: { type: string }
     extract:
-      # The object form documented in CLI_SPECIFICATION §8 —
-      #   leaked_key: { path: "...", sensitive: true }
-      # — does not parse; see testapi/gaps/expected-failures.yaml. The string
-      # form below still yields a sensitive value, because "key" matches the
-      # §6.5 name heuristic, so the coverage here is unaffected.
-      leaked_key: "$.account.profile.integrations.provider.credentials.api_key"
+      # The object form of CLI_SPECIFICATION §8. It is the only way to declare
+      # sensitivity explicitly, and until it was implemented a value was
+      # sensitive only if its name happened to match the heuristic — where the
+      # name is whatever the API under test calls the field.
+      leaked_key:
+        path: "$.account.profile.integrations.provider.credentials.api_key"
+        sensitive: true
 
   - name: a secret arriving in a response header
     request:
@@ -63,6 +65,14 @@ requests:
       body:
         $.card.brand: { equals: "visa" }
         $.card.number: { type: string }
+    extract:
+      # "card_number" contains none of password, token, secret, key, auth or
+      # credential. Nothing about the name says secret; the declaration is the
+      # only thing that can, which is exactly the case the object form exists
+      # for.
+      card_number:
+        path: "$.card.number"
+        sensitive: true
 
   - name: a secret carried only in a URL
     request:
@@ -80,7 +90,7 @@ requests:
   - name: send the extracted token back
     request:
       method: GET
-      url: "{{mud}}/leak/header-echo"
+      url: "{{mud}}/leak/header-echo?ref={{card_number}}"
       headers:
         Authorization: "Bearer {{leaked_token}}"
         X-Api-Key: "{{leaked_key}}"

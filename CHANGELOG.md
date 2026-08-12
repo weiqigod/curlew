@@ -123,6 +123,76 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   regression names the wrong line rather than merely omitting one.
 
 ### Fixed
+- **Secrets returned by the server are now redacted.** A sensitive value was
+  replaced where curlew *sent* it and printed verbatim where the server *sent it
+  back*. Both lines below came from one run:
+
+  ```
+  > Authorization: [REDACTED]
+  ✗ body $.authorization equals: expected …, got Bearer SENTINELVALUE123
+  ```
+
+  `docs/CLI_SPECIFICATION.md` §6.5 lists eight output surfaces and never
+  restricted redaction to the request side. An API that echoes a token, a
+  `Set-Cookie` carrying a session, or a redirect with a token in its query put
+  the secret straight into a CI log. Thirteen concrete leaks were measured across
+  JSON, Markdown and the event stream.
+
+  It was four defects wearing one coat, and all four are fixed:
+
+  - An extracted value was never registered as a sensitive *value*. A token
+    pulled out of a response was therefore redacted nowhere, by either route to
+    sensitivity. `variable.MarkExtractedSensitive` now runs at every extraction
+    site in `internal/runner` and `internal/parallel`, before any event carrying
+    the value is emitted — so the response body that produced the token is
+    redacted too, not just later requests that use it.
+  - An assertion's `expected` and `actual` strings were never redacted at all.
+    That is the one surface whose entire job is to print the value that did not
+    match, which makes it the likeliest place for a secret to appear.
+  - Response headers were never redacted, and `Set-Cookie` was not treated as
+    inherently sensitive although `Cookie` was — the same credential, travelling
+    the other way.
+  - A secret that lived only in a URL query string survived every pass, because
+    no body ever carried it.
+
+  `internal/runservice/redact.go` now owns the whole scrub and runs once before
+  formatting, so every format is covered by one code path rather than eight. The
+  runner accepts its runtime sensitive set from the caller when something is
+  watching the run: the `--events` sink redacts each event as it is emitted, so a
+  value discovered mid-run has to be known before the event carrying it is
+  written. `--allow-sensitive` is unaffected.
+
+  Found by dogfooding against mudflat's `/leak/*` family
+  (`docs/TESTAPI_SPECIFICATION.md` §11B.2). `testapi/harness/redaction.sh` now
+  sweeps nine artefact directories with an empty baseline, and
+  `testapi/harness/redaction-actual.yaml` — every assertion wrong on purpose —
+  closes the hole where terminal, TAP, JUnit and JSONL looked clean only because
+  nothing had ever been printed to them.
+
+- **The object form of `extract:` now parses.** `docs/CLI_SPECIFICATION.md` §8
+  opens with it:
+
+  ```yaml
+  extract:
+    user_id: "$.id"
+    api_key:
+      path: "$.key"
+      sensitive: true
+  ```
+
+  `parser.RequestItem` declared `Extract` as `map[string]string`, so only the
+  string form existed and the object form failed with `cannot unmarshal !!map
+  into string`. It is the only way to declare an extracted value sensitive on
+  purpose; without it, sensitivity rested entirely on whether the name happened
+  to match the §6.5 heuristic — and the name is whatever the API under test calls
+  the field.
+
+  Both forms decode into the same map, so nothing downstream changed. An object
+  with no `path`, or with an unknown key, is now a parse error: a misspelled
+  `sensitiv: true` that parsed silently would leave a value unredacted while its
+  author believed the opposite. The published JSON Schema accepts both forms, so
+  editors no longer flag a valid collection.
+
 - **Assertion expected values now interpolate.** `equals: "{{var}}"` compared the
   response against the literal template text — for collection variables and for
   values extracted earlier in the run, on both the header and body paths. The same

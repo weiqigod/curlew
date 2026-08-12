@@ -982,6 +982,10 @@ that stops early almost always means the connection died.
 Two more, both the same shape as §11A: the specification documents behaviour the
 binary does not have.
 
+**Both are now fixed.** They are described below in the present tense of the
+defect, because that is the record of what dogfooding bought; each subsection
+ends with what closed it and what holds it closed.
+
 ### 11B.1 The object form of `extract:` does not parse
 
 §8 of `docs/CLI_SPECIFICATION.md` opens with this example:
@@ -1002,7 +1006,17 @@ form exists.
 Without it a value is sensitive only if its *name* happens to match the §6.5
 heuristic, which is not something a collection author can always arrange: the
 field is named by the API being tested.
-**Reproduction:** `testapi/gaps/extract-object-form.parse-fail.yaml`.
+
+**Fixed** in `internal/parser`. `ExtractSpec` accepts both forms and rejects an
+object with no `path` or an unknown key — a misspelled `sensitiv: true` that
+parsed silently would leave a value unredacted while its author believed the
+opposite. The published JSON Schema accepts both forms too, so an editor no
+longer flags a valid collection.
+
+**Now covered by** `testapi/collections/70-redaction.yaml`, which uses the object
+form for the two values whose names the heuristic cannot reach, and
+`internal/schema/validate_test.go`. The parse-fail reproduction is gone: it
+parses.
 
 ### 11B.2 Redaction covers the request but not the response
 
@@ -1025,16 +1039,39 @@ request-side occurrences.
 redirect with a token in its query puts the secret straight into a CI log. This
 is the security-relevant one.
 
-**Measured surfaces.** `testapi/harness/redaction-known-leaks.txt` records 13
+**Measured surfaces.** `testapi/harness/redaction-known-leaks.txt` recorded 13
 concrete leaks across the JSON, Markdown and event-stream outputs. The harness
 gates on that baseline: a leak outside it fails, and a baseline entry that stops
 leaking *also* fails, so a fix forces the line out rather than leaving a
-permanent excuse.
+permanent excuse. It did exactly that — all thirteen went in one commit, and the
+file is now empty.
 
-The other surfaces are absent from the baseline because the assertions in
-`70-redaction.yaml` all pass, so no `actual` value is printed — not because they
-are safe. The minimal reproduction in `testapi/gaps/expected-failures.yaml`
-leaks in the terminal too.
+The other surfaces were absent from the baseline because the assertions in
+`70-redaction.yaml` all pass, so no `actual` value was ever printed — not because
+they were safe. That was a hole in the harness, not evidence about curlew, and
+`testapi/harness/redaction-actual.yaml` closes it: every assertion in it is wrong
+on purpose, which is the only way terminal, TAP, JUnit and JSONL are handed a
+response value at all. It runs only under `redaction.sh`, because the dogfood
+gate requires `collections/*.yaml` to pass.
+
+**Fixed** in four places, because it was four defects wearing one coat:
+
+| What was wrong | Where |
+|---|---|
+| An extracted value was never registered as a sensitive *value*, so a token pulled out of a response was redacted nowhere | `internal/runner`, `internal/parallel` — `variable.MarkExtractedSensitive` at every extraction site |
+| An assertion's expected and actual strings were never redacted at all — the one surface whose whole job is to print the value that did not match | `internal/runservice/redact.go`, applied by `cmd/curlew` and the events sink |
+| Response headers were never redacted, and `Set-Cookie` was not inherently sensitive although `Cookie` was | `internal/variable` |
+| A secret that lived only in a URL query string survived, because no body carried it | `internal/runservice/redact.go` |
+
+The runner now takes its runtime sensitive set from the caller when one is
+watching the run — the `--events` sink redacts each event as it is emitted, so a
+token extracted at request 1 has to be known before request 1's own response body
+reaches the stream. A set handed back at the end is too late.
+
+**Now covered by** `testapi/harness/redaction.sh` across nine artefact
+directories, `cmd/curlew/redaction_response_test.go`, and the inverted request in
+`testapi/gaps/expected-failures.yaml` — whose assertion still fails on purpose,
+but whose actual value must now read `Bearer [REDACTED]`.
 
 ---
 
@@ -1065,7 +1102,10 @@ testapi/
   schemas/
   harness/
     redaction.sh            # O — asserts on curlew's output artifacts
+    redaction-actual.yaml   # assertions wrong on purpose, so `actual` is printed
+    redaction-known-leaks.txt
     gaps.sh                 # runs `gap` entries, fails on unexpected pass
+    crosscheck.sh           # curl reads the raw layer the same way
 ```
 
 ### 12.2 Execution
@@ -1100,9 +1140,27 @@ and a gap that persists cannot be forgotten.
 ### 12.4 The redaction harness
 
 Redaction is asserted on curlew's own output, so it is a shell test, not a
-collection. `harness/redaction.sh` runs a collection against the O family in each
-of the six output formats plus `--events`, then greps every artifact for the
-known secret values from Appendix B. Any hit is a failure naming the format.
+collection. `harness/redaction.sh` runs the O-family collections in each output
+format plus `--events`, then greps every artifact for the known secret values
+from Appendix B. Any hit is a failure naming the format.
+
+It runs **two** collections, because they cover different halves of §6.5.
+`collections/70-redaction.yaml` passes end to end, which is what lets it also run
+in the dogfood gate — and which means it never prints an `actual` value.
+`harness/redaction-actual.yaml` has every assertion wrong on purpose, which is
+the only way terminal, TAP, JUnit and JSONL are handed a response value at all.
+Scanning only the first made those four surfaces look clean because nothing had
+been put in front of them; a harness that reports zero exposure as safety is the
+same vacuous pass §12.3 exists to prevent.
+
+Each collection extracts every published value it will encounter. A value nothing
+extracts is not sensitive under any rule in §6.5, so omitting one would produce a
+leak that is the harness's fault rather than curlew's.
+
+The baseline file `harness/redaction-known-leaks.txt` is currently **empty**,
+which is the state to keep it in. A leak outside it fails; a listed leak that
+stops leaking *also* fails, so a fix forces the line out rather than leaving a
+permanent excuse. That rule is what emptied it.
 
 ---
 
@@ -1390,7 +1448,9 @@ checkable.
 11. `harness/gaps.sh` fails on an unexpected pass as well as on an unexpected
     failure.
 12. `harness/redaction.sh` finds no Appendix B value in any output artifact
-    across all six formats and the events stream.
+    across all six formats and the events stream — including in the artifacts of
+    a run whose assertions fail, which is the only way several of those formats
+    print a response value at all — and its baseline file is empty.
 13. `curlew import openapi` on the served document produces a collection that
     passes against the server (§9.P).
 14. The server binds loopback unless `--bind-unsafe` is given.

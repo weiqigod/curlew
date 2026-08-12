@@ -1,6 +1,8 @@
 # Known redaction leaks, as <format>:<value>.
 #
-# Every line here is a CURRENTLY FAILING surface, recorded so the harness can
+# THIS FILE IS EMPTY, AND THAT IS THE POINT. Every surface is enforced.
+#
+# Each entry would be a CURRENTLY FAILING surface, recorded so the harness can
 # gate on regressions without the build being permanently red. The rules:
 #
 #   * a leak NOT listed here fails the harness — a new leak
@@ -8,40 +10,39 @@
 #     so delete the line and let it be enforced from now on
 #
 # That second rule is the one that matters. A baseline nobody prunes becomes a
-# permanent excuse; making a fix fail the harness forces the line out.
+# permanent excuse; making a fix fail the harness forces the line out. It did:
+# the thirteen entries this file used to carry were deleted in one go when the
+# defect below was fixed, because the harness refused to pass while they were
+# still listed.
 #
 # ---------------------------------------------------------------------------
-# Defect: redaction covers values on the way OUT but not on the way BACK.
+# History: redaction covered values on the way OUT but not on the way BACK.
 #
-# Measured against mudflat's /leak/* family:
+# Measured against mudflat's /leak/* family, the same value was replaced where
+# curlew sent it and printed verbatim where the server returned it:
 #
 #   request side:   "> Authorization: [REDACTED]"          — redacted
 #   response side:  "got Bearer SENTINELVALUE123"          — not redacted
 #
-# The same sensitive value, extracted under a name that matches the §6.5
-# heuristic, is replaced where curlew sent it and printed verbatim where the
-# server returned it. CLI_SPECIFICATION §6.5 says the value is replaced in
-# terminal output, JSON, TAP, JUnit, HTML, Markdown, event streams and JSONL
-# logs, without restricting that to request-side occurrences.
+# Thirteen leaks across JSON, Markdown and the event stream. The four surfaces
+# that looked clean — terminal, TAP, JUnit, JSONL — only looked that way because
+# every assertion in 70-redaction.yaml passes, so no `actual` value was ever
+# printed there. testapi/harness/redaction-actual.yaml exists to close that hole:
+# its assertions fail on purpose.
 #
-# Practically: an API that echoes a token, a Set-Cookie carrying a session, or
-# a redirect with a token in the query all end up in a CI log verbatim.
+# Four things were wrong, in three places:
 #
-# The surfaces below are the ones this collection can currently reach. terminal,
-# TAP, JUnit and JSONL are absent not because they are safe but because the
-# assertions in 70-redaction.yaml all pass, so no `actual` value is printed. A
-# failing assertion leaks in those too — see the minimal reproduction in
-# testapi/gaps/expected-failures.yaml.
-json:mud_tok_7f3a9c2e5b1d4680
-json:mud_key_a1b2c3d4e5f60718
-json:mud_sess_c9e4f1a7b2d80356
-markdown:mud_tok_7f3a9c2e5b1d4680
-markdown:mud_refresh_3b8c1f9e7a2d5460
-markdown:mud_key_a1b2c3d4e5f60718
-markdown:mud_sess_c9e4f1a7b2d80356
-markdown:4242424242424242
-events:mud_tok_7f3a9c2e5b1d4680
-events:mud_refresh_3b8c1f9e7a2d5460
-events:mud_key_a1b2c3d4e5f60718
-events:mud_sess_c9e4f1a7b2d80356
-events:4242424242424242
+#   1. An extracted value was never registered as a sensitive *value*, so a
+#      token pulled out of a response was redacted nowhere. internal/runner now
+#      calls variable.MarkExtractedSensitive at every extraction site.
+#   2. An assertion's expected and actual strings were never redacted at all —
+#      the one surface whose whole job is to print the value that did not match.
+#   3. Response headers were never redacted, and Set-Cookie was not treated as
+#      inherently sensitive even though Cookie was.
+#   4. A secret that lived only in a URL query string survived, because no body
+#      ever carried it.
+#
+# Fixed on the branch that added internal/runservice/redact.go. Two of the four
+# routes to sensitivity — the §6.5 name heuristic and the `sensitive: true` of
+# the §8 object form — are exercised separately, so a fix to one cannot mask the
+# other.

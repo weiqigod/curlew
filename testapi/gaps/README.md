@@ -29,9 +29,9 @@ endpoint whose only job is to break a client cannot appear in a passing
 collection, so without this it would look like an orphan under specification
 §16.
 
-## History: the three defects the first run found
+## History: the five defects dogfooding found
 
-All three are **fixed**. The requests that reproduced them now live in the
+All five are **fixed**. The requests that reproduced them now live in the
 passing collections, which is where a closed gap belongs:
 
 | # | Defect | Fixed in | Now covered by |
@@ -39,6 +39,13 @@ passing collections, which is where a closed gap belongs:
 | 1 | Assertion expected values were never interpolated | `internal/requtil` | `10-assertions.yaml`, `20-extraction.yaml` |
 | 2 | Header `exists: false` was not honoured | `internal/assertion` | `10-assertions.yaml` |
 | 3 | Body-read failures were mislabelled and misclassified | `internal/httpexec` | this directory, plus `internal/httpexec` tests |
+| 4 | The object form of `extract:` did not parse | `internal/parser` | `70-redaction.yaml`, `redaction-actual.yaml` |
+| 5 | Redaction covered the request but not the response | `internal/runservice`, `internal/runner`, `internal/variable` | `testapi/harness/redaction.sh`, and the inverted request here |
 
 Defect 3 is the one that keeps an entry here: a lying Content-Encoding can never
 produce a passing request, so only an expected-failure request can exercise it.
+
+Defect 5's request also stays, inverted. The assertion is still wrong on purpose
+— that is what makes the failure message print the value — but the value must
+now come back as `[REDACTED]`. A closed gap is worth keeping when the test that
+proves it closed cannot be written any other way.

@@ -35,8 +35,23 @@ done
 CURLEW="./curlew"
 [ -x "$CURLEW" ] || { echo "build ./curlew first" >&2; exit 2; }
 
-COLLECTION="testapi/collections/70-redaction.yaml"
-[ -f "$COLLECTION" ] || { echo "missing $COLLECTION" >&2; exit 2; }
+# Two collections, because they cover different halves of §6.5.
+#
+#   70-redaction.yaml       passes end to end, so it also runs in the dogfood
+#                           gate — and so it never prints an `actual` value.
+#   redaction-actual.yaml   fails on purpose, which is the only way terminal,
+#                           TAP, JUnit and JSONL are ever handed a response
+#                           value at all.
+#
+# Scanning only the first left those four surfaces looking clean because nothing
+# had been put in front of them.
+COLLECTIONS=(
+  "testapi/collections/70-redaction.yaml"
+  "testapi/harness/redaction-actual.yaml"
+)
+for c in "${COLLECTIONS[@]}"; do
+  [ -f "$c" ] || { echo "missing $c" >&2; exit 2; }
+done
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -93,23 +108,27 @@ run_one() {
   # directory made a single leak in the stream look like a leak in all six
   # formats, which is worse than not checking: it misattributes the defect.
   # The stream gets its own run below.
-  set +e
-  "$CURLEW" run "$COLLECTION" \
-    --var "mud=$MUD_URL" \
-    --var "run=$RUN_ID" \
-    "$@" >"$out/stdout.txt" 2>"$out/stderr.txt"
-  local code=$?
-  set -e
+  local i=0
+  for collection in "${COLLECTIONS[@]}"; do
+    i=$((i + 1))
+    set +e
+    "$CURLEW" run "$collection" \
+      --var "mud=$MUD_URL" \
+      --var "run=$RUN_ID-$i" \
+      "${@//@N@/$i}" >"$out/stdout-$i.txt" 2>"$out/stderr-$i.txt"
+    local code=$?
+    set -e
 
-  if [ "$code" -ge 2 ]; then
-    # Exit 2+ means the run did not execute: usage, parse or file error. A
-    # scan over artefacts that were never written passes vacuously, which is
-    # the one outcome this harness must never report as success.
-    echo "  FATAL: $label exited $code — the collection did not run" >&2
-    sed 's/^/      /' "$out/stderr.txt" | head -5 >&2
-    exit 2
-  fi
-  echo "  ran $label (exit $code)" >&2
+    if [ "$code" -ge 2 ]; then
+      # Exit 2+ means the run did not execute: usage, parse or file error. A
+      # scan over artefacts that were never written passes vacuously, which is
+      # the one outcome this harness must never report as success.
+      echo "  FATAL: $label ($(basename "$collection")) exited $code — the collection did not run" >&2
+      sed 's/^/      /' "$out/stderr-$i.txt" | head -5 >&2
+      exit 2
+    fi
+    echo "  ran $label / $(basename "$collection") (exit $code)" >&2
+  done
 }
 
 scan() {
@@ -150,16 +169,19 @@ scan() {
 
 echo "=== redaction harness: $MUD_URL ===" >&2
 
+# @N@ is replaced with the collection's index, so the second run does not
+# overwrite the first one's report and hide whatever it contained.
 run_one terminal   --format terminal --no-color
+run_one terminal-v --format terminal --no-color -vv
 run_one json       --format json
 run_one tap        --format tap
-run_one junit      --format junit --report "$WORK/junit/report.xml"
-run_one html       --format html  --report "$WORK/html/report.html"
-run_one markdown   --format markdown --report "$WORK/markdown"
-run_one jsonl      --format terminal --no-color --log "$WORK/jsonl/run.jsonl"
-run_one events     --format terminal --no-color --events "$WORK/events/events.ndjson"
+run_one junit      --format junit --report "$WORK/junit/report-@N@.xml"
+run_one html       --format html  --report "$WORK/html/report-@N@.html"
+run_one markdown   --format markdown --report "$WORK/markdown/@N@"
+run_one jsonl      --format terminal --no-color --log "$WORK/jsonl/run-@N@.jsonl"
+run_one events     --format terminal --no-color --events "$WORK/events/events-@N@.ndjson"
 
-for label in terminal json tap junit html markdown jsonl events; do
+for label in terminal terminal-v json tap junit html markdown jsonl events; do
   scan "$label"
 done
 

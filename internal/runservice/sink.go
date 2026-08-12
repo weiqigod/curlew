@@ -54,8 +54,13 @@ func (a *EmitterSink) redactionSet() (*variable.SensitiveSet, bool) {
 }
 
 // RequestStart implements runner.EventSink.
+//
+// The URL is redacted for the same reason the bodies are: a token in a query
+// string never appears in a body, but every surface records the URL.
 func (a *EmitterSink) RequestStart(e runner.RequestEvent) {
-	if err := a.em.EmitRequestStart(e.RequestID, e.RequestSlug, e.Name, e.Method, e.URL, e.Phase, e.SourceFile, e.SourceLine); err != nil {
+	sensitive, allow := a.redactionSet()
+	url := variable.RedactText(e.URL, sensitive, allow)
+	if err := a.em.EmitRequestStart(e.RequestID, e.RequestSlug, e.Name, e.Method, url, e.Phase, e.SourceFile, e.SourceLine); err != nil {
 		_, _ = fmt.Fprintf(a.errOut, "events: emit request.start: %v\n", err)
 	}
 }
@@ -98,7 +103,13 @@ func (a *EmitterSink) RequestEnd(e runner.RequestEndEvent) {
 }
 
 // AssertionResult implements runner.EventSink.
+//
+// Expected and actual are redacted with the same set as the bodies above. A
+// failure message prints the value that did not match, which makes it the most
+// likely place in the stream for a secret to surface.
 func (a *EmitterSink) AssertionResult(e runner.AssertionEvent) {
+	sensitive, allow := a.redactionSet()
+	expected, actual := RedactAssertionText(e.Type, e.Target, e.Expected, e.Actual, sensitive, allow)
 	if err := a.em.EmitAssertionResult(events.AssertionResultInput{
 		RequestID:   e.RequestID,
 		RequestSlug: e.RequestSlug,
@@ -107,8 +118,8 @@ func (a *EmitterSink) AssertionResult(e runner.AssertionEvent) {
 		Type:        e.Type,
 		Target:      e.Target,
 		Operator:    e.Operator,
-		Expected:    e.Expected,
-		Actual:      e.Actual,
+		Expected:    expected,
+		Actual:      actual,
 		Passed:      e.Passed,
 	}); err != nil {
 		_, _ = fmt.Fprintf(a.errOut, "events: emit assertion.result: %v\n", err)

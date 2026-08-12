@@ -154,15 +154,30 @@ defect.
 
 ## What Phase 2 found
 
-Two more, **neither fixed**, both reproducible — write-ups in specification §11B:
+Two more, both reproducible and **both now fixed** — write-ups in
+specification §11B:
 
-1. **The object form of `extract:` does not parse.** `CLI_SPECIFICATION` §8
-   opens with it. `Extract` is `map[string]string`, so it cannot. That form is
-   the only way to declare sensitivity explicitly.
-2. **Redaction covers the request but not the response.** The same sensitive
-   value is `[REDACTED]` on the way out and verbatim on the way back. 13
-   measured leaks in `harness/redaction-known-leaks.txt`. This is the
-   security-relevant one: an API that echoes a token puts it in a CI log.
+1. **The object form of `extract:` did not parse.** `CLI_SPECIFICATION` §8 opens
+   with it. `Extract` was `map[string]string`, so it could not. That form is the
+   only way to declare sensitivity explicitly, and the name of an extracted field
+   is whatever the API under test calls it. Fixed in `internal/parser`; covered
+   by `70-redaction.yaml`, which now uses it for the two values the name
+   heuristic cannot reach.
+2. **Redaction covered the request but not the response.** The same sensitive
+   value was `[REDACTED]` on the way out and verbatim on the way back —
+   13 measured leaks. The security-relevant one: an API that echoes a token puts
+   it in a CI log. Four separate holes, fixed across `internal/runner`,
+   `internal/variable` and a new `internal/runservice/redact.go`.
+
+   `harness/redaction-known-leaks.txt` is now empty, and that is the interesting
+   part. The harness fails when a *listed* leak stops leaking, which is what
+   forced all thirteen lines out in one go instead of leaving a baseline nobody
+   prunes. Every surface is enforced.
+
+   Fixing it also exposed a hole in the harness: terminal, TAP, JUnit and JSONL
+   had looked clean only because every assertion in `70-redaction.yaml` passes,
+   so no `actual` value was ever printed to them. `harness/redaction-actual.yaml`
+   — every assertion wrong on purpose — closes that.
 
 And two affirmative results, which are worth as much: curlew's **SigV4 and
 OAuth 1.0a signatures are correct**, and **`--parallel` really is parallel** —

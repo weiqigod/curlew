@@ -50,28 +50,26 @@ requests:
     assertions:
       status: 200
 
-  - name: "a sensitive value returned by the server is not redacted"
+  - name: "a sensitive value returned by the server is redacted"
     description: |
-      gap: redaction covers values on the way OUT but not on the way BACK.
+      expected-failure: this assertion is wrong on purpose. What it checks is
+      what the failure message PRINTS.
 
-      my_secret_token matches the §6.5 name heuristic twice over, and curlew
-      does treat it as sensitive — with -v the request line reads
+      This request used to document a gap: redaction covered values on the way
+      out but not on the way back, so the request line read
 
         > Authorization: [REDACTED]
 
-      The same value coming back from the server is printed verbatim:
+      while the failure message printed the same value verbatim:
 
         ✗ body $.authorization equals: expected …, got Bearer SENTINELVALUE123
 
-      §6.5 says the value is replaced in terminal output, JSON, TAP, JUnit,
-      HTML, Markdown, event streams and JSONL logs. It does not restrict that
-      to request-side occurrences, and an API that echoes a token — or a
-      Set-Cookie, or a redirect carrying a token in its query — puts the secret
-      straight into a CI log.
+      It is fixed, and the request stays here inverted — the assertion still
+      fails, but now the actual value must come back redacted. A gap that closes
+      leaves behind the test that proves it stayed closed.
 
-      Measured surfaces are recorded in testapi/harness/redaction-known-leaks.txt.
-      This request is the minimal reproduction: the assertion fails on purpose
-      so the `actual` value is printed.
+      Full surface coverage is in testapi/harness/redaction.sh; this is the
+      minimal reproduction, kept because it is the one a developer can read.
     request:
       method: GET
       url: "{{mud}}/leak/header-echo"

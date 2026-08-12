@@ -339,6 +339,18 @@ type VarSources struct {
 	// stream in cmd/curlew; no internal package imports output/events.
 	OnEvent EventSink
 
+	// RuntimeSensitive is the set that receives values discovered during the
+	// run — dynamic-function credentials, and extracted values whose names are
+	// sensitive. When nil the runner allocates its own and returns it on
+	// Summary.RuntimeSensitive.
+	//
+	// A caller passes its own set when something is already reading it *during*
+	// the run: the --events sink redacts each request.end as it is emitted, so
+	// a token extracted at request 1 must be known before request 1's own
+	// response body reaches the stream. A set handed back at the end is too
+	// late for that.
+	RuntimeSensitive *variable.SensitiveSet
+
 	// Selection is the list of main request names passed via --only. When
 	// non-empty, the runner filters col.Requests.Items to items whose Name
 	// matches exactly (case-sensitive). Setup and teardown are never filtered.
@@ -532,7 +544,10 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 	// credential-bearing argument (e.g. the key of $hmacSha256) resolves from
 	// a sensitive source. The set is exposed on the summary so cmd/curlew can
 	// merge it into the post-run redaction set.
-	runtimeSensitive := variable.NewSensitiveSet()
+	runtimeSensitive := vars.RuntimeSensitive
+	if runtimeSensitive == nil {
+		runtimeSensitive = variable.NewSensitiveSet()
+	}
 	scope = scope.WithRuntimeSensitive(runtimeSensitive)
 
 	// Build the shared global limiter and wrap exec so every HTTP dispatch
@@ -2297,6 +2312,10 @@ func executePhase(
 				results = append(results, rr)
 				continue
 			}
+			// Register the sensitive ones before any event carrying them is
+			// emitted, so the response body that produced the token is
+			// redacted too — not just later requests that use it.
+			variable.MarkExtractedSensitive(scope.RuntimeSensitiveSet(), extResult.Variables, item.ExtractSensitive)
 			for k, v := range extResult.Variables {
 				scope.Set(k, v)
 			}
@@ -2670,6 +2689,7 @@ func executeDataDriven(
 				results = append(results, rr)
 				continue
 			}
+			variable.MarkExtractedSensitive(scope.RuntimeSensitiveSet(), extResult.Variables, item.ExtractSensitive)
 			for k, v := range extResult.Variables {
 				accumulated[k] = append(accumulated[k], v)
 			}
@@ -2891,6 +2911,7 @@ func executeDataDrivenParallel(
 			if extErr != nil {
 				ir.Err = extErr
 			} else {
+				variable.MarkExtractedSensitive(scope.RuntimeSensitiveSet(), extResult.Variables, item.ExtractSensitive)
 				ir.Extracted = extResult.Variables
 			}
 		}
