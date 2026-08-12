@@ -1,12 +1,12 @@
-# Gap collections
+# Expected-failure collections
 
-Requests in this directory **are expected to fail** against curlew as it stands.
-Each one documents a defect or a missing capability found by running the dogfood
-suite against mudflat.
+Requests in this directory **are expected to fail**, and a failure here is the
+correct outcome: mudflat sends something no client can succeed against. What
+each one actually checks is whether the resulting error is *legible* — does it
+name the cause, and is it classified so retry rules treat it correctly?
 
-They are kept as executable requests rather than as prose in a backlog because a
-prose entry cannot tell you when it stops being true. A gap that closes should
-close visibly.
+They are kept as executable requests rather than as prose because a prose entry
+cannot tell you when it stops being true.
 
 ## Status in Phase 1
 
@@ -21,27 +21,27 @@ mudflat serve &
 curlew run 'testapi/gaps/*.yaml' --env local --var run=manual
 ```
 
-Every request in `curlew-defects.yaml` should fail. If one passes, the defect it
-describes has been fixed: move the request into the matching collection under
-`testapi/collections/` and delete the entry here.
+Every request in `expected-failures.yaml` should fail. If one passes, the server
+stopped being broken in the way the request assumed — check mudflat before
+assuming curlew changed.
 
 ## Why they still count for the parity test
 
 `testapi/parity_test.go` scans this directory as well as `collections/`. An
-endpoint exercised only by a gap request is still doing its job — it is the
-curlew side of the exchange that is not — so it does not count as an orphan
-under specification §16.
+endpoint whose only job is to break a client cannot appear in a passing
+collection, so without this it would look like an orphan under specification
+§16.
 
-## The three findings from the first run
+## History: the three defects the first run found
 
-Full detail lives in the request descriptions in `curlew-defects.yaml`. In short:
+All three are **fixed**. The requests that reproduced them now live in the
+passing collections, which is where a closed gap belongs:
 
-| # | Defect | Where |
-|---|---|---|
-| 1 | Assertion expected values are never interpolated: `equals: "{{var}}"` compares against the literal template | `internal/assertion`, all operators |
-| 2 | Header `exists: false` is not honoured, so header *absence* cannot be asserted at all | `internal/assertion` header path |
-| 3 | A body that fails to decode is classified as a **network error**, so `retry_on.network_errors` retries something that can never succeed | `internal/httpexec` error classification |
+| # | Defect | Fixed in | Now covered by |
+|---|---|---|---|
+| 1 | Assertion expected values were never interpolated | `internal/requtil` | `10-assertions.yaml`, `20-extraction.yaml` |
+| 2 | Header `exists: false` was not honoured | `internal/assertion` | `10-assertions.yaml` |
+| 3 | Body-read failures were mislabelled and misclassified | `internal/httpexec` | this directory, plus `internal/httpexec` tests |
 
-Findings 1 and 2 are both cases where `docs/CLI_SPECIFICATION.md` documents
-behaviour the binary does not have — §7.2 states plainly that header `exists`
-takes "Presence (`true`) or absence (`false`)".
+Defect 3 is the one that keeps an entry here: a lying Content-Encoding can never
+produce a passing request, so only an expected-failure request can exercise it.

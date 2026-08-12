@@ -875,12 +875,16 @@ perfectly correct; nothing has ever checked.
 
 The four gaps above were predicted from reading the source. These three were
 not: they came out of the first run of the dogfood suite, which is the return on
-building it. All three are reproducible, all three are held as executable
-expected-to-fail requests in `testapi/gaps/curlew-defects.yaml`, and none is
-fixed.
+building it.
 
-Two of them are places where `docs/CLI_SPECIFICATION.md` documents behaviour the
-binary does not have — the more interesting category, because a specification
+**All three are now fixed.** The requests that reproduced them have moved into
+the passing collections, which is where a closed gap belongs — §11A.1 and §11A.2
+are asserted by `10-assertions.yaml` and `20-extraction.yaml`, and §11A.3 keeps
+an entry in `testapi/gaps/expected-failures.yaml` because a lying
+Content-Encoding can never produce a passing request.
+
+Two of them were places where `docs/CLI_SPECIFICATION.md` documented behaviour
+the binary did not have — the more interesting category, because a specification
 that is wrong about the shipped tool is worse than one that is silent.
 
 ### 11A.1 Assertion expected values are never interpolated
@@ -907,6 +911,12 @@ silently compares against a template string. The failure reads as a server
 problem.
 **Endpoints:** any; `/content-type/{variant}` and the resource family reproduce
 it in two lines.
+**Fixed.** `requtil.ToHeaderInputs` and `ToBodyInputs` now take the scope and
+interpolate. Body values go through `InterpolateBody`, which walks strings
+wherever they appear — including inside the map an operator like `in_range`
+takes — and leaves every other type alone, so an expected integer is never
+routed through a string round trip. An unresolvable reference is an error, the
+same as at every other interpolation site.
 
 ### 11A.2 Header absence cannot be asserted
 
@@ -922,6 +932,11 @@ capability exists on one path and is missing on the other.
 is a security-relevant assertion, and the redaction work in family O will want
 it.
 **Endpoint:** `/content-type/plain`.
+**Fixed.** `exists` now reads its boolean on both the header and the body path,
+so `exists: false` and `not_exists: true` are two spellings of one intent
+instead of disagreeing. A value that is not a recognisable boolean keeps the
+historical meaning — assert presence — so no collection that was passing can
+start failing on a value nobody intended as a boolean.
 
 ### 11A.3 A body that fails to decode is reported as a network error
 
@@ -938,7 +953,26 @@ that can never decode, spending every attempt before failing with the same
 error. A network error may succeed on retry; a lying content-encoding header
 will not.
 
-**Impact.** Wasted attempts, and a misleading error class in the events stream.
+**Impact.** A misleading error class in the events stream — and, once measured,
+something worse in the other direction.
+
+**Correction to the original finding.** The first write-up of this said curlew
+retried the undecodable response and burned every attempt. It does not, and the
+reason it does not is a second defect: the body-read path returned a plain
+wrapped sentinel, not a `*errors.NetworkError`, and `ClassifyForRetry` keys on
+the latter. So *nothing* read off a response body was ever classified for retry.
+A connection that dies mid-body — a genuine network failure that a retry may
+well fix — did not trigger `retry_on.network_errors` either.
+
+The label was wrong in one direction and the classification in the other.
+
+**Fixed.** `httpexec.classifyBodyError` splits the two cases. A decode failure
+(`gzip.ErrHeader`, `gzip.ErrChecksum`, `flate.CorruptInputError`) returns the
+new `ErrDecode` sentinel with a message naming the header responsible, and no
+retry rule matches it. Everything else is classified as a `*errors.NetworkError`
+so `retry_on.network_errors` fires, which it never did before.
+`io.ErrUnexpectedEOF` is deliberately on the network side: a compressed stream
+that stops early almost always means the connection died.
 **Endpoint:** `/encoding/lying/{enc}`.
 
 ---

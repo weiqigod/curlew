@@ -145,7 +145,20 @@ func evalHeaderAssertion(a HeaderInput, headers http.Header) Result {
 		return id.with(a.Value, actual, actual == a.Value)
 
 	case "exists":
-		if headers == nil || len(headers.Values(a.Name)) == 0 {
+		// `exists` takes a boolean: true asserts presence, false asserts
+		// absence (CLI_SPECIFICATION §7.2). The false branch was missing, so
+		// there was no way to say "this response must not carry Set-Cookie" —
+		// an absent header reported "expected exists, got header not present",
+		// which is the condition the assertion had asked for.
+		present := headers != nil && len(headers.Values(a.Name)) > 0
+
+		if !wantPresent(a.Value) {
+			if present {
+				return id.with("absent", fmt.Sprintf("present: %s", headers.Get(a.Name)), false)
+			}
+			return id.with("absent", "absent", true)
+		}
+		if !present {
 			return id.with("exists", "header not present", false)
 		}
 		return id.with("exists", "exists", true)
@@ -320,6 +333,15 @@ func evalBodyAssertion(a BodyInput, doc any) Result {
 
 	switch a.Operator {
 	case "exists":
+		// Same boolean handling as the header path. not_exists already covered
+		// absence, but exists: false silently meant exists: true, so the two
+		// spellings of the same intent disagreed.
+		if !wantPresent(a.Value) {
+			if notFound {
+				return id.with("absent", "absent", true)
+			}
+			return id.with("absent", fmt.Sprintf("found: %v", val), false)
+		}
 		if notFound {
 			return id.with("exists", "no match at path", false)
 		}
@@ -645,4 +667,27 @@ func formatCodes(codes []int) string {
 		parts[i] = fmt.Sprintf("%d", c)
 	}
 	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+// wantPresent interprets the value of an `exists` assertion.
+//
+// true asserts presence, false asserts absence (CLI_SPECIFICATION §7.2). The
+// value arrives as a bool from the body path and as a string from the header
+// path, which stringifies it on the way through requtil, so both are accepted.
+//
+// Anything unrecognisable keeps the historical meaning — assert presence —
+// rather than becoming a new error class, so a collection that was passing
+// before cannot start failing on a value nobody intended as a boolean.
+func wantPresent(value any) bool {
+	switch v := value.(type) {
+	case nil:
+		return true
+	case bool:
+		return v
+	case string:
+		if parsed, err := strconv.ParseBool(v); err == nil {
+			return parsed
+		}
+	}
+	return true
 }

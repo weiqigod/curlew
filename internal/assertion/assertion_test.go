@@ -1,7 +1,9 @@
 package assertion
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -1149,5 +1151,114 @@ func TestEvaluate_schema_nil_no_assertions_returns_nil(t *testing.T) {
 	got := Evaluate(EvalInput{ActualStatus: 200})
 	if got != nil {
 		t.Errorf("expected nil, got %+v", got)
+	}
+}
+
+// --- Header exists: false must assert absence (dogfood defect 2) ---
+//
+// CLI_SPECIFICATION §7.2 documents the header `exists` operator as "Presence
+// (`true`) or absence (`false`)". Passing false behaved identically to passing
+// true, so an absent header reported "expected exists, got header not present"
+// — the very condition the assertion asked for. There was no way to express
+// "this response must not carry Set-Cookie".
+
+func TestCheckHeaders_ExistsFalsePassesWhenHeaderAbsent(t *testing.T) {
+	headers := http.Header{"Content-Type": []string{"application/json"}}
+
+	results := CheckHeaders([]HeaderInput{
+		{Name: "X-Not-Sent", Operator: "exists", Value: "false"},
+	}, headers)
+
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+	if !results[0].Passed {
+		t.Errorf("exists:false against an absent header failed: expected %q, actual %q",
+			results[0].Expected, results[0].Actual)
+	}
+}
+
+func TestCheckHeaders_ExistsFalseFailsWhenHeaderPresent(t *testing.T) {
+	headers := http.Header{"Set-Cookie": []string{"session=abc"}}
+
+	results := CheckHeaders([]HeaderInput{
+		{Name: "Set-Cookie", Operator: "exists", Value: "false"},
+	}, headers)
+
+	if results[0].Passed {
+		t.Error("exists:false against a present header passed; it must fail")
+	}
+	if !strings.Contains(fmt.Sprint(results[0].Expected), "absent") {
+		t.Errorf("Expected = %q, want it to say the header should be absent", results[0].Expected)
+	}
+	if !strings.Contains(fmt.Sprint(results[0].Actual), "session=abc") {
+		t.Errorf("Actual = %q, want the offending value quoted", results[0].Actual)
+	}
+}
+
+func TestCheckHeaders_ExistsTrueIsUnchanged(t *testing.T) {
+	headers := http.Header{"Content-Type": []string{"application/json"}}
+
+	present := CheckHeaders([]HeaderInput{
+		{Name: "Content-Type", Operator: "exists", Value: "true"},
+	}, headers)
+	if !present[0].Passed {
+		t.Error("exists:true against a present header must pass")
+	}
+
+	absent := CheckHeaders([]HeaderInput{
+		{Name: "X-Not-Sent", Operator: "exists", Value: "true"},
+	}, headers)
+	if absent[0].Passed {
+		t.Error("exists:true against an absent header must fail")
+	}
+}
+
+func TestCheckHeaders_ExistsWithUnparseableValueExpectsPresence(t *testing.T) {
+	// Backwards compatible: anything that is not a recognisable boolean keeps
+	// the historical meaning rather than becoming a new error class.
+	headers := http.Header{"Content-Type": []string{"application/json"}}
+
+	results := CheckHeaders([]HeaderInput{
+		{Name: "Content-Type", Operator: "exists", Value: "yes please"},
+	}, headers)
+	if !results[0].Passed {
+		t.Error("a non-boolean exists value should still assert presence")
+	}
+}
+
+func TestCheckBody_ExistsFalseAssertsAbsence(t *testing.T) {
+	// The body path has the same shape as the header path and had the same
+	// hole. not_exists already worked; exists:false silently meant exists:true.
+	body := []byte(`{"present":1}`)
+
+	absent := CheckBody([]BodyInput{
+		{Path: "$.missing", Operator: "exists", Value: false},
+	}, body)
+	if !absent[0].Passed {
+		t.Errorf("exists:false on a missing path failed: expected %q, actual %q",
+			absent[0].Expected, absent[0].Actual)
+	}
+
+	present := CheckBody([]BodyInput{
+		{Path: "$.present", Operator: "exists", Value: false},
+	}, body)
+	if present[0].Passed {
+		t.Error("exists:false on a present path passed; it must fail")
+	}
+}
+
+func TestCheckBody_ExistsTrueIsUnchanged(t *testing.T) {
+	body := []byte(`{"present":1}`)
+
+	if r := CheckBody([]BodyInput{
+		{Path: "$.present", Operator: "exists", Value: true},
+	}, body); !r[0].Passed {
+		t.Error("exists:true on a present path must pass")
+	}
+	if r := CheckBody([]BodyInput{
+		{Path: "$.missing", Operator: "exists", Value: true},
+	}, body); r[0].Passed {
+		t.Error("exists:true on a missing path must fail")
 	}
 }

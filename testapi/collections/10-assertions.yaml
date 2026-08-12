@@ -8,6 +8,9 @@ description: |
   Exercises the 13 body operators, the 3 header operators, status, timing and
   CEL, against a server that emits genuinely awkward documents.
 
+variables:
+  expected_variant: "vendor"
+
 requests:
   - name: status any-of form
     request:
@@ -116,12 +119,16 @@ requests:
       headers:
         Content-Type: { equals: "application/vnd.api+json" }
         Content-Length: { matches: "^[0-9]+$" }
-        # Asserting a header is ABSENT would go here, but `exists: false` is not
-        # honoured — see testapi/gaps/curlew-defects.yaml.
+        # exists: false asserts ABSENCE. It used to behave identically to
+        # exists: true, so "this response must not carry X" was unexpressible.
+        X-Definitely-Not-Sent: { exists: false }
+        Set-Cookie: { exists: false }
       body:
         # A body parser keyed on an exact application/json match would skip a
         # vendor type and report path-not-found instead of failing loudly.
-        $.variant: { equals: "vendor" }
+        # The expected value comes from a collection variable: assertion values
+        # interpolate, which they did not until the first dogfood run found it.
+        $.variant: { equals: "{{expected_variant}}" }
 
   - name: charset-qualified json is still json
     request:
@@ -197,3 +204,15 @@ requests:
       status: 201
       body:
         $.server.endpoint: { equals: "/echo/status/{code}" }
+
+  - name: a body path can be asserted absent two ways
+    request:
+      method: GET
+      url: "{{mud}}/json/empty"
+    assertions:
+      status: 200
+      body:
+        # not_exists and exists:false are two spellings of one intent, and they
+        # disagreed until exists:false was honoured on the body path too.
+        $.nothing_here: { not_exists: true }
+        $.also_missing: { exists: false }

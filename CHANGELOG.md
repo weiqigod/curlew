@@ -26,23 +26,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   sides of its comparison from the artefacts themselves, so an endpoint nobody calls or a
   URL that hits nothing fails the build.
 
-  **What the first run found.** Three defects, reproducible against mudflat, kept as
-  executable expected-to-fail requests in `testapi/gaps/curlew-defects.yaml` rather than
-  as prose in a backlog. **None is fixed yet** — they are recorded here because finding
-  them is what the change delivers:
-
-  1. **Assertion expected values are never interpolated.** `equals: "{{var}}"` compares
-     against the literal seven-character template. The same variable interpolates
-     correctly in a URL, which is what makes it confusing: a request fetches exactly the
-     right resource and then fails to assert anything about it.
-  2. **Header `exists: false` is not honoured**, so header *absence* cannot be asserted
-     at all — "this response must not carry Set-Cookie" is unexpressible.
-     `docs/CLI_SPECIFICATION.md` §7.2 documents the operator as "Presence (`true`) or
-     absence (`false`)", and the body path has a working `not_exists`.
-  3. **A body that fails to decode is classified as a network error.** A lying
-     `Content-Encoding: gzip` over plain bytes reports `network error: reading response
-     body`, so `retry_on.network_errors` retries a response that can never decode,
-     burning every attempt before failing with the same message.
+  **What the first run found.** Three defects, all now fixed — see the Fixed
+  section below. The requests that reproduced them have moved into the passing
+  collections, which is where a closed gap belongs.
 
 - **A CI workflow for the Go CLI** (`.github/workflows/go.yml`). There has never been one:
   the seven existing workflows cover the .NET backend, the web dashboard, email templates
@@ -73,6 +59,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   regression names the wrong line rather than merely omitting one.
 
 ### Fixed
+- **Assertion expected values now interpolate.** `equals: "{{var}}"` compared the
+  response against the literal template text — for collection variables and for
+  values extracted earlier in the run, on both the header and body paths. The same
+  variable interpolated correctly everywhere else, so a request could resolve
+  `{{first_id}}` into its URL, fetch exactly the right resource, and then compare
+  `$.id` against the twelve characters `{{first_id}}`.
+
+  `requtil.ToHeaderInputs` and `ToBodyInputs` take the scope and interpolate.
+  Body values go through `InterpolateBody`, which walks strings wherever they
+  appear — including inside the map an operator like `in_range` takes — and
+  leaves every other type alone, so an expected integer is never routed through a
+  string round trip. An unresolvable reference is now an error, the same as at
+  every other interpolation site.
+
+- **Header `exists: false` asserts absence.** It behaved identically to
+  `exists: true`, so an absent header reported "expected exists, got header not
+  present" — the very condition the assertion had asked for — and
+  "this response must not carry `Set-Cookie`" was unexpressible. `docs/CLI_SPECIFICATION.md`
+  §7.2 has always documented the operator as "Presence (`true`) or absence
+  (`false`)".
+
+  The body path had the same hole and is fixed with it: `exists: false` and
+  `not_exists: true` are now two spellings of one intent instead of disagreeing.
+  A value that is not a recognisable boolean keeps the historical meaning —
+  assert presence — so no collection that was passing can start failing.
+
+- **Response-body failures are classified correctly.** Everything that went wrong
+  while reading a body was reported as `network error: reading response body`,
+  and none of it was classified as a `*errors.NetworkError`. The label was wrong
+  in one direction and the retry classification in the other:
+
+  - a lying `Content-Encoding` was *called* a network failure, though no retry
+    can fix it;
+  - and a genuine transport failure mid-body — a connection dying partway
+    through a response — was never classified as one, so
+    `retry_on.network_errors` silently covered only the failures that happened
+    *before* the body started.
+
+  `httpexec.classifyBodyError` now splits the two. A decode failure returns the
+  new `ErrDecode` sentinel with a message naming the header responsible, and no
+  retry rule matches it. Everything else becomes a `*errors.NetworkError`, so
+  `retry_on.network_errors` fires for a truncated body, which it never did.
+
 - **CLAUDE.md claimed `ci-local.sh` "mirrors the GitHub workflows".** It did not: no
   workflow built or tested the Go CLI, and every workflow has auto-triggers disabled
   pending Actions billing, so pushing a branch verified nothing. The quality-gate section

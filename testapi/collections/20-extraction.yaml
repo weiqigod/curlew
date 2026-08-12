@@ -41,6 +41,12 @@ requests:
         $.body.name: { equals: "first" }
         $.body.kind: { equals: "widget" }
         $.seq: { equals: 1 }
+        # The extracted id, compared against itself. This is the assertion that
+        # exposed the interpolation defect: the URL above resolved {{first_id}}
+        # and fetched exactly this resource, while the assertion compared
+        # against the literal ten characters "{{first_id}}".
+        $.id: { equals: "{{first_id}}" }
+        $.etag: { equals: "{{first_etag}}" }
 
   - name: update it
     request:

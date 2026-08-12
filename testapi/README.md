@@ -56,7 +56,7 @@ testapi/
   cmd/mudflat/       the binary
   mudflat/           the server: session store, envelope, capture, endpoints
   collections/       the dogfood suite — these pass
-  gaps/              requests that are EXPECTED TO FAIL (see gaps/README.md)
+  gaps/              requests that MUST fail — the server is deliberately broken
   environments/      local.yaml, pointing at 127.0.0.1:8080
   parity_test.go     §16: every endpoint is exercised, every URL resolves
 ```
@@ -93,17 +93,30 @@ specification §8.
 
 ## What it found on the first run
 
-Three defects, all reproducible, all documented in
-[`gaps/curlew-defects.yaml`](gaps/curlew-defects.yaml):
+Three defects, all reproducible, **all now fixed**. The requests that reproduced
+them live in the passing collections; the write-ups are in specification §11A.
 
-1. **Assertion expected values are never interpolated.** `equals: "{{var}}"`
-   compares against the literal template. The same variable interpolates
-   correctly in a URL, which is what makes it confusing in practice.
-2. **Header `exists: false` is not honoured**, so header *absence* cannot be
-   asserted — although `docs/CLI_SPECIFICATION.md` §7.2 documents it and the
-   body path has a working `not_exists`.
-3. **A body that fails to decode is classified as a network error**, so
-   `retry_on.network_errors` retries a response that can never succeed.
+1. **Assertion expected values were never interpolated.** `equals: "{{var}}"`
+   compared against the literal template. The same variable interpolated
+   correctly in a URL, which is what made it confusing in practice — a request
+   could fetch exactly the right resource and then fail to assert anything about
+   it. Fixed in `internal/requtil`; covered by `10-assertions.yaml` and
+   `20-extraction.yaml`.
+2. **Header `exists: false` was not honoured**, so header *absence* could not be
+   asserted at all, although `docs/CLI_SPECIFICATION.md` §7.2 documents it and
+   the body path had a working `not_exists`. Fixed on both paths in
+   `internal/assertion`; covered by `10-assertions.yaml`.
+3. **Body-read failures were labelled and classified wrongly, in opposite
+   directions.** A lying `Content-Encoding` was called a network error though no
+   retry can fix it — *and* nothing read off a body was classified as a
+   `*errors.NetworkError` at all, so a connection dying mid-response never
+   triggered `retry_on.network_errors` either. Fixed in `internal/httpexec`;
+   covered by `gaps/expected-failures.yaml` and the package's own tests.
+
+The third is the one worth dwelling on: measuring it contradicted the first
+write-up, which had assumed from the "network error" label that the response was
+being retried. It was not, and finding out why turned up the second half of the
+defect.
 
 ## Safety
 

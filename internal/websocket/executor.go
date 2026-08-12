@@ -268,7 +268,10 @@ func runExpect(ctx context.Context, conn Conn, buf *messageBuffer, step parser.W
 	}
 	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
 
-	candidates := buildExpectCandidates(step)
+	candidates, candErr := buildExpectCandidates(scope, step)
+	if candErr != nil {
+		return StepResult{Err: fmt.Errorf("%w: %w", ErrExpectAssertionVars, candErr)}
+	}
 	matchFn := func(data []byte) (*assertion.Results, bool) { return evalCandidates(candidates, data) }
 
 	if ctx.Err() != nil {
@@ -369,15 +372,27 @@ func runExpect(ctx context.Context, conn Conn, buf *messageBuffer, step parser.W
 // buildExpectCandidates returns the list of assertion input sets to try for a
 // given expect step. For a plain "message:" step there is exactly one set; for
 // "any_of:" there is one set per alternative.
-func buildExpectCandidates(step parser.WebSocketStep) [][]assertion.BodyInput {
+//
+// Takes the scope because expected values interpolate like every other value in
+// a collection: a step asserting against a token extracted by an earlier step
+// would otherwise compare against the literal "{{token}}".
+func buildExpectCandidates(scope *variable.Scope, step parser.WebSocketStep) ([][]assertion.BodyInput, error) {
 	if len(step.AnyOf) > 0 {
 		out := make([][]assertion.BodyInput, 0, len(step.AnyOf))
-		for _, alt := range step.AnyOf {
-			out = append(out, requtil.ToBodyInputs(alt.Items))
+		for i, alt := range step.AnyOf {
+			inputs, err := requtil.ToBodyInputs(scope, alt.Items)
+			if err != nil {
+				return nil, fmt.Errorf("any_of[%d]: %w", i, err)
+			}
+			out = append(out, inputs)
 		}
-		return out
+		return out, nil
 	}
-	return [][]assertion.BodyInput{requtil.ToBodyInputs(step.ExpectAssertions.Items)}
+	inputs, err := requtil.ToBodyInputs(scope, step.ExpectAssertions.Items)
+	if err != nil {
+		return nil, err
+	}
+	return [][]assertion.BodyInput{inputs}, nil
 }
 
 // evalCandidates runs each candidate assertion set against data in order.

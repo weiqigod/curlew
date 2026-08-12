@@ -2159,12 +2159,17 @@ func executePhase(
 			celCtx = buildCELCtxForItem(item, col, reqScope, celResp, prevResponse, vars)
 		}
 
+		headerInputs, bodyInputs, assertErr := requtil.ToAssertionInputs(reqScope, item.Assertions)
+		if assertErr != nil {
+			return results, requiredFailed, fmt.Errorf("request %q: %w", item.Name, assertErr)
+		}
+
 		ar := assertion.Evaluate(assertion.EvalInput{
 			StatusCodes:      item.Assertions.Status.Codes,
 			ActualStatus:     result.StatusCode,
-			HeaderAssertions: requtil.ToHeaderInputs(item.Assertions.Headers.Items),
+			HeaderAssertions: headerInputs,
 			Headers:          result.Headers,
-			BodyAssertions:   requtil.ToBodyInputs(item.Assertions.Body.Items),
+			BodyAssertions:   bodyInputs,
 			Body:             result.Body,
 			MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 			ActualDuration:   result.Duration,
@@ -2606,12 +2611,17 @@ func executeDataDriven(
 			ddCelCtx = buildCELCtxForItem(item, col, reqScope, ddCelResp, nil, vars)
 		}
 
+		headerInputs, bodyInputs, assertErr := requtil.ToAssertionInputs(reqScope, item.Assertions)
+		if assertErr != nil {
+			return results, requiredFailed, fmt.Errorf("request %q [%d/%d]: %w", item.Name, idx+1, total, assertErr)
+		}
+
 		ar := assertion.Evaluate(assertion.EvalInput{
 			StatusCodes:      item.Assertions.Status.Codes,
 			ActualStatus:     result.StatusCode,
-			HeaderAssertions: requtil.ToHeaderInputs(item.Assertions.Headers.Items),
+			HeaderAssertions: headerInputs,
 			Headers:          result.Headers,
-			BodyAssertions:   requtil.ToBodyInputs(item.Assertions.Body.Items),
+			BodyAssertions:   bodyInputs,
 			Body:             result.Body,
 			MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 			ActualDuration:   result.Duration,
@@ -2830,12 +2840,17 @@ func executeDataDrivenParallel(
 			pddCelCtx = buildCELCtxForItem(item, col, reqScope, pddCelResp, nil, vars)
 		}
 
+		headerInputs, bodyInputs, assertErr := requtil.ToAssertionInputs(reqScope, item.Assertions)
+		if assertErr != nil {
+			return nil, fmt.Errorf("request %q [%d/%d]: %w", item.Name, idx+1, total, assertErr)
+		}
+
 		ar := assertion.Evaluate(assertion.EvalInput{
 			StatusCodes:      item.Assertions.Status.Codes,
 			ActualStatus:     result.StatusCode,
-			HeaderAssertions: requtil.ToHeaderInputs(item.Assertions.Headers.Items),
+			HeaderAssertions: headerInputs,
 			Headers:          result.Headers,
-			BodyAssertions:   requtil.ToBodyInputs(item.Assertions.Body.Items),
+			BodyAssertions:   bodyInputs,
 			Body:             result.Body,
 			MaxDurationMs:    item.Assertions.Timing.MaxDurationMs,
 			ActualDuration:   result.Duration,
