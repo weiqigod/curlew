@@ -1,0 +1,9 @@
+name: Extract Object Without Path
+requests:
+  - name: Login
+    request:
+      method: POST
+      url: "https://example.com/login"
+    extract:
+      api_key:
+        sensitive: true

@@ -1,0 +1,13 @@
+name: Extract Object Form
+requests:
+  - name: Login
+    request:
+      method: POST
+      url: "https://example.com/login"
+    extract:
+      user_id: "$.id"
+      api_key:
+        path: "$.key"
+        sensitive: true
+      account_number:
+        path: "$.account"

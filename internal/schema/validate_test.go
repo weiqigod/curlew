@@ -124,6 +124,52 @@ func TestSchema_rejects_sample_missing_required_name(t *testing.T) {
 	}
 }
 
+// TestSchema_accepts_both_extract_forms holds the schema to CLI_SPECIFICATION
+// §8, which documents extract: in two forms. A schema that accepts only the
+// string form makes an editor flag a valid collection — the same class of drift
+// M21-001 closed.
+func TestSchema_accepts_both_extract_forms(t *testing.T) {
+	doc := map[string]any{
+		"name": "extract forms",
+		"requests": []any{
+			map[string]any{
+				"name":    "login",
+				"request": map[string]any{"method": "GET", "url": "https://example.com"},
+				"extract": map[string]any{
+					"user_id": "$.id",
+					"api_key": map[string]any{"path": "$.key", "sensitive": true},
+				},
+			},
+		},
+	}
+	sch := compileCollectionSchema(t)
+	if err := sch.Validate(doc); err != nil {
+		t.Fatalf("validate both extract forms: %v", err)
+	}
+}
+
+// TestSchema_rejects_extract_object_without_path is the negative control for
+// the above: the object form exists to carry a path, so an entry without one
+// must not validate.
+func TestSchema_rejects_extract_object_without_path(t *testing.T) {
+	doc := map[string]any{
+		"name": "extract forms",
+		"requests": []any{
+			map[string]any{
+				"name":    "login",
+				"request": map[string]any{"method": "GET", "url": "https://example.com"},
+				"extract": map[string]any{
+					"api_key": map[string]any{"sensitive": true},
+				},
+			},
+		},
+	}
+	sch := compileCollectionSchema(t)
+	if err := sch.Validate(doc); err == nil {
+		t.Fatal("validate: want error for an object-form extraction with no path, got nil")
+	}
+}
+
 // TestSchema_published_path_matches_embed is the drift guard: the file on disk
 // at schemas/collection-v1.json must be byte-identical to the embedded bytes
 // exposed by schema.CollectionSchema.

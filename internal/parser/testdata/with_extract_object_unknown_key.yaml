@@ -1,0 +1,10 @@
+name: Extract Object Unknown Key
+requests:
+  - name: Login
+    request:
+      method: POST
+      url: "https://example.com/login"
+    extract:
+      api_key:
+        path: "$.key"
+        sensitiv: true

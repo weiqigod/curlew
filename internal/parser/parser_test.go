@@ -655,6 +655,71 @@ func TestParseFile_extract_multiple(t *testing.T) {
 	}
 }
 
+// CLI_SPECIFICATION §8 opens with both forms side by side:
+//
+//	extract:
+//	  user_id: "$.id"
+//	  api_key:
+//	    path: "$.key"
+//	    sensitive: true
+//
+// The object form is the only way to declare an extracted value sensitive
+// explicitly. Without it, sensitivity depends entirely on the §6.5 name
+// heuristic — and the name comes from whatever the API under test calls the
+// field, which is not something a collection author controls.
+func TestParseFile_extract_object_form(t *testing.T) {
+	col, err := ParseFile("testdata/with_extract_object_form.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	item := col.Requests.Items[0]
+
+	// Both forms land in the same map: name -> JSONPath.
+	want := map[string]string{
+		"user_id":        "$.id",
+		"api_key":        "$.key",
+		"account_number": "$.account",
+	}
+	if len(item.Extract) != len(want) {
+		t.Fatalf("got %d extract entries, want %d: %v", len(item.Extract), len(want), item.Extract)
+	}
+	for name, path := range want {
+		if item.Extract[name] != path {
+			t.Errorf("Extract[%q] = %q, want %q", name, item.Extract[name], path)
+		}
+	}
+
+	// Only the entry that said so is explicitly sensitive. account_number
+	// matches no name heuristic and did not declare itself, so it must not be
+	// swept in by association.
+	if got := item.ExtractSensitive; len(got) != 1 || got[0] != "api_key" {
+		t.Errorf("ExtractSensitive = %v, want [api_key]", got)
+	}
+}
+
+func TestParseFile_extract_object_form_requires_path(t *testing.T) {
+	_, err := ParseFile("testdata/with_extract_object_no_path.yaml")
+	if err == nil {
+		t.Fatal("expected an error for an object-form extraction with no path")
+	}
+	if !strings.Contains(err.Error(), "path") {
+		t.Errorf("error = %q, want it to name the missing path key", err)
+	}
+}
+
+func TestParseFile_extract_object_form_rejects_unknown_key(t *testing.T) {
+	// A misspelled `sensitiv: true` that parsed silently would leave the value
+	// unredacted while the author believed otherwise, which is the whole point
+	// of the field.
+	_, err := ParseFile("testdata/with_extract_object_unknown_key.yaml")
+	if err == nil {
+		t.Fatal("expected an error for an unknown key in an object-form extraction")
+	}
+	if !strings.Contains(err.Error(), "sensitiv") {
+		t.Errorf("error = %q, want it to name the unknown key", err)
+	}
+}
+
 func TestParseFile_no_extract_remains_nil(t *testing.T) {
 	col, err := ParseFile("testdata/minimal.yaml")
 	if err != nil {
