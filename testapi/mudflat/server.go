@@ -123,6 +123,7 @@ func New(opts Options) *Server {
 	s.registerResources()
 	s.registerVerify()
 	s.registerConcurrency()
+	s.registerLeak()
 
 	s.http = &http.Server{
 		Handler:           s.mux,

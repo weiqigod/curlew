@@ -3,8 +3,8 @@
 ## A Deliberately Difficult HTTP Server for Exercising Curlew
 
 **Version:** 0.2
-**Status:** Phase 1 implemented (`testapi/`); Phases 2–3 specified, not built
-**Date:** 2026-08-11
+**Status:** Phases 1 and 2 implemented (`testapi/`); Phase 3 specified, not built
+**Date:** 2026-08-12
 **Applies to:** curlew 0.1.0-dev and later
 
 > *A curlew feeds by probing soft ground for what it cannot see. This is the
@@ -977,6 +977,67 @@ that stops early almost always means the connection died.
 
 ---
 
+## 11B. What Phase 2 Found
+
+Two more, both the same shape as §11A: the specification documents behaviour the
+binary does not have.
+
+### 11B.1 The object form of `extract:` does not parse
+
+§8 of `docs/CLI_SPECIFICATION.md` opens with this example:
+
+```yaml
+extract:
+  user_id: "$.id"
+  api_key:
+    path: "$.key"
+    sensitive: true
+```
+
+The parser rejects it — `cannot unmarshal !!map into string` — because
+`parser.RequestItem` declares `Extract` as `map[string]string`. Only the string
+form exists.
+
+**Impact.** The object form is the only way to declare sensitivity explicitly.
+Without it a value is sensitive only if its *name* happens to match the §6.5
+heuristic, which is not something a collection author can always arrange: the
+field is named by the API being tested.
+**Reproduction:** `testapi/gaps/extract-object-form.parse-fail.yaml`.
+
+### 11B.2 Redaction covers the request but not the response
+
+A value curlew has marked sensitive is replaced where curlew *sent* it and
+printed verbatim where the server *returned* it:
+
+```
+> Authorization: [REDACTED]
+✗ body $.authorization equals: expected …, got Bearer SENTINELVALUE123
+```
+
+Both lines are from the same run, and `my_secret_token` matches the §6.5 name
+heuristic twice over.
+
+§6.5 says the value is replaced in terminal output, JSON, TAP, JUnit, HTML,
+Markdown, event streams and JSONL logs. It does not restrict that to
+request-side occurrences.
+
+**Impact.** An API that echoes a token, a `Set-Cookie` carrying a session, or a
+redirect with a token in its query puts the secret straight into a CI log. This
+is the security-relevant one.
+
+**Measured surfaces.** `testapi/harness/redaction-known-leaks.txt` records 13
+concrete leaks across the JSON, Markdown and event-stream outputs. The harness
+gates on that baseline: a leak outside it fails, and a baseline entry that stops
+leaking *also* fails, so a fix forces the line out rather than leaving a
+permanent excuse.
+
+The other surfaces are absent from the baseline because the assertions in
+`70-redaction.yaml` all pass, so no `actual` value is printed — not because they
+are safe. The minimal reproduction in `testapi/gaps/expected-failures.yaml`
+leaks in the terminal too.
+
+---
+
 ## 12. The Dogfood Suite
 
 The suite is the deliverable. Mudflat without it is a server nobody calls.
@@ -1263,13 +1324,35 @@ implemented, because the families they would gate do not exist yet; a flag that
 accepts a value and does nothing is exactly the kind of false clear this
 specification exists to avoid.
 
-### Phase 2 — Adversarial and verification
+### Phase 2 — Adversarial and verification ✅ implemented
 
 Raw layer, golden transcripts, `curl` cross-check, signature verification,
 concurrency barrier, rate limiting, redaction harness, gap harness.
 
 **Observable:** `internal/signer` is verified for the first time; `--parallel` is
 proven parallel rather than inferred from timing.
+
+**Delivered.** 16 raw endpoints on a second listener that uses no HTTP library,
+15 golden transcripts hand-reviewed against RFC 9110/9112, and three harnesses
+in `ci-local.sh`. 74 dogfood assertions.
+
+Both observables came out affirmative:
+
+- curlew's SigV4 and OAuth 1.0a signatures are **correct**. mudflat's verifier
+  is written from the AWS documentation and RFC 5849 rather than from
+  `internal/signer`, and its SigV4 chain is pinned against AWS's published
+  `get-vanilla` vector, so this is evidence rather than two copies of one
+  misreading agreeing.
+- `--parallel` is **genuinely concurrent**. With the flag, four requests
+  rendezvous and the run reports "Waves: 1, Max parallelism: 4"; without it the
+  barrier times out reporting `arrived: 1`.
+
+The `curl` cross-check confirms the malformations are real rather than Go being
+strict: curl independently rejects the duplicate `Content-Length`, the non-hex
+chunk size, the missing status line, the NUL in a field value and the header
+line without a colon — and accepts the well-formed control case.
+
+Two further defects surfaced (§11B).
 
 ### Phase 3 — Protocols and matrix
 

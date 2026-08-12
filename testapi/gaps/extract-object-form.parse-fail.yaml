@@ -1,0 +1,46 @@
+# A collection that FAILS TO PARSE. Exit 3, no request ever runs.
+#
+# It lives in its own file because a parse error takes the whole collection with
+# it: put this beside a runtime-failure request and that request never executes,
+# and the harness reports zero checks as a clean pass — which is exactly the
+# vacuous success this directory exists to prevent.
+#
+# testapi/harness/gaps.sh treats every *.parse-fail.yaml file as "must not
+# parse" and asserts the exit code rather than per-request outcomes.
+name: "EXPECTED PARSE FAILURE: the object form of extract:"
+description: |
+  CLI_SPECIFICATION §8 documents the object form in its very first code block.
+  The parser does not implement it.
+
+requests:
+  - name: "the object form of extract: does not parse"
+    description: |
+      gap: CLI_SPECIFICATION §8 documents this in its very first code block —
+
+        extract:
+          api_key:
+            path: "$.key"
+            sensitive: true
+
+      — and the parser rejects it:
+
+        invalid YAML syntax: cannot unmarshal !!map into string
+
+      parser.RequestItem declares Extract as map[string]string, so only the
+      string form exists. The object form is the only way to declare
+      sensitivity explicitly; without it a value is sensitive only if its NAME
+      happens to match the §6.5 heuristic, which is not something a collection
+      author can always arrange.
+
+      Same class as the two defects the first dogfood run found: the
+      specification documents behaviour the binary does not have.
+    request:
+      method: GET
+      url: "{{mud}}/leak/nested"
+    assertions:
+      status: 200
+    extract:
+      buried_credential:
+        path: "$.account.profile.integrations.provider.credentials.api_key"
+        sensitive: true
+

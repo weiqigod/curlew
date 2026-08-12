@@ -1,0 +1,92 @@
+# Secrets, extracted where curlew will print them.
+#
+# This collection only fetches. The assertion that matters is on curlew's own
+# output — a secret redacted in the terminal but present in the HTML report has
+# still leaked — and that assertion lives in testapi/harness/redaction.sh, which
+# runs this same file in every format and greps the artefacts.
+#
+# CLI_SPECIFICATION §6.5 lists eight surfaces: terminal, JSON, TAP, JUnit, HTML,
+# Markdown, event streams and JSONL logs. Each is a separate code path.
+name: Redaction bait
+description: |
+  Extracts realistic secrets from the /leak/* family under names the
+  sensitivity heuristic should catch, then sends them back in a later request
+  so they appear on the way out as well as on the way in.
+
+requests:
+  - name: extract a bearer token
+    request:
+      method: GET
+      url: "{{mud}}/leak/token"
+    assertions:
+      status: 200
+      body:
+        $.access_token: { type: string }
+        $.token_type: { equals: "Bearer" }
+    extract:
+      # "token" matches the §6.5 name heuristic, so this should be sensitive
+      # with no explicit declaration. leaked_key declares it anyway, so the
+      # harness covers both routes to sensitivity.
+      leaked_token: "$.access_token"
+
+  - name: extract a key from six levels down
+    request:
+      method: GET
+      url: "{{mud}}/leak/nested"
+    assertions:
+      status: 200
+      body:
+        $.account.profile.integrations.provider.credentials.api_key: { type: string }
+    extract:
+      # The object form documented in CLI_SPECIFICATION §8 —
+      #   leaked_key: { path: "...", sensitive: true }
+      # — does not parse; see testapi/gaps/expected-failures.yaml. The string
+      # form below still yields a sensitive value, because "key" matches the
+      # §6.5 name heuristic, so the coverage here is unaffected.
+      leaked_key: "$.account.profile.integrations.provider.credentials.api_key"
+
+  - name: a secret arriving in a response header
+    request:
+      method: GET
+      url: "{{mud}}/leak/set-cookie"
+    assertions:
+      status: 200
+      headers:
+        Set-Cookie: { matches: "HttpOnly" }
+
+  - name: a value matching no name heuristic
+    request:
+      method: GET
+      url: "{{mud}}/leak/pan"
+    assertions:
+      status: 200
+      body:
+        $.card.brand: { equals: "visa" }
+        $.card.number: { type: string }
+
+  - name: a secret carried only in a URL
+    request:
+      method: GET
+      url: "{{mud}}/leak/in-url"
+    assertions:
+      # curlew follows redirects and offers no way not to (§11.2), so this
+      # lands on /echo with the token as a query parameter. That is the
+      # interesting outcome anyway: the secret is now in a request URL, which
+      # every output surface records, and no body ever carried it.
+      status: 200
+      body:
+        $.request.target: { contains: "access_token=" }
+
+  - name: send the extracted token back
+    request:
+      method: GET
+      url: "{{mud}}/leak/header-echo"
+      headers:
+        Authorization: "Bearer {{leaked_token}}"
+        X-Api-Key: "{{leaked_key}}"
+    assertions:
+      status: 200
+      body:
+        # The echoed values are interpolated from sensitive variables, so
+        # propagation (§6.5 rule 5) should keep them sensitive on the way back.
+        $.authorization: { type: string }

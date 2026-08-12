@@ -24,7 +24,7 @@
 ## Key Documentation
 
 - **docs/CLI_SPECIFICATION.md** — The CLI's specification: contracts, invariants, formats, exit codes (v1)
-- **docs/TESTAPI_SPECIFICATION.md** — Mudflat, the dedicated test API for dogfooding the CLI against a server curlew did not write. **Phase 1 is implemented in `testapi/`** and runs as a `ci-local.sh` gate step; Phases 2–3 are specified, not built
+- **docs/TESTAPI_SPECIFICATION.md** — Mudflat, the dedicated test API for dogfooding the CLI against a server curlew did not write. **Phases 1 and 2 are implemented in `testapi/`** and run as `ci-local.sh` gate steps (dogfood suite, --parallel rendezvous, and the gaps/redaction/crosscheck harnesses); Phase 3 is specified, not built
 - **docs/MANUAL.md** — The CLI's user-facing reference (how to use it)
 - **docs/SPECIFICATION.md** — Platform specification for the `src/` backend and `web/` dashboard (v4)
 - **docs/DEVELOPMENT_PHILOSOPHY.md** — Always-runnable, vertical slices, completeness contract

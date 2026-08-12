@@ -8,22 +8,19 @@ name the cause, and is it classified so retry rules treat it correctly?
 They are kept as executable requests rather than as prose because a prose entry
 cannot tell you when it stops being true.
 
-## Status in Phase 1
+## How they run
 
-Phase 1 ships these as documentation only — they are **not run** by
-`ci-local.sh`. The harness that runs them and fails on an *unexpected pass*
-(specification §12.3) is Phase 2.
-
-Until then, run them by hand:
+`testapi/harness/gaps.sh` runs every collection here and asserts each request
+fails. **An unexpected pass fails the harness** — that is the design, and it is
+the only thing that makes this directory shrink. It runs in `ci-local.sh`.
 
 ```bash
-mudflat serve &
-curlew run 'testapi/gaps/*.yaml' --env local --var run=manual
+./mudflat serve &
+testapi/harness/gaps.sh --url http://127.0.0.1:8080
 ```
 
-Every request in `expected-failures.yaml` should fail. If one passes, the server
-stopped being broken in the way the request assumed — check mudflat before
-assuming curlew changed.
+If a request passes, whatever it documented has been fixed: move it into
+`testapi/collections/` and delete the entry here.
 
 ## Why they still count for the parity test
 

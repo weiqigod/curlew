@@ -7,6 +7,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Mudflat Phase 2: the adversarial layer, signature verification, and proof of
+  parallelism.** Phase 1 gave curlew a server it did not write. Phase 2 gives it
+  one that fights back, and answers two questions that had never been answered.
+
+  **`internal/signer` is correct.** It had emitted AWS SigV4 and OAuth 1.0a
+  signatures for its entire life without one ever being checked by anything —
+  not a suspected defect, an absence of evidence. mudflat now recomputes both.
+  The verifier is written from the AWS documentation and RFC 5849 rather than
+  from `internal/signer`, because a verifier derived from the implementation it
+  verifies agrees with it perfectly and proves nothing; its SigV4 chain is
+  pinned against AWS's published `get-vanilla` vector. Both schemes pass,
+  including SigV4 over a query string and over a body.
+
+  **`--parallel` is genuinely concurrent.** `/s/{sid}/barrier/{n}` releases only
+  when n requests are in flight at once. With the flag: four released, "Waves: 1,
+  Max parallelism: 4". Without it: 408, `arrived: 1`. That is a positive proof;
+  the wall-clock comparison it replaces is the kind of test this repository
+  already had to delete as flaky (M21-003).
+
+  **The raw layer** is a second listener that uses no HTTP library at all — 16
+  endpoints writing literal bytes, because `net/http` will not emit a
+  `Content-Length` that disagrees with its body, a chunk size that is not hex,
+  or a NUL in a header value. 15 golden transcripts, hand-reviewed against
+  RFC 9110 and 9112 clause by clause in `testapi/golden/README.md`.
+  `testapi/harness/crosscheck.sh` confirms with curl that the malformations are
+  real rather than Go being strict: curl independently rejects the duplicate
+  `Content-Length`, the non-hex chunk size, the missing status line, the NUL and
+  the colon-less header line, and accepts the well-formed control case.
+
+  Three harnesses now run in `ci-local.sh`, each asserting something no
+  collection can express: that expected failures still fail (and that an
+  unexpected *pass* is itself a failure), that no secret reached an output
+  artefact, and that curl reads the raw layer the same way. 74 dogfood
+  assertions.
+
 - **Mudflat, a dedicated test API — curlew is now dogfooded (Phase 1).** Every one of
   curlew's 1,963 tests that executes a request used to terminate at a server curlew's own
   suite had written: 23 files construct `httptest.NewServer`, and the smoke suite runs a
@@ -29,6 +64,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **What the first run found.** Three defects, all now fixed — see the Fixed
   section below. The requests that reproduced them have moved into the passing
   collections, which is where a closed gap belongs.
+
+  **What Phase 2 found.** Two more defects, both the same shape as the first
+  three: the specification documents behaviour the binary does not have. Neither
+  is fixed; both are held as executable reproductions.
+
+  1. **The object form of `extract:` does not parse.** `CLI_SPECIFICATION` §8
+     opens with `api_key: { path: "$.key", sensitive: true }`, and the parser
+     rejects it — `cannot unmarshal !!map into string`, because `Extract` is
+     `map[string]string`. That object form is the only way to declare
+     sensitivity explicitly; without it a value is sensitive only if its name
+     happens to match the §6.5 heuristic, and the name comes from the API under
+     test, not from the collection author.
+  2. **Redaction covers the request but not the response.** The same sensitive
+     value is replaced where curlew sent it and printed verbatim where the
+     server returned it:
+
+     ```
+     > Authorization: [REDACTED]
+     ✗ body $.authorization equals: expected …, got Bearer SENTINELVALUE123
+     ```
+
+     §6.5 lists eight output surfaces and does not restrict redaction to
+     request-side occurrences. An API that echoes a token, a `Set-Cookie`
+     carrying a session, or a redirect with a token in its query puts the secret
+     straight into a CI log. 13 concrete leaks across the JSON, Markdown and
+     event-stream outputs are recorded in
+     `testapi/harness/redaction-known-leaks.txt`; the harness fails on any leak
+     outside that baseline, and *also* fails when a baseline entry stops
+     leaking, so a fix forces the line out instead of leaving a standing excuse.
 
 - **A CI workflow for the Go CLI** (`.github/workflows/go.yml`). There has never been one:
   the seven existing workflows cover the .NET backend, the web dashboard, email templates

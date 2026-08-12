@@ -4,7 +4,7 @@ A deliberately difficult HTTP server, and the dogfood suite that runs curlew
 against it.
 
 Full design: [`docs/TESTAPI_SPECIFICATION.md`](../docs/TESTAPI_SPECIFICATION.md).
-**Phase 1 is implemented.** Phases 2 and 3 are specified but not built; `GET
+**Phases 1 and 2 are implemented.** Phase 3 is specified but not built; `GET
 /capabilities` reports what is absent and why.
 
 ## Why this exists
@@ -53,13 +53,38 @@ HTML report — so a failing request names its own session.
 
 ```
 testapi/
-  cmd/mudflat/       the binary
-  mudflat/           the server: session store, envelope, capture, endpoints
-  collections/       the dogfood suite — these pass
-  gaps/              requests that MUST fail — the server is deliberately broken
-  environments/      local.yaml, pointing at 127.0.0.1:8080
-  parity_test.go     §16: every endpoint is exercised, every URL resolves
+  cmd/mudflat/           the binary — two listeners, structured and raw
+  mudflat/               the server: sessions, envelope, capture, endpoints,
+                         the raw byte layer, signature verification
+  collections/           the dogfood suite — these pass
+  collections/parallel/  requires --parallel; the barrier cannot pass serially
+  gaps/                  requests that MUST fail; *.parse-fail.yaml must not parse
+  golden/                byte-exact raw transcripts, hand-reviewed against the RFCs
+  harness/               assertions no collection can express (see below)
+  environments/          local.yaml, pointing at 127.0.0.1:8080 and :8081
+  parity_test.go         §16: every endpoint is exercised, every URL resolves
 ```
+
+## The two listeners
+
+`mudflat serve` opens the structured layer on `--port` and the **raw adversarial
+layer** on `--port + 1`. They cannot share a server: the raw layer's responses
+are things `net/http` will not emit — a `Content-Length` that disagrees with its
+body, a chunk size that is not hex, a NUL inside a header value — so they are
+written as literal bytes to a socket with no HTTP library involved.
+
+That is also the one place where the language mudflat is written in stops
+mattering (specification §3).
+
+## The harnesses
+
+Each asserts something a collection cannot, and all three run in `ci-local.sh`:
+
+| Harness | Asserts |
+|---|---|
+| `gaps.sh` | Every request under `gaps/` still fails. An **unexpected pass** fails the harness — that is what makes the directory shrink. |
+| `redaction.sh` | No published secret reached any output artefact. Gates on a baseline of known leaks; a new leak fails, and a *fixed* leak fails too. |
+| `crosscheck.sh` | curl reads the raw layer the way the specification intends — independent evidence that the malformations are real rather than Go being strict. |
 
 ## Two rules that keep this honest
 
@@ -84,6 +109,15 @@ artefacts themselves rather than from a hand-maintained list.
 | H — resources | `/s/{sid}/resources…`, `/etag`, `/idempotency` | extraction, chaining, pagination, conditional requests |
 | I — failure injection | `/s/{sid}/flaky/…`, `/retry-after/…` | every retry trigger, deterministically |
 | meta | `/`, `/capabilities`, `DELETE /s/{sid}` | self-description |
+
+## What Phase 2 adds
+
+| Family | Endpoints | What it tests |
+|---|---|---|
+| E — raw framing | `/raw/…` on port +1 | malformed framing, chunking and header syntax that no HTTP library can produce |
+| G — signatures | `/verify/sigv4`, `/verify/oauth1` | `internal/signer`, recomputed and returned as a staged diff |
+| J — concurrency | `/s/{sid}/barrier/{n}`, `/concurrency`, `/serialize`, `/ratelimit` | `--parallel` as a rendezvous proof, and a limiter that actually enforces |
+| O — redaction bait | `/leak/…` | realistic secrets for the redaction harness to hunt for |
 
 The echo envelope is the piece worth understanding: it reports headers as
 **ordered pairs with the client's original casing**, duplicates as separate
@@ -117,6 +151,22 @@ The third is the one worth dwelling on: measuring it contradicted the first
 write-up, which had assumed from the "network error" label that the response was
 being retried. It was not, and finding out why turned up the second half of the
 defect.
+
+## What Phase 2 found
+
+Two more, **neither fixed**, both reproducible — write-ups in specification §11B:
+
+1. **The object form of `extract:` does not parse.** `CLI_SPECIFICATION` §8
+   opens with it. `Extract` is `map[string]string`, so it cannot. That form is
+   the only way to declare sensitivity explicitly.
+2. **Redaction covers the request but not the response.** The same sensitive
+   value is `[REDACTED]` on the way out and verbatim on the way back. 13
+   measured leaks in `harness/redaction-known-leaks.txt`. This is the
+   security-relevant one: an API that echoes a token puts it in a CI log.
+
+And two affirmative results, which are worth as much: curlew's **SigV4 and
+OAuth 1.0a signatures are correct**, and **`--parallel` really is parallel** —
+both now backed by evidence rather than by absence of evidence.
 
 ## Safety
 

@@ -146,6 +146,12 @@ func TestRaw_ChunkedWithTrailersIsLegal(t *testing.T) {
 	if !bytes.Contains(got, []byte("X-Checksum:")) {
 		t.Error("no trailer field after the final chunk")
 	}
+
+	// Neither chunk is valid JSON on its own, so a client that mishandles
+	// reassembly cannot accidentally pass the collection assertion.
+	if !bytes.Contains(got, []byte(`8`+"\r\n"+`{"ok":tr`)) {
+		t.Errorf("first chunk is not the split-mid-token payload: %s", escape(got))
+	}
 }
 
 func TestRaw_NoStatusLine(t *testing.T) {

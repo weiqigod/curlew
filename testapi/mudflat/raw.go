@@ -363,14 +363,17 @@ func (s *RawServer) register() {
 		Pattern:   "/raw/chunked/trailers",
 		Family:    "E",
 		Summary:   "Well-formed chunked body with a trailer field. This one is legal.",
-		Exercises: "The control case. A client that cannot read chunked-with-trailers is broken; having it beside the malformed members is what stops the family from only proving strictness.",
+		Exercises: "The control case. A client that cannot read chunked-with-trailers is broken; having it beside the malformed members is what stops the family from only proving strictness. The JSON is split mid-token across two chunks, so it parses only if reassembly is correct.",
 		Respond: fixed([]byte("HTTP/1.1 200 OK\r\n" +
-			"Content-Type: text/plain\r\n" +
+			"Content-Type: application/json\r\n" +
 			"Transfer-Encoding: chunked\r\n" +
 			"Trailer: X-Checksum\r\n" +
 			"Connection: close\r\n" +
 			"\r\n" +
-			"5\r\nhello\r\n0\r\nX-Checksum: 5d41402abc4b2a76b9719d911017c592\r\n\r\n")),
+			// Split mid-token: neither chunk is valid JSON alone.
+			"8\r\n{\"ok\":tr\r\n" +
+			"d\r\nue,\"parts\":2}\r\n" +
+			"0\r\nX-Checksum: 5d41402abc4b2a76b9719d911017c592\r\n\r\n")),
 	})
 
 	s.add(RawEndpoint{

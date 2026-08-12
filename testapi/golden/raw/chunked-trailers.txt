@@ -1,11 +1,13 @@
 HTTP/1.1 200 OK
-Content-Type: text/plain
+Content-Type: application/json
 Transfer-Encoding: chunked
 Trailer: X-Checksum
 Connection: close
 
-5
-hello
+8
+{"ok":tr
+d
+ue,"parts":2}
 0
 X-Checksum: 5d41402abc4b2a76b9719d911017c592
 

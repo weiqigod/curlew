@@ -5,12 +5,16 @@
 # whether the resulting error is *legible* — does it name the cause, and is it
 # classified so that retry rules treat it correctly?
 #
-# Phase 1 does not run this file in CI. The harness that asserts the expected
-# failure — and fails on an unexpected PASS — is Phase 2 (specification §12.3).
+# testapi/harness/gaps.sh runs this file and asserts the expected failure. An
+# unexpected PASS fails the harness: a gap that closes must close visibly
+# (specification §12.3).
 name: "EXPECTED FAILURES: deliberately broken responses"
 description: |
-  Run by hand until the Phase 2 harness exists:
-    curlew run 'testapi/gaps/*.yaml' --env local --var run=manual
+  Run by testapi/harness/gaps.sh, which asserts every request here fails and
+  fails itself on an unexpected pass (§12.3).
+
+variables:
+  my_secret_token: "SENTINELVALUE123"
 
 requests:
   - name: "a lying Content-Encoding is a decode error, not a network error"
@@ -45,3 +49,35 @@ requests:
         network_errors: true
     assertions:
       status: 200
+
+  - name: "a sensitive value returned by the server is not redacted"
+    description: |
+      gap: redaction covers values on the way OUT but not on the way BACK.
+
+      my_secret_token matches the §6.5 name heuristic twice over, and curlew
+      does treat it as sensitive — with -v the request line reads
+
+        > Authorization: [REDACTED]
+
+      The same value coming back from the server is printed verbatim:
+
+        ✗ body $.authorization equals: expected …, got Bearer SENTINELVALUE123
+
+      §6.5 says the value is replaced in terminal output, JSON, TAP, JUnit,
+      HTML, Markdown, event streams and JSONL logs. It does not restrict that
+      to request-side occurrences, and an API that echoes a token — or a
+      Set-Cookie, or a redirect carrying a token in its query — puts the secret
+      straight into a CI log.
+
+      Measured surfaces are recorded in testapi/harness/redaction-known-leaks.txt.
+      This request is the minimal reproduction: the assertion fails on purpose
+      so the `actual` value is printed.
+    request:
+      method: GET
+      url: "{{mud}}/leak/header-echo"
+      headers:
+        Authorization: "Bearer {{my_secret_token}}"
+    assertions:
+      status: 200
+      body:
+        $.authorization: { equals: "this assertion fails so actual is printed" }

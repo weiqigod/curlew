@@ -1,0 +1,30 @@
+# The one raw-layer response curlew is supposed to read successfully.
+#
+# The other fifteen are malformed by design and belong in gaps/. This is the
+# control case, and it is the more important half: without it the raw family
+# would only ever prove that curlew is strict, never that it is correct.
+#
+# Chunked transfer encoding with an announced trailer field is well-formed per
+# RFC 9112 §7.1.2. A client that cannot read it is broken.
+name: Raw layer control case
+description: |
+  Reads a hand-written chunked response with trailers off the raw listener,
+  which uses no HTTP library at all. curl accepts these bytes too
+  (testapi/harness/crosscheck.sh), so agreement here is agreement with an
+  independent implementation rather than with Go.
+
+requests:
+  - name: a hand-written chunked body with trailers is readable
+    request:
+      method: GET
+      url: "{{raw}}/raw/chunked/trailers"
+    assertions:
+      status: 200
+      headers:
+        Transfer-Encoding: { exists: false }
+      body:
+        # The document is split mid-token across two chunks — neither is valid
+        # JSON alone — so these assertions pass only if reassembly is correct.
+        # A trailer section leaking into the body would also break them.
+        $.ok: { equals: true }
+        $.parts: { equals: 2 }
