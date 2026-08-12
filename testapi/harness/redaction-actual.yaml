@@ -1,0 +1,95 @@
+# Assertions that fail on purpose, so every surface prints an `actual` value.
+#
+# testapi/collections/70-redaction.yaml passes end to end, which is what lets it
+# run inside the dogfood gate — and which also means no `actual` value is ever
+# printed there. terminal, TAP, JUnit and JSONL only carry a response value when
+# an assertion fails, so without this file those four surfaces were being scanned
+# for a secret that was never put in front of them: a clean result that proved
+# nothing.
+#
+# A failure message exists to print the value that did not match, which makes it
+# the single most likely place for a secret to surface. That is where the
+# response-side redaction defect was found (specification §11B.2):
+#
+#   > Authorization: [REDACTED]                       — the request, redacted
+#   ✗ body $.authorization equals: … got Bearer …     — the response, verbatim
+#
+# This file lives under harness/ rather than collections/ because the dogfood
+# gate runs collections/*.yaml and requires every request to pass. Only
+# redaction.sh runs this one, and it tolerates exit 1.
+name: Redaction bait, forced to print
+description: |
+  Every assertion here is wrong on purpose. The run is expected to exit 1;
+  redaction.sh scans the artefacts, not the outcome.
+
+requests:
+  # Every published value this collection will put in front of curlew is
+  # extracted first. A value nothing extracts is not sensitive under any rule in
+  # §6.5, so leaving one out would produce a leak that is the harness's fault
+  # rather than curlew's.
+  - name: extract the tokens the name heuristic catches
+    request:
+      method: GET
+      url: "{{mud}}/leak/token"
+    assertions:
+      status: 200
+    extract:
+      leaked_token: "$.access_token"
+      leaked_refresh_token: "$.refresh_token"
+
+  - name: a key the heuristic can only reach by its name
+    request:
+      method: GET
+      url: "{{mud}}/leak/nested"
+    assertions:
+      status: 200
+    extract:
+      leaked_key:
+        path: "$.account.profile.integrations.provider.credentials.api_key"
+        sensitive: true
+
+  - name: a card number nothing but a declaration can mark
+    request:
+      method: GET
+      url: "{{mud}}/leak/pan"
+    assertions:
+      status: 200
+    extract:
+      card_number:
+        path: "$.card.number"
+        sensitive: true
+
+  - name: the echoed credential printed as an actual value
+    request:
+      method: GET
+      url: "{{mud}}/leak/header-echo?ref={{card_number}}"
+      headers:
+        Authorization: "Bearer {{leaked_token}}"
+    assertions:
+      status: 200
+      body:
+        # Wrong on purpose: the mismatch is what prints the credential.
+        $.authorization: { equals: "forced failure so actual is printed" }
+
+  - name: a session cookie printed as an actual value
+    request:
+      method: GET
+      url: "{{mud}}/leak/set-cookie"
+    assertions:
+      status: 200
+      headers:
+        # Wrong on purpose. Set-Cookie is inherently sensitive, so the actual
+        # value must be replaced whole — nothing registered it, because it came
+        # from the server.
+        Set-Cookie: { equals: "forced failure so actual is printed" }
+
+  - name: a token that only ever lived in a URL
+    request:
+      method: GET
+      url: "{{mud}}/leak/in-url"
+    assertions:
+      status: 200
+      body:
+        # Wrong on purpose: prints the redirect target, which carries the token
+        # in its query string and never appears in any body.
+        $.request.target: { equals: "forced failure so actual is printed" }

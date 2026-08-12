@@ -1,6 +1,7 @@
 package variable
 
 import (
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -16,9 +17,12 @@ var sensitiveKeywords = []string{
 }
 
 // sensitiveHeaderNames are lowercase header names always treated as sensitive.
+// set-cookie is here for the same reason as cookie: it is the same credential,
+// travelling in the other direction, and a session cookie printed into a CI log
+// is as usable as one read out of a request.
 var sensitiveHeaderNames = []string{
 	"authorization", "x-api-key", "x-auth-token",
-	"proxy-authorization", "cookie",
+	"proxy-authorization", "cookie", "set-cookie",
 }
 
 // IsSensitiveName returns true if name contains a known sensitive keyword
@@ -165,6 +169,35 @@ func (s *SensitiveSet) AddHeuristicNames(vars map[string]string) {
 	}
 }
 
+// MarkExtractedSensitive registers the extracted variables that are sensitive
+// so redaction can replace them wherever they later appear — in a response
+// body, a header, a URL, or an assertion's actual value.
+//
+// A name is sensitive if it matches the §6.5 heuristic or appears in explicit,
+// which carries the `sensitive: true` of the object form of extract: (§8). The
+// explicit route is what reaches values the heuristic cannot: the name of an
+// extracted field is whatever the API under test calls it.
+//
+// Registering the concrete value is the point. A sensitive *name* only protects
+// output keyed by that name; the same string coming back inside a response body
+// is only found by value. Nil set is a no-op.
+func MarkExtractedSensitive(s *SensitiveSet, extracted map[string]string, explicit []string) {
+	if s == nil {
+		return
+	}
+	declared := make(map[string]struct{}, len(explicit))
+	for _, name := range explicit {
+		declared[name] = struct{}{}
+	}
+	for name, value := range extracted {
+		if _, ok := declared[name]; !ok && !IsSensitiveName(name) {
+			continue
+		}
+		s.Add(name)
+		s.AddValue(value)
+	}
+}
+
 // Names returns the list of sensitive variable names (for debugging).
 // Safe for concurrent use.
 func (s *SensitiveSet) Names() []string {
@@ -190,6 +223,35 @@ func RedactValue(name, value string, s *SensitiveSet, allow bool) string {
 		return Redacted
 	}
 	return value
+}
+
+// RedactHTTPHeaders returns a copy of response headers with sensitive values
+// replaced. A header whose name is inherently sensitive (Authorization,
+// Set-Cookie, …) or listed in s is replaced whole; any other value has each
+// registered sensitive string replaced in place, so a token echoed inside an
+// otherwise innocuous header does not survive. Returns nil if headers is nil.
+func RedactHTTPHeaders(headers http.Header, s *SensitiveSet, allow bool) http.Header {
+	if headers == nil {
+		return nil
+	}
+	out := make(http.Header, len(headers))
+	values := s.Values()
+	for name, vals := range headers {
+		redactWhole := !allow && (IsSensitiveHeaderName(name) || s.IsSensitive(name))
+		copied := make([]string, len(vals))
+		for i, v := range vals {
+			switch {
+			case redactWhole:
+				copied[i] = Redacted
+			case allow:
+				copied[i] = v
+			default:
+				copied[i] = redactString(v, values)
+			}
+		}
+		out[name] = copied
+	}
+	return out
 }
 
 // RedactHeaders returns a shallow copy of headers with sensitive values replaced.

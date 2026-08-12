@@ -345,3 +345,76 @@ func TestSensitiveSet_ZeroValue(t *testing.T) {
 		}
 	})
 }
+
+// A credential is the same credential in both directions. Cookie is already
+// unconditionally sensitive on the way out; Set-Cookie carries the same secret
+// on the way back, and a session cookie printed into a CI log is as usable as
+// one read from the request.
+func TestIsSensitiveHeaderName_SetCookie(t *testing.T) {
+	for _, name := range []string{"Set-Cookie", "set-cookie", "SET-COOKIE"} {
+		if !IsSensitiveHeaderName(name) {
+			t.Errorf("IsSensitiveHeaderName(%q) = false, want true", name)
+		}
+	}
+}
+
+func TestMarkExtractedSensitive(t *testing.T) {
+	tests := []struct {
+		name      string
+		extracted map[string]string
+		explicit  []string
+		wantVals  []string
+		wantNames []string
+	}{
+		{
+			name:      "name heuristic",
+			extracted: map[string]string{"access_token": "tok-1", "user_id": "42"},
+			wantVals:  []string{"tok-1"},
+			wantNames: []string{"access_token"},
+		},
+		{
+			name: "explicit declaration reaches what the heuristic cannot",
+			// "card_number" matches no keyword. The object form of extract:
+			// exists precisely for this case.
+			extracted: map[string]string{"card_number": "4242424242424242"},
+			explicit:  []string{"card_number"},
+			wantVals:  []string{"4242424242424242"},
+			wantNames: []string{"card_number"},
+		},
+		{
+			name:      "nothing sensitive registers nothing",
+			extracted: map[string]string{"user_id": "42"},
+		},
+		{
+			name:      "an empty extracted value is not registered",
+			extracted: map[string]string{"api_key": ""},
+			wantNames: []string{"api_key"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewSensitiveSet()
+			MarkExtractedSensitive(s, tt.extracted, tt.explicit)
+
+			gotVals := s.Values()
+			if len(gotVals) != len(tt.wantVals) {
+				t.Fatalf("Values() = %v, want %v", gotVals, tt.wantVals)
+			}
+			for i := range tt.wantVals {
+				if gotVals[i] != tt.wantVals[i] {
+					t.Errorf("Values()[%d] = %q, want %q", i, gotVals[i], tt.wantVals[i])
+				}
+			}
+			for _, name := range tt.wantNames {
+				if !s.IsSensitive(name) {
+					t.Errorf("IsSensitive(%q) = false, want true", name)
+				}
+			}
+		})
+	}
+}
+
+func TestMarkExtractedSensitive_NilSet(t *testing.T) {
+	MarkExtractedSensitive(nil, map[string]string{"token": "t"}, nil) // must not panic
+}

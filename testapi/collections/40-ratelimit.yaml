@@ -1,0 +1,91 @@
+# Rate limiting and concurrency reporting, in a serial run.
+#
+# The barrier — the one endpoint that requires real concurrency — lives in
+# collections/parallel/ because it cannot pass without --parallel. That is the
+# whole point of it.
+name: Rate limiting and concurrency reporting
+description: |
+  Exercises a server-side token bucket that actually enforces, plus the
+  concurrency counter and the serialize guard in their single-request form.
+
+requests:
+  - name: burst is allowed
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-rl/ratelimit?rate=0&burst=3"
+    assertions:
+      status: 200
+      headers:
+        X-RateLimit-Limit: { equals: "3" }
+        X-RateLimit-Remaining: { equals: "2" }
+      body:
+        $.allowed: { equals: true }
+
+  - name: second of the burst
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-rl/ratelimit?rate=0&burst=3"
+    assertions:
+      status: 200
+      headers:
+        X-RateLimit-Remaining: { equals: "1" }
+
+  - name: third of the burst
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-rl/ratelimit?rate=0&burst=3"
+    assertions:
+      status: 200
+      headers:
+        X-RateLimit-Remaining: { equals: "0" }
+
+  - name: fourth request is refused
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-rl/ratelimit?rate=0&burst=3"
+    assertions:
+      # rate=0 never refills, so this is deterministic rather than a race with
+      # the clock — §6.1 applies to the endpoint's own contract too.
+      status: 429
+      headers:
+        X-RateLimit-Remaining: { equals: "0" }
+      body:
+        $.limit: { equals: 3 }
+
+  - name: a refusal with a refill rate says when to return
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-rl2/ratelimit?rate=1&burst=1"
+    assertions:
+      status: 200
+
+  - name: and the next one carries Retry-After
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-rl2/ratelimit?rate=1&burst=1"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { matches: "^[0-9]+$" }
+
+  - name: concurrency counter reports a serial run honestly
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-conc/concurrency"
+    assertions:
+      status: 200
+      body:
+        # One request in flight, because this collection is serial. The
+        # parallel collection is where this number is supposed to climb.
+        $.current: { equals: 1 }
+        $.max_observed: { equals: 1 }
+        $.total: { equals: 1 }
+
+  - name: serialize admits a lone request
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-serial/serialize?hold_ms=0"
+    assertions:
+      status: 200
+      body:
+        $.serialized: { equals: true }

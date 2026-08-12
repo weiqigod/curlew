@@ -1,3 +1,6 @@
 # Points the suite at a locally running mudflat. Nothing here reaches a network.
 variables:
   mud: "http://127.0.0.1:8080"
+  # The raw adversarial layer is a second listener on the structured port + 1.
+  # It uses no HTTP library, so it cannot share a server with the other one.
+  raw: "http://127.0.0.1:8081"

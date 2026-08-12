@@ -938,8 +938,14 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	// set (lines ~1070+) minus summary.AuthSensitive (only available after run).
 	// When eventsEmitter is nil, preSensitive is still built so updateEventsAdapter
 	// can be called uniformly, but it never fires.
+	//
+	// The set is also handed to the runner as its runtime set, so a value
+	// discovered mid-run — an extracted token, a dynamic-function credential —
+	// is redacted from the very event that carries it. A set collected only at
+	// the end would arrive after the stream had already been written.
+	var runtimeSensitive *variable.SensitiveSet
 	if eventsSink != nil {
-		preSensitive := runservice.BuildPreRunSensitive(runservice.SensitiveInputs{
+		runtimeSensitive = runservice.BuildPreRunSensitive(runservice.SensitiveInputs{
 			Collection:      col,
 			ProjectCfg:      projectCfg,
 			EnvVars:         envVars,
@@ -948,7 +954,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			EnvVarVars:      envVarVars,
 			CLIVars:         cliVars,
 		})
-		eventsSink = runservice.NewEmitterSink(eventsEmitter, stderr, preSensitive, allowSensitive)
+		eventsSink = runservice.NewEmitterSink(eventsEmitter, stderr, runtimeSensitive, allowSensitive)
 	}
 
 	// Print the collection header before requests start (terminal mode only).
@@ -989,6 +995,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		TeamStub:            teamStub,
 		Hooks:               hookDispatcher,
 		OnEvent:             eventsSink,
+		RuntimeSensitive:    runtimeSensitive,
 		Selection:           flags.onlyNames,
 		Diagnostics:         stderr,
 		LocaleVerbose:       verbosity >= output.VerbosityVerbose,
@@ -1049,16 +1056,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		EnvVarVars:      envVarVars,
 		CLIVars:         cliVars,
 	}, summary)
-	// Redact sensitive values from all results before formatting.
-	for i := range results {
-		results[i].RequestHeaders = variable.RedactHeaders(results[i].RequestHeaders, sensitive, allowSensitive)
-		results[i].RequestBody = variable.RedactBody(results[i].RequestBody, sensitive, allowSensitive)
-		if results[i].Result != nil {
-			if redacted, ok := variable.RedactBody(results[i].Result.Body, sensitive, allowSensitive).([]byte); ok {
-				results[i].Result.Body = redacted
-			}
-		}
-	}
+	// Redact sensitive values from all results before formatting — request and
+	// response alike, including each assertion's expected and actual strings.
+	runservice.RedactResults(results, sensitive, allowSensitive)
 
 	if format == "json" {
 		jsonOut := buildJSONOutput(col.Name, results, summary, varErr, verbosity)
@@ -1231,15 +1231,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		// formatter never sees raw secret values even when the events stream
 		// was permitted to emit them. This preserves the dispatcher contract:
 		// --allow-sensitive only affects the NDJSON events stream.
-		for i := range results {
-			results[i].RequestHeaders = variable.RedactHeaders(results[i].RequestHeaders, sensitive, false)
-			results[i].RequestBody = variable.RedactBody(results[i].RequestBody, sensitive, false)
-			if results[i].Result != nil {
-				if redacted, ok := variable.RedactBody(results[i].Result.Body, sensitive, false).([]byte); ok {
-					results[i].Result.Body = redacted
-				}
-			}
-		}
+		runservice.RedactResults(results, sensitive, false)
 		mdReport := buildMarkdownReport(col, envName, results, summary)
 		if err := mdformat.EnsureReportDir(report); err != nil {
 			errOut.StructuredError(fmt.Errorf("cannot create report directory: %w", err))

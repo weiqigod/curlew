@@ -1,0 +1,58 @@
+# Proof that --parallel is parallel.
+#
+# THIS COLLECTION REQUIRES --parallel. Run serially it fails, and that is the
+# design: the barrier releases only when four requests are in flight at once, so
+# a serial run blocks alone until the deadline and reports how many arrived.
+#
+# The alternative — comparing wall-clock durations between a serial and a
+# parallel run — is what this repository already had to delete as flaky
+# (M21-003). A rendezvous is a positive proof; a stopwatch is an inference.
+#
+#   curlew run 'testapi/collections/parallel/*.yaml' --env local --parallel
+name: Parallelism, proven by rendezvous
+description: |
+  Four independent requests. Dependency analysis puts them in one wave, so
+  --parallel runs them concurrently and the barrier releases. Without the flag
+  they run in file order and the first one waits alone.
+
+requests:
+  - name: worker one reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.expected: { equals: 4 }
+        $.arrived: { equals: 4 }
+        $.released: { equals: true }
+
+  - name: worker two reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.released: { equals: true }
+
+  - name: worker three reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.released: { equals: true }
+
+  - name: worker four reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.released: { equals: true }
+        # Every arrival index between 1 and 4 is taken exactly once across the
+        # four responses; each request only sees its own.
+        $.arrival_index: { greater_than_or_equal: 1 }

@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Content-Type: text/plain
+Content-Length: 1000
+Connection: close
+
+only these twenty-nine bytes

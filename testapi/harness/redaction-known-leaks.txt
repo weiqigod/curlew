@@ -1,0 +1,48 @@
+# Known redaction leaks, as <format>:<value>.
+#
+# THIS FILE IS EMPTY, AND THAT IS THE POINT. Every surface is enforced.
+#
+# Each entry would be a CURRENTLY FAILING surface, recorded so the harness can
+# gate on regressions without the build being permanently red. The rules:
+#
+#   * a leak NOT listed here fails the harness — a new leak
+#   * a listed leak that no longer leaks ALSO fails the harness — it was fixed,
+#     so delete the line and let it be enforced from now on
+#
+# That second rule is the one that matters. A baseline nobody prunes becomes a
+# permanent excuse; making a fix fail the harness forces the line out. It did:
+# the thirteen entries this file used to carry were deleted in one go when the
+# defect below was fixed, because the harness refused to pass while they were
+# still listed.
+#
+# ---------------------------------------------------------------------------
+# History: redaction covered values on the way OUT but not on the way BACK.
+#
+# Measured against mudflat's /leak/* family, the same value was replaced where
+# curlew sent it and printed verbatim where the server returned it:
+#
+#   request side:   "> Authorization: [REDACTED]"          — redacted
+#   response side:  "got Bearer SENTINELVALUE123"          — not redacted
+#
+# Thirteen leaks across JSON, Markdown and the event stream. The four surfaces
+# that looked clean — terminal, TAP, JUnit, JSONL — only looked that way because
+# every assertion in 70-redaction.yaml passes, so no `actual` value was ever
+# printed there. testapi/harness/redaction-actual.yaml exists to close that hole:
+# its assertions fail on purpose.
+#
+# Four things were wrong, in three places:
+#
+#   1. An extracted value was never registered as a sensitive *value*, so a
+#      token pulled out of a response was redacted nowhere. internal/runner now
+#      calls variable.MarkExtractedSensitive at every extraction site.
+#   2. An assertion's expected and actual strings were never redacted at all —
+#      the one surface whose whole job is to print the value that did not match.
+#   3. Response headers were never redacted, and Set-Cookie was not treated as
+#      inherently sensitive even though Cookie was.
+#   4. A secret that lived only in a URL query string survived, because no body
+#      ever carried it.
+#
+# Fixed on the branch that added internal/runservice/redact.go. Two of the four
+# routes to sensitivity — the §6.5 name heuristic and the `sensitive: true` of
+# the §8 object form — are exercised separately, so a fix to one cannot mask the
+# other.

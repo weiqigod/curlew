@@ -5,12 +5,16 @@
 # whether the resulting error is *legible* — does it name the cause, and is it
 # classified so that retry rules treat it correctly?
 #
-# Phase 1 does not run this file in CI. The harness that asserts the expected
-# failure — and fails on an unexpected PASS — is Phase 2 (specification §12.3).
+# testapi/harness/gaps.sh runs this file and asserts the expected failure. An
+# unexpected PASS fails the harness: a gap that closes must close visibly
+# (specification §12.3).
 name: "EXPECTED FAILURES: deliberately broken responses"
 description: |
-  Run by hand until the Phase 2 harness exists:
-    curlew run 'testapi/gaps/*.yaml' --env local --var run=manual
+  Run by testapi/harness/gaps.sh, which asserts every request here fails and
+  fails itself on an unexpected pass (§12.3).
+
+variables:
+  my_secret_token: "SENTINELVALUE123"
 
 requests:
   - name: "a lying Content-Encoding is a decode error, not a network error"
@@ -45,3 +49,33 @@ requests:
         network_errors: true
     assertions:
       status: 200
+
+  - name: "a sensitive value returned by the server is redacted"
+    description: |
+      expected-failure: this assertion is wrong on purpose. What it checks is
+      what the failure message PRINTS.
+
+      This request used to document a gap: redaction covered values on the way
+      out but not on the way back, so the request line read
+
+        > Authorization: [REDACTED]
+
+      while the failure message printed the same value verbatim:
+
+        ✗ body $.authorization equals: expected …, got Bearer SENTINELVALUE123
+
+      It is fixed, and the request stays here inverted — the assertion still
+      fails, but now the actual value must come back redacted. A gap that closes
+      leaves behind the test that proves it stayed closed.
+
+      Full surface coverage is in testapi/harness/redaction.sh; this is the
+      minimal reproduction, kept because it is the one a developer can read.
+    request:
+      method: GET
+      url: "{{mud}}/leak/header-echo"
+      headers:
+        Authorization: "Bearer {{my_secret_token}}"
+    assertions:
+      status: 200
+      body:
+        $.authorization: { equals: "this assertion fails so actual is printed" }

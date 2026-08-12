@@ -42,6 +42,7 @@ type Session struct {
 	seq       int
 	idem      map[string][]byte
 	docs      map[string][]byte
+	conc      *concurrencyState
 }
 
 func newSession(id string) *Session {
@@ -51,6 +52,7 @@ func newSession(id string) *Session {
 		resources: make(map[string]*Resource),
 		idem:      make(map[string][]byte),
 		docs:      make(map[string][]byte),
+		conc:      newConcurrencyState(),
 	}
 }
 
@@ -342,4 +344,12 @@ func (s *Session) SetDoc(name string, body []byte) {
 	stored := make([]byte, len(body))
 	copy(stored, body)
 	s.docs[name] = stored
+}
+
+// Concurrency returns this session's barrier, concurrency-counter and
+// rate-limit state. Holding it on the session rather than on the server is what
+// makes §6.2 structural: two sessions cannot see each other's counters, so two
+// concurrent dogfood runs cannot interfere.
+func (s *Session) Concurrency() *concurrencyState {
+	return s.conc
 }

@@ -41,6 +41,21 @@ func RedactBody(body any, s *SensitiveSet, allowSensitive bool) any {
 	}
 }
 
+// RedactText replaces every registered sensitive value inside s with
+// [REDACTED]. Unlike RedactBody it never reinterprets the string as JSON, so it
+// is the right tool for output that is already prose: an assertion's expected or
+// actual value, a URL, a header line, an error message.
+func RedactText(s string, set *SensitiveSet, allowSensitive bool) string {
+	if s == "" || allowSensitive {
+		return s
+	}
+	values := set.Values()
+	if len(values) == 0 {
+		return s
+	}
+	return redactString(s, values)
+}
+
 // redactString performs exact-substring replacement of each sensitive value.
 func redactString(s string, values []string) string {
 	for _, v := range values {

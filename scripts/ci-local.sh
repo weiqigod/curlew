@@ -224,7 +224,14 @@ mudflat_pid=$!
 
 mudflat_ready=0
 for _ in $(seq 1 50); do
-  if curl -fsS -o /dev/null "http://127.0.0.1:${MUDFLAT_PORT}/capabilities" 2>/dev/null; then
+  # Both listeners must be up: the structured layer and the raw one on +1.
+  #
+  # The raw probe deliberately asks for a path that does not exist. Every real
+  # raw endpoint is malformed on purpose — probing /raw/http09 made readiness
+  # depend on curl accepting a bare HTTP/0.9 body, which it rightly refuses —
+  # whereas the raw layer's own 404 is well-formed.
+  if curl -fsS -o /dev/null "http://127.0.0.1:${MUDFLAT_PORT}/capabilities" 2>/dev/null &&
+     curl -sS  -o /dev/null "http://127.0.0.1:$((MUDFLAT_PORT + 1))/raw/readiness-probe" 2>/dev/null; then
     mudflat_ready=1
     break
   fi
@@ -235,10 +242,35 @@ if (( ! mudflat_ready )); then
   exit 1
 fi
 
+MUDFLAT_RAW_PORT=$((MUDFLAT_PORT + 1))
+MUDFLAT_URL="http://127.0.0.1:${MUDFLAT_PORT}"
+MUDFLAT_RAW_URL="http://127.0.0.1:${MUDFLAT_RAW_PORT}"
+
 ./curlew run 'testapi/collections/*.yaml' \
   --env local \
-  --var "mud=http://127.0.0.1:${MUDFLAT_PORT}" \
+  --var "mud=${MUDFLAT_URL}" \
+  --var "raw=${MUDFLAT_RAW_URL}" \
   --var "run=ci$$"
+
+# The barrier cannot pass serially — that is what makes it a proof rather than
+# a timing comparison — so it runs separately with the flag it is testing.
+step "dogfood: --parallel proven by rendezvous"
+./curlew run 'testapi/collections/parallel/*.yaml' \
+  --env local --parallel \
+  --var "mud=${MUDFLAT_URL}" \
+  --var "run=cip$$"
+
+# Phase 2 harnesses. Each asserts something no collection can express: that a
+# request still fails, that no secret reached an artefact, that curl reads the
+# raw layer the same way.
+step "dogfood: expected failures still fail"
+./testapi/harness/gaps.sh --url "${MUDFLAT_URL}"
+
+step "dogfood: no secret reached an output artefact"
+./testapi/harness/redaction.sh --url "${MUDFLAT_URL}"
+
+step "dogfood: curl agrees with the raw layer"
+./testapi/harness/crosscheck.sh --raw-url "${MUDFLAT_RAW_URL}"
 
 kill "$mudflat_pid" 2>/dev/null || true
 wait "$mudflat_pid" 2>/dev/null || true

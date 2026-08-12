@@ -736,6 +736,9 @@ requests:
     extract:
       widget_id: "$.id"                 # pulls .id out of the JSON body
       created_at: "$.metadata.created_at"
+      signing_ref:                      # object form: same thing, plus a flag
+        path: "$.metadata.ref"
+        sensitive: true
 
   - name: Fetch widget by id
     request:
@@ -749,6 +752,8 @@ requests:
 ```
 
 Extracted values are available to every request that runs after the extraction. They are strings (Curlew converts numbers and booleans via their canonical string form).
+
+Each entry takes either form: a JSONPath string, or an object with `path:` and an optional `sensitive:`. An extracted value is redacted automatically when its *name* matches the heuristic in §4.4 — `widget_id` is not a secret, `auth_token` is. Use the object form when it does not: the field is named by the API you are testing, and `signing_ref` above is as much a credential as `auth_token` without looking like one. Once marked, the value is redacted everywhere it appears, including in the response that produced it.
 
 Extraction only runs against JSON bodies. If the response is not JSON, extraction fails the request. Extraction runs even when assertions fail, so you can still inspect the extracted values when debugging — they simply won't be used because the run stops.
 
@@ -2187,10 +2192,19 @@ By default, Curlew aggressively hides values that look sensitive:
 
 - Variables marked `!sensitive` in `.env` or in YAML (`!sensitive token: "abc"`).
 - `from_command` variables with `sensitive: true`.
+- Extracted values declared `sensitive: true` in the object form of `extract:` (§2.4).
 - Vault-resolved values.
 - Values for variables whose names match the heuristic — any of `password`, `token`, `secret`, `key`, `auth`, or `credential` in the name.
 
-Redaction shows up as `[REDACTED]` in terminal output, JSON output, TAP output, and JSONL logs.
+Redaction shows up as `[REDACTED]` in terminal output, JSON output, TAP output, JUnit, HTML, Markdown, event streams, and JSONL logs.
+
+**It does not matter which direction the value travelled.** A secret is hidden where you sent it *and* where the server sent it back — in the request URL, in request and response headers, in either body, and in the failure message of an assertion:
+
+```
+✗ body $.authorization equals: expected …, got Bearer [REDACTED]
+```
+
+That last one matters most: an API that echoes your token, a `Set-Cookie` carrying a session, or a redirect with a token in its query would otherwise put the secret straight into a CI log. Response headers that are credentials by nature — `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `Proxy-Authorization` — are hidden whole, since nothing on your side registered their values.
 
 If you need to see plain values (debugging a local run only — never in CI):
 

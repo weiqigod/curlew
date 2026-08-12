@@ -259,7 +259,14 @@ type RequestItem struct {
 	Request    Request            `yaml:"request"`
 	Variables  SensitiveVars      `yaml:"variables,omitempty"`
 	Assertions Assertions         `yaml:"assertions,omitempty"`
-	Extract    map[string]string  `yaml:"extract,omitempty"`
+	Extract    ExtractSpec        `yaml:"extract,omitempty"`
+
+	// ExtractSensitive lists the extract: names that declared `sensitive: true`
+	// in the object form of §8. It is the only way to mark an extracted value
+	// sensitive on purpose — otherwise sensitivity rests entirely on the §6.5
+	// name heuristic, and the name is whatever the API under test calls the
+	// field. Populated by UnmarshalYAML; never read from YAML directly.
+	ExtractSensitive []string `yaml:"-"`
 
 	// M17-001: per-request signing override. nil + collection has Signing
 	// → use collection's. Non-nil + IsExplicitNull → disable for this
@@ -326,6 +333,7 @@ func (r *RequestItem) UnmarshalYAML(node *yaml.Node) error {
 	}
 	*r = RequestItem(raw)
 	r.SourceLine = node.Line
+	r.ExtractSensitive = extractSensitiveNames(node)
 
 	// If the signing: node was explicitly null, allocate a SigningSpec with
 	// explicitNull=true. The alias decode above left r.Signing nil.
@@ -345,12 +353,168 @@ func (ri *RequestItem) IsRequired() bool {
 	return ri.Required != nil && *ri.Required
 }
 
+// ExtractSpec is an `extract:` block: variable name to JSONPath. Both forms
+// documented in CLI_SPECIFICATION §8 decode into the same map —
+//
+//	extract:
+//	  user_id: "$.id"                # string form
+//	  api_key:                       # object form
+//	    path: "$.key"
+//	    sensitive: true
+//
+// so every consumer keeps receiving exactly the paths, which is all any of them
+// wants. The object form's `sensitive: true` has nowhere to live in a map of
+// paths, so it is captured alongside it by extractSensitiveNames.
+type ExtractSpec map[string]string
+
+// UnmarshalYAML accepts a JSONPath string or an object with path: and
+// optional sensitive:.
+func (e *ExtractSpec) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("extract: expected a mapping of variable name to JSONPath, got %s", node.Tag)
+	}
+	out := make(ExtractSpec, len(node.Content)/2)
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		name := node.Content[i].Value
+		val := node.Content[i+1]
+		switch val.Kind {
+		case yaml.ScalarNode:
+			out[name] = val.Value
+		case yaml.MappingNode:
+			path, err := extractObjectPath(name, val)
+			if err != nil {
+				return err
+			}
+			out[name] = path
+		default:
+			return fmt.Errorf("extract %q: expected a JSONPath string or a mapping with path:, got %s", name, val.Tag)
+		}
+	}
+	*e = out
+	return nil
+}
+
+// extractObjectPath validates one object-form extraction and returns its path.
+// Unknown keys are rejected rather than ignored: a misspelled `sensitiv: true`
+// that parsed silently would leave the value unredacted while the author
+// believed the opposite.
+func extractObjectPath(name string, node *yaml.Node) (string, error) {
+	var path string
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key := node.Content[i].Value
+		val := node.Content[i+1]
+		switch key {
+		case "path":
+			if val.Kind != yaml.ScalarNode {
+				return "", fmt.Errorf("extract %q: path must be a JSONPath string", name)
+			}
+			path = val.Value
+		case "sensitive":
+			var b bool
+			if err := val.Decode(&b); err != nil {
+				return "", fmt.Errorf("extract %q: sensitive must be true or false: %w", name, err)
+			}
+		default:
+			return "", fmt.Errorf("extract %q: unknown key %q (expected path or sensitive)", name, key)
+		}
+	}
+	if path == "" {
+		return "", fmt.Errorf("extract %q: object form requires a path (e.g. path: \"$.id\")", name)
+	}
+	return path, nil
+}
+
+// extractSensitiveNames returns the names under an item's `extract:` key that
+// declared sensitive: true in object form, in source order.
+//
+// It walks the item node rather than the extract node alone so it can follow a
+// `<<:` merge key: an extract block inherited from an anchor must not silently
+// lose its sensitivity declaration.
+func extractSensitiveNames(item *yaml.Node) []string {
+	if item == nil || item.Kind != yaml.MappingNode {
+		return nil
+	}
+	var names []string
+	for i := 0; i+1 < len(item.Content); i += 2 {
+		switch item.Content[i].Value {
+		case "extract":
+			names = append(names, sensitiveNamesInExtract(item.Content[i+1])...)
+		case "<<":
+			for _, merged := range mergeTargets(item.Content[i+1]) {
+				names = append(names, extractSensitiveNames(merged)...)
+			}
+		}
+	}
+	return names
+}
+
+// sensitiveNamesInExtract reads one extract: mapping.
+func sensitiveNamesInExtract(node *yaml.Node) []string {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	var names []string
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		val := node.Content[i+1]
+		if val.Kind != yaml.MappingNode {
+			continue
+		}
+		for j := 0; j+1 < len(val.Content); j += 2 {
+			if val.Content[j].Value != "sensitive" {
+				continue
+			}
+			var b bool
+			if err := val.Content[j+1].Decode(&b); err == nil && b {
+				names = append(names, node.Content[i].Value)
+			}
+		}
+	}
+	return names
+}
+
+// mergeTargets resolves the value of a `<<:` key to the mappings it merges in.
+// The value is either one alias or a sequence of them.
+func mergeTargets(node *yaml.Node) []*yaml.Node {
+	if node == nil {
+		return nil
+	}
+	switch node.Kind {
+	case yaml.AliasNode:
+		return []*yaml.Node{node.Alias}
+	case yaml.MappingNode:
+		return []*yaml.Node{node}
+	case yaml.SequenceNode:
+		var out []*yaml.Node
+		for _, item := range node.Content {
+			out = append(out, mergeTargets(item)...)
+		}
+		return out
+	}
+	return nil
+}
+
 // externalRequest represents a standalone request file referenced via path:.
 type externalRequest struct {
-	Name       string            `yaml:"name"`
-	Request    Request           `yaml:"request"`
-	Assertions Assertions        `yaml:"assertions,omitempty"`
-	Extract    map[string]string `yaml:"extract,omitempty"`
+	Name       string      `yaml:"name"`
+	Request    Request     `yaml:"request"`
+	Assertions Assertions  `yaml:"assertions,omitempty"`
+	Extract    ExtractSpec `yaml:"extract,omitempty"`
+
+	// ExtractSensitive mirrors RequestItem.ExtractSensitive; see there.
+	ExtractSensitive []string `yaml:"-"`
+}
+
+// UnmarshalYAML decodes the file and then records which extractions declared
+// themselves sensitive, which the paths map has no room for.
+func (e *externalRequest) UnmarshalYAML(node *yaml.Node) error {
+	type externalRequestRaw externalRequest
+	var raw externalRequestRaw
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	*e = externalRequest(raw)
+	e.ExtractSensitive = extractSensitiveNames(node)
+	return nil
 }
 
 // Assertions holds the assertion definitions for a request.

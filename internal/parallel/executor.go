@@ -360,6 +360,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 						failedIndices[outcome.Index] = true
 						continue
 					}
+					variable.MarkExtractedSensitive(cfg.Scope.RuntimeSensitiveSet(), extResult.Variables, item.ExtractSensitive)
 					for k, v := range extResult.Variables {
 						cfg.Scope.Set(k, v)
 					}

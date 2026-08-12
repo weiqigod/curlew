@@ -1,0 +1,1 @@
+a bare HTTP/0.9 body with no status line and no headers

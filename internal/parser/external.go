@@ -71,12 +71,13 @@ func resolveExternalReferences(collectionPath string, items []RequestItem, visit
 		extFiles = append(extFiles, absPath)
 
 		ri := RequestItem{
-			Name:       ext.Name,
-			Request:    ext.Request,
-			Assertions: ext.Assertions,
-			Extract:    ext.Extract,
-			SourceFile: absPath,
-			SourceLine: 1,
+			Name:             ext.Name,
+			Request:          ext.Request,
+			Assertions:       ext.Assertions,
+			Extract:          ext.Extract,
+			ExtractSensitive: ext.ExtractSensitive,
+			SourceFile:       absPath,
+			SourceLine:       1,
 		}
 
 		// Reference site variable overrides

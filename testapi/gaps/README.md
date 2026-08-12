@@ -8,22 +8,19 @@ name the cause, and is it classified so retry rules treat it correctly?
 They are kept as executable requests rather than as prose because a prose entry
 cannot tell you when it stops being true.
 
-## Status in Phase 1
+## How they run
 
-Phase 1 ships these as documentation only — they are **not run** by
-`ci-local.sh`. The harness that runs them and fails on an *unexpected pass*
-(specification §12.3) is Phase 2.
-
-Until then, run them by hand:
+`testapi/harness/gaps.sh` runs every collection here and asserts each request
+fails. **An unexpected pass fails the harness** — that is the design, and it is
+the only thing that makes this directory shrink. It runs in `ci-local.sh`.
 
 ```bash
-mudflat serve &
-curlew run 'testapi/gaps/*.yaml' --env local --var run=manual
+./mudflat serve &
+testapi/harness/gaps.sh --url http://127.0.0.1:8080
 ```
 
-Every request in `expected-failures.yaml` should fail. If one passes, the server
-stopped being broken in the way the request assumed — check mudflat before
-assuming curlew changed.
+If a request passes, whatever it documented has been fixed: move it into
+`testapi/collections/` and delete the entry here.
 
 ## Why they still count for the parity test
 
@@ -32,9 +29,9 @@ endpoint whose only job is to break a client cannot appear in a passing
 collection, so without this it would look like an orphan under specification
 §16.
 
-## History: the three defects the first run found
+## History: the five defects dogfooding found
 
-All three are **fixed**. The requests that reproduced them now live in the
+All five are **fixed**. The requests that reproduced them now live in the
 passing collections, which is where a closed gap belongs:
 
 | # | Defect | Fixed in | Now covered by |
@@ -42,6 +39,13 @@ passing collections, which is where a closed gap belongs:
 | 1 | Assertion expected values were never interpolated | `internal/requtil` | `10-assertions.yaml`, `20-extraction.yaml` |
 | 2 | Header `exists: false` was not honoured | `internal/assertion` | `10-assertions.yaml` |
 | 3 | Body-read failures were mislabelled and misclassified | `internal/httpexec` | this directory, plus `internal/httpexec` tests |
+| 4 | The object form of `extract:` did not parse | `internal/parser` | `70-redaction.yaml`, `redaction-actual.yaml` |
+| 5 | Redaction covered the request but not the response | `internal/runservice`, `internal/runner`, `internal/variable` | `testapi/harness/redaction.sh`, and the inverted request here |
 
 Defect 3 is the one that keeps an entry here: a lying Content-Encoding can never
 produce a passing request, so only an expected-failure request can exercise it.
+
+Defect 5's request also stays, inverted. The assertion is still wrong on purpose
+— that is what makes the failure message print the value — but the value must
+now come back as `[REDACTED]`. A closed gap is worth keeping when the test that
+proves it closed cannot be written any other way.

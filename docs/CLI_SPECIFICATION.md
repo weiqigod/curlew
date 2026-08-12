@@ -107,7 +107,8 @@ Curlew deliberately does not provide:
 - **Wave** — a set of request items that may execute concurrently under
   `--parallel`, computed from the dependency graph.
 - **Redaction** — replacement of a sensitive value with `[REDACTED]` in all
-  output streams.
+  output streams, in both directions: values curlew sent and values the server
+  returned.
 
 ---
 
@@ -673,6 +674,25 @@ an error, not an override.
 **Redaction** replaces the value with `[REDACTED]` in terminal output, JSON, TAP,
 JUnit, HTML, Markdown, event streams, and JSONL logs. Auth-profile variables are
 always sensitive with no opt-out.
+
+**Redaction is direction-agnostic.** A sensitive value is replaced wherever it
+appears, not only where curlew sent it. That covers the request URL — a token in
+a query string appears in no body but in every surface that records the URL — the
+request and response headers, both bodies, and each assertion's expected and
+actual strings. A failure message exists to print the value that did not match,
+which makes it the most likely place for a secret to surface:
+
+```
+✗ body $.authorization equals: expected …, got Bearer [REDACTED]
+```
+
+Response headers whose *names* are inherently sensitive — `Authorization`,
+`Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `Proxy-Authorization` — are
+replaced whole, as are the actual values of assertions against them. Nothing
+registered those values, because they came from the server, and matching part of
+a credential does not make the rest of it safe to print. The *expected* string is
+left readable: it is the collection author's own text, and hiding it would leave
+a failure no one can act on.
 
 `--allow-sensitive` disables redaction for a single run. It exists for local
 debugging. The local UI (§20) does not accept it under any circumstances.
@@ -1847,8 +1867,9 @@ Each is mechanically checkable.
 4. Exit codes match §17 for every listed condition.
 5. Variable precedence matches §6.2 exactly, resolved once per run.
 6. A value that is sensitive under any rule in §6.5 appears as `[REDACTED]` in
-   every output format, unless `--allow-sensitive` was passed to a command that
-   accepts it.
+   every output format, whether curlew sent it or the server returned it, and
+   in assertion failure messages as well as in bodies, headers and URLs —
+   unless `--allow-sensitive` was passed to a command that accepts it.
 7. `curlew ui` rejects `--allow-sensitive` and never emits an unredacted value.
 
 **Determinism**

@@ -71,6 +71,24 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "extract": {
+      "type": "object",
+      "description": "Variable name to JSONPath. Each entry is either the JSONPath string or an object carrying it, which is the only way to declare an extracted value sensitive explicitly.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "description": "JSONPath, e.g. \"$.data.id\"." },
+          {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string", "description": "JSONPath, e.g. \"$.data.id\"." },
+              "sensitive": { "type": "boolean", "description": "Redact this value from every output surface, regardless of whether its name matches the sensitivity heuristic." }
+            },
+            "required": ["path"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
     "output": {
       "type": "object",
       "description": "Default output configuration. Overridden by collection-level output and CLI flags (precedence: CLI > collection > project > built-in).",
@@ -128,11 +146,8 @@
           "$ref": "#/$defs/assertions"
         },
         "extract": {
-          "type": "object",
-          "description": "Extract values from the response using JSONPath",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "$ref": "#/$defs/extract",
+          "description": "Extract values from the response using JSONPath"
         },
         "retry": {
           "$ref": "#/$defs/retry",
