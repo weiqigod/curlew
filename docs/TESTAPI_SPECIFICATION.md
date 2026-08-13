@@ -1641,7 +1641,8 @@ WebSocket, GraphQL, SSE and streaming, TLS, HTTP/2, OpenAPI round-trip.
 
 **Observable:** every protocol curlew claims is exercised against a real server.
 
-**Delivered.** 20 endpoints across four families, 102 dogfood assertions, and
+**Delivered.** 21 endpoints across five families — K GraphQL (5), L WebSocket
+(9), M streaming (5), N TLS (1), P OpenAPI (1) — 102 dogfood assertions, and
 three more harnesses in `ci-local.sh` — the timing gap, the OpenAPI round trip,
 and the existing gap/redaction/crosscheck set.
 

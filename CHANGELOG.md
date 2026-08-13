@@ -8,8 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - **Mudflat Phase 3: WebSocket, GraphQL, streaming, TLS — and ten more defects.**
-  Twenty endpoints across four families, 102 dogfood assertions, and three more
-  harnesses in `ci-local.sh`.
+  Twenty-one endpoints across five families, 102 dogfood assertions, and three
+  more harnesses in `ci-local.sh`.
 
   **The WebSocket frame layer is written from RFC 6455**, not taken from
   gorilla — which is what curlew's client uses, so a mudflat built on gorilla
