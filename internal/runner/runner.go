@@ -2218,28 +2218,50 @@ func executePhase(
 
 			check, checkErr := graphql.CheckResponse(result.Body)
 			if checkErr != nil {
-				return results, requiredFailed, fmt.Errorf("request %q: parsing graphql response: %w", item.Name, checkErr)
-			}
-			outcome := graphql.ClassifyOutcome(check)
-			// Full failure always fails regardless of mode (per spec).
-			// Partial success: mode decides.
-			switch outcome {
-			case graphql.OutcomeFullFailure:
+				// A response that is not a GraphQL document is a property of
+				// THIS response — a gateway 500 with an HTML error page is the
+				// ordinary case — so it fails this request and the run
+				// continues. Aborting discarded every result collected so far
+				// and reported "requests": [] beside a summary that still
+				// counted the passes it had thrown away, under an exit code
+				// reserved for variable resolution (§11C.1).
+				//
+				// checkErr already carries the "parsing graphql response"
+				// prefix; adding it again produced the doubled message.
 				if ar == nil {
 					ar = &assertion.Results{Passed: false}
 				}
 				ar.Passed = false
-				errMsg := "GraphQL response contains errors"
-				if len(check.Errors) > 0 {
-					errMsg = fmt.Sprintf("GraphQL error: %s", check.Errors[0].Message)
-				}
 				ar.Items = append(ar.Items, assertion.Result{
 					Type:     assertion.TypeGraphQLError,
-					Expected: "no errors",
-					Actual:   errMsg,
+					Expected: "a GraphQL response document",
+					Actual:   checkErr.Error(),
 					Passed:   false,
 				})
-			case graphql.OutcomePartialSuccess:
+			}
+			// Outcome classification only means something for a document that
+			// parsed; an unparseable body has already failed the request above.
+			outcome := graphql.OutcomeSuccess
+			if checkErr == nil {
+				outcome = graphql.ClassifyOutcome(check)
+			}
+			// The mode governs BOTH error outcomes, as docs/MANUAL.md §7.1
+			// states them: a matrix of four outcomes against three modes, in
+			// which partial-success and full-failure are each fail / warn /
+			// pass. Full failure used to be handled before the mode was read,
+			// under a comment claiming "per spec" — which
+			// docs/CLI_SPECIFICATION.md §12.2 does not say — so `warn` and
+			// `ignore` behaved exactly like `fail` and the setting was inert
+			// for half the cases it documents (§11C.2).
+			//
+			// `ignore` does not hide a broken response: the request's own
+			// assertions still run, so an author who opts out of GraphQL-level
+			// error checking can still assert on $.data and $.errors.
+			if outcome == graphql.OutcomeFullFailure || outcome == graphql.OutcomePartialSuccess {
+				label := "GraphQL partial success"
+				if outcome == graphql.OutcomeFullFailure {
+					label = "GraphQL full failure"
+				}
 				switch effectiveMode {
 				case graphql.ErrorHandlingFail:
 					if ar == nil {
@@ -2258,10 +2280,11 @@ func executePhase(
 					})
 				case graphql.ErrorHandlingWarn:
 					for _, e := range check.Errors {
-						graphqlWarnings = append(graphqlWarnings, fmt.Sprintf("GraphQL partial success: %s", e.Message))
+						graphqlWarnings = append(graphqlWarnings, fmt.Sprintf("%s: %s", label, e.Message))
 					}
 				case graphql.ErrorHandlingIgnore:
-					// no-op: silently discard partial-success errors
+					// no-op: the author opted out of GraphQL-level error
+					// checking. Their own assertions still run.
 				}
 			}
 		}

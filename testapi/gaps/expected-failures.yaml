@@ -80,42 +80,44 @@ requests:
       body:
         $.authorization: { equals: "this assertion fails so actual is printed" }
 
-  - name: "a GraphQL full failure ignores error_handling: ignore"
+  - name: "a GraphQL response that is not a GraphQL document fails only itself"
     description: |
-      gap: error_handling is inert for the full-failure outcome.
+      expected-failure: you asked for GraphQL and got HTML. Failing is right.
 
-      docs/MANUAL.md §7.1 documents four outcomes and three modes as a matrix:
+      This was §11C.1, and it used to live in its own file with its own harness
+      category — testapi/gaps/graphql-http-error.run-abort.yaml — because the
+      defect destroyed the very output this harness reads.
+      /graphql/http-error answers 500 with an HTML error page, the ordinary
+      case of a gateway that never reached the GraphQL service, and
+      internal/runner returned an error instead of failing the one request:
 
-        | outcome          | fail | warn | ignore |
-        | partial-success  | fail | warn | pass   |
-        | full-failure     | fail | warn | pass   |
+        - the run ABORTED, reporting "requests": [] beside
+          "summary": {"total": 8, "passed": 6} — the two contradicting each
+          other, six passing requests discarded
+        - the EXIT CODE was 5, which CLI_SPECIFICATION §17 assigns to variable
+          resolution, so CI triaged a product problem as a pipeline
+          misconfiguration
+        - the MESSAGE was doubled: "parsing graphql response: parsing graphql
+          response: invalid character '<'"
 
-      Partial success honours the mode — verified in 90-graphql.yaml, where
-      `ignore` and `warn` both pass against /graphql/partial. Full failure does
-      not: /graphql/errors fails identically under fail, warn AND ignore.
-
-      internal/runner/runner.go handles OutcomeFullFailure before the mode is
-      consulted, under the comment "Full failure always fails regardless of
-      mode (per spec)". docs/CLI_SPECIFICATION.md §12.2 does not say that; it
-      describes the setting only in terms of partial success, and the manual's
-      table says the opposite. One of the two documents is wrong about the
-      shipped binary, which is the category §11A calls the more interesting one.
-
-      The assertions below are the ones that cannot be written today. They are
-      about the response document, not the outcome: `data: null` and an absent
-      `data` are different documents, and $.data is addressable only in the
-      first.
+      All three are fixed, and the proof is that this entry can live here at
+      all. If the abort ever comes back, gaps.sh gets no request results from
+      this file and reports NOTHING EVALUATED — the run taking its own report
+      down with it cannot look like a pass.
     request:
       protocol: graphql
-      url: "{{mud}}/graphql/errors"
+      url: "{{mud}}/graphql/http-error"
       graphql:
         query: "query ListUsers { users { id } }"
         error_handling: ignore
     assertions:
-      status: 200
-      body:
-        $.data: { exists: true }
-        $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }
+      # Both of these now PASS — they are evaluated rather than skipped, which
+      # they never were before. The request still fails overall, on the
+      # GraphQL-level error that the body is not a GraphQL document, and that
+      # is the outcome being recorded here.
+      status: 500
+      headers:
+        Content-Type: { matches: "text/html" }
 
   - name: "a refused WebSocket upgrade reports its status and its body"
     description: |

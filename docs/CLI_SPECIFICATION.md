@@ -1238,11 +1238,33 @@ assertions:
     $.errors:       { not_exists: true }
 ```
 
-**Partial success.** GraphQL returns HTTP 200 with a populated `errors` array for
-partial failures. `error_handling` (per request) and
+**Error outcomes.** GraphQL returns HTTP 200 with a populated `errors` array for
+both partial and total failures. `error_handling` (per request) and
 `defaults.graphql.error_handling.partial_success` (project-wide, accepting
 `fail`, `warn`, or `ignore`) decide whether that condition fails the request
-item, warns, or is disregarded.
+item, warns, or is disregarded. The per-request setting wins.
+
+The mode applies to **both** error outcomes, not only to partial success:
+
+| Outcome | When | `fail` | `warn` | `ignore` |
+|---|---|---|---|---|
+| success | `data` non-null, no errors | pass | pass | pass |
+| partial-success | `data` non-null, errors present | fail | warn | pass |
+| full-failure | `data` null, errors present | fail | warn | pass |
+| empty | no `data` and no `errors` | pass | pass | pass |
+
+This restates `docs/MANUAL.md` §7.1 rather than differing from it. The two
+documents disagreeing — this one silent on full failure, the manual describing
+the whole matrix — is what let the binary go on treating full failure as
+unconditionally fatal for as long as it did.
+
+`ignore` suppresses GraphQL-level error checking only. The request's own
+assertions still run, so `$.data` and `$.errors` remain assertable.
+
+**A response that is not a GraphQL document** — an HTML error page from a
+gateway that never reached the service, say — fails that request with the parse
+error as its actual value. It does not abort the run, and the other requests in
+the collection still execute and report.
 
 ### 12.3 WebSocket
 
