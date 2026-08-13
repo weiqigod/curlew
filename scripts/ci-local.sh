@@ -245,11 +245,17 @@ fi
 MUDFLAT_RAW_PORT=$((MUDFLAT_PORT + 1))
 MUDFLAT_URL="http://127.0.0.1:${MUDFLAT_PORT}"
 MUDFLAT_RAW_URL="http://127.0.0.1:${MUDFLAT_RAW_PORT}"
+# The WebSocket family needs its own scheme: a protocol: websocket request is
+# dialled with gorilla, which rejects an http:// URL outright.
+MUDFLAT_WS_URL="ws://127.0.0.1:${MUDFLAT_PORT}"
+MUDFLAT_TLS_URL="https://127.0.0.1:$((MUDFLAT_PORT + 2))"
 
 ./curlew run 'testapi/collections/*.yaml' \
   --env local \
   --var "mud=${MUDFLAT_URL}" \
   --var "raw=${MUDFLAT_RAW_URL}" \
+  --var "ws=${MUDFLAT_WS_URL}" \
+  --var "tls=${MUDFLAT_TLS_URL}" \
   --var "run=ci$$"
 
 # The barrier cannot pass serially — that is what makes it a proof rather than
@@ -268,6 +274,12 @@ step "dogfood: expected failures still fail"
 
 step "dogfood: no secret reached an output artefact"
 ./testapi/harness/redaction.sh --url "${MUDFLAT_URL}"
+
+step "dogfood: a slow body is still missing from the reported duration"
+./testapi/harness/timing.sh --url "${MUDFLAT_URL}"
+
+step "dogfood: the OpenAPI round trip"
+./testapi/harness/openapi.sh --url "${MUDFLAT_URL}"
 
 step "dogfood: curl agrees with the raw layer"
 ./testapi/harness/crosscheck.sh --raw-url "${MUDFLAT_RAW_URL}"

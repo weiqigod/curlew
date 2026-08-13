@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+
+	"github.com/weiqigod/curlew/testapi/openapi"
 )
 
 // registerMeta mounts the self-description surface (§6.5). The index is derived
@@ -17,6 +19,15 @@ func (s *Server) registerMeta() {
 		Summary:   "Index of every endpoint with its contract and cited curlew behaviour.",
 		Exercises: "Self-description (§6.5). Consumed by the anti-bloat parity test (§16).",
 		Handler:   s.handleIndex,
+	})
+
+	s.register(Endpoint{
+		Pattern:   "/openapi.json",
+		Methods:   []string{http.MethodGet},
+		Family:    "P",
+		Summary:   "The hand-written OpenAPI 3.1 document describing a slice of this server.",
+		Exercises: "`curlew import openapi` end to end: import this document, run what comes out, and require it to pass against the server it describes. The document is hand-written rather than generated from the handlers, so the round trip is evidence rather than a tautology (§9.P).",
+		Handler:   s.handleOpenAPI,
 	})
 
 	s.register(Endpoint{
@@ -153,4 +164,14 @@ func (s *Server) handleSessionReset(w http.ResponseWriter, r *http.Request) {
 // every such failure names the parameter, the value, and the rule.
 func invalidParam(name, value, rule string) error {
 	return fmt.Errorf("invalid %s %q: %s", name, value, rule)
+}
+
+// handleOpenAPI serves the document verbatim. Verbatim matters: the round trip
+// in §9.P compares what an import produces against the server it describes, and
+// a document rewritten on the way out would be describing something else.
+func (s *Server) handleOpenAPI(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", fmt.Sprint(len(openapi.Document)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openapi.Document)
 }

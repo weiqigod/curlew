@@ -24,7 +24,7 @@
 ## Key Documentation
 
 - **docs/CLI_SPECIFICATION.md** — The CLI's specification: contracts, invariants, formats, exit codes (v1)
-- **docs/TESTAPI_SPECIFICATION.md** — Mudflat, the dedicated test API for dogfooding the CLI against a server curlew did not write. **Phases 1 and 2 are implemented in `testapi/`** and run as `ci-local.sh` gate steps (dogfood suite, --parallel rendezvous, and the gaps/redaction/crosscheck harnesses); Phase 3 is specified, not built. Dogfooding has found five defects (§11A, §11B) and **all five are fixed**; `testapi/harness/redaction-known-leaks.txt` is now empty, which means every output surface is enforced rather than baselined
+- **docs/TESTAPI_SPECIFICATION.md** — Mudflat, the dedicated test API for dogfooding the CLI against a server curlew did not write. **Phases 1, 2 and 3 are implemented in `testapi/`** and run as `ci-local.sh` gate steps (dogfood suite, --parallel rendezvous, and the gaps/redaction/timing/openapi/crosscheck harnesses). Dogfooding has found **fifteen defects**: the five from Phases 1–2 (§11A, §11B) are all fixed, and the ten from Phase 3 (§11C) are recorded as executable reproductions, not yet fixed. `testapi/harness/redaction-known-leaks.txt` is empty, which means every output surface is enforced rather than baselined. §9.N (the nine-port TLS matrix) is deliberately reduced to one listener — §14.3 has the measurement showing no client-side route to trusting mudflat's CA exists on this toolchain
 - **docs/MANUAL.md** — The CLI's user-facing reference (how to use it)
 - **docs/SPECIFICATION.md** — Platform specification for the `src/` backend and `web/` dashboard (v4)
 - **docs/DEVELOPMENT_PHILOSOPHY.md** — Always-runnable, vertical slices, completeness contract

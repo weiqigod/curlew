@@ -71,6 +71,8 @@ func runServe(args []string) error {
 	fs.SetOutput(os.Stderr)
 	port := fs.Int("port", 8080, "port to listen on")
 	bindUnsafe := fs.Bool("bind-unsafe", false, "bind 0.0.0.0 instead of loopback")
+	noTLS := fs.Bool("no-tls", false, "skip the TLS listener and its certificate generation")
+	caOut := fs.String("ca-out", "", "write the generated CA to this path (for curl --cacert)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -102,16 +104,57 @@ func runServe(args []string) error {
 	srv := mudflat.New(mudflat.Options{})
 	rawSrv := mudflat.NewRaw(mudflat.RawOptions{})
 
+	// The TLS listener is the one posture §9.N builds — see the note at the top
+	// of testapi/mudflat/tls.go for why the other eight are not. curlew cannot
+	// trust the generated CA (no CA option, §11.3; and SSL_CERT_FILE was
+	// measured not to override the platform verifier on macOS, §14.3), so this
+	// exists for clients that can: Go tests, and curl with --cacert.
+	var tlsLn net.Listener
+	var material *mudflat.TLSMaterial
+	if !*noTLS {
+		material, err = mudflat.NewTLSMaterial()
+		if err != nil {
+			_ = ln.Close()
+			_ = rawLn.Close()
+			return fmt.Errorf("generating certificates: %w", err)
+		}
+		tlsAddr := net.JoinHostPort(host, fmt.Sprint(*port+2))
+		tlsLn, err = net.Listen("tcp", tlsAddr)
+		if err != nil {
+			_ = ln.Close()
+			_ = rawLn.Close()
+			return fmt.Errorf("listen on %s for TLS: %w", tlsAddr, err)
+		}
+		if *caOut != "" {
+			if err := os.WriteFile(*caOut, material.CAPEM, 0o600); err != nil {
+				_ = ln.Close()
+				_ = rawLn.Close()
+				_ = tlsLn.Close()
+				return fmt.Errorf("writing CA to %s: %w", *caOut, err)
+			}
+		}
+	}
+
 	fmt.Printf("mudflat %s listening on http://%s (%d endpoints)\n",
 		mudflat.Version, ln.Addr(), len(srv.Endpoints()))
 	fmt.Printf("  index:        http://%s/\n", ln.Addr())
 	fmt.Printf("  capabilities: http://%s/capabilities\n", ln.Addr())
 	fmt.Printf("  raw layer:    http://%s/raw/… (%d endpoints, no HTTP library)\n",
 		rawLn.Addr(), len(rawSrv.Index()))
+	if tlsLn != nil {
+		fmt.Printf("  tls:          https://%s/protocol (CA generated per process; curlew cannot trust it — §11.3)\n",
+			tlsLn.Addr())
+		if *caOut != "" {
+			fmt.Printf("  ca:           %s\n", *caOut)
+		}
+	}
 
-	errs := make(chan error, 2)
+	errs := make(chan error, 3)
 	go func() { errs <- srv.Serve(ln) }()
 	go func() { errs <- rawSrv.Serve(rawLn) }()
+	if tlsLn != nil {
+		go func() { errs <- srv.ServeTLS(tlsLn, material) }()
+	}
 
 	// Shut down on a signal so a CI harness that kills the process gets a clean
 	// exit rather than a dropped connection mid-assertion.
@@ -129,6 +172,9 @@ func runServe(args []string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = rawSrv.Close()
+		if tlsLn != nil {
+			_ = tlsLn.Close()
+		}
 		if err := srv.Shutdown(ctx); err != nil {
 			return fmt.Errorf("shutdown: %w", err)
 		}

@@ -79,3 +79,215 @@ requests:
       status: 200
       body:
         $.authorization: { equals: "this assertion fails so actual is printed" }
+
+  - name: "a GraphQL full failure ignores error_handling: ignore"
+    description: |
+      gap: error_handling is inert for the full-failure outcome.
+
+      docs/MANUAL.md §7.1 documents four outcomes and three modes as a matrix:
+
+        | outcome          | fail | warn | ignore |
+        | partial-success  | fail | warn | pass   |
+        | full-failure     | fail | warn | pass   |
+
+      Partial success honours the mode — verified in 90-graphql.yaml, where
+      `ignore` and `warn` both pass against /graphql/partial. Full failure does
+      not: /graphql/errors fails identically under fail, warn AND ignore.
+
+      internal/runner/runner.go handles OutcomeFullFailure before the mode is
+      consulted, under the comment "Full failure always fails regardless of
+      mode (per spec)". docs/CLI_SPECIFICATION.md §12.2 does not say that; it
+      describes the setting only in terms of partial success, and the manual's
+      table says the opposite. One of the two documents is wrong about the
+      shipped binary, which is the category §11A calls the more interesting one.
+
+      The assertions below are the ones that cannot be written today. They are
+      about the response document, not the outcome: `data: null` and an absent
+      `data` are different documents, and $.data is addressable only in the
+      first.
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/errors"
+      graphql:
+        query: "query ListUsers { users { id } }"
+        error_handling: ignore
+    assertions:
+      status: 200
+      body:
+        $.data: { exists: true }
+        $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }
+
+  - name: "a refused WebSocket upgrade loses its status and its body"
+    description: |
+      gap: a non-101 upgrade response is reported as "bad handshake" and
+      nothing else.
+
+      /ws/reject answers 426 Upgrade Required with a JSON body explaining
+      itself. curlew reports:
+
+        websocket dial failed: websocket: bad handshake
+
+      No status code, no body, no headers. 426, 401, 403 and 500 are
+      indistinguishable, and the one thing a server can do to explain a refused
+      upgrade — put it in the response — is discarded.
+
+      §9.L predicted the shape: "a refused upgrade produces a legible error
+      naming the status". The dialer has the response; it is thrown away before
+      the message is built.
+
+      This is the same class as §11A.3: the failure is correct, the diagnosis
+      is not.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/reject"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 3000
+            message:
+              $.error: { exists: true }
+
+  - name: "a heartbeat reports a healthy peer as dead while a step is idle"
+    description: |
+      gap: the heartbeat only survives while a step is actively reading.
+
+      This is the B half of an A/B pair against one server at one interval.
+      A — in 91-websocket.yaml — runs a heartbeat at 100ms through an expect
+      step that reads for 750ms, and passes. B is this request: the same
+      100ms heartbeat, an idle `wait` step, and mudflat's /ws/echo, which
+      answers every ping with a pong (pinned server-side by
+      TestWS_EchoAnswersAClientPing). It fails at the first interval:
+
+        step 1 (wait): websocket heartbeat timeout after 100ms
+
+      internal/websocket/heartbeat.go registers a pong handler with gorilla and
+      then checks a flag on a ticker. gorilla dispatches control frames from
+      inside ReadMessage, so while no step is reading, the pong arrives on the
+      socket and the handler never runs. The flag stays false and the next tick
+      declares the peer dead.
+
+      That inverts the feature. A heartbeat exists to hold an idle connection
+      open and to notice a peer that has stopped answering; this one fails
+      exactly when the connection is idle, and reports a server that answered
+      correctly as dead.
+
+      Detection of a genuinely dead peer works — /ws/no-pong produces
+      "websocket heartbeat timeout after 200ms" from inside an expect step —
+      so the mechanism is right and only the dispatch is missing.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/echo"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 100
+        steps:
+          - action: wait
+            duration_ms: 400
+          - action: send
+            message: { after: "an idle period" }
+          - action: expect
+            timeout_ms: 3000
+            message:
+              $.type: { equals: "echo" }
+
+  - name: "a peer that never pongs is detected — and the request still fails"
+    description: |
+      AFFIRMATIVE, kept here because there is no other way to express it.
+
+      /ws/no-pong reads pings and answers nothing while holding the socket
+      open, which is the failure a heartbeat exists to detect and which cannot
+      be simulated by closing the connection. curlew detects it correctly:
+
+        step 2 (expect): websocket heartbeat timeout after 200ms
+
+      That is the right answer. It is also a failed request, and curlew has no
+      way to say "this request is expected to fail" — so the only place this
+      can live is a file whose harness asserts failure.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/no-pong?hold_ms=3000"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 200
+        steps:
+          - action: expect
+            timeout_ms: 2000
+            message:
+              $.type: { equals: "alive" }
+          - action: expect
+            timeout_ms: 2000
+            message:
+              $.type: { equals: "never arrives" }
+
+  - name: "a response body that is not JSON cannot be asserted on at all"
+    description: |
+      gap: there is no way to assert on a text body, by any mechanism.
+
+      CLI_SPECIFICATION §7.3 says the body is parsed as JSON and each assertion
+      targets a JSONPath — so every operator reports the same thing against a
+      text/event-stream:
+
+        ✗ body $ contains: expected contains id: 1, got response body is not valid JSON
+
+      That much is documented. What is not is that `cel:` — offered as the
+      escape hatch for what the operator catalogue cannot express — does not
+      help either. internal/runner buildCelResponse decodes the body
+      best-effort and leaves it nil on failure, so `response.body` is null and
+      `response.body.contains("id: 1")` fails with "no such overload".
+
+      The consequence is broader than SSE. An HTML error page, a CSV export, an
+      XML SOAP response, plain text, NDJSON — none of it is assertable beyond
+      status and headers. §9.K hit the same wall from the other direction: the
+      500 whose body is an HTML error page has no assertion available either.
+
+      Both assertions below are the natural way to write this, and neither can
+      work today.
+    request:
+      method: GET
+      url: "{{mud}}/sse?events=2&ms=0"
+    assertions:
+      status: 200
+      body:
+        $: { contains: "id: 1" }
+      cel:
+        - 'response.body.contains("id: 1")'
+
+  - name: "TLS is unreachable, and the failure is at least legible"
+    description: |
+      AFFIRMATIVE AND GAP IN ONE REQUEST.
+
+      The affirmative: curlew's TLS failure path is correct. The message names
+      the cause exactly —
+
+        Get "https://…/protocol": tls: failed to verify certificate:
+        x509: certificate signed by unknown authority
+
+      — and the run exits 4, which CLI_SPECIFICATION §17 assigns to "execution
+      error: network failure, connection refused, TLS error". Nothing had ever
+      checked that against a real TLS server.
+
+      The gap: this is the ONLY answer curlew can get from any TLS posture.
+      §11.3 records that there is no --insecure, no CA option, no client
+      certificate support and no minimum version. §14.3 proposed SSL_CERT_FILE
+      as the way around that; it was measured on go1.25.5 darwin/arm64 and does
+      not work — not with SSL_CERT_DIR either, and not with
+      GODEBUG=x509usefallbackroots=1. The same run with explicit RootCAs
+      succeeds, so the certificates are sound and the trust mechanism is not.
+
+      Chain building fails before expiry, hostname or intermediate are ever
+      considered, so an expired leaf, a self-signed leaf and a wrong-hostname
+      leaf would all produce this same string. That is why the other eight
+      postures of §9.N are not built: eight endpoints a client cannot tell
+      apart are what §16 deletes.
+
+      curl reaches the same listener with --cacert and reports HTTP/2 over
+      TLS 1.3, so the listener is real and the limit is on this side.
+    request:
+      method: GET
+      url: "{{tls}}/protocol"
+    assertions:
+      status: 200
+      body:
+        $.tls.version: { matches: "^TLS 1\\." }

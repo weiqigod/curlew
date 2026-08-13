@@ -124,6 +124,10 @@ func New(opts Options) *Server {
 	s.registerVerify()
 	s.registerConcurrency()
 	s.registerLeak()
+	s.registerGraphQL()
+	s.registerWebSocket()
+	s.registerStreaming()
+	s.registerTLS()
 
 	s.http = &http.Server{
 		Handler:           s.mux,
@@ -148,6 +152,27 @@ func (s *Server) Endpoints() []Endpoint {
 
 // Sessions exposes the store, for tests and the capabilities endpoint.
 func (s *Server) Sessions() *Sessions { return s.sessions }
+
+// ServeTLS accepts TLS connections on ln using the given material, serving the
+// same endpoint registry as the cleartext listener. /protocol is the one that
+// answers differently: over TLS it reports what was negotiated, over cleartext
+// it reports tls: null.
+//
+// The listener is NOT wrapped for preamble capture. Capture tees the bytes a
+// client sent, and under TLS those bytes are ciphertext — an envelope built
+// from them would be noise presented as evidence.
+func (s *Server) ServeTLS(ln net.Listener, material *TLSMaterial) error {
+	srv := &http.Server{
+		Handler:           s.mux,
+		ReadHeaderTimeout: 30 * time.Second,
+		TLSConfig:         material.TLSConfig(),
+	}
+	err := srv.ServeTLS(ln, "", "")
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
 
 // Serve accepts connections on ln. The listener is wrapped so each connection
 // carries a stable id and tees its request preambles (§5.1).

@@ -1,0 +1,146 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mudflat",
+    "version": "0.3.0",
+    "description": "HAND-WRITTEN AND VERSION-CONTROLLED. This document is NOT generated from the handlers, and must not become generated: the round trip it exists for is `curlew import openapi` -> `curlew run`, and a document derived from the same source as the server would make that a tautology. It describes a deliberately small slice of the structured layer — enough operations to exercise header generation, body synthesis from schemas, status assertions and path parameters, and no more. Specification section 9.P. NOTE: info.summary is a valid 3.1 field and is deliberately absent — curlew's importer rejects it, along with webhooks and JSON-Schema type arrays. testapi/harness/openapi.sh holds those three as a reproduction."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080",
+      "description": "A locally running mudflat. The import turns this into base_url, which the harness overrides."
+    }
+  ],
+  "paths": {
+    "/echo": {
+      "get": {
+        "operationId": "echoGet",
+        "summary": "The request envelope, for any method.",
+        "responses": {
+          "200": {
+            "description": "The envelope.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } }
+          }
+        }
+      },
+      "post": {
+        "operationId": "echoPost",
+        "summary": "The request envelope, with the body echoed back base64-encoded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "count": { "type": "integer" },
+                  "enabled": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The envelope.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } }
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "summary": "What this server implements, as data.",
+        "responses": { "200": { "description": "Capability document." } }
+      }
+    },
+    "/empty": {
+      "get": {
+        "operationId": "emptyBody",
+        "summary": "A 200 with no body at all.",
+        "responses": { "200": { "description": "No body." } }
+      }
+    },
+    "/leak/token": {
+      "get": {
+        "operationId": "leakToken",
+        "summary": "A published test credential, for redaction checks.",
+        "responses": { "200": { "description": "Token document." } }
+      }
+    },
+    "/graphql/partial": {
+      "post": {
+        "operationId": "graphqlPartial",
+        "summary": "A GraphQL partial success: 200 with both data and errors.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                  "query": { "type": "string" },
+                  "operationName": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "A GraphQL response document." } }
+      }
+    },
+    "/retry-after/seconds": {
+      "get": {
+        "operationId": "retryAfterSeconds",
+        "summary": "429 with a Retry-After given in seconds.",
+        "responses": { "429": { "description": "Too Many Requests." } }
+      }
+    },
+    "/status/{code}": {
+      "get": {
+        "operationId": "statusByCode",
+        "summary": "Returns the status code named in the path.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "description": "The status code to return.",
+            "schema": { "type": "integer", "minimum": 100, "maximum": 599 }
+          }
+        ],
+        "responses": { "200": { "description": "The requested status." } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Envelope": {
+        "type": "object",
+        "description": "The echo envelope of specification section 8.",
+        "properties": {
+          "request": {
+            "type": "object",
+            "properties": {
+              "method": { "type": "string" },
+              "target": { "type": "string" },
+              "http_version": { "type": "string" },
+              "body_base64": { "type": "string" },
+              "body_len": { "type": "integer" }
+            }
+          },
+          "connection": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "requests_on_conn": { "type": "integer" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

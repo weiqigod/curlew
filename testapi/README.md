@@ -183,6 +183,44 @@ And two affirmative results, which are worth as much: curlew's **SigV4 and
 OAuth 1.0a signatures are correct**, and **`--parallel` really is parallel** —
 both now backed by evidence rather than by absence of evidence.
 
+## What Phase 3 found
+
+Ten more, **none fixed** — each is an executable reproduction, and five results
+came out affirmative. Write-ups in specification §11C.
+
+The ones that would change how you use curlew today:
+
+1. **A non-JSON GraphQL response aborts the whole run.** A gateway's HTML error
+   page discards every result in the collection, reports `"requests": []` beside
+   a summary claiming six passed, and exits 5 — the code §17 assigns to variable
+   resolution errors.
+2. **`timing.max_duration_ms` cannot fail on a slow body.** The reported
+   duration stops when the headers arrive, so a one-second stream reports 0ms
+   and a 50ms ceiling passes. curlew measures the right number in the same
+   request — `timing.total_us` is there in the event stream — and reports the
+   wrong one.
+3. **A response body that is not JSON cannot be asserted on at all.** Not by
+   `body:`, which is documented, and not by `cel:` either, which is not: the
+   body decode is best-effort and leaves `response.body` null.
+4. **A WebSocket heartbeat reports a healthy peer as dead** whenever no step is
+   reading — which is when a heartbeat is for.
+5. **The OpenAPI importer rejects ordinary 3.1 documents** (`info.summary`,
+   `webhooks`, `type: ["string","null"]`) although both documents promise 3.x.
+
+And the affirmatives: close codes are surfaced, curlew answers protocol pings, a
+genuinely dead peer is detected, a TLS failure is legible and exits 4, and the
+OpenAPI round trip passes 8 of 8 against the server that served the document.
+
+## What is deliberately not built
+
+- **Eight of the nine TLS postures.** `SSL_CERT_FILE` was measured — not assumed
+  — not to override the platform verifier on macOS, and curlew has no CA option,
+  so every posture produces one identical "unknown authority". Eight endpoints a
+  client cannot tell apart are what §16 deletes. See §14.3.
+- **The nginx cross-check.** curl already reads the raw layer independently and
+  gorilla reads the WebSocket layer independently; nginx would add a container to
+  re-answer a question two cheaper checks already answer.
+
 ## Safety
 
 Mudflat binds loopback. `--bind-unsafe` is required to bind anything else and

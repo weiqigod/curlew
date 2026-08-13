@@ -7,6 +7,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Mudflat Phase 3: WebSocket, GraphQL, streaming, TLS — and ten more defects.**
+  Twenty-one endpoints across five families, 102 dogfood assertions, and three
+  more harnesses in `ci-local.sh`.
+
+  **The WebSocket frame layer is written from RFC 6455**, not taken from
+  gorilla — which is what curlew's client uses, so a mudflat built on gorilla
+  would agree with it by construction about masking, fragmentation, control
+  frames and close codes. The package's own tests read those frames back *with*
+  gorilla, so a second implementation checks the bytes, and the handshake accept
+  value is pinned against RFC 6455 §1.3's published example. Writing the frames
+  is also what buys the endpoints: a library will not send an empty continuation
+  frame, decline to answer a ping, or close with a code it dislikes.
+
+  **The TLS matrix is deliberately reduced from nine ports to one.** The
+  specification required one thing to be measured before it was built, and it
+  was: `SSL_CERT_FILE` does not override the platform verifier on go1.25.5
+  darwin/arm64 — not with `SSL_CERT_DIR`, not with
+  `GODEBUG=x509usefallbackroots=1` — while the same listener and certificate are
+  trusted by a client that sets `RootCAs` explicitly. With curlew exposing no CA
+  option either, chain building fails before expiry, hostname or intermediate are
+  ever examined, so an expired leaf, a self-signed leaf and a wrong-hostname leaf
+  all produce one identical error. Eight endpoints a client cannot tell apart are
+  what the anti-bloat rule deletes.
+
+  The measurement sharpened the HTTP/2 gap rather than confirming it: Go's
+  default transport offers `h2` in ALPN, so a client that reaches the TLS
+  listener negotiates HTTP/2 without asking — verified with `curl --cacert`,
+  which reports HTTP/2 over TLS 1.3. What curlew cannot reach is h2c
+  specifically.
+
+  Ten defects, none fixed, each an executable reproduction. The ones that change
+  how curlew is used today: a non-JSON GraphQL response aborts the whole run and
+  discards every result in it; `timing.max_duration_ms` cannot fail on a slow
+  body because the reported duration stops at the headers; a response body that
+  is not JSON cannot be asserted on by `body:` *or* `cel:`; a WebSocket heartbeat
+  reports a healthy peer as dead whenever no step is reading; and the OpenAPI
+  importer rejects ordinary 3.1 documents although both documents promise 3.x.
+
+  Five results came out affirmative: close codes are surfaced, curlew answers
+  protocol pings, a genuinely dead peer is detected, a TLS failure is legible and
+  exits 4, and the OpenAPI round trip passes 8 of 8 against the server that
+  served the document.
+
+  One of the harnesses was itself broken. `gaps.sh` read a `passed` field that
+  does not exist in the JSON output — the per-request outcome is a status string
+  — so every request looked failed and the one thing it exists to catch, an
+  unexpected PASS, could never fire. It had been reporting a vacuous pass since
+  Phase 2; the fix is verified with a canary request that passes on purpose.
+
 - **Mudflat Phase 2: the adversarial layer, signature verification, and proof of
   parallelism.** Phase 1 gave curlew a server it did not write. Phase 2 gives it
   one that fights back, and answers two questions that had never been answered.

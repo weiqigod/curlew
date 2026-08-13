@@ -64,6 +64,7 @@ func goldenName(pattern string) string {
 // the reason. Each entry is a deliberate exemption from §16, not an oversight.
 var coveredByTest = map[string]string{
 	"/raw/reset-after/{n}": "the response is cut mid-flight, so its bytes depend on TCP timing rather than on what the server wrote; TestRaw_ResetAfterNBytes asserts the reset instead",
+	"/stream/infinite":     "curlew has no request timeout (§11.1), so a collection request would sit for the full 120s ceiling — two minutes of gate time to re-demonstrate a documented gap; TestStream_InfiniteKeepsProducingAndIsBounded reads a few objects and hangs up the way a client with a timeout would",
 }
 
 // intentionallyUnrouted lists paths a collection requests on purpose without
@@ -79,8 +80,9 @@ type collectionFile struct {
 	Requests []struct {
 		Name    string `yaml:"name"`
 		Request struct {
-			Method string `yaml:"method"`
-			URL    string `yaml:"url"`
+			Method   string `yaml:"method"`
+			URL      string `yaml:"url"`
+			Protocol string `yaml:"protocol"`
 		} `yaml:"request"`
 	} `yaml:"requests"`
 }
@@ -250,7 +252,11 @@ func loadUsages(t *testing.T) []usage {
 				}
 				method := strings.ToUpper(req.Request.Method)
 				if method == "" {
-					method = "GET"
+					// A graphql request carries no method: curlew sets POST
+					// and the Content-Type itself, which is exactly the
+					// behaviour §9.K checks. Defaulting it to GET here would
+					// report every GraphQL request as an unresolved URL.
+					method = defaultMethodFor(req.Request.Protocol)
 				}
 				out = append(out, usage{
 					method: method,
@@ -368,4 +374,14 @@ func repoRelative(t *testing.T, rel string) string {
 		t.Fatalf("getwd: %v", err)
 	}
 	return filepath.Join(wd, rel)
+}
+
+// defaultMethodFor returns the method curlew uses when a request declares none.
+// http requests default to GET; a graphql request is always a POST, chosen by
+// the adapter rather than by the collection author.
+func defaultMethodFor(protocol string) string {
+	if strings.EqualFold(protocol, "graphql") {
+		return "POST"
+	}
+	return "GET"
 }

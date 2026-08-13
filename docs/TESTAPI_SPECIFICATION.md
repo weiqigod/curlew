@@ -2,8 +2,8 @@
 
 ## A Deliberately Difficult HTTP Server for Exercising Curlew
 
-**Version:** 0.2
-**Status:** Phases 1 and 2 implemented (`testapi/`); Phase 3 specified, not built
+**Version:** 0.3
+**Status:** Phases 1, 2 and 3 implemented (`testapi/`), with §9.N reduced — see §14.3
 **Date:** 2026-08-12
 **Applies to:** curlew 0.1.0-dev and later
 
@@ -29,6 +29,8 @@ substitute freely. Everything below is independent of it.
 10. [Coverage Matrix](#10-coverage-matrix)
 11. [Gaps This API Will Expose](#11-gaps-this-api-will-expose)
 11A. [What Phase 1 Actually Found](#11a-what-phase-1-actually-found)
+11B. [What Phase 2 Found](#11b-what-phase-2-found)
+11C. [What Phase 3 Found](#11c-what-phase-3-found)
 12. [The Dogfood Suite](#12-the-dogfood-suite)
 13. [Testing the Tester](#13-testing-the-tester)
 14. [Operations](#14-operations)
@@ -800,12 +802,12 @@ coverage today** are marked ●.
 | Content encodings | C | ● |
 | Charsets / non-UTF-8 | C | ● |
 | Malformed framing | E | ● |
-| TLS postures | N | ● |
-| HTTP/2 | N | ● |
+| TLS postures | N | one listener; the rest blocked (§14.3) |
+| HTTP/2 | N | negotiated over TLS; h2c unreachable (§14.3) |
 | Connection reuse | D, J | ● |
-| Streaming / SSE | M | ● |
+| Streaming / SSE | M | mudflat |
 | Redaction across 6 formats | O | partial |
-| `import openapi` | P | golden files |
+| `import openapi` | P | round trip against mudflat |
 | `perf` VU/RPS accuracy | J | ● |
 | Events stream v1.6 fidelity | all | httptest |
 | Error message quality | E | ● |
@@ -1075,6 +1077,191 @@ but whose actual value must now read `Bearer [REDACTED]`.
 
 ---
 
+## 11C. What Phase 3 Found
+
+Ten more, and five affirmative results. The pattern from §11A and §11B holds:
+most of these are places where a document describes behaviour the binary does
+not have, which stays the more interesting category, because a specification
+that is wrong about the shipped tool is worse than one that is silent.
+
+Three are recorded by harnesses rather than by gap requests. A gap request has
+to *fail*, and §11C.6, §11C.9 and §11C.10 are about a wrong thing **passing** or
+about a command rather than a response — so there is no failing request to
+record, and the claim is about curlew's own output.
+
+### 11C.1 A non-JSON GraphQL response aborts the whole run
+
+`/graphql/http-error` answers 500 with an HTML error page — a gateway that never
+reached the GraphQL service, which is the ordinary real-world case and the exact
+shape §9.K predicted.
+
+Failing that request is right. Taking the rest of the run with it is not:
+
+- The run **aborts**. `--format json` reports `"requests": []` beside
+  `"summary": {"total": 8, "passed": 6}` — the two contradict each other, and
+  six passing requests vanish from the report.
+- The **exit code is 5**, which `CLI_SPECIFICATION` §17 assigns to "variable
+  resolution error: undefined variable, circular reference, bad interpolation".
+  CI reading that triages a product problem as a pipeline misconfiguration.
+- The **message is doubled**: `parsing graphql response: parsing graphql
+  response: invalid character '<'`.
+
+**Reproduction:** `testapi/gaps/graphql-http-error.run-abort.yaml`, which needed
+a new harness category — the defect destroys the per-request output `gaps.sh`
+reads, so an unmodified check reports "nothing evaluated" and blames itself.
+
+### 11C.2 `error_handling` is inert for the full-failure outcome
+
+`docs/MANUAL.md` §7.1 documents a matrix in which `warn` warns and `ignore`
+passes, for partial success **and** full failure. Partial success honours it —
+proven in `90-graphql.yaml`, which passes under both. Full failure fails
+identically under `fail`, `warn` and `ignore`.
+
+`internal/runner` handles `OutcomeFullFailure` before the mode is read, under a
+comment claiming "per spec". `CLI_SPECIFICATION` §12.2 describes the setting
+only in terms of partial success and says no such thing.
+
+### 11C.3 The manual's WebSocket example does not parse
+
+`docs/MANUAL.md` §7.2 puts `websocket:` at the request-item level, as a sibling
+of `request:`. The parser wants it **inside** `request:`, as
+`CLI_SPECIFICATION` §12.3 correctly shows. A collection copied from the manual
+is rejected with "must have websocket.steps with at least one action". Both the
+step example and the heartbeat/reconnect example have it wrong.
+
+### 11C.4 A refused WebSocket upgrade loses its status and its body
+
+`/ws/reject` answers 426 with a JSON body explaining itself. curlew reports
+`websocket dial failed: websocket: bad handshake` — no status, no body, no
+headers, so 426, 401, 403 and 500 are indistinguishable. §9.L predicted the
+shape; the dialer has the response and discards it before building the message.
+
+### 11C.5 A heartbeat reports a healthy peer as dead whenever a step is idle
+
+Settled by an A/B pair against one server at one interval:
+
+| | step | outcome |
+|---|---|---|
+| A | `expect`, reading for 750ms | passes |
+| B | `wait`, idle for 400ms | **heartbeat timeout after 100ms** |
+
+`internal/websocket/heartbeat.go` registers a pong handler with gorilla and then
+polls a flag on a ticker. gorilla dispatches control frames from inside
+`ReadMessage`, so while nothing is reading, the pong lands on the socket and the
+handler never runs.
+
+That inverts the feature: a heartbeat exists to hold an **idle** connection open
+and to notice a peer that stopped answering, and this one fails precisely when
+idle, against a server that answered every ping. Detection of a genuinely dead
+peer works — `/ws/no-pong` produces a timeout from inside an `expect` step — so
+the mechanism is right and only the dispatch is missing.
+
+That mudflat answers pings is pinned server-side by
+`TestWS_EchoAnswersAClientPing`, without which this finding would not be
+attributable.
+
+### 11C.6 A request's reported duration excludes the body read
+
+`internal/httpexec` measures `time.Since(start)` around
+`http.DefaultClient.Do`, which returns when the **headers** arrive. `io.ReadAll`
+comes afterwards and is never counted.
+
+Against `/sse?events=5&ms=200` — one second of body, no headers to speak of:
+
+```
+duration_ms reported : 0
+timing.total_us      : 1010867   (1011 ms)
+timing.download_us   : 1009959
+```
+
+All three from the same `request.end` event. curlew measures the right number
+and reports the wrong one, and `timing.max_duration_ms: 50` **passes** — a
+documented assertion that cannot fail on a slow body. For an ordinary small
+response the download is negligible, which is why nothing noticed.
+
+**Recorded by** `testapi/harness/timing.sh`, which asserts the defect and fails
+when it closes.
+
+### 11C.7 A response body that is not JSON cannot be asserted on at all
+
+`CLI_SPECIFICATION` §7.3 says the body is parsed as JSON and every assertion
+targets a JSONPath, so a `text/event-stream` yields "response body is not valid
+JSON" for every operator. That much is documented.
+
+What is not: `cel:`, offered as the escape hatch for what the operator catalogue
+cannot express, does not help either. `buildCelResponse` decodes best-effort and
+leaves the body `nil`, so `response.body` is null and
+`response.body.contains("id: 1")` fails with "no such overload".
+
+HTML, CSV, XML, plain text, NDJSON and SSE are assertable only by status and
+headers. §9.K hit the same wall from the other side with its HTML error page.
+
+### 11C.8 A counted WebSocket extraction yields an array, undocumented
+
+With `count: > 1`, an `expect` step's `extract:` produces a **JSON-encoded array
+of the per-message values**, not the value from the last message. Neither
+document says so, and the manual's own example names the variable
+`last_order_id`, implying the opposite. An author following it sends
+`["ord_1","ord_2","ord_3"]` to a URL and finds out then.
+`91-websocket.yaml` now states the real contract executably.
+
+### 11C.9 The OpenAPI importer rejects ordinary 3.1 documents
+
+Both `CLI_SPECIFICATION` §18.8 and `docs/MANUAL.md` promise "OpenAPI 3.x". Three
+constructs added or changed by 3.1 are refused:
+
+| Construct | 3.1 status | Error |
+|---|---|---|
+| `info.summary` | added in 3.1 | `invalid info: extra sibling fields: [summary]` |
+| `webhooks` | added in 3.1, a headline feature | `extra sibling fields: [webhooks]` |
+| `type: ["string","null"]` | JSON Schema 2020-12 alignment | `unsupported 'type' value "null"` |
+
+The importer accepts a document *declaring* `openapi: 3.1.0` and then validates
+it against 3.0 rules.
+
+### 11C.10 An imported collection with a path parameter cannot run
+
+§9.P's acceptance criterion is literal: `curlew run /tmp/imported.yaml` must
+pass. A path parameter becomes `{{code}}`, and the import emits no `variables:`
+entry and no default for it, so the generated collection exits 5 with "undefined
+variable" — at run time rather than at import time. Everything else round-trips.
+
+### What came out affirmative
+
+Worth as much as the defects, because each replaces an assumption with evidence:
+
+- **Close codes are surfaced.** §9.L listed "a close code not surfaced" as the
+  failure mode; curlew reports `websocket: close 4000: mudflat closing with
+  4000`.
+- **curlew answers protocol pings.** `/ws/ping` counts the pongs and reports 2
+  of 2 in a data message.
+- **A genuinely dead peer is detected**, from inside a reading step.
+- **The TLS failure path is correct**: the message names the cause and the run
+  exits 4, which §17 assigns to TLS errors.
+- **The OpenAPI round trip passes 8 of 8** against the server that served the
+  document — with the path parameter supplied.
+
+### What mudflat got wrong, and how
+
+Three of its own, fixed rather than blamed on curlew:
+
+- **Write-only WebSocket endpoints never answered a ping**, so they looked
+  exactly like a dead peer and would have made §11C.5 unattributable. RFC 6455
+  §5.5.2 requires a pong, which means a server that only writes still has to
+  read.
+- **`/ws/no-pong` consulted the request context after hijacking**, which
+  `net/http` cancels; it exited after one read cycle instead of holding, so it
+  simulated a peer that DROPS the socket rather than one that keeps it open and
+  stops answering. Different failures, and only the second is what that endpoint
+  is for.
+- **`gaps.sh` read a `passed` field that does not exist** in the JSON output —
+  the per-request outcome is a status string. Every request therefore looked
+  failed, and the one thing the harness exists to catch, an unexpected PASS,
+  could never fire. It had been reporting a vacuous pass since Phase 2, and was
+  verified fixed with a canary request that passes on purpose.
+
+---
+
 ## 12. The Dogfood Suite
 
 The suite is the deliverable. Mudflat without it is a server nobody calls.
@@ -1100,12 +1287,16 @@ testapi/
   environments/
     local.yaml
   schemas/
+  openapi/
+    mudflat-openapi.json    # P — hand-written, served at /openapi.json
   harness/
     redaction.sh            # O — asserts on curlew's output artifacts
     redaction-actual.yaml   # assertions wrong on purpose, so `actual` is printed
     redaction-known-leaks.txt
     gaps.sh                 # runs `gap` entries, fails on unexpected pass
     crosscheck.sh           # curl reads the raw layer the same way
+    timing.sh               # §11C.6 — a defect that makes a wrong thing pass
+    openapi.sh              # P — import the served document, run what comes out
 ```
 
 ### 12.2 Execution
@@ -1230,20 +1421,52 @@ only when absent or expired, so it never sits in the hot path.
 
 ### 14.3 Trust anchors
 
-`mudflat certs` writes a CA to `testapi/certs/ca.pem`. Clients trust it via:
+> **MEASURED, AND THE ANSWER IS NO.** The risk this section flagged was
+> confirmed on the real toolchain before the N family was built, exactly as it
+> asked. `SSL_CERT_FILE` does **not** override the platform verifier on
+> go1.25.5 darwin/arm64:
+>
+> ```
+> CONTROL (explicit RootCAs):                     TRUSTED — 200 OK
+> SSL_CERT_FILE:                                  FAILED  — x509: certificate signed by unknown authority
+> SSL_CERT_DIR:                                   FAILED  — same
+> SSL_CERT_FILE + GODEBUG=x509usefallbackroots=1: FAILED  — same
+> ```
+>
+> The control passing is what makes it attributable: a client that sets
+> `RootCAs` explicitly trusts the same certificate served by the same listener,
+> so the certificates are sound and the trust mechanism is not. Reproduced
+> through curlew itself, which fails identically with `SSL_CERT_FILE` set.
 
-```bash
-export SSL_CERT_FILE=testapi/certs/ca.pem
-```
+The original plan was for `mudflat certs` to write a CA that clients trust via
+`SSL_CERT_FILE`. With that route closed and curlew exposing no CA option
+(§11.3), a client cannot trust mudflat's CA by any means — and chain building
+fails before expiry, hostname or intermediate are ever examined, so an expired
+leaf, a self-signed leaf and a wrong-hostname leaf all produce one identical
+error.
 
-Go's `crypto/x509` honors `SSL_CERT_FILE` on Unix, so this works without root and
-without touching the system trust store.
+**What was built instead.** One TLS listener on `--port + 2`, with a CA and leaf
+generated per process and no `certs` subcommand: there is nothing to cache when
+nothing can trust it. `--ca-out <path>` writes the CA for clients that *can* be
+told about it, and `--no-tls` skips generation entirely.
 
-> **Implementation risk.** On macOS, Go's certificate verification path differs
-> from Linux's, and whether `SSL_CERT_FILE` fully overrides the platform verifier
-> must be confirmed on the actual toolchain before the N family is built. If it
-> does not, the fallback is a curlew-side CA option — which §11.3 already
-> identifies as missing. Confirm this before starting Phase 3; do not assume it.
+- The listener is verified by the package's own tests, which set `RootCAs`, and
+  by `curl --cacert`, which reports HTTP/2 over TLS 1.3.
+- curlew's half is one entry in `testapi/gaps/expected-failures.yaml`, and it is
+  half affirmative: the failure message names the cause exactly and the run
+  exits 4, which §17 assigns to TLS errors. Nothing had checked that against a
+  real TLS server before.
+- The other eight postures are **not built**. Eight endpoints that a client
+  cannot tell apart are what §16 deletes. They are blocked rather than
+  abandoned: when curlew gains a CA option they become distinguishable and worth
+  writing, and the note at the top of `testapi/mudflat/tls.go` says so.
+
+**On HTTP/2**, the measurement sharpened §11.4 rather than confirming it. Go's
+default transport offers `h2` in ALPN, so a client that reaches the TLS listener
+negotiates HTTP/2 without asking and `/protocol` reports it — verified by curl.
+What curlew cannot reach is **h2c** specifically, cleartext HTTP/2, which has no
+ALPN to negotiate with and needs an upgrade the client never sends. The gap is
+narrower than "no HTTP/2".
 
 ### 14.4 Configuration
 
@@ -1412,12 +1635,44 @@ line without a colon — and accepts the well-formed control case.
 
 Two further defects surfaced (§11B).
 
-### Phase 3 — Protocols and matrix
+### Phase 3 — Protocols and matrix ✅ implemented (§9.N reduced)
 
-WebSocket, GraphQL, SSE and streaming, TLS ports, HTTP/2, OpenAPI round-trip,
-nginx cross-check.
+WebSocket, GraphQL, SSE and streaming, TLS, HTTP/2, OpenAPI round-trip.
 
 **Observable:** every protocol curlew claims is exercised against a real server.
+
+**Delivered.** 21 endpoints across five families — K GraphQL (5), L WebSocket
+(9), M streaming (5), N TLS (1), P OpenAPI (1) — 102 dogfood assertions, and
+three more harnesses in `ci-local.sh` — the timing gap, the OpenAPI round trip,
+and the existing gap/redaction/crosscheck set.
+
+The WebSocket frame layer is written from RFC 6455 rather than taken from
+gorilla, which is what curlew's client uses: a mudflat built on gorilla would
+agree with curlew by construction about masking, fragmentation, control frames
+and close codes, which is §3's closed-loop problem wearing a different hat. The
+package's own tests read those frames back **with** gorilla, so a second
+implementation checks the bytes — the role curl plays for the raw layer. The
+handshake accept value is pinned against RFC 6455 §1.3's published example.
+
+Writing the frames is also what buys the endpoints: a library will not send an
+empty continuation frame, decline to answer a ping, or close with a code it
+dislikes, and those are exactly what `/ws/fragmented`, `/ws/no-pong` and
+`/ws/close/{code}` exist to produce.
+
+**Two things were deliberately not built:**
+
+- **The nine-port TLS matrix**, reduced to one listener. §14.3 has the
+  measurement and the reasoning; the short version is that no client-side route
+  to trusting mudflat's CA exists on this toolchain, so all eight remaining
+  postures produce one identical error, and §16 deletes endpoints a client
+  cannot tell apart.
+- **The nginx cross-check.** curl already plays the independent-reader role for
+  the raw layer, and gorilla plays it for the WebSocket layer, so nginx would
+  add a container and a second config surface to re-answer a question two
+  cheaper checks already answer. Worth revisiting only if a finding turns out to
+  hinge on Go's server behaviour specifically.
+
+Ten more defects surfaced, and five results came out affirmative (§11C).
 
 **Phase 1 is where the value concentrates.** It is roughly a quarter of the
 endpoint surface and it closes the dogfooding gap outright; Phases 2 and 3 deepen
@@ -1430,7 +1685,9 @@ what Phase 1 makes possible. If only one phase is ever built, build that one.
 An implementation conforms when all of the following hold. Each is mechanically
 checkable.
 
-1. `mudflat serve --no-tls` accepts connections within 200 ms.
+1. `mudflat serve --no-tls` accepts connections within 200 ms. (`--no-tls`
+   exists for that reason: certificate generation is the only startup cost that
+   is not constant.)
 2. `GET /` lists every implemented endpoint with its contract and cited curlew
    feature.
 3. Running the full endpoint surface twice yields byte-identical output with only
@@ -1452,7 +1709,10 @@ checkable.
     a run whose assertions fail, which is the only way several of those formats
     print a response value at all — and its baseline file is empty.
 13. `curlew import openapi` on the served document produces a collection that
-    passes against the server (§9.P).
+    passes against the server (§9.P). Asserted by `harness/openapi.sh`, which
+    also checks the served document is byte-identical to the version-controlled
+    one — a server that rewrote it on the way out would be describing something
+    else.
 14. The server binds loopback unless `--bind-unsafe` is given.
 
 ---
