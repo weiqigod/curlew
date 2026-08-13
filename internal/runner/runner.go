@@ -73,6 +73,22 @@ type largeDatasetError struct{ detail string }
 func (e largeDatasetError) Error() string { return e.detail }
 func (e largeDatasetError) Unwrap() error { return ErrLargeDataset }
 
+// ErrParallelAnalysis identifies the dependency analysis refusing a collection
+// before any request is sent: a cycle, a variable collision, a dynamic extract
+// key, a depends_on that cannot be ordered. §11.4 gives every one of them exit
+// code 3, and §17 puts them under "Parse or configuration error … dependency
+// cycle, variable collision" — the code that tells CI the tests never started.
+// They all exited 5 instead, which sends a pipeline looking for a missing
+// variable.
+var ErrParallelAnalysis = errors.New("parallel analysis rejected the collection")
+
+// parallelAnalysisError carries the analyzer's own message, which names the
+// requests involved, while classifying as ErrParallelAnalysis.
+type parallelAnalysisError struct{ detail string }
+
+func (e parallelAnalysisError) Error() string { return e.detail }
+func (e parallelAnalysisError) Unwrap() error { return ErrParallelAnalysis }
+
 // resolveAuthProfile looks up authName in profiles and returns the header name
 // and value to inject. Returns ("", "", nil) when authName is empty.
 // Returns a descriptive ErrAuthProfileNotFound when the profile is not found,
@@ -1391,6 +1407,24 @@ func runPhases(ctx context.Context, col *parser.Collection, exec ExecuteFunc, sc
 		}
 	}
 
+	// §3.1: validation errors abort before any HTTP traffic. The dependency
+	// analysis is a validation, and it used to run when the main phase started
+	// — after setup had already created whatever it creates on a collection
+	// that was never going to run. It is hoisted here, against the variables
+	// the scope will hold once setup has extracted its own, so the graph is the
+	// one the main phase will see rather than a stricter guess.
+	if vars.Parallel && len(col.Requests.Items) > 0 {
+		graph := parallel.Analyze(col.Requests.Items, preExecVarsAfterSetup(col, scope), parallel.AnalyzeOptions{
+			OtherPhaseNames: otherPhaseNames(col),
+		})
+		if !graph.IsValid {
+			summary.Duration = time.Since(start)
+			return nil, summary, parallelAnalysisError{
+				detail: fmt.Sprintf("parallel analysis: %s", strings.Join(graph.Errors, "; ")),
+			}
+		}
+	}
+
 	// Phase 1: Setup
 	setupFailed := false
 	if len(col.Setup.Items) > 0 {
@@ -1466,6 +1500,40 @@ func buildPreExecVarSet(scope *variable.Scope) map[string]bool {
 	return out
 }
 
+// preExecVarsAfterSetup is the variable set the main phase will analyse
+// against: what the scope holds now, plus everything setup extracts. Analysing
+// before setup with only the former would treat a setup-provided variable as
+// one a main item must produce, and could reject a collection the run would
+// accept.
+func preExecVarsAfterSetup(col *parser.Collection, scope *variable.Scope) map[string]bool {
+	out := buildPreExecVarSet(scope)
+	for _, item := range col.Setup.Items {
+		produced, errMsg := parallel.ExtractProducedVars(item.Extract)
+		if errMsg != "" {
+			continue
+		}
+		for name := range produced {
+			out[name] = true
+		}
+	}
+	return out
+}
+
+// otherPhaseNames returns the request names defined outside the main phase, so
+// the analyzer can tell a depends_on that reaches across phases from one whose
+// target --only removed.
+func otherPhaseNames(col *parser.Collection) map[string]bool {
+	out := make(map[string]bool, len(col.Setup.Items)+len(col.Teardown.Items))
+	for _, section := range [][]parser.RequestItem{col.Setup.Items, col.Teardown.Items} {
+		for _, item := range section {
+			if item.Name != "" {
+				out[item.Name] = true
+			}
+		}
+	}
+	return out
+}
+
 // executeParallelMain runs the main phase requests using parallel wave-based execution.
 // Returns the results tagged with PhaseMain, the number of HTTP requests executed, impact entries,
 // wave count, max parallelism, wave durations, and any error.
@@ -1473,9 +1541,13 @@ func executeParallelMain(ctx context.Context, col *parser.Collection, scope *var
 	// Build pre-execution variable set from the scope's resolved vars
 	preExecVars := buildPreExecVarSet(scope)
 
-	graph := parallel.Analyze(col.Requests.Items, preExecVars)
+	graph := parallel.Analyze(col.Requests.Items, preExecVars, parallel.AnalyzeOptions{
+		OtherPhaseNames: otherPhaseNames(col),
+	})
 	if !graph.IsValid {
-		return nil, 0, nil, 0, 0, nil, fmt.Errorf("parallel analysis: %s", strings.Join(graph.Errors, "; "))
+		return nil, 0, nil, 0, 0, nil, parallelAnalysisError{
+			detail: fmt.Sprintf("parallel analysis: %s", strings.Join(graph.Errors, "; ")),
+		}
 	}
 
 	remaining := MaxRequests - *counter

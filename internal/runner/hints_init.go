@@ -31,5 +31,14 @@ func init() {
 				Hint:     "Pass --confirm-large-dataset to run every row, or set store_results: summary|failed_only to bound what the run retains.",
 			},
 		},
+		apierrors.RegisteredError{
+			Name: "ErrParallelAnalysis",
+			Err:  ErrParallelAnalysis,
+			Hint: apierrors.ClassifiedHint{
+				Category: apierrors.CategoryConfig,
+				Code:     "PARALLEL_ANALYSIS_REJECTED",
+				Hint:     "The message names the requests involved. Break the cycle, give each concurrent item its own extract name, replace a dynamic extract key with a literal one, or drop a depends_on that reaches into another phase. Running without --parallel is not a fix: the collection says something the ordering cannot honour.",
+			},
+		},
 	)
 }

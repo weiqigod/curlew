@@ -675,7 +675,7 @@ func validateDependsOn(col *Collection, rootPath string) error {
 							"request %q: depends_on %q does not match any request name",
 							item.Name, dep,
 						),
-						Hint:  "depends_on must reference an item by its name (case-sensitive). Names are unique within main; setup/teardown names are addressable across phases.",
+						Hint:  "depends_on must reference an item by its name (case-sensitive). Names are unique within main. A setup or teardown name parses, but it orders nothing — phases already run in order and skip propagation is within a phase — and under --parallel it is rejected (§11.4).",
 						Inner: ErrUnknownDependsOn,
 					}
 				}

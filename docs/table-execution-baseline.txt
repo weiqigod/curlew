@@ -14,7 +14,6 @@
 # thirteen lines and emptied itself.
 #
 # Format: <document>\t<heading>\t<header cells joined by " | ">
-CLI_SPECIFICATION.md	### 11.4 Rejected Constructions	Construction | Why | Exit
 CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
 MANUAL.md	#### Where CEL appears	Site | Type | Example
 MANUAL.md	### 4.1a Markdown response files	Body type | Rendering
