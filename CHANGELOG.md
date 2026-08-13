@@ -123,14 +123,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   than from a hand-kept list, because a list of "tables we execute" is one more
   document about the binary and would drift like the ones it guards.
 
-  Now executed: the eleven flag tables (every documented flag must be accepted by
-  a parser, 85 mentions), the twelve dynamic-function tables in both directions,
-  the three exit-code tables, both output-format tables, the telemetry
-  subcommands, and the limits table against the constants the binary enforces.
+  Now executed, 53 of 77: the eleven flag tables (85 mentions, every one accepted
+  by a parser), the twelve dynamic-function tables in both directions, the three
+  exit-code tables, both output-format tables and both `output:` block tables,
+  the telemetry subcommands, the limits table against the constants the binary
+  enforces, the three backoff tables (formulae evaluated, worked sequences
+  reproduced, jitter bounds computed), the locale table in both directions, the
+  date-layout table rendered, the interpolation forms matched against the
+  engine's own patterns, both WebSocket action tables against the parser's field
+  map, both plugin-hook tables against the payload structs, the signer types
+  against the registry, and the vault providers against their constants.
 
-  It found three live defects at once, below.
+  Nineteen remain in the register.
+
+  It found five live defects, below.
 
 ### Fixed
+- **`{{name|default:value}}` now substitutes the default.** The syntax was
+  documented in three places — §6.1 as an interpolation form, §9.x and §11.5 as
+  what lets a dependent run when its producer succeeded but the JSONPath missed
+  — and was half-built. `internal/parallel`'s scanner stripped the pipe to find
+  the dependency name, and the runner used it to decide skip-versus-run. Nothing
+  ever substituted the value.
+
+  So the dependent *ran*, exactly as §11.5's second row promises, and sent
+
+      http://host/{{user_id|default:FALLBACK}}
+
+  to the server, placeholder and all. That is worse than the exit 5 an
+  unresolvable reference produces: a failure shaped like a success, on the wire.
+
+  Found by executing §11.5's failure-and-skip table.
+
+- **§6.1 documented a dotted reference form that does not exist.** A plain
+  reference name is `[a-zA-Z_][a-zA-Z0-9_]*`; dots are not part of it, so
+  `{{user.id}}` was passed through as literal text with no error. The row is
+  gone and the prose beneath now says which dotted forms are real — `$`-prefixed
+  functions and `secrets.` aliases, each resolved by its own namespace.
+
+- **The manual's `output:` block table omitted `markdown`**, the same format its
+  §4.1 table was missing. Two tables, two documents, one absent feature.
+
 - **The large-dataset guard exits 2, not 5.** All three exit-code tables
   document a tripped safety guard as exit 2, and the specification's CI column
   reads "Fail — fix the invocation". The guard refused correctly and exited 5 —

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,25 +21,6 @@ import (
 // the telemetry subcommands they can run — and each was checked by nothing. The
 // set on the binary's side is read from the binary, never restated here, so a
 // name added or removed in the source moves both sides at once.
-
-// backticked pulls `code`-spanned names out of a cell, which is how every one
-// of these tables writes them.
-var backticked = regexp.MustCompile("`([^`]+)`")
-
-// firstBackticked returns the first `code` span in a cell, or "".
-func firstBackticked(cell string) string {
-	// SplitRow strips backticks from both ends of the whole cell, so a cell
-	// like "`terminal` (default)" arrives with its opening backtick already
-	// gone and its closing one still there. Trim what survives either way.
-	if m := backticked.FindStringSubmatch(cell); m != nil {
-		return strings.Trim(m[1], "`")
-	}
-	name := cell
-	if i := strings.IndexAny(cell, " |"); i > 0 {
-		name = cell[:i]
-	}
-	return strings.Trim(name, "`")
-}
 
 // columnNames reads one column of a table and returns the leading name in each
 // row. It fails rather than returning nothing, so a moved table cannot make a
@@ -61,7 +41,7 @@ func columnNames(t *testing.T, doc, where, column string, header ...string) []st
 		if len(row) <= col {
 			continue
 		}
-		if name := firstBackticked(row[col]); name != "" {
+		if name := docs.FirstName(row[col]); name != "" {
 			names = append(names, name)
 		}
 	}

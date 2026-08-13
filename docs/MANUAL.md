@@ -1020,7 +1020,7 @@ Curlew accepts an optional `output:` block at two levels: in `curlew.yaml` (proj
 
 | Field       | YAML type | Values                                     | Default    |
 |-------------|-----------|---------------------------------------------|------------|
-| `format`    | string    | `terminal`, `json`, `tap`, `junit`, `html`  | `terminal` |
+| `format`    | string    | `terminal`, `json`, `tap`, `junit`, `html`, `markdown` | `terminal` |
 | `report`    | string    | file path (non-empty)                       | _(none)_   |
 | `events`    | string    | file path (non-empty)                       | _(none)_   |
 | `verbosity` | string    | `quiet`, `normal`, `verbose`, `debug`       | `normal`   |

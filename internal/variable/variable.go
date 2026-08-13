@@ -79,6 +79,16 @@ func ParseEnvVarFlag(s string, lookupEnv func(string) (string, bool)) (key, valu
 
 var (
 	varPattern = regexp.MustCompile(`\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}`)
+	// defaultPattern matches {{name|default:value}} — a reference carrying the
+	// value to use when the name is undefined. The value runs to the closing
+	// braces and may be empty or contain spaces, so it is captured greedily up
+	// to `}}` rather than tokenised.
+	//
+	// internal/parallel's scanner has always recognised this form, in order to
+	// read the dependency name out of it. Nothing substituted the value, so a
+	// dependent that §11.5 says "runs with the default" ran with the literal
+	// placeholder in its URL.
+	defaultPattern = regexp.MustCompile(`\{\{([a-zA-Z_][a-zA-Z0-9_]*)\|default:([^}]*)\}\}`)
 	// dynPattern matches {{$funcName}} (legacy, no parens) or
 	// {{$funcName(<rawArgList>)}}. Capture groups:
 	//
@@ -461,6 +471,21 @@ func (s *Scope) Interpolate(input string) (string, error) {
 
 	// Pass 2: resolve {{varName}} regular variables.
 	var retErr error
+	// Pass 2a: resolve {{name|default:value}}. It runs before the plain
+	// reference pass because varPattern cannot match a name followed by a pipe,
+	// and an undefined name here is not an error — supplying the fallback is
+	// the whole point of the form.
+	input = defaultPattern.ReplaceAllStringFunc(input, func(match string) string {
+		sub := defaultPattern.FindStringSubmatch(match)
+		if sub == nil {
+			return match
+		}
+		if val, ok := s.resolved[sub[1]]; ok {
+			return val
+		}
+		return sub[2]
+	})
+
 	result := varPattern.ReplaceAllStringFunc(input, func(match string) string {
 		if retErr != nil {
 			return match

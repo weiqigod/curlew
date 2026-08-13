@@ -3,6 +3,7 @@ package docs_test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -164,8 +165,9 @@ func key(r docs.TableRef) string {
 	return fmt.Sprintf("%s:%d", r.Doc, r.Line)
 }
 
-// baselineFile holds the tables still owed an executor.
-const baselineFile = "../../docs/table-execution-baseline.txt"
+// baselineFile holds the tables still owed an executor, beside the documents
+// it is about.
+var baselineFile = filepath.Join(docs.Dir, "table-execution-baseline.txt")
 
 // baselineKey identifies a table by what it says rather than where it sits, so
 // editing the prose above a table does not silently retire its debt.
