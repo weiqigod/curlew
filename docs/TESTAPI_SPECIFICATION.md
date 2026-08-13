@@ -1084,10 +1084,31 @@ most of these are places where a document describes behaviour the binary does
 not have, which stays the more interesting category, because a specification
 that is wrong about the shipped tool is worse than one that is silent.
 
-Three are recorded by harnesses rather than by gap requests. A gap request has
-to *fail*, and §11C.6, §11C.9 and §11C.10 are about a wrong thing **passing** or
-about a command rather than a response — so there is no failing request to
-record, and the claim is about curlew's own output.
+**All ten are now fixed** (2026-08-13). Each entry below keeps the finding as it
+was written, because the reproduction is the record, and adds what changed. An
+eleventh defect surfaced during the work and is recorded as §11C.11.
+
+Every fix moved its reproduction rather than deleting it. A gap that closes
+leaves behind the test that proves it stayed closed:
+
+| Finding | Where the evidence lives now |
+|---|---|
+| §11C.1 | `expected-failures.yaml` — the request still fails, and the run no longer dies with it |
+| §11C.2 | `90-graphql.yaml` — full failure under `ignore` and `warn`, both passing |
+| §11C.3 | `internal/parser/manual_examples_test.go` — every manual example must parse |
+| §11C.4 | `expected-failures.yaml`, inverted: the message must now name the status |
+| §11C.5 | `91-websocket.yaml` — the B case, beside the A it used to contradict |
+| §11C.6 | `expected-failures.yaml` — a 50ms ceiling against a 1s stream must FAIL |
+| §11C.7 | `92-streaming.yaml` passing; a structural operator still failing in gaps |
+| §11C.8 | `internal/websocket` unit tests, array-under-count vs plain-under-default |
+| §11C.9, §11C.10 | `testapi/harness/openapi.sh`, inverted from "must be rejected" |
+
+Three were originally recorded by harnesses rather than by gap requests. A gap
+request has to *fail*, and §11C.6, §11C.9 and §11C.10 were about a wrong thing
+**passing** or about a command rather than a response — so there was no failing
+request to record, and the claim was about curlew's own output. §11C.6's harness
+is gone, promoted into a collection exactly as its own header instructed;
+§11C.9 and §11C.10 keep theirs, inverted.
 
 ### 11C.1 A non-JSON GraphQL response aborts the whole run
 
@@ -1110,6 +1131,14 @@ Failing that request is right. Taking the rest of the run with it is not:
 a new harness category — the defect destroys the per-request output `gaps.sh`
 reads, so an unmodified check reports "nothing evaluated" and blames itself.
 
+**Fixed.** The parse failure now fails that request and the run continues:
+`internal/runner` records it as a `graphql_error` assertion instead of
+returning. Against the same reproduction, 2 of 2 requests are reported, the
+summary agrees with them, and the exit code is 1. The doubled prefix is gone —
+`internal/graphql` already named the operation, and the runner no longer names
+it again. The `*.run-abort.yaml` harness category existed only for this defect
+and is removed with it.
+
 ### 11C.2 `error_handling` is inert for the full-failure outcome
 
 `docs/MANUAL.md` §7.1 documents a matrix in which `warn` warns and `ignore`
@@ -1121,6 +1150,12 @@ identically under `fail`, `warn` and `ignore`.
 comment claiming "per spec". `CLI_SPECIFICATION` §12.2 describes the setting
 only in terms of partial success and says no such thing.
 
+**Fixed.** The two branches were near-identical and are now one, so the mode
+cannot govern one outcome and not the other. `ignore` suppresses GraphQL-level
+error checking only — the request's own assertions still run. The manual was
+right; `CLI_SPECIFICATION` §12.2 now states the matrix rather than being silent
+about full failure, since that silence is what let the drift persist.
+
 ### 11C.3 The manual's WebSocket example does not parse
 
 `docs/MANUAL.md` §7.2 puts `websocket:` at the request-item level, as a sibling
@@ -1129,12 +1164,31 @@ of `request:`. The parser wants it **inside** `request:`, as
 is rejected with "must have websocket.steps with at least one action". Both the
 step example and the heartbeat/reconnect example have it wrong.
 
+**Fixed.** Both examples now nest `websocket:` inside `request:`, and
+`internal/parser/manual_examples_test.go` holds the manual to it: every complete
+collection example in `MANUAL.md` must parse, and every websocket example must
+yield steps. It is structural rather than a copy of the examples into Go
+literals, which would go stale the moment the manual is edited, and it fails
+rather than passing vacuously if it finds nothing to check.
+
 ### 11C.4 A refused WebSocket upgrade loses its status and its body
 
 `/ws/reject` answers 426 with a JSON body explaining itself. curlew reports
 `websocket dial failed: websocket: bad handshake` — no status, no body, no
 headers, so 426, 401, 403 and 500 are indistinguishable. §9.L predicted the
 shape; the dialer has the response and discards it before building the message.
+
+**Fixed.** gorilla returns the response alongside `ErrBadHandshake`, having
+already read up to 1024 bytes of the body into it; the dialer was discarding it
+with `conn, _, err :=`. The message now reads
+
+    websocket dial failed: server refused the upgrade with 426 Upgrade
+    Required; body: {…"a client should report the 426 and this body, not a bare
+    dial failure"} (websocket: bad handshake)
+
+which is the endpoint's own acceptance criterion, quoted back from the body it
+sends. A dial that failed with no response is unchanged and does not invent a
+status.
 
 ### 11C.5 A heartbeat reports a healthy peer as dead whenever a step is idle
 
@@ -1160,6 +1214,23 @@ That mudflat answers pings is pinned server-side by
 `TestWS_EchoAnswersAClientPing`, without which this finding would not be
 attributable.
 
+**Fixed**, and the fix is larger than the symptom. Reading during the wait is
+not enough on its own: a gorilla read error is permanent, so ending a wait with
+a read timeout poisons the connection and every later step inherits the stale
+error — measured, as `expect timed out … collected 0/1` on a connection that was
+fine.
+
+Reads therefore move to a single pump (`internal/websocket/pump.go`) that never
+sets a deadline and stays inside `ReadMessage` for the life of the connection,
+which is where control frames are dispatched. Steps take frames from a channel
+and bound their own waits with timers. The pump is the sole reader, so frames
+cannot interleave.
+
+Consequences, each covered: messages arriving during a wait are buffered rather
+than dropped; an orderly close (1000, 1001) ends a wait successfully while a
+broken connection fails it, where a sleeping wait passed on a dead one; and
+detection of a genuinely dead peer is unchanged.
+
 ### 11C.6 A request's reported duration excludes the body read
 
 `internal/httpexec` measures `time.Since(start)` around
@@ -1182,6 +1253,11 @@ response the download is negligible, which is why nothing noticed.
 **Recorded by** `testapi/harness/timing.sh`, which asserts the defect and fails
 when it closes.
 
+**Fixed.** `Duration` is measured after `io.ReadAll`, so it and
+`Timing.Total` share a start and an end and agree. The same reproduction now
+reports 1006ms against a 1006ms request, and `max_duration_ms: 50` is refused.
+`timing.sh` is deleted, following its own promotion instructions.
+
 ### 11C.7 A response body that is not JSON cannot be asserted on at all
 
 `CLI_SPECIFICATION` §7.3 says the body is parsed as JSON and every assertion
@@ -1196,6 +1272,18 @@ leaves the body `nil`, so `response.body` is null and
 HTML, CSV, XML, plain text, NDJSON and SSE are assertable only by status and
 headers. §9.K hit the same wall from the other side with its HTML error page.
 
+**Fixed.** A body that is not JSON still has a root, and that root is its
+text. At `$`, the text operators — `equals`, `contains`, `matches`, `length`,
+`exists`, `not_exists` — evaluate against the raw body, and `response.body` in
+CEL is the raw string rather than nil.
+
+Deliberately not permissive: a deeper path stays an error, because there is no
+`$.foo` in a document with no structure and "no match at path" would imply there
+could have been one; structural operators at `$` stay errors too. Both messages
+now name the one thing that does work. A gaps entry asserts that `type: array`
+against a stream still fails, so the fallback cannot drift into "every operator
+succeeds somehow".
+
 ### 11C.8 A counted WebSocket extraction yields an array, undocumented
 
 With `count: > 1`, an `expect` step's `extract:` produces a **JSON-encoded array
@@ -1204,6 +1292,11 @@ document says so, and the manual's own example names the variable
 `last_order_id`, implying the opposite. An author following it sends
 `["ord_1","ord_2","ord_3"]` to a URL and finds out then.
 `91-websocket.yaml` now states the real contract executably.
+
+**Fixed by documenting it.** The behaviour is defensible and is kept; what
+was missing was anything stating it. Both documents now describe it, the
+manual's example is renamed from `last_order_id` to `order_ids`, and two unit
+tests pin array-under-count against plain-value-under-default.
 
 ### 11C.9 The OpenAPI importer rejects ordinary 3.1 documents
 
@@ -1219,12 +1312,57 @@ constructs added or changed by 3.1 are refused:
 The importer accepts a document *declaring* `openapi: 3.1.0` and then validates
 it against 3.0 rules.
 
+**Fixed.** kin-openapi implements 3.0, and replacing it with a 3.1-native
+library is a large dependency for a small gap — the import reads only paths,
+parameters, bodies and response codes, and 3.1 changed none of those in ways
+that matter. `internal/openapi/relax31.go` translates a 3.1 document into the
+3.0 spelling of the same meaning before validation: type arrays become `type` +
+`nullable`, 3.1-only descriptive fields are dropped, and `webhooks` are dropped
+**with a warning**, since a webhook is an inbound callback with no request to
+generate. A union type 3.0 cannot express drops the constraint and says so
+rather than silently picking a member. A 3.0 document is untouched.
+
+`testdata/petstore_31.yaml` declared 3.1 and used nothing the version added,
+which is why nothing caught this; `testdata/petstore_31_constructs.yaml` uses
+all of it. mudflat's own document now carries `info.summary`, so the round trip
+exercises a 3.1 construct end to end.
+
 ### 11C.10 An imported collection with a path parameter cannot run
 
 §9.P's acceptance criterion is literal: `curlew run /tmp/imported.yaml` must
 pass. A path parameter becomes `{{code}}`, and the import emits no `variables:`
 entry and no default for it, so the generated collection exits 5 with "undefined
 variable" — at run time rather than at import time. Everything else round-trips.
+
+**Fixed.** Path parameters now emit a variable whose default comes from the
+document — a parameter or schema `example`, then an `enum` member, then
+`default`, then the schema's type, with a declared `minimum` respected so a
+status-code parameter cannot default to 0. The variable keeps the parameter's
+own name, because `interpolatePath` has already written that name into the URL
+and the two have to agree.
+
+`openapi.sh` now asserts that the import defines every variable it references,
+and that a run supplying **only** `base_url` passes 8 of 8 — which is what makes
+the default real rather than a placeholder that happens to parse. mudflat's
+document carries an explicit `example: 200` for its path parameter, as a
+document that expects to be imported should.
+
+### 11C.11 A documented `wait` step pauses for no time at all
+
+Found while fixing §11C.3, and the same class as it: `CLI_SPECIFICATION` §12.3
+gave its `wait` step a `timeout_ms`, and its step table said "Pause for
+`timeout_ms`". The parser reads `duration_ms` for a wait; `timeout_ms` sets a
+field `runWait` never looks at, so the documented example paused for zero
+milliseconds — a silent no-op rather than an error, which is why it survived
+being written down twice.
+
+**Fixed** in the example and the step table, which now names `duration_ms` and
+says explicitly that `wait` ignores `timeout_ms`.
+
+It was found by reading §12.3 while checking what §11C.3 should say, not by any
+test — the manual-example test added for §11C.3 covers `MANUAL.md` only. The
+specification's own snippets are not executed by anything, which is the gap that
+allowed it.
 
 ### What came out affirmative
 
@@ -1295,8 +1433,8 @@ testapi/
     redaction-known-leaks.txt
     gaps.sh                 # runs `gap` entries, fails on unexpected pass
     crosscheck.sh           # curl reads the raw layer the same way
-    timing.sh               # §11C.6 — a defect that makes a wrong thing pass
     openapi.sh              # P — import the served document, run what comes out
+                            #     (also: 3.1 accepted, import self-contained)
 ```
 
 ### 12.2 Execution
