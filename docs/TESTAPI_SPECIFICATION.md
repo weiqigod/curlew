@@ -1449,7 +1449,16 @@ Turning it on found a live defect immediately: the manual documented
 "an alias for `--color=never`". **No `--color` flag exists** — the binary
 answers `unknown flag: --color=never`. Only `--no-color` and `NO_COLOR` ship,
 and `NO_COLOR` disables on presence even when empty, which is stricter than
-no-color.org specifies. The section now describes what ships.
+no-color.org specifies. The section was first corrected to describe what ships.
+
+Both halves have since been closed the other way, by building what the document
+described: `--color={auto|always|never}` ships, and `NO_COLOR` now takes effect
+on a non-empty value only. The second is worth noting for what it says about
+the limits of name-checking — the false sentence named `NO_COLOR`, a variable
+that exists and is read, so checking the names could never reach the claim. It
+was the *table* row two sections away, "Any non-empty value disables ANSI
+colour", that had been right all along and was contradicting the binary in
+silence. That row is now executed (`cmd/curlew/no_color_env_test.go`).
 
 It also exposed a hole in an existing test: `help_parity_test.go` derived the
 accepted flag set from `case "--flag":` clauses only, so `--clear` — accepted by

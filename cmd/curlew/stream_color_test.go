@@ -83,6 +83,16 @@ func TestStderrColorFlag(t *testing.T) {
 			wantStderrColor: true, // stderr is a TTY: color must be preserved
 		},
 		{
+			// An empty NO_COLOR is the conventional way to clear an inherited
+			// preference, not a request for plain output — no-color.org takes
+			// effect on a non-empty value only. curlew used to disable here.
+			name:            "stdout pipe, stderr TTY, empty NO_COLOR -> color preserved",
+			env:             []string{"NO_COLOR="},
+			args:            []string{"run", collection},
+			stderrTTY:       true,
+			wantStderrColor: true,
+		},
+		{
 			name:            "stdout TTY, stderr TTY -> color preserved on stderr",
 			args:            []string{"run", collection},
 			stdoutTTY:       true,

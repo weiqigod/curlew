@@ -2113,7 +2113,8 @@ curlew run collections/users.yaml                   # auto: colour if stderr is 
 curlew run collections/users.yaml --color=never     # plain text
 curlew run collections/users.yaml --color=always    # force on (pipe to less -R)
 curlew run collections/users.yaml --no-color        # same as --color=never
-NO_COLOR= curlew run collections/users.yaml         # set at all, any value, disables
+NO_COLOR=1 curlew run collections/users.yaml        # any non-empty value disables
+NO_COLOR= curlew run collections/users.yaml         # empty: no preference, auto decides
 ```
 
 `--color` and `--color=<when>` are both accepted, as are all four subcommands
@@ -2121,12 +2122,13 @@ that take it: `run`, `watch`, `validate` and `exec`.
 
 **Precedence.** An explicit `--color` wins over `NO_COLOR`: the variable is a
 standing preference, the flag is a decision for this invocation, and the more
-specific one takes effect — as in `git`, `grep` and `ripgrep`. Under `auto`,
-`NO_COLOR` decides.
+specific one takes effect — as in `git`, `grep` and `ripgrep`. Under `auto`, a
+non-empty `NO_COLOR` decides.
 
-`NO_COLOR` disables colour whenever the variable is **set**, including when it
-is set to the empty string. no-color.org specifies presence *and a non-empty
-value*, so this is stricter than the convention.
+`NO_COLOR` disables colour when it is set to a **non-empty** value — any value,
+`0` and `false` included. An empty `NO_COLOR` is not a request for plain output:
+it is how you clear an inherited preference for a single command, so it leaves
+the TTY check to decide.
 
 Colour is **never** emitted on stdout when `--format` is non-terminal
 (`json`/`tap`/`junit`/`markdown`/`html`), regardless of TTY or `--color` value —

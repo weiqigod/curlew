@@ -1590,10 +1590,10 @@ json` emits exactly one JSON document on stdout and nothing else.
 
 Colour is governed by `--color={auto|always|never}`, defaulting to `auto`.
 Under `auto` it is enabled for interactive terminals and disabled when the
-`NO_COLOR` environment variable is **set** — including to the empty string,
-which is stricter than no-color.org, whose convention requires a non-empty
-value. An explicit `--color` takes precedence over `NO_COLOR`. `--no-color` is
-`--color=never`.
+`NO_COLOR` environment variable is set to a **non-empty** value, whatever that
+value is — the no-color.org convention. An empty `NO_COLOR` expresses no
+preference and leaves the TTY check to decide. An explicit `--color` takes
+precedence over `NO_COLOR`. `--no-color` is `--color=never`.
 
 `--color=always` cannot put escape codes into a machine format's payload:
 `json`, `tap`, `junit`, `markdown` and `html` never construct a terminal

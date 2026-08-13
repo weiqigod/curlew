@@ -18,8 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   An explicit `--color` takes precedence over `NO_COLOR`: the variable is a
   standing preference, the flag is a decision for this invocation, and the more
-  specific one wins — as in `git`, `grep` and `ripgrep`. Under `auto`, `NO_COLOR`
-  decides.
+  specific one wins — as in `git`, `grep` and `ripgrep`. Under `auto`, a
+  non-empty `NO_COLOR` decides.
 
   `--color=always` **cannot** put escape codes into a machine format's payload.
   `json`, `tap`, `junit`, `markdown` and `html` never construct a terminal
@@ -54,9 +54,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   It found a live defect at once: the manual documented
   `--color={auto|always|never}` with three worked examples and called
   `--no-color` an alias for `--color=never`. **No `--color` flag exists** — the
-  binary answers `unknown flag: --color=never`. The section now describes what
-  ships, including that `NO_COLOR` disables on presence even when empty, which
-  is stricter than no-color.org specifies.
+  binary answers `unknown flag: --color=never`. The section was corrected first,
+  and both halves of the discrepancy were then closed the other way, by building
+  what the document described — see the `--color` entry above and the `NO_COLOR`
+  entry below.
 
 - **`help_parity_test.go` now sees flags accepted outside a switch.** It derived
   the accepted set from `case "--flag":` clauses alone, so `--clear` on
@@ -104,6 +105,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   reintroducing the defect fails the test with the file, the line and the fix.
 
 ### Fixed
+- **`NO_COLOR` now takes effect on a non-empty value only**, per
+  [no-color.org](https://no-color.org): the variable disables colour "when
+  present and not an empty string (regardless of its value)". curlew disabled on
+  presence alone, so `NO_COLOR= curlew run …` — the conventional way to clear an
+  inherited preference for one command — turned colour off instead of leaving
+  the TTY check to decide. `NO_COLOR=0` and `NO_COLOR=false` still disable, which
+  is the convention rather than an oversight: the value is not read.
+
+  Both documents' environment-variable tables had said "any non-empty value"
+  since the variable shipped in M1-019. The row was right and the binary was
+  wrong for that entire time, and nothing noticed because nothing read the row.
+  It is now read and run, so the table and the switch statement cannot disagree
+  again.
+
+  Worth recording for what it says about the limits of the prose check added
+  below: the false sentence named `NO_COLOR`, a variable that exists and is read,
+  so checking names could never have reached the claim it made about it.
+
 - **Both documents' YAML examples are now executed by a test**, not only the
   manual's. The specification is written in fragments — a bare `request:`
   mapping, a bare `assertions:` mapping — so a checker that accepted only whole
