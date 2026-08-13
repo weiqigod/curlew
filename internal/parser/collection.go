@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -947,6 +948,63 @@ func (s *WebSocketStep) UnmarshalYAML(value *yaml.Node) error {
 				return fmt.Errorf("count: %w", err)
 			}
 		}
+	}
+	return validateStepFields(value, s.Action)
+}
+
+// stepFieldsByAction lists the fields each step action reads. A field outside
+// its action's set is a mistake rather than a no-op: `timeout_ms` on a wait
+// step decoded happily into a field runWait never consults, so the step paused
+// for zero milliseconds and said nothing about it — which is how the example in
+// CLI_SPECIFICATION §12.3 survived being written down twice (§11C.11).
+//
+// A parser that accepts a field it will ignore also defeats any documentation
+// test: an example can parse cleanly and still describe behaviour the binary
+// does not have. Rejecting here is what makes the examples checkable.
+var stepFieldsByAction = map[string][]string{
+	"send":   {"message", "message_raw", "message_template", "variables"},
+	"expect": {"message", "any_of", "timeout_ms", "count", "extract"},
+	"wait":   {"duration_ms"},
+	"close":  {"code", "reason"},
+}
+
+// stepFieldOwners maps each known field to the actions that read it, so the
+// error can say where the field does belong.
+var stepFieldOwners = func() map[string][]string {
+	owners := map[string][]string{}
+	for _, action := range []string{"send", "expect", "wait", "close"} {
+		for _, f := range stepFieldsByAction[action] {
+			owners[f] = append(owners[f], action)
+		}
+	}
+	return owners
+}()
+
+// validateStepFields reports any key on a step that its action does not read.
+func validateStepFields(value *yaml.Node, action string) error {
+	allowed, known := stepFieldsByAction[action]
+	if !known {
+		// An unknown action is reported at execution time with the full list of
+		// actions; adding a second, worse message here would not help.
+		return nil
+	}
+	allowedSet := make(map[string]bool, len(allowed))
+	for _, f := range allowed {
+		allowedSet[f] = true
+	}
+
+	for i := 0; i+1 < len(value.Content); i += 2 {
+		k := value.Content[i].Value
+		if k == "action" || allowedSet[k] {
+			continue
+		}
+		if owners, isKnown := stepFieldOwners[k]; isKnown {
+			return fmt.Errorf("%q is not a field of a %q step (it applies to: %s); "+
+				"a %q step reads: %s", k, action, strings.Join(owners, ", "),
+				action, strings.Join(allowed, ", "))
+		}
+		return fmt.Errorf("unknown field %q on a %q step; a %q step reads: %s",
+			k, action, action, strings.Join(allowed, ", "))
 	}
 	return nil
 }

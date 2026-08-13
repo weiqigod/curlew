@@ -1360,9 +1360,33 @@ being written down twice.
 says explicitly that `wait` ignores `timeout_ms`.
 
 It was found by reading §12.3 while checking what §11C.3 should say, not by any
-test — the manual-example test added for §11C.3 covers `MANUAL.md` only. The
-specification's own snippets are not executed by anything, which is the gap that
-allowed it.
+test — the manual-example test added for §11C.3 covered `MANUAL.md` only, and
+the specification's own snippets were executed by nothing.
+
+**That gap is now closed too, and closing it took two changes rather than one.**
+Extending the example test to `CLI_SPECIFICATION.md` was not sufficient by
+itself: `timeout_ms` *parsed* perfectly well, so an example containing it would
+have passed a parse test. The parser had to start rejecting a field its action
+ignores before the mistake became visible at all —
+`internal/parser` now checks each step's fields against its action and names
+where a misplaced field does belong.
+
+The two together are verified by a canary: reintroducing the defect into §12.3
+fails the test with
+
+    docs/CLI_SPECIFICATION.md:1300 — example does not parse: "timeout_ms" is
+    not a field of a "wait" step (it applies to: expect); a "wait" step reads:
+    duration_ms
+
+The specification is written in **fragments** — a bare `request:` mapping, a
+bare `assertions:` mapping — because it is a reference rather than a tutorial,
+and a checker that only accepted whole collections found nothing in it at all.
+Fragments are now wrapped into a collection before parsing, which is the point:
+a snippet the reader is expected to paste under a request must be valid there.
+
+Checking the specification immediately found two more of its own: a duplicate
+`status:` key used to show two alternatives in one block — invalid YAML that a
+reader would copy — in both documents.
 
 ### What came out affirmative
 
