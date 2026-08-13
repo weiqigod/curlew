@@ -15,8 +15,6 @@
 #
 # Format: <document>\t<heading>\t<header cells joined by " | ">
 CLI_SPECIFICATION.md	### 3.2 Phases	Phase | Ordering | On failure
-CLI_SPECIFICATION.md	### 4.3 Glob Discovery	Token | Meaning
-CLI_SPECIFICATION.md	### 4.4 File Reference Resolution	Reference | Resolved relative to
 CLI_SPECIFICATION.md	### 11.4 Rejected Constructions	Construction | Why | Exit
 CLI_SPECIFICATION.md	### 11.6 Protocol Constraints	Protocol | Parallelism
 CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
