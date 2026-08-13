@@ -27,6 +27,7 @@ type fakeConn struct {
 	readErr       error
 	writeErr      error
 	closed        bool
+	closeCh       chan struct{} // closed by Close; unblocks a pending read
 	readDelay     time.Duration // optional artificial delay before returning a message
 	deadline      time.Time
 	pongHandler   func(appData string) error // set by SetPongHandler
@@ -48,6 +49,11 @@ func (f *fakeConn) WriteMessage(messageType int, data []byte) error {
 	f.writes = append(f.writes, cpy)
 	return nil
 }
+
+// fakeReadCap bounds a blocked read so a misconfigured test cannot hang the
+// suite. It is a backstop, not a timeout under test: the executor bounds its
+// own waits with timers.
+const fakeReadCap = 10 * time.Second
 
 func (f *fakeConn) ReadMessage() (int, []byte, error) {
 	f.mu.Lock()
@@ -71,16 +77,42 @@ func (f *fakeConn) ReadMessage() (int, []byte, error) {
 		return gws.TextMessage, msg, nil
 	}
 	deadline := f.deadline
+	closed := f.closedChLocked()
 	f.mu.Unlock()
-	if deadline.IsZero() {
-		// No deadline: fail fast rather than hanging a misconfigured test.
+
+	// Out of messages. A real connection blocks here until the peer sends
+	// something or the connection closes — which is precisely what the read
+	// pump relies on to stay inside ReadMessage, where gorilla dispatches
+	// control frames. An earlier version returned a timeout immediately, which
+	// modelled the deadline-driven reads that the pump replaced.
+	if !deadline.IsZero() {
+		wait := time.Until(deadline)
+		if wait > 0 {
+			select {
+			case <-closed:
+				return 0, nil, errClosedFakeConn
+			case <-time.After(wait):
+			}
+		}
 		return 0, nil, &timeoutError{}
 	}
-	wait := time.Until(deadline)
-	if wait > 0 {
-		time.Sleep(wait)
+	select {
+	case <-closed:
+		return 0, nil, errClosedFakeConn
+	case <-time.After(fakeReadCap):
+		return 0, nil, &timeoutError{}
 	}
-	return 0, nil, &timeoutError{}
+}
+
+var errClosedFakeConn = errors.New("use of closed network connection")
+
+// closedChLocked returns the close-signal channel, creating it on first use so
+// fakeConn stays usable as a bare struct literal. Caller holds f.mu.
+func (f *fakeConn) closedChLocked() chan struct{} {
+	if f.closeCh == nil {
+		f.closeCh = make(chan struct{})
+	}
+	return f.closeCh
 }
 
 func (f *fakeConn) SetReadDeadline(t time.Time) error {
@@ -93,7 +125,10 @@ func (f *fakeConn) SetReadDeadline(t time.Time) error {
 func (f *fakeConn) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.closed = true
+	if !f.closed {
+		f.closed = true
+		close(f.closedChLocked())
+	}
 	return nil
 }
 

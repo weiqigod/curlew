@@ -20,6 +20,12 @@ var (
 	ErrSendFailed = errors.New("websocket send failed")
 	// ErrCloseFailed indicates a close step failed to write the close control frame.
 	ErrCloseFailed = errors.New("websocket close failed")
+
+	// ErrWaitFailed indicates the connection broke while a wait step was
+	// holding it open. A wait reads rather than sleeps (see runWait), so a
+	// peer that disconnects mid-wait is now visible instead of silently
+	// yielding a passing step on a dead connection.
+	ErrWaitFailed = errors.New("websocket wait failed")
 	// ErrExtractFailed indicates variable extraction from an expect match failed.
 	ErrExtractFailed = errors.New("websocket expect extract failed")
 	// ErrExpectAssertionVars indicates an expect step's assertion values could

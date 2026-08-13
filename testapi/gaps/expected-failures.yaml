@@ -158,50 +158,6 @@ requests:
             message:
               $.error: { exists: true }
 
-  - name: "a heartbeat reports a healthy peer as dead while a step is idle"
-    description: |
-      gap: the heartbeat only survives while a step is actively reading.
-
-      This is the B half of an A/B pair against one server at one interval.
-      A — in 91-websocket.yaml — runs a heartbeat at 100ms through an expect
-      step that reads for 750ms, and passes. B is this request: the same
-      100ms heartbeat, an idle `wait` step, and mudflat's /ws/echo, which
-      answers every ping with a pong (pinned server-side by
-      TestWS_EchoAnswersAClientPing). It fails at the first interval:
-
-        step 1 (wait): websocket heartbeat timeout after 100ms
-
-      internal/websocket/heartbeat.go registers a pong handler with gorilla and
-      then checks a flag on a ticker. gorilla dispatches control frames from
-      inside ReadMessage, so while no step is reading, the pong arrives on the
-      socket and the handler never runs. The flag stays false and the next tick
-      declares the peer dead.
-
-      That inverts the feature. A heartbeat exists to hold an idle connection
-      open and to notice a peer that has stopped answering; this one fails
-      exactly when the connection is idle, and reports a server that answered
-      correctly as dead.
-
-      Detection of a genuinely dead peer works — /ws/no-pong produces
-      "websocket heartbeat timeout after 200ms" from inside an expect step —
-      so the mechanism is right and only the dispatch is missing.
-    request:
-      protocol: websocket
-      url: "{{ws}}/ws/echo"
-      websocket:
-        heartbeat:
-          enabled: true
-          interval_ms: 100
-        steps:
-          - action: wait
-            duration_ms: 400
-          - action: send
-            message: { after: "an idle period" }
-          - action: expect
-            timeout_ms: 3000
-            message:
-              $.type: { equals: "echo" }
-
   - name: "a peer that never pongs is detected — and the request still fails"
     description: |
       AFFIRMATIVE, kept here because there is no other way to express it.

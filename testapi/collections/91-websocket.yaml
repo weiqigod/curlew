@@ -152,9 +152,9 @@ requests:
   - name: a heartbeat survives while a step is reading
     description: |
       The A half of an A/B pair. Here an expect step reads continuously, the
-      pongs are dispatched, and the heartbeat holds for five intervals. The B
-      half — the same server, the same interval, an idle `wait` step instead —
-      fails, and lives in testapi/gaps/expected-failures.yaml.
+      pongs are dispatched, and the heartbeat holds for five intervals. A
+      passed even while §11C.5 was open, which is what made the finding
+      attributable to dispatch rather than to the server.
     request:
       protocol: websocket
       url: "{{ws}}/ws/push?n=5&ms=150"
@@ -166,6 +166,69 @@ requests:
           - action: expect
             timeout_ms: 8000
             count: 5
+            message:
+              $.type: { equals: "push" }
+
+  - name: a heartbeat survives while a step is idle
+    description: |
+      The B half, and the one that matters: a heartbeat exists to hold an IDLE
+      connection open. This was §11C.5, and it lived in
+      testapi/gaps/expected-failures.yaml because it failed at the first
+      interval —
+
+        step 1 (wait): websocket heartbeat timeout after 100ms
+
+      — against /ws/echo, which answers every ping (pinned server-side by
+      TestWS_EchoAnswersAClientPing, without which this would not be
+      attributable). The feature was inverted: it failed precisely when idle,
+      and reported a server that answered correctly as dead.
+
+      gorilla dispatches control frames only from inside ReadMessage, and a
+      `wait` step slept on a timer. The pong landed on the socket and the
+      handler never ran. Reads now go through a single pump that stays inside
+      ReadMessage for the life of the connection, so pongs are dispatched
+      whether or not a step is reading.
+
+      Four intervals of idling, then a round trip to prove the connection is
+      still usable afterwards — a heartbeat that survived by killing the
+      connection would not be a fix.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/echo"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 100
+        steps:
+          - action: wait
+            duration_ms: 400
+          - action: send
+            message: { after: "an idle period" }
+          - action: expect
+            timeout_ms: 3000
+            message:
+              $.type: { equals: "echo" }
+
+  - name: a message arriving during a wait is not lost
+    description: |
+      A wait reads now rather than sleeping, so it necessarily consumes frames
+      that arrive while it runs. They go to the same buffer an expect step
+      searches first, which is what keeps the change from silently dropping
+      messages.
+
+      /ws/push sends three messages 50ms apart. The wait covers all of them,
+      and the expect that follows must still find all three — from the buffer,
+      with nothing left on the wire.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/push?n=3&ms=50"
+      websocket:
+        steps:
+          - action: wait
+            duration_ms: 400
+          - action: expect
+            timeout_ms: 1000
+            count: 3
             message:
               $.type: { equals: "push" }
 
