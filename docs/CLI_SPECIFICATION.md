@@ -1588,8 +1588,16 @@ Results go to stdout. Diagnostics, warnings, and progress go to stderr. A
 consumer may therefore pipe stdout into a parser without filtering. `--format
 json` emits exactly one JSON document on stdout and nothing else.
 
-Colour is enabled for interactive terminals and disabled by `--no-color` or a
-non-empty `NO_COLOR` environment variable.
+Colour is governed by `--color={auto|always|never}`, defaulting to `auto`.
+Under `auto` it is enabled for interactive terminals and disabled when the
+`NO_COLOR` environment variable is **set** — including to the empty string,
+which is stricter than no-color.org, whose convention requires a non-empty
+value. An explicit `--color` takes precedence over `NO_COLOR`. `--no-color` is
+`--color=never`.
+
+`--color=always` cannot put escape codes into a machine format's payload:
+`json`, `tap`, `junit`, `markdown` and `html` never construct a terminal
+printer for stdout.
 
 ### 16.3 Verbosity
 
@@ -1694,7 +1702,8 @@ Execute a collection, or every collection matching a glob (§4.3).
 | `--dry-run` | With `--show-dependencies`, print wave assignment instead |
 | `--confirm-large-dataset` | Permit a data file over 10,000 rows |
 | `--allow-sensitive` | Disable redaction for this run |
-| `--no-color` | Disable ANSI colour |
+| `--color <when>` | `auto` (default), `always`, or `never`. `always` forces colour on a non-TTY |
+| `--no-color` | Disable ANSI colour (same as `--color=never`) |
 | `-v` / `-vv` / `-q` | Verbosity (§16.3) |
 
 ### 18.2 `exec <url>`
@@ -1710,7 +1719,7 @@ scripts.
 | `--log <file>` | Append a JSONL record |
 | `--non-interactive` | Suppress interactive prompts on error |
 | `--format <type>` | `terminal` or `json` |
-| `--var`, `--env-var`, `--seed`, `--locale`, `--no-color`, `-v`/`-vv`/`-q` | As for `run` |
+| `--var`, `--env-var`, `--seed`, `--locale`, `--color`, `--no-color`, `-v`/`-vv`/`-q` | As for `run` |
 
 ### 18.3 `validate <file|glob>`
 
@@ -1836,7 +1845,8 @@ account. See §1.2.
 | `--env <name>` | Environment preselected in the UI, validated against `environments/` |
 | `--collection <file>` | Restrict the tree to one collection inside the project root |
 | `--no-open` | Do not launch a browser. The URL is always printed |
-| `--no-color` | Disable colour on stderr |
+| `--color <when>` | `auto` (default), `always`, or `never` |
+| `--no-color` | Disable colour on stderr (same as `--color=never`) |
 
 ### 20.1 Invariants
 

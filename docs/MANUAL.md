@@ -2104,26 +2104,35 @@ Verbosity affects the terminal format only. Machine formats
 (`json`/`tap`/`junit`/`markdown`/`html`) have their own well-defined
 shapes that do not change with `-v` / `-vv`.
 
-**Color control.** Colour is on when stderr is a TTY and off otherwise. Two
-things turn it off explicitly:
+**Color control.** `--color={auto|always|never}` governs ANSI escape sequences.
+The default `auto` emits colour when the writer is a TTY, and honours the
+[NO_COLOR](https://no-color.org) environment variable:
 
 ```bash
-curlew run collections/users.yaml                   # colour if stderr is a TTY
-curlew run collections/users.yaml --no-color        # plain text
+curlew run collections/users.yaml                   # auto: colour if stderr is a TTY
+curlew run collections/users.yaml --color=never     # plain text
+curlew run collections/users.yaml --color=always    # force on (pipe to less -R)
+curlew run collections/users.yaml --no-color        # same as --color=never
 NO_COLOR= curlew run collections/users.yaml         # set at all, any value, disables
 ```
 
-There is no `--color=always`: colour cannot be forced on when stderr is not a
-TTY.
+`--color` and `--color=<when>` are both accepted, as are all four subcommands
+that take it: `run`, `watch`, `validate` and `exec`.
+
+**Precedence.** An explicit `--color` wins over `NO_COLOR`: the variable is a
+standing preference, the flag is a decision for this invocation, and the more
+specific one takes effect — as in `git`, `grep` and `ripgrep`. Under `auto`,
+`NO_COLOR` decides.
 
 `NO_COLOR` disables colour whenever the variable is **set**, including when it
-is set to the empty string. [no-color.org](https://no-color.org) specifies
-presence *and a non-empty value*, so this is stricter than the convention.
+is set to the empty string. no-color.org specifies presence *and a non-empty
+value*, so this is stricter than the convention.
 
 Colour is **never** emitted on stdout when `--format` is non-terminal
-(`json`/`tap`/`junit`/`markdown`/`html`), regardless of TTY. A piped consumer
-never sees escape codes in its payload. Colour on stderr follows the
-TTY/`NO_COLOR` rules independently of stdout's format.
+(`json`/`tap`/`junit`/`markdown`/`html`), regardless of TTY or `--color` value —
+`--color=always` cannot put escape codes into a payload a consumer has to parse.
+Colour on stderr follows the TTY/`NO_COLOR` rules independently of stdout's
+format.
 
 ### 4.2b Running a Single Request (--only)
 

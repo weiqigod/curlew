@@ -297,8 +297,12 @@ func TestParseRunArgs_noColor(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if flags.noColor != tt.wantNoColor {
-				t.Errorf("noColor = %v, want %v", flags.noColor, tt.wantNoColor)
+			wantColor := colorAuto
+			if tt.wantNoColor {
+				wantColor = colorNever
+			}
+			if flags.color != wantColor {
+				t.Errorf("color = %v, want %v", flags.color, wantColor)
 			}
 		})
 	}
@@ -724,26 +728,28 @@ requests: []
 
 func TestShouldUseColor(t *testing.T) {
 	tests := []struct {
-		name        string
-		noColorFlag bool
-		noColorEnv  bool
-		writer      interface{ Write([]byte) (int, error) }
-		want        bool
+		name      string
+		colorFlag colorMode
+		colorEnv  bool
+		writer    interface{ Write([]byte) (int, error) }
+		want      bool
 	}{
-		{"buffer non-TTY returns false", false, false, &bytes.Buffer{}, false},
-		{"no-color flag returns false", true, false, &bytes.Buffer{}, false},
-		{"NO_COLOR env returns false", false, true, &bytes.Buffer{}, false},
+		{"buffer non-TTY returns false", colorAuto, false, &bytes.Buffer{}, false},
+		{"never returns false", colorNever, false, &bytes.Buffer{}, false},
+		{"NO_COLOR env returns false", colorAuto, true, &bytes.Buffer{}, false},
+		{"always overrides non-TTY", colorAlways, false, &bytes.Buffer{}, true},
+		{"always overrides NO_COLOR", colorAlways, true, &bytes.Buffer{}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.noColorEnv {
+			if tt.colorEnv {
 				t.Setenv("NO_COLOR", "1")
 			} else {
 				if err := os.Unsetenv("NO_COLOR"); err != nil {
 					t.Fatalf("os.Unsetenv: %v", err)
 				}
 			}
-			got := shouldUseColor(tt.writer, tt.noColorFlag)
+			got := shouldUseColor(tt.writer, tt.colorFlag)
 			if got != tt.want {
 				t.Errorf("shouldUseColor() = %v, want %v", got, tt.want)
 			}
@@ -752,27 +758,27 @@ func TestShouldUseColor(t *testing.T) {
 }
 
 func TestNewStderrPrinter_NoColorFlag(t *testing.T) {
-	// Given --no-color is true, shouldUseColor(os.Stderr, true) must return false.
-	if shouldUseColor(os.Stderr, true) {
-		t.Errorf("shouldUseColor(os.Stderr, true) = true, want false")
+	// Given --no-color is true, shouldUseColor(os.Stderr, colorNever) must return false.
+	if shouldUseColor(os.Stderr, colorNever) {
+		t.Errorf("shouldUseColor(os.Stderr, colorNever) = true, want false")
 	}
 	// Smoke: the helper must not panic and must return a non-nil printer.
-	p := newStderrPrinter(true)
+	p := newStderrPrinter(colorNever)
 	if p == nil {
-		t.Fatal("newStderrPrinter(true) returned nil")
+		t.Fatal("newStderrPrinter(colorNever) returned nil")
 	}
 }
 
 func TestNewStderrPrinter_NoColorEnv(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	// NO_COLOR env suppresses color regardless of the noColor flag.
-	if shouldUseColor(os.Stderr, false) {
-		t.Errorf("shouldUseColor(os.Stderr, false) with NO_COLOR set = true, want false")
+	if shouldUseColor(os.Stderr, colorAuto) {
+		t.Errorf("shouldUseColor(os.Stderr, colorAuto) with NO_COLOR set = true, want false")
 	}
 	// Smoke: helper must not panic.
-	p := newStderrPrinter(false)
+	p := newStderrPrinter(colorAuto)
 	if p == nil {
-		t.Fatal("newStderrPrinter(false) with NO_COLOR returned nil")
+		t.Fatal("newStderrPrinter(colorAuto) with NO_COLOR returned nil")
 	}
 }
 
@@ -4572,7 +4578,7 @@ func TestParseExecArgs(t *testing.T) {
 		{
 			name: "no-color flag",
 			args: []string{"--stdin", "--no-color"},
-			want: ExecOptions{Stdin: true, NoColor: true, Vars: map[string]string{}, EnvVars: map[string]string{}},
+			want: ExecOptions{Stdin: true, Color: colorNever, Vars: map[string]string{}, EnvVars: map[string]string{}},
 		},
 		{
 			name:    "log flag missing value returns error",
@@ -4632,8 +4638,8 @@ func TestParseExecArgs(t *testing.T) {
 			if got.NonInteractive != tt.want.NonInteractive {
 				t.Errorf("NonInteractive = %v, want %v", got.NonInteractive, tt.want.NonInteractive)
 			}
-			if got.NoColor != tt.want.NoColor {
-				t.Errorf("NoColor = %v, want %v", got.NoColor, tt.want.NoColor)
+			if got.Color != tt.want.Color {
+				t.Errorf("NoColor = %v, want %v", got.Color, tt.want.Color)
 			}
 			if got.Verbosity != tt.want.Verbosity {
 				t.Errorf("Verbosity = %v, want %v", got.Verbosity, tt.want.Verbosity)

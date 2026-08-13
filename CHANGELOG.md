@@ -7,6 +7,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`--color={auto|always|never}`.** `--no-color` could turn colour off and
+  auto-detection could turn it on when safe, but there was no way to say "on
+  anyway" — piping a run to `less -R`, or capturing coloured output in CI, both
+  need colour on a writer that is not a TTY.
+
+  Accepted by `run`, `watch`, `validate` and `exec`, in both `--color always`
+  and `--color=always` forms. `--no-color` is retained and means exactly
+  `--color=never`. An invalid value is rejected with the alternatives named.
+
+  An explicit `--color` takes precedence over `NO_COLOR`: the variable is a
+  standing preference, the flag is a decision for this invocation, and the more
+  specific one wins — as in `git`, `grep` and `ripgrep`. Under `auto`, `NO_COLOR`
+  decides.
+
+  `--color=always` **cannot** put escape codes into a machine format's payload.
+  `json`, `tap`, `junit`, `markdown` and `html` never construct a terminal
+  printer for stdout, and a test pins that for all three of the first formats so
+  a consumer piping JSON can always parse it.
+
+  Collection discovery now forwards the mode to each discovered collection
+  rather than only being able to forward "off".
+
+  This was documented before it existed: the manual described the flag with
+  three worked examples against a binary that answered `unknown flag:
+  --color=never`. The documentation was corrected first, then the flag built.
+
 - **Prose is now held to the binary by the names it uses.** A sentence cannot be
   executed, but almost every prose claim worth making names something concrete —
   a command, a flag, an environment variable — and a name is checkable even when

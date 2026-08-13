@@ -128,7 +128,7 @@ func runDiscoveredCollections(
 	envName, format, report string,
 	cliVars, envVarVars map[string]string,
 	seed *int64,
-	noColor bool,
+	color colorMode,
 	verbosity output.Verbosity,
 	allowSensitive, showDeps, dryRun, runParallel, confirmLargeDS bool,
 	stdout, stderr io.Writer,
@@ -140,7 +140,7 @@ func runDiscoveredCollections(
 	for _, path := range matches {
 		// Build args for this collection (the path is always the first positional arg).
 		args := buildArgsForCollection(path, envName, format, report, cliVars, envVarVars, seed,
-			noColor, verbosity, allowSensitive, showDeps, dryRun, runParallel, confirmLargeDS)
+			color, verbosity, allowSensitive, showDeps, dryRun, runParallel, confirmLargeDS)
 
 		// For JSON format, capture stdout so we can parse the per-collection JSON.
 		var collJSON *output.JSONOutput
@@ -188,7 +188,7 @@ func runDiscoveredCollections(
 			return 1, nil
 		}
 	case "", "terminal":
-		useColor := shouldUseColor(stdout, noColor)
+		useColor := shouldUseColor(stdout, color)
 		sumOut := output.NewPrinter(stdout, useColor)
 		sumOut.SummaryWithDuration(aggSummary.Total, aggSummary.Passed, aggSummary.Failed, aggSummary.Skipped, aggSummary.Duration)
 	}
@@ -202,7 +202,7 @@ func buildArgsForCollection(
 	path, envName, format, report string,
 	cliVars, envVarVars map[string]string,
 	seed *int64,
-	noColor bool,
+	color colorMode,
 	verbosity output.Verbosity,
 	allowSensitive, showDeps, dryRun, runParallel, confirmLargeDS bool,
 ) []string {
@@ -236,8 +236,11 @@ func buildArgsForCollection(
 	if seed != nil {
 		args = append(args, "--seed", fmt.Sprintf("%d", *seed))
 	}
-	if noColor {
-		args = append(args, "--no-color")
+	// Forwarded whenever it is not the default, so a `--color=always` on the
+	// outer invocation reaches each discovered collection. Previously only the
+	// "off" case could be forwarded at all.
+	if color != colorAuto {
+		args = append(args, "--color="+color.String())
 	}
 	switch verbosity {
 	case output.VerbosityVerbose:
