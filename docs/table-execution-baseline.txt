@@ -22,7 +22,6 @@ CLI_SPECIFICATION.md	### 6.2 Precedence	# | Source | Where
 CLI_SPECIFICATION.md	### 10.2 Iteration Variables	Variable | Meaning
 CLI_SPECIFICATION.md	### 10.3 Result Storage	store_results | Retained
 CLI_SPECIFICATION.md	### 11.4 Rejected Constructions	Construction | Why | Exit
-CLI_SPECIFICATION.md	### 11.5 Failure and Skip Semantics	Producer outcome | Variable extracted | Dependent has default | Dependent runs
 CLI_SPECIFICATION.md	### 11.6 Protocol Constraints	Protocol | Parallelism
 CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
 MANUAL.md	#### Loading the body from a file	Extension | Detected Content-Type (typical)

@@ -1765,7 +1765,43 @@ func executePhase(
 	// depends_on: skip-propagation works without needing a second pass.
 	skippedSet := make(map[string]struct{})
 
-	for _, item := range items {
+	// Implicit dependencies: an item referencing {{var}} that a previous item
+	// extracts depends on it, with no depends_on: written anywhere.
+	//
+	// CLI_SPECIFICATION §11.5 describes one set of failure-and-skip semantics,
+	// and only the parallel executor implemented them. Sequentially — the
+	// default — a dependent whose producer failed went on to run: with a
+	// literal {{...}} in its URL before defaults resolved, and with the
+	// fallback value after, which is worse, because a default is not a
+	// substitute for a resource that was never created.
+	//
+	// The same graph the parallel path builds answers it here.
+	depGraph := parallel.Analyze(items, buildPreExecVarSet(scope))
+	failedIdx := make(map[int]bool, len(items))
+	indexByName := make(map[string]int, len(items))
+	for i, it := range items {
+		indexByName[it.Name] = i
+	}
+	// markOutcome records whether an item's result counts as a failure for the
+	// purpose of skipping what depends on it.
+	markOutcome := func(idx int, rr RequestResult) {
+		// Only the producing *request* failing counts. An extraction that found
+		// nothing is not a failed producer: §11.5 gives that its own row, where
+		// a dependent carrying a default runs with it. Treating a missed
+		// JSONPath as a failure collapses two rows of the matrix into one.
+		switch {
+		case rr.Skipped:
+			failedIdx[idx] = true
+		case rr.Result == nil && rr.Err != nil:
+			failedIdx[idx] = true // never got a response
+		case rr.Result != nil && rr.Result.StatusCode >= 400:
+			failedIdx[idx] = true
+		case rr.AssertionResults != nil && !rr.AssertionResults.Passed:
+			failedIdx[idx] = true
+		}
+	}
+
+	for idx, item := range items {
 		if stopped {
 			rr := RequestResult{Name: item.Name, Phase: phase, Skipped: true, WaveIndex: -1, SourceFile: item.SourceFile, SourceLine: item.SourceLine, RequestSlug: item.Slug}
 			results = append(results, rr)
@@ -1827,6 +1863,26 @@ func executePhase(
 				}
 				continue
 			}
+		}
+
+		// §11.5: a dependent is skipped when the item producing its variable
+		// failed, whether or not the reference carries a |default: fallback.
+		if failed, reason := parallel.DependencyFailure(depGraph, idx, failedIdx); failed {
+			rr := RequestResult{
+				Name: item.Name, Phase: phase,
+				Skipped: true, SkipReason: reason,
+				WaveIndex:   -1,
+				SourceFile:  item.SourceFile,
+				SourceLine:  item.SourceLine,
+				RequestSlug: item.Slug,
+			}
+			results = append(results, rr)
+			skippedSet[item.Name] = struct{}{}
+			failedIdx[idx] = true
+			if vars.OnEvent != nil {
+				emitRequestEnd(vars.OnEvent, "", item.Slug, rr, -1)
+			}
+			continue
 		}
 
 		// M19-001: if: gate. Evaluated BEFORE templating so that
@@ -1946,6 +2002,30 @@ func executePhase(
 		req := item.Request
 		interpolated, interpErr := requtil.InterpolateRequest(reqScope, &req)
 		if interpErr != nil {
+			// §11.5, third row: the producer succeeded but its JSONPath did not
+			// resolve, and this reference carries no default. That is a skip
+			// naming the variable and the item that owed it — not a fatal for
+			// the whole run, which is what an undefined variable means when
+			// nothing was ever going to produce it.
+			producerName, missingVar, owed := unproducedDependency(depGraph, idx, scope)
+			if owed && errors.Is(interpErr, variable.ErrUndefinedVariable) {
+				reason := fmt.Sprintf("depends on '%s' from %q, which did not produce it", missingVar, producerName)
+				rr := RequestResult{
+					Name: item.Name, Phase: phase,
+					Skipped: true, SkipReason: reason,
+					WaveIndex:   -1,
+					SourceFile:  item.SourceFile,
+					SourceLine:  item.SourceLine,
+					RequestSlug: item.Slug,
+				}
+				results = append(results, rr)
+				skippedSet[item.Name] = struct{}{}
+				failedIdx[idx] = true
+				if vars.OnEvent != nil {
+					emitRequestEnd(vars.OnEvent, "", item.Slug, rr, -1)
+				}
+				continue
+			}
 			interpErr = enrichInterpErr(interpErr, item)
 			// M8-004: enrich with variable-cliff diagnostic for main-phase items.
 			if phase == PhaseMain {
@@ -2058,6 +2138,7 @@ func executePhase(
 				emitAssertionResults(vars.OnEvent, wsReqID, item.Slug, item.SourceFile, rr.AssertionResults)
 				emitRequestEnd(vars.OnEvent, wsReqID, item.Slug, rr, -1)
 			}
+			markOutcome(idx, rr)
 			results = append(results, rr)
 			continue
 		}
@@ -2159,6 +2240,7 @@ func executePhase(
 				SourceFile: item.SourceFile, SourceLine: item.SourceLine,
 				RequestID: reqID, RequestSlug: item.Slug, // M9-002
 			}
+			markOutcome(idx, rr)
 			results = append(results, rr)
 			if vars.OnEvent != nil {
 				emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
@@ -2328,6 +2410,7 @@ func executePhase(
 			} else if stopOnFailure {
 				stopped = true
 			}
+			markOutcome(idx, rr)
 			results = append(results, rr)
 			continue
 		}
@@ -2350,6 +2433,7 @@ func executePhase(
 				} else if stopOnFailure {
 					stopped = true
 				}
+				markOutcome(idx, rr)
 				results = append(results, rr)
 				continue
 			}
@@ -2368,6 +2452,7 @@ func executePhase(
 			emitRequestEnd(vars.OnEvent, reqID, item.Slug, rr, -1)
 		}
 
+		markOutcome(idx, rr)
 		results = append(results, rr)
 	}
 
@@ -3385,4 +3470,30 @@ func (a *parallelSinkAdapter) AssertionResult(ev parallel.AssertionEvent) {
 		Actual:      ev.Actual,
 		Passed:      ev.Passed,
 	})
+}
+
+// unproducedDependency reports whether idx depends on an earlier item for a
+// variable that is still not in scope — the producer ran, and what it promised
+// to extract is not there.
+//
+// It is what separates §11.5's third row from an ordinary undefined variable:
+// one is a dependency that came up empty and skips its dependent, the other is
+// a reference to something nothing was ever going to define, which is a
+// configuration error and ends the run.
+func unproducedDependency(graph *parallel.DependencyGraph, idx int, scope *variable.Scope) (producer, name string, owed bool) {
+	if graph == nil || idx >= len(graph.Nodes) {
+		return "", "", false
+	}
+	resolved := scope.Resolved()
+	for _, edge := range graph.Edges {
+		if edge.To != idx {
+			continue
+		}
+		for _, v := range edge.Variables {
+			if _, ok := resolved[v]; !ok {
+				return graph.Nodes[edge.From].Name, v, true
+			}
+		}
+	}
+	return "", "", false
 }
