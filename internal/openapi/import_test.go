@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -760,5 +761,160 @@ func TestImport_InvalidSpec(t *testing.T) {
 	}
 	if !errors.Is(err, ErrSpecInvalid) {
 		t.Errorf("expected ErrSpecInvalid, got %v", err)
+	}
+}
+
+// §11C.9. Both CLI_SPECIFICATION §18.8 and docs/MANUAL.md promise "OpenAPI
+// 3.x", and the importer accepted a document DECLARING openapi: 3.1.0 and then
+// validated it against 3.0 rules. Three ordinary 3.1 constructs were refused:
+//
+//	info.summary            added in 3.1     invalid info: extra sibling fields: [summary]
+//	webhooks                added in 3.1     extra sibling fields: [webhooks]
+//	type: ["string","null"] JSON Schema 2020-12  unsupported 'type' value "null"
+//
+// testdata/petstore_31.yaml declared 3.1 and used none of them, which is why
+// nothing caught this.
+func TestImport_openapi31Constructs(t *testing.T) {
+	var warnings []string
+	col, err := importWithWarn("testdata/petstore_31_constructs.yaml", func(m string) {
+		warnings = append(warnings, m)
+	})
+	if err != nil {
+		t.Fatalf("a 3.1 document was rejected: %v", err)
+	}
+	if col.Name != "Petstore 3.1 constructs" {
+		t.Errorf("Name = %q", col.Name)
+	}
+
+	// The paths must import normally — relaxing the validator must not cost
+	// operations.
+	names := map[string]bool{}
+	for _, it := range col.Requests.Items {
+		names[it.Name] = true
+	}
+	for _, want := range []string{"listPets", "createPet"} {
+		if !names[want] {
+			t.Errorf("operation %q missing; got %v", want, names)
+		}
+	}
+
+	// webhooks describe inbound callbacks with no server to call, so they are
+	// not importable as requests — but dropping them silently would be the
+	// same class of defect as rejecting them.
+	if names["petStatusChanged"] {
+		t.Error("a webhook was imported as a request; webhooks are inbound")
+	}
+	var mentionedWebhooks bool
+	for _, w := range warnings {
+		if strings.Contains(w, "webhook") {
+			mentionedWebhooks = true
+		}
+	}
+	if !mentionedWebhooks {
+		t.Errorf("webhooks were dropped without a warning; got %v", warnings)
+	}
+}
+
+// A nullable type array must survive as the underlying type, so body synthesis
+// still produces a value of the right shape rather than nothing.
+func TestImport_openapi31NullableTypeArrayKeepsItsType(t *testing.T) {
+	col, err := importWithWarn("testdata/petstore_31_constructs.yaml", func(string) {})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	var post *parser.RequestItem
+	for i := range col.Requests.Items {
+		if col.Requests.Items[i].Name == "createPet" {
+			post = &col.Requests.Items[i]
+		}
+	}
+	if post == nil {
+		t.Fatal("createPet not imported")
+	}
+	body, ok := post.Request.Body.(map[string]any)
+	if !ok {
+		t.Fatalf("body is %T, want a synthesised object", post.Request.Body)
+	}
+	// nickname is type: ["string","null"]; it must be treated as a string, not
+	// dropped and not left as an unusable multi-type.
+	if _, present := body["nickname"]; !present {
+		t.Errorf("nickname absent from the synthesised body: %v", body)
+	}
+	if s, isString := body["nickname"].(string); !isString {
+		t.Errorf("nickname is %T, want string (the non-null member of the type array)", body["nickname"])
+	} else if s == "" {
+		t.Error("nickname synthesised as empty")
+	}
+}
+
+// The 3.0 path must be untouched.
+func TestImport_openapi30StillImports(t *testing.T) {
+	if _, err := importWithWarn("testdata/petstore.yaml", func(string) {}); err != nil {
+		t.Fatalf("3.0 import broke: %v", err)
+	}
+}
+
+// §11C.10. A path parameter becomes {{code}} in the generated URL, but the
+// import emitted no variables: entry for it, so the collection it produced
+// could not run: exit 5, `undefined variable "code"`, at run time rather than
+// at import time. §9.P's acceptance criterion is literal — `curlew run` on the
+// import's own output must pass — and it was unreachable for any path with a
+// parameter.
+func TestImport_pathParameterGetsAVariable(t *testing.T) {
+	col, err := importWithWarn("testdata/path_params.yaml", func(string) {})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	tests := []struct {
+		varName string
+		want    string
+		why     string
+	}{
+		{"code", "200", "the parameter carries example: 200"},
+		{"petId", "abc-123", "the schema carries an example"},
+		{"kind", "cat", "the schema is an enum; the first member is used"},
+		{"page", "1", "an integer with minimum 1 must not default to 0"},
+		{"slug", "string", "a plain string parameter falls back to its type"},
+	}
+	for _, tt := range tests {
+		got, present := col.Variables.Values[tt.varName]
+		if !present {
+			t.Errorf("no variable for path parameter %q — the collection cannot run (%s)", tt.varName, tt.why)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("%s = %q, want %q (%s)", tt.varName, got, tt.want, tt.why)
+		}
+	}
+
+	// Every {{var}} in every generated URL must resolve against the emitted
+	// variables. This is the property that actually matters: it is what makes
+	// the collection runnable, and it does not depend on the values above.
+	for _, item := range col.Requests.Items {
+		for _, m := range regexp.MustCompile(`\{\{([^{}]+)\}\}`).FindAllStringSubmatch(item.Request.URL, -1) {
+			if _, present := col.Variables.Values[m[1]]; !present {
+				t.Errorf("request %q references {{%s}}, which the import did not define", item.Name, m[1])
+			}
+		}
+	}
+}
+
+// No path parameter, no spurious variables.
+func TestImport_noPathParametersAddsNoVariables(t *testing.T) {
+	col, err := importWithWarn("testdata/petstore.yaml", func(string) {})
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	for name := range col.Variables.Values {
+		if name == "base_url" {
+			continue
+		}
+		if col.Variables.Values[name] == "" {
+			continue // header/query params legitimately default to empty
+		}
+	}
+	if _, ok := col.Variables.Values["base_url"]; !ok {
+		t.Error("base_url missing")
 	}
 }

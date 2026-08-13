@@ -3,14 +3,17 @@
 # curlew reads a body to completion and asserts on the whole thing. That is what
 # this collection measures rather than an obstacle to it.
 #
-# What it can measure is narrower than it should be. A body assertion parses the
-# body as JSON (CLI_SPECIFICATION §7.3), and `cel:` — the documented escape
-# hatch for what the operator catalogue cannot express — sees `response.body` as
-# null for anything that does not decode, because the decode is best-effort.
-# Between them, a text/event-stream and an NDJSON body are assertable only by
-# status, headers and timing. The reproduction is in
-# testapi/gaps/expected-failures.yaml; /stream/json/{n} exists so that chunked
-# transfer still gets its content checked by something.
+# Text bodies used to be out of reach entirely (§11C.7): a body assertion parses
+# the body as JSON, so every operator answered "response body is not valid JSON"
+# against a text/event-stream, and `cel:` — the documented escape hatch — saw
+# `response.body` as null because the decode was best-effort and left it there.
+# A stream was assertable only by status, headers and timing.
+#
+# A body that is not JSON now has a root, and that root is its text: `$` with
+# contains, matches, equals or length works on it, and `response.body` in CEL is
+# the raw string. Deeper paths still fail, because there is no `$.foo` in a
+# document with no structure. /stream/json/{n} remains, because a chunked JSON
+# array is worth checking on its own terms.
 #
 # /stream/infinite is deliberately absent. curlew has no request timeout
 # (§11.1), so a request to it would sit for the full 120-second server-side
@@ -26,9 +29,7 @@ requests:
   - name: an event stream is served without a length
     description: |
       No Content-Length is the header that makes the body chunked: a stream
-      cannot declare a length it does not know. Everything assertable about
-      this response is in this block — the events themselves are text, and
-      text is out of reach.
+      cannot declare a length it does not know.
     request:
       method: GET
       url: "{{mud}}/sse?events=3&ms=0"
@@ -39,12 +40,70 @@ requests:
         Cache-Control: { equals: "no-cache" }
         Content-Length: { exists: false }
 
+  - name: an event stream's own text is assertable
+    description: |
+      This was §11C.7, and it lived in testapi/gaps/expected-failures.yaml
+      because BOTH mechanisms failed on it:
+
+        ✗ body $ contains: expected contains id: 1, got response body is not
+          valid JSON
+        ✗ cel: no such overload            (response.body was null)
+
+      The consequence was never only SSE. An HTML error page, a CSV export, an
+      XML SOAP response, plain text and NDJSON were all assertable by status
+      and headers alone, and §9.K hit the same wall from the other side with
+      its 500.
+
+      Both routes are checked here on purpose: `$` covers the operator
+      catalogue, `cel:` covers the escape hatch, and it was the escape hatch
+      being broken too that made the gap total rather than merely awkward.
+    request:
+      method: GET
+      url: "{{mud}}/sse?events=2&ms=0"
+    assertions:
+      status: 200
+      body:
+        # The event ids, anchored per line — the stream opens with its retry
+        # hint, so an unanchored ^ would be matching the wrong thing.
+        $: { matches: "(?m)^id: 1$" }
+      cel:
+        - 'response.body.contains("id: 1")'
+        - 'response.body.contains("id: 2")'
+        - 'response.body.contains("retry:")'
+
+  - name: a deeper path into a text body still fails, and says why
+    description: |
+      The other half of the contract. `$.events[0]` does not address anything
+      in a document with no structure, and answering "no match at path" would
+      imply it could have. It stays an error — but the message now names the
+      one thing that does work rather than being a dead end.
+
+      Asserted through cel: because the failure itself is the subject; a body
+      assertion here would fail the request.
+    request:
+      method: GET
+      url: "{{mud}}/sse?events=2&ms=0"
+    assertions:
+      status: 200
+      cel:
+        # The body is a string, so it has no fields to reach into. This is the
+        # positive statement of what "no deeper path" means.
+        - 'type(response.body) == string'
+
   - name: a stream delivered over time still completes
     description: |
-      Three events 40ms apart. A client that stopped at the first chunk would
-      return in ~0ms; one that reads to completion takes at least 120. The
-      timing assertion is the only evidence available that the whole stream
-      was consumed, since the content cannot be inspected.
+      Three events 40ms apart: a client that stopped at the first chunk returns
+      in ~0ms, one that reads to completion takes at least 120.
+
+      That distinction is only visible since §11C.6 was fixed. The reported
+      duration used to stop when the headers arrived, so this request measured
+      ~0ms however much body followed and the ceiling below asserted nothing at
+      all. It now covers the read, which makes the ceiling a real bound.
+
+      A ceiling alone cannot prove the stream was consumed — for that see the
+      matching entry in testapi/gaps/expected-failures.yaml, where a 50ms
+      ceiling against a one-second stream must FAIL. The two together are the
+      evidence; this one on its own is a sanity bound.
     request:
       method: GET
       url: "{{mud}}/sse?events=3&ms=40"

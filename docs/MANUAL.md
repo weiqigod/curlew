@@ -3295,31 +3295,38 @@ requests:
       url: "wss://{{ws_host}}/stream"
       headers:
         Authorization: "Bearer {{auth_token}}"
-    websocket:
-      steps:
-        - action: send
-          message:
-            type: "subscribe"
-            channel: "orders"
-        - action: expect
-          timeout_ms: 5000
-          message:
-            $.type:
-              equals: "subscribed"
-        - action: expect
-          timeout_ms: 10000
-          count: 3                      # wait for 3 matching messages
-          message:
-            $.event:
-              equals: "order_placed"
-          extract:
-            last_order_id: "$.order_id"
-        - action: wait
-          duration_ms: 500
-        - action: close
-          code: 1000                    # normal closure
-          reason: "done"
+      websocket:                        # inside `request:`, not beside it
+        steps:
+          - action: send
+            message:
+              type: "subscribe"
+              channel: "orders"
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type:
+                equals: "subscribed"
+          - action: expect
+            timeout_ms: 10000
+            count: 3                    # wait for 3 matching messages
+            message:
+              $.event:
+                equals: "order_placed"
+            extract:
+              # With count > 1 this is a JSON-encoded ARRAY of the per-message
+              # values — ["ord_1","ord_2","ord_3"] — not the last one. See
+              # "Extraction under count" below.
+              order_ids: "$.order_id"
+          - action: wait
+            duration_ms: 500
+          - action: close
+            code: 1000                  # normal closure
+            reason: "done"
 ```
+
+`websocket:` is a field of `request:`, alongside `url:` and `headers:` — not a
+sibling of it. A collection with it one level out is rejected with
+`must have websocket.steps with at least one action`.
 
 **Step actions:**
 
@@ -3330,23 +3337,55 @@ requests:
 | `wait` | Pause | `duration_ms` |
 | `close` | Close the connection | `code` (default 1000), `reason` |
 
+**Extraction under `count`.**
+
+An `expect` step with `count: 1` (the default) extracts the value from the
+matching message. With `count` greater than 1 it extracts from *every* matched
+message and stores a **JSON-encoded array** of the results:
+
+```yaml
+- action: expect
+  count: 3
+  message:
+    $.event: { equals: "order_placed" }
+  extract:
+    order_ids: "$.order_id"        # -> ["ord_1","ord_2","ord_3"]
+```
+
+`{{order_ids}}` then interpolates as the literal text `["ord_1","ord_2","ord_3"]`,
+so a request built from it sends the whole array, not a single id. Name the
+variable in the plural to keep that visible at the call site — an earlier
+version of this manual called it `last_order_id`, which implied the opposite and
+an author following it would have found out at the point of use.
+
 **Heartbeats and reconnect:**
 
 ```yaml
-    websocket:
-      heartbeat:
-        enabled: true
-        interval_ms: 30000
-        message: { type: "ping" }
-      reconnect:
-        enabled: true
-        max_attempts: 3
-        initial_delay_ms: 1000
-      steps:
-        - ...
+requests:
+  - name: Long-running subscription
+    request:
+      protocol: websocket
+      url: "wss://{{ws_host}}/stream"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 30000
+          message: { type: "ping" }
+        reconnect:
+          enabled: true
+          max_attempts: 3
+          initial_delay_ms: 1000
+        steps:
+          - action: wait
+            duration_ms: 60000
+          - action: close
 ```
 
 Heartbeat sends periodic keep-alive messages. Reconnect transparently reconnects on dropped connections and resumes the step sequence. Both are useful for long-running subscriptions.
+
+A heartbeat holds the connection open whether or not a step is reading, so an
+idle `wait` is a supported way to keep a subscription alive. Messages that
+arrive during a `wait` are buffered and remain available to the next `expect`.
 
 ### 7.3 OpenAPI import
 

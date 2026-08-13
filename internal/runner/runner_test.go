@@ -7060,8 +7060,15 @@ func TestRun_graphql_mode_matrix(t *testing.T) {
 		{"per-request warn beats global fail", `{"data":{"ok":true},"errors":[{"message":"x"}]}`, "fail", "warn", 0, true},
 		{"per-request ignore beats global fail", `{"data":{"ok":true},"errors":[{"message":"x"}]}`, "fail", "ignore", 0, false},
 		{"full failure fail default", `{"data":null,"errors":[{"message":"boom"}]}`, "", "", 1, false},
-		{"full failure warn still fails", `{"data":null,"errors":[{"message":"boom"}]}`, "warn", "", 1, false},
-		{"full failure ignore still fails", `{"data":null,"errors":[{"message":"boom"}]}`, "ignore", "", 1, false},
+		// §11C.2. docs/MANUAL.md §7.1 states the mode as a matrix over BOTH
+		// outcomes: full-failure is fail / warn / pass, exactly as
+		// partial-success is. The runner used to handle full failure before
+		// reading the mode, so all three modes behaved identically and the
+		// setting was inert for half the cases it documents.
+		{"full failure warn", `{"data":null,"errors":[{"message":"boom"}]}`, "warn", "", 0, true},
+		{"full failure ignore", `{"data":null,"errors":[{"message":"boom"}]}`, "ignore", "", 0, false},
+		{"full failure per-request ignore beats global fail", `{"data":null,"errors":[{"message":"boom"}]}`, "fail", "ignore", 0, false},
+		{"full failure per-request fail beats global ignore", `{"data":null,"errors":[{"message":"boom"}]}`, "ignore", "fail", 1, false},
 	}
 
 	for _, tt := range tests {
@@ -7197,32 +7204,105 @@ func TestRun_graphql_assertion_on_errors_message(t *testing.T) {
 	}
 }
 
-func TestRun_graphql_malformed_response_body_returns_error(t *testing.T) {
-	// Finding #1: checkErr from graphql.CheckResponse must not be silently swallowed.
-	// A malformed JSON body should cause Run() to return a non-nil error.
-	exec := makeGraphQLExecutor("not valid json {{{")
+func TestRun_graphql_malformed_response_body_fails_only_that_request(t *testing.T) {
+	// The original finding was that checkErr from graphql.CheckResponse must
+	// not be silently swallowed, and it must not be. But it was reported by
+	// aborting the whole run, which is worse than either: a gateway that
+	// answers 500 with an HTML error page — the ordinary real-world case —
+	// discarded every result in the run, reported "requests": [] beside a
+	// summary counting passes, and exited 5, the code reserved for variable
+	// resolution (§11C.1).
+	//
+	// An unparseable GraphQL response is a property of one response. It fails
+	// that request, and the run continues.
+	exec := func(_ context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+		if strings.Contains(req.URL, "broken") {
+			return &httpexec.Result{
+				StatusCode: 500,
+				Body:       []byte("<html><body>502 Bad Gateway</body></html>"),
+				Headers:    http.Header{"Content-Type": []string{"text/html"}},
+			}, nil
+		}
+		return &httpexec.Result{
+			StatusCode: 200,
+			Body:       []byte(`{"data":{"me":{"id":"1"}}}`),
+			Headers:    http.Header{"Content-Type": []string{"application/json"}},
+		}, nil
+	}
+
+	gqlItem := func(name, url string) parser.RequestItem {
+		return parser.RequestItem{
+			Name: name,
+			Request: parser.Request{
+				Protocol: "graphql",
+				URL:      url,
+				Method:   "POST",
+				GraphQL:  &parser.GraphQLConfig{Query: "{ me { id } }"},
+			},
+		}
+	}
 
 	col := &parser.Collection{
 		Name: "GraphQL Malformed Body",
 		Requests: parser.Section{Items: []parser.RequestItem{
-			{
-				Name: "Malformed",
-				Request: parser.Request{
-					Protocol: "graphql",
-					URL:      "https://api.example.com/graphql",
-					Method:   "POST",
-					GraphQL:  &parser.GraphQLConfig{Query: "{ me { id } }"},
-				},
-			},
+			gqlItem("before", "https://api.example.com/graphql"),
+			gqlItem("Malformed", "https://api.example.com/graphql/broken"),
+			gqlItem("after", "https://api.example.com/graphql"),
 		}},
 	}
 
-	_, _, err := Run(context.Background(), col, exec, VarSources{})
-	if err == nil {
-		t.Fatal("expected Run() to return an error for malformed GraphQL response body, got nil")
+	results, summary, err := Run(context.Background(), col, exec, VarSources{})
+	if err != nil {
+		t.Fatalf("one unparseable response aborted the run: %v", err)
 	}
-	if !strings.Contains(err.Error(), "parsing graphql response") {
-		t.Errorf("error should mention 'parsing graphql response', got: %v", err)
+	// Every request must be reported. The defect produced an empty slice
+	// beside a summary that counted the passes it had thrown away.
+	if len(results) != 3 {
+		t.Fatalf("results = %d, want 3 — requests were discarded", len(results))
+	}
+	if summary.Failed != 1 {
+		t.Errorf("Failed = %d, want 1", summary.Failed)
+	}
+	if summary.Passed != 2 {
+		t.Errorf("Passed = %d, want 2", summary.Passed)
+	}
+	if len(results) != summary.Total {
+		t.Errorf("summary counts %d requests but %d were reported", summary.Total, len(results))
+	}
+
+	bad := results[1]
+	if bad.AssertionResults == nil || bad.AssertionResults.Passed {
+		t.Fatalf("the malformed request passed: %+v", bad.AssertionResults)
+	}
+	// The cause must survive into the report, and must not be doubled: both
+	// graphql.CheckResponse and the runner used to prefix the same phrase,
+	// yielding "parsing graphql response: parsing graphql response: ...".
+	var actual string
+	for _, it := range bad.AssertionResults.Items {
+		if !it.Passed {
+			actual = it.Actual
+		}
+	}
+	if !strings.Contains(actual, "not valid JSON") && !strings.Contains(actual, "invalid character") {
+		t.Errorf("failure does not name the cause: %q", actual)
+	}
+	if strings.Count(actual, "parsing graphql response") > 1 {
+		t.Errorf("doubled error message: %q", actual)
+	}
+	// The requests either side must have run and not failed. They declare no
+	// assertions, so AssertionResults is legitimately nil for them.
+	for _, i := range []int{0, 2} {
+		got := results[i]
+		if got.AssertionResults != nil && !got.AssertionResults.Passed {
+			t.Errorf("request %q failed unexpectedly", got.Name)
+		}
+		if got.Err != nil {
+			t.Errorf("request %q errored: %v", got.Name, got.Err)
+		}
+	}
+	if results[0].Name != "before" || results[2].Name != "after" {
+		t.Errorf("results are not in collection order: %q, %q, %q",
+			results[0].Name, results[1].Name, results[2].Name)
 	}
 }
 
@@ -11178,5 +11258,50 @@ func TestResolveLocale_Precedence(t *testing.T) {
 				t.Errorf("resolveLocale = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// §11C.7, the other half. `cel:` is offered as the escape hatch for what the
+// operator catalogue cannot express, and it was useless exactly where the
+// catalogue had run out: buildCelResponse left the body nil on a parse failure,
+// so response.body was null and response.body.contains("id: 1") failed with
+// "no such overload".
+func TestBuildCelResponse_nonJSONBodyIsExposedAsText(t *testing.T) {
+	const sse = "id: 1\ndata: hello\n\n"
+	got := buildCelResponse(&httpexec.Result{
+		StatusCode: 200,
+		Body:       []byte(sse),
+		Headers:    http.Header{"Content-Type": []string{"text/event-stream"}},
+	})
+	if got == nil {
+		t.Fatal("nil response")
+	}
+	text, ok := got.Body.(string)
+	if !ok {
+		t.Fatalf("Body is %T, want string for a non-JSON body", got.Body)
+	}
+	if text != sse {
+		t.Errorf("Body = %q, want the raw text %q", text, sse)
+	}
+}
+
+func TestBuildCelResponse_jsonBodyStaysDecoded(t *testing.T) {
+	got := buildCelResponse(&httpexec.Result{
+		StatusCode: 200,
+		Body:       []byte(`{"a":1}`),
+	})
+	m, ok := got.Body.(map[string]any)
+	if !ok {
+		t.Fatalf("Body is %T, want a decoded map for a JSON body", got.Body)
+	}
+	if m["a"] != float64(1) {
+		t.Errorf("Body[a] = %v", m["a"])
+	}
+}
+
+func TestBuildCelResponse_emptyBodyStaysNil(t *testing.T) {
+	got := buildCelResponse(&httpexec.Result{StatusCode: 204})
+	if got.Body != nil {
+		t.Errorf("Body = %v, want nil for an empty body", got.Body)
 	}
 }

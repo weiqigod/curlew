@@ -1,0 +1,61 @@
+# Path parameters, each declaring its value a different way. The import must
+# emit a variable for every one of them, or the generated collection cannot run
+# (§11C.10).
+openapi: 3.0.3
+info:
+  title: Path params
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /status/{code}:
+    get:
+      operationId: statusByCode
+      parameters:
+        - name: code
+          in: path
+          required: true
+          example: 200                 # parameter-level example wins
+          schema: { type: integer, minimum: 100, maximum: 599 }
+      responses:
+        '200': { description: OK }
+  /pets/{petId}:
+    get:
+      operationId: showPet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema: { type: string, example: "abc-123" }
+      responses:
+        '200': { description: OK }
+  /kind/{kind}:
+    get:
+      operationId: byKind
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string, enum: ["cat", "dog"] }
+      responses:
+        '200': { description: OK }
+  /page/{page}:
+    get:
+      operationId: byPage
+      parameters:
+        - name: page
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: OK }
+  /slug/{slug}:
+    get:
+      operationId: bySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }

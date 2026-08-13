@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	gws "github.com/gorilla/websocket"
@@ -76,16 +79,27 @@ func Execute(ctx context.Context, req *parser.Request, scope *variable.Scope, di
 		headers.Set(k, v)
 	}
 
-	conn, _, dialErr := dialer.Dial(ctx, req.URL, headers)
+	conn, dialResp, dialErr := dialer.Dial(ctx, req.URL, headers)
 	if dialErr != nil {
-		result.Err = fmt.Errorf("%w: %w", ErrDialFailed, dialErr)
+		result.Err = describeDialFailure(dialResp, dialErr)
 		result.Duration = time.Since(start)
 		return result
 	}
 	defer func() {
+		// Closing the connection is also what unblocks the pump's in-flight
+		// read, so this must happen on every exit path.
 		_ = conn.Close()
 		result.Duration = time.Since(start)
 	}()
+
+	// The pump becomes the connection's sole reader for the rest of this
+	// request. No step may call conn.ReadMessage directly: a second reader
+	// would interleave mid-frame, and reads outside the pump reintroduce the
+	// deadline problem the pump exists to remove (§11C.5).
+	pump := startReadPump(conn)
+	// A closure, not `defer pump.stop()`: the receiver would be bound now, and
+	// a reconnect replaces pump — leaving the new one running.
+	defer func() { pump.stop() }()
 
 	// Start heartbeat goroutine (no-op when Heartbeat is nil or disabled).
 	stopHeartbeat, heartbeatErr := startHeartbeat(ctx, conn, req.WebSocket.Heartbeat)
@@ -108,7 +122,7 @@ func Execute(ctx context.Context, req *parser.Request, scope *variable.Scope, di
 			}
 		default:
 		}
-		sr := runStep(ctx, conn, buf, step, scope)
+		sr := runStep(ctx, conn, pump, buf, step, scope)
 		result.Steps = append(result.Steps, sr)
 		if w := buf.drainWarning(); w != "" {
 			result.Warnings = append(result.Warnings, w)
@@ -142,13 +156,17 @@ func Execute(ctx context.Context, req *parser.Request, scope *variable.Scope, di
 			}
 			_ = conn.Close()
 			conn = newConn
+			// Restart the pump on the new connection. Closing the old
+			// connection above released the previous pump's blocked read.
+			pump.stop()
+			pump = startReadPump(conn)
 			// Restart the heartbeat on the new connection; the old goroutine was
 			// writing to a closed connection and may have already sent an error.
 			stopHeartbeat()
 			stopHeartbeat, heartbeatErr = startHeartbeat(ctx, conn, req.WebSocket.Heartbeat)
 			// Reset buffer for the new connection.
 			buf = &messageBuffer{}
-			sr = runStep(ctx, conn, buf, step, scope)
+			sr = runStep(ctx, conn, pump, buf, step, scope)
 			// Remove the previous (failed) step result and replace with new.
 			result.Steps = result.Steps[:len(result.Steps)-1]
 			result.Steps = append(result.Steps, sr)
@@ -174,16 +192,16 @@ func Execute(ctx context.Context, req *parser.Request, scope *variable.Scope, di
 	return result
 }
 
-func runStep(ctx context.Context, conn Conn, buf *messageBuffer, step parser.WebSocketStep, scope *variable.Scope) StepResult {
+func runStep(ctx context.Context, conn Conn, pump *readPump, buf *messageBuffer, step parser.WebSocketStep, scope *variable.Scope) StepResult {
 	start := time.Now()
 	var sr StepResult
 	switch step.Action {
 	case "send":
 		sr = runSend(conn, step, scope)
 	case "expect":
-		sr = runExpect(ctx, conn, buf, step, scope)
+		sr = runExpect(ctx, pump, buf, step, scope)
 	case "wait":
-		sr = runWait(ctx, step)
+		sr = runWait(ctx, pump, buf, step)
 	case "close":
 		sr = runClose(conn, step, scope)
 	default:
@@ -261,7 +279,7 @@ func renderTemplate(step parser.WebSocketStep, scope *variable.Scope) ([]byte, e
 // step's assertions. It first checks the in-memory buffer for pre-arrived
 // frames, then falls through to reading from the connection. Unmatched frames
 // from the wire are pushed onto buf for consumption by later steps.
-func runExpect(ctx context.Context, conn Conn, buf *messageBuffer, step parser.WebSocketStep, scope *variable.Scope) StepResult {
+func runExpect(ctx context.Context, pump *readPump, buf *messageBuffer, step parser.WebSocketStep, scope *variable.Scope) StepResult {
 	timeoutMs := step.TimeoutMs
 	if timeoutMs <= 0 {
 		timeoutMs = defaultExpectTimeoutMs
@@ -316,49 +334,57 @@ func runExpect(ctx context.Context, conn Conn, buf *messageBuffer, step parser.W
 		return buildCountResult(step, collectedVars, count, lastAssertions, scope)
 	}
 
-	if err := conn.SetReadDeadline(deadline); err != nil {
-		return StepResult{Err: fmt.Errorf("%w: set deadline: %w", ErrExpectTimeout, err)}
+	// Frames come from the pump, the connection's sole reader, and the timeout
+	// is enforced here by a timer rather than by a read deadline. A deadline
+	// would end the read by failing it, and a failed gorilla read is permanent —
+	// it would poison every later step on the same connection (see readPump).
+	timeout := time.NewTimer(time.Until(deadline))
+	defer timeout.Stop()
+
+	expired := func() StepResult {
+		sr := StepResult{
+			Err: fmt.Errorf("%w after %dms: collected %d/%d", ErrExpectTimeout, timeoutMs, collected, count),
+		}
+		if lastAssertions != nil {
+			sr.Assertions = lastAssertions
+		}
+		return sr
 	}
 
-	// Read from wire until we have collected `count` matching frames or deadline hits.
 	for collected < count {
-		if err := ctx.Err(); err != nil {
-			return StepResult{Err: fmt.Errorf("%w: %w", ErrContextCanceled, err)}
-		}
-		if !time.Now().Before(deadline) {
-			sr := StepResult{
-				Err: fmt.Errorf("%w after %dms: collected %d/%d", ErrExpectTimeout, timeoutMs, collected, count),
+		var frame pumpFrame
+		select {
+		case <-ctx.Done():
+			return StepResult{Err: fmt.Errorf("%w: %w", ErrContextCanceled, ctx.Err())}
+		case <-timeout.C:
+			return expired()
+		case f, ok := <-pump.frames:
+			if !ok {
+				// The pump closed without an error frame: the connection is
+				// gone and no further message can arrive.
+				return expired()
 			}
-			if lastAssertions != nil {
-				sr.Assertions = lastAssertions
-			}
-			return sr
+			frame = f
 		}
-		_, data, err := conn.ReadMessage()
-		if err != nil {
-			if isTimeoutErr(err) {
-				sr := StepResult{
-					Err: fmt.Errorf("%w after %dms: collected %d/%d", ErrExpectTimeout, timeoutMs, collected, count),
-				}
-				if lastAssertions != nil {
-					sr.Assertions = lastAssertions
-				}
-				return sr
+
+		if frame.err != nil {
+			if isTimeoutErr(frame.err) {
+				return expired()
 			}
-			return StepResult{Err: fmt.Errorf("%w: read: %w", ErrExpectTimeout, err)}
+			return StepResult{Err: fmt.Errorf("%w: read: %w", ErrExpectTimeout, frame.err)}
 		}
-		if len(data) == 0 {
+		if len(frame.data) == 0 {
 			continue
 		}
-		ar, ok := matchFn(data)
+		ar, ok := matchFn(frame.data)
 		if !ok {
 			// Stray frame: remember diff and buffer it for later steps.
 			lastAssertions = ar
-			buf.push(data)
+			buf.push(frame.data)
 			continue
 		}
 		lastAssertions = ar
-		extracted, extErr := extractForMatch(step.Extract, data)
+		extracted, extErr := extractForMatch(step.Extract, frame.data)
 		if extErr != nil {
 			return StepResult{Assertions: ar, Err: fmt.Errorf("%w: %w", ErrExtractFailed, extErr)}
 		}
@@ -465,17 +491,61 @@ func aggregateExtraction(extract map[string]string, perMsg []map[string]string, 
 	return out
 }
 
-func runWait(ctx context.Context, step parser.WebSocketStep) StepResult {
+// runWait holds the connection for the step's duration — by READING it, not by
+// sleeping on a timer.
+//
+// gorilla dispatches control frames from inside ReadMessage: the pong handler
+// registered by the heartbeat runs only while something is reading. A wait that
+// slept left the socket unread, so an incoming pong was never dispatched, the
+// liveness flag stayed false, and the next tick declared a peer that had
+// answered every ping dead. That inverted the feature — a heartbeat exists to
+// hold an IDLE connection open, and this failed precisely when idle (§11C.5).
+//
+// Reading here rather than from a background goroutine keeps the single-reader
+// invariant: two concurrent ReadMessage calls on one connection interleave
+// mid-frame and corrupt the stream. Data frames that arrive during the wait go
+// to the buffer, where a later expect step can still match them, so nothing is
+// dropped by the change.
+func runWait(ctx context.Context, pump *readPump, buf *messageBuffer, step parser.WebSocketStep) StepResult {
 	if step.DurationMs <= 0 {
 		return StepResult{Passed: true}
 	}
 	timer := time.NewTimer(time.Duration(step.DurationMs) * time.Millisecond)
 	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return StepResult{Err: fmt.Errorf("%w: %w", ErrContextCanceled, ctx.Err())}
-	case <-timer.C:
-		return StepResult{Passed: true}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return StepResult{Err: fmt.Errorf("%w: %w", ErrContextCanceled, ctx.Err())}
+		case <-timer.C:
+			// The wait elapsed with the pump blocked in ReadMessage throughout,
+			// which is what let incoming pongs be dispatched.
+			return StepResult{Passed: true}
+		case frame, ok := <-pump.frames:
+			if !ok {
+				return StepResult{Err: fmt.Errorf("%w: connection closed", ErrWaitFailed)}
+			}
+			if frame.err != nil {
+				// An orderly goodbye is not a fault. The hold ended early
+				// because the peer said it was done, and anything it sent
+				// first is in the buffer for the next step to match.
+				if gws.IsCloseError(frame.err, gws.CloseNormalClosure, gws.CloseGoingAway) {
+					return StepResult{Passed: true}
+				}
+				// Anything else is a real read failure: a broken connection or
+				// an abnormal close. Reporting it lets the reconnect logic see
+				// it, where a sleeping wait returned success on a dead
+				// connection.
+				return StepResult{Err: fmt.Errorf("%w: %w", ErrWaitFailed, frame.err)}
+			}
+			if len(frame.data) > 0 {
+				// Buffered on this goroutine, never from the pump, because
+				// messageBuffer is not safe for concurrent use. A message that
+				// arrives during a wait is therefore still available to a later
+				// expect step rather than being dropped.
+				buf.push(frame.data)
+			}
+		}
 	}
 }
 
@@ -519,4 +589,63 @@ func isTimeoutErr(err error) bool {
 		return ne.Timeout()
 	}
 	return false
+}
+
+// describeDialFailure builds the error for a failed WebSocket dial, including
+// the refusing response when there is one.
+//
+// A server that declines an upgrade answers with an ordinary HTTP response, and
+// that response is the only channel it has to explain itself: 426 with a
+// supported-version header, 401 with an auth hint, 403, or a 500 carrying a
+// gateway's error page. gorilla hands that response back alongside
+// ErrBadHandshake — having already read up to 1024 bytes of the body into it —
+// and curlew discarded it, so every refusal produced the single string
+// "websocket dial failed: websocket: bad handshake" and the four cases were
+// indistinguishable (§11C.4).
+//
+// The underlying error is still wrapped, so ErrDialFailed and gorilla's own
+// sentinel both remain matchable.
+func describeDialFailure(resp *http.Response, err error) error {
+	if resp == nil {
+		// No response: connection refused, DNS failure, a malformed URL. There
+		// is nothing to report beyond the cause, and inventing a status here
+		// would be worse than saying nothing.
+		return fmt.Errorf("%w: %w", ErrDialFailed, err)
+	}
+
+	status := strings.TrimSpace(resp.Status)
+	if status == "" {
+		status = strconv.Itoa(resp.StatusCode)
+	}
+	detail := "server refused the upgrade with " + status
+	if body := readDialFailureBody(resp); body != "" {
+		detail += "; body: " + body
+	}
+	return fmt.Errorf("%w: %s (%w)", ErrDialFailed, detail, err)
+}
+
+// dialFailureBodyLimit caps how much of a refusing response is quoted. gorilla
+// has already limited its read to 1024 bytes; this keeps a full HTML error page
+// from burying the status it is attached to.
+const dialFailureBodyLimit = 512
+
+// readDialFailureBody returns the refusing response's body as a single line,
+// truncated for display. An unreadable or empty body yields "", which keeps the
+// message from announcing a body that is not there.
+func readDialFailureBody(resp *http.Response) string {
+	if resp.Body == nil {
+		return ""
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, dialFailureBodyLimit+1))
+	_ = resp.Body.Close()
+	if err != nil && len(raw) == 0 {
+		return ""
+	}
+	// An error page is often multi-line; a one-line message stays greppable in
+	// CI output.
+	body := strings.Join(strings.Fields(string(raw)), " ")
+	if len(body) > dialFailureBodyLimit {
+		body = body[:dialFailureBodyLimit] + "…"
+	}
+	return body
 }

@@ -92,60 +92,8 @@ for collection in testapi/gaps/*.parse-fail.yaml; do
   fi
 done
 
-# Collections named *.run-abort.yaml must abort the whole run. They need their
-# own category because they destroy the output the per-request check below
-# reads: the request array comes back empty while the summary still counts the
-# requests that ran, so an unmodified check would report "nothing evaluated" and
-# blame itself rather than the defect.
-#
-# All three conditions are asserted, so that fixing any one of them fails this
-# harness and forces the file to be promoted.
-for collection in testapi/gaps/*.run-abort.yaml; do
-  label="$(basename "$collection")"
-  CHECKED=$((CHECKED + 1))
-  echo "=== $label (must abort the run) ===" >&2
-
-  set +e
-  run_bounded 60 "$CURLEW" run "$collection" \
-    --var "mud=$MUD_URL" --var "ws=$WS_URL" --var "tls=$TLS_URL" --var "run=gaps$$" \
-    --format json >"$WORK/$label.json" 2>"$WORK/$label.err"
-  code=$?
-  set -e
-
-  verdict="$(python3 -c '
-import json, sys
-try:
-    doc = json.load(open(sys.argv[1]))
-except Exception as exc:
-    print("no-json\t0\t0")
-    sys.exit(0)
-reqs = doc.get("requests") or []
-summary = doc.get("summary") or {}
-print("%s\t%d\t%d" % ("ok", len(reqs), summary.get("total", 0)))
-' "$WORK/$label.json")"
-  IFS=$'\t' read -r parsed n_results n_summary <<<"$verdict"
-
-  if [ "$code" -eq 0 ]; then
-    echo "  UNEXPECTED: exit 0 — the run did not abort" >&2
-    FAILURES=$((FAILURES + 1))
-  elif [ "$parsed" = "no-json" ]; then
-    echo "  UNEXPECTED: no JSON output at all; this file documents an abort that still writes a report" >&2
-    FAILURES=$((FAILURES + 1))
-  elif [ "$n_results" -ne 0 ]; then
-    echo "  UNEXPECTED: $n_results request result(s) survived the abort" >&2
-    echo "    The run no longer discards its results. Move this file into" >&2
-    echo "    testapi/collections/ and delete it from here." >&2
-    FAILURES=$((FAILURES + 1))
-  elif [ "$n_summary" -eq 0 ]; then
-    echo "  UNEXPECTED: the summary also reports nothing; the contradiction this documents is gone" >&2
-    FAILURES=$((FAILURES + 1))
-  else
-    echo "  aborted as documented (exit $code, $n_results result(s) reported, summary counts $n_summary)" >&2
-  fi
-done
-
 for collection in testapi/gaps/*.yaml; do
-  case "$collection" in *.parse-fail.yaml|*.run-abort.yaml) continue ;; esac
+  case "$collection" in *.parse-fail.yaml) continue ;; esac
   label="$(basename "$collection")"
   out="$WORK/$label.json"
   before=$CHECKED

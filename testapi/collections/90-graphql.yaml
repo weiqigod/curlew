@@ -119,10 +119,45 @@ requests:
       body:
         $.errors: { length: 1 }
 
-  # The full-failure case — 200 with `data: null` — is NOT here. It fails under
-  # every error_handling mode, including `ignore`, although docs/MANUAL.md
-  # documents that row as passing. Reproduction:
-  # testapi/gaps/expected-failures.yaml.
+  - name: a full failure is ignored when told to ignore it
+    description: |
+      200 with `data: null` and errors present — the full-failure row of
+      docs/MANUAL.md §7.1's matrix, which documents it as passing under
+      `ignore` exactly as partial-success does.
+
+      This was §11C.2. internal/runner handled OutcomeFullFailure before the
+      mode was read, under a comment claiming "per spec" that
+      CLI_SPECIFICATION §12.2 did not support, so /graphql/errors failed
+      identically under fail, warn AND ignore and the setting was inert for
+      half the cases it documents.
+
+      `ignore` suppresses GraphQL-level error checking only — the assertions
+      below still run, and they are what makes this a test rather than a
+      request that passes by not being looked at.
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/errors"
+      graphql:
+        query: "query ListUsers { users { id } }"
+        error_handling: ignore
+    assertions:
+      status: 200
+      body:
+        $.errors: { length: 1 }
+        $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }
+        $.errors[0].message: { contains: "was not provided" }
+
+  - name: a full failure under warn passes with a warning
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/errors"
+      graphql:
+        query: "query ListUsers { users { id } }"
+        error_handling: warn
+    assertions:
+      status: 200
+      body:
+        $.errors: { length: 1 }
 
   - name: introspection answers with a schema
     request:
@@ -146,6 +181,8 @@ requests:
         $.data.__schema.types[1].fields: { length: 3 }
 
   # /graphql/http-error — a 500 whose body is HTML rather than a GraphQL
-  # document — is NOT here. It cannot be: it aborts the whole run and discards
-  # every result in it, including the seven above. The reproduction lives in
-  # testapi/gaps/graphql-http-error.run-abort.yaml.
+  # document — is NOT here, because it fails, and rightly: you asked for
+  # GraphQL and got HTML. It no longer takes the rest of the run with it
+  # (§11C.1), so it now sits among the other entries in
+  # testapi/gaps/expected-failures.yaml rather than needing a harness category
+  # of its own.

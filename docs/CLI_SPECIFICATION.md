@@ -831,6 +831,28 @@ expression. Thirteen operators:
 | `approximately` | number | `{ value, tolerance }` — passes when `|actual - value| <= tolerance` |
 | `in_range` | number | `{ min, max }` — inclusive |
 
+**Bodies that are not JSON.** A body that does not parse as JSON still has a
+root, and that root is its text. At `$`, the text operators — `equals`,
+`contains`, `matches`, `length`, `exists`, `not_exists` — evaluate against the
+raw body, so an event stream, an HTML error page, a CSV export, XML, NDJSON or
+plain text can be asserted on:
+
+```yaml
+assertions:
+  body:
+    $: { matches: "(?m)^id: 1$" }
+```
+
+Any other path reports that the body is not JSON: there is no `$.foo` in a
+document with no structure, and answering "no match at path" would imply there
+could have been one. Structural operators at `$` — `type`, `contains_all`, the
+numeric comparisons — report the same, so a permissive fallback cannot quietly
+turn every operator into a pass.
+
+In `cel:`, `response.body` is the decoded document for a JSON body and the raw
+string for anything else, which is what makes the escape hatch usable where the
+operator catalogue runs out.
+
 ### 7.4 Timing
 
 ```yaml
@@ -1238,11 +1260,33 @@ assertions:
     $.errors:       { not_exists: true }
 ```
 
-**Partial success.** GraphQL returns HTTP 200 with a populated `errors` array for
-partial failures. `error_handling` (per request) and
+**Error outcomes.** GraphQL returns HTTP 200 with a populated `errors` array for
+both partial and total failures. `error_handling` (per request) and
 `defaults.graphql.error_handling.partial_success` (project-wide, accepting
 `fail`, `warn`, or `ignore`) decide whether that condition fails the request
-item, warns, or is disregarded.
+item, warns, or is disregarded. The per-request setting wins.
+
+The mode applies to **both** error outcomes, not only to partial success:
+
+| Outcome | When | `fail` | `warn` | `ignore` |
+|---|---|---|---|---|
+| success | `data` non-null, no errors | pass | pass | pass |
+| partial-success | `data` non-null, errors present | fail | warn | pass |
+| full-failure | `data` null, errors present | fail | warn | pass |
+| empty | no `data` and no `errors` | pass | pass | pass |
+
+This restates `docs/MANUAL.md` §7.1 rather than differing from it. The two
+documents disagreeing — this one silent on full failure, the manual describing
+the whole matrix — is what let the binary go on treating full failure as
+unconditionally fatal for as long as it did.
+
+`ignore` suppresses GraphQL-level error checking only. The request's own
+assertions still run, so `$.data` and `$.errors` remain assertable.
+
+**A response that is not a GraphQL document** — an HTML error page from a
+gateway that never reached the service, say — fails that request with the parse
+error as its actual value. It does not abort the run, and the other requests in
+the collection still execute and report.
 
 ### 12.3 WebSocket
 
@@ -1260,7 +1304,7 @@ request:
         message:
           $.type: { equals: "subscribed" }
       - action: wait
-        timeout_ms: 1000
+        duration_ms: 1000
       - action: close
     reconnect:
       enabled: true
@@ -1277,13 +1321,35 @@ Four step actions:
 | Action | Purpose |
 |---|---|
 | `send` | Transmit a payload: `message:` (JSON object), `message_raw:` (literal string), or `message_template:` (external file, interpolated, with optional step-scoped `variables:`) |
-| `expect` | Wait for matching messages. `message:` holds JSONPath assertions; `any_of:` accepts alternative assertion sets; `count:` collects N matches (default 1); `timeout_ms:` bounds the wait |
-| `wait` | Pause for `timeout_ms` |
+| `expect` | Wait for matching messages. `message:` holds JSONPath assertions; `any_of:` accepts alternative assertion sets; `count:` collects N matches (default 1); `timeout_ms:` bounds the wait; `extract:` binds values from the matched messages |
+| `wait` | Pause for `duration_ms` (not `timeout_ms`, which `wait` ignores) |
 | `close` | Close the connection |
+
+**Extraction under `count`.** With `count: 1` — the default — `extract:` binds
+the value from the matching message. With `count` greater than 1 it binds a
+**JSON-encoded array** of the per-message values, in arrival order:
+
+```yaml
+- action: expect
+  count: 3
+  extract:
+    order_ids: "$.order_id"      # -> ["ord_1","ord_2","ord_3"]
+```
+
+`{{order_ids}}` interpolates as that literal text, so a request built from it
+sends the whole array rather than one element.
 
 **Heartbeat.** With `message:` unset the adapter sends a protocol-level ping
 frame and relies on the pong handler. With `message:` set it sends a data frame
 and matches the reply against `expect:` assertions.
+
+A heartbeat holds the connection whether or not a step is reading. Reads are
+served by a single pump that stays inside the underlying `ReadMessage` for the
+life of the connection, which is where control frames — and therefore pongs —
+are dispatched; an idle `wait` is a supported way to keep a subscription alive.
+Messages arriving during a `wait` are buffered and remain available to the next
+`expect`. An orderly close (1000, 1001) during a `wait` ends the step
+successfully; a broken connection fails it.
 
 Steps within one connection are strictly ordered and cannot be parallelised.
 
@@ -1662,6 +1728,26 @@ decoration and emits one JSON document per run. Ctrl+C exits.
 
 Convert an OpenAPI 3.x specification into a collection, generating headers,
 request bodies, and status assertions. `--output <file>` sets the destination.
+
+**Self-contained output.** Every `{{variable}}` the import writes into a request
+is also emitted in the collection's own `variables:` block, so the generated file
+runs as generated. Header and query parameters default to empty; a path
+parameter takes its value from the document — a parameter or schema `example`,
+then an `enum` member, then `default`, then the schema's type, with a declared
+`minimum` respected for numbers. Only `base_url` normally needs overriding, and
+it defaults to the first entry in `servers:`.
+
+**3.0 and 3.1.** A document declaring 3.1 is translated into the 3.0 spelling of
+the same meaning before validation:
+
+| 3.1 construct | Treatment |
+|---|---|
+| `type: ["string","null"]` | `type: string` with `nullable: true` |
+| `type: ["string","integer"]` | Type dropped (3.0 cannot express a union) and a warning issued |
+| `info.summary`, `info.license.identifier`, `jsonSchemaDialect` | Dropped; the import does not read them |
+| `webhooks` | Dropped with a warning — a webhook is an inbound callback, so there is no request to generate |
+
+A 3.0 document is passed through untouched.
 
 ### 18.9 `pr-check`
 

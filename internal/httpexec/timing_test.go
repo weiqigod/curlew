@@ -97,12 +97,21 @@ func TestExecute_TimingTLS(t *testing.T) {
 	}
 }
 
-func TestExecute_DurationSemanticsUnchanged(t *testing.T) {
-	// Result.Duration is measured around Do() only and excludes body read;
-	// Timing.Total spans Do() entry to body fully read, so Total >= Duration
-	// minus scheduling noise. Assert the invariant loosely.
+func TestExecute_DurationSpansTheBodyRead(t *testing.T) {
+	// §11C.6. Duration is what `timing.max_duration_ms` asserts against and what
+	// `duration_ms` reports, so it has to cover the whole exchange. Measured
+	// around Do() alone it stopped when the HEADERS arrived, which made the
+	// documented assertion incapable of failing on a slow body: a one-second
+	// stream reported 0ms.
+	//
+	// The handler flushes the headers immediately and then takes its time, which
+	// is the shape that made the gap invisible — for an ordinary small response
+	// the body read is negligible and nothing noticed.
+	const bodyDelay = 300 * time.Millisecond
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		time.Sleep(bodyDelay)
 		_, _ = w.Write([]byte("payload"))
 	}))
 	defer srv.Close()
@@ -111,13 +120,22 @@ func TestExecute_DurationSemanticsUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if res.Duration <= 0 {
-		t.Errorf("Duration = %v, want > 0", res.Duration)
+	// A generous floor: the assertion is "the body read is counted at all", not
+	// a benchmark. Before the fix this was 0.
+	if res.Duration < bodyDelay {
+		t.Errorf("Duration = %v, want >= %v — the body read is not counted", res.Duration, bodyDelay)
 	}
 	if res.Timing == nil {
 		t.Fatal("Timing is nil")
 	}
-	if res.Timing.Total+5*time.Millisecond < res.Duration {
-		t.Errorf("Total %v unexpectedly far below Duration %v", res.Timing.Total, res.Duration)
+	// Duration and Total now measure the same span from the same start, so they
+	// agree closely. This is the invariant that was violated: curlew measured
+	// the right number in Total and reported the wrong one in Duration.
+	skew := res.Timing.Total - res.Duration
+	if skew < 0 {
+		skew = -skew
+	}
+	if skew > 20*time.Millisecond {
+		t.Errorf("Duration %v and Timing.Total %v disagree by %v", res.Duration, res.Timing.Total, skew)
 	}
 }

@@ -6,6 +6,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **All ten Phase 3 dogfooding defects, and an eleventh found while fixing
+  them.** Each reproduction moved rather than being deleted — a gap that closes
+  leaves behind the test that proves it stayed closed.
+
+  **A non-JSON GraphQL response no longer aborts the run.** A gateway 500 with
+  an HTML error page discarded every result in the collection, reported
+  `"requests": []` beside a summary counting six passes, and exited 5 — the code
+  reserved for variable resolution. It now fails that request and continues.
+  `error_handling` also governs the full-failure outcome, as the manual's matrix
+  always said; it was handled before the mode was read, so `warn` and `ignore`
+  behaved exactly like `fail`.
+
+  **A WebSocket heartbeat now survives an idle step**, which is what a heartbeat
+  is for. It failed precisely when idle, reporting a server that answered every
+  ping as dead. Reading during the wait was not enough on its own: a gorilla read
+  error is permanent, so ending a wait with a read timeout poisons the connection
+  and every later step inherits the stale error. Reads therefore moved to a
+  single pump that never sets a deadline and stays inside `ReadMessage` for the
+  life of the connection, which is where control frames are dispatched. Messages
+  arriving during a wait are buffered rather than dropped, and an orderly close
+  ends a wait successfully while a broken connection fails it.
+
+  **A refused upgrade reports its status and body.** gorilla hands back the
+  response — having already read the body into it — and the dialer was discarding
+  it with `conn, _, err :=`, so 426, 401, 403 and 500 were one string.
+
+  **The reported duration covers the body read.** Measured around `Do`, it
+  stopped when the headers arrived: a one-second stream reported 0ms and
+  `timing.max_duration_ms: 50` passed. curlew measured the right number and
+  reported the wrong one.
+
+  **A body that is not JSON is assertable at its root.** Every operator answered
+  "not valid JSON" against an event stream, and `cel:` — the documented escape
+  hatch — did not help either, because the body was left nil. HTML, CSV, XML,
+  plain text, NDJSON and SSE were assertable only by status and headers.
+  Deliberately not permissive: deeper paths and structural operators still fail,
+  and a gaps entry holds that boundary.
+
+  **OpenAPI 3.1 documents import**, rather than being validated against 3.0 rules
+  after declaring 3.1. Translating them into the 3.0 spelling of the same meaning
+  was preferred to a 3.1-native dependency, since the import reads only paths,
+  parameters, bodies and response codes. **And the import now runs as
+  generated**: a path parameter became `{{code}}` with no variable and no
+  default, so any document with a path parameter produced a collection that
+  exited 5 at run time.
+
+  **Two documentation defects**, each caught by a new structural test rather than
+  by reading: the manual's WebSocket examples put `websocket:` one level out and
+  could not parse, and a counted `extract:` yields a JSON array that neither
+  document mentioned while the manual's own example implied the opposite. A
+  third, found while fixing those: the specification gave `wait` a `timeout_ms`
+  it ignores, so the documented example paused for no time at all.
+
 ### Added
 - **Mudflat Phase 3: WebSocket, GraphQL, streaming, TLS — and ten more defects.**
   Twenty-one endpoints across five families, 102 dogfood assertions, and three

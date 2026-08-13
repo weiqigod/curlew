@@ -39,7 +39,30 @@ func Import(specPath string) (*parser.Collection, error) {
 func importWithWarn(specPath string, warn func(string)) (*parser.Collection, error) {
 	loader := openapi3.NewLoader()
 	loader.IsExternalRefsAllowed = false
-	doc, err := loader.LoadFromFile(specPath)
+
+	raw, err := os.ReadFile(specPath)
+	if err != nil {
+		return nil, &apierrors.Structured{
+			Category: apierrors.CategoryParse,
+			FilePath: specPath,
+			Message:  fmt.Sprintf("reading openapi spec: %v", err),
+			Inner:    fmt.Errorf("%w: %v", ErrSpecInvalid, err),
+		}
+	}
+	// A 3.1 document is translated into the 3.0 spelling of the same meaning
+	// before it reaches kin-openapi, whose validator implements 3.0 (§11C.9).
+	// A 3.0 document passes through untouched.
+	relaxed, err := relax31(raw, warn)
+	if err != nil {
+		return nil, &apierrors.Structured{
+			Category: apierrors.CategoryParse,
+			FilePath: specPath,
+			Message:  err.Error(),
+			Inner:    fmt.Errorf("%w: %v", ErrSpecInvalid, err),
+		}
+	}
+
+	doc, err := loader.LoadFromData(relaxed)
 	if err != nil {
 		return nil, &apierrors.Structured{
 			Category: apierrors.CategoryParse,
@@ -101,7 +124,7 @@ func importWithWarn(specPath string, warn func(string)) (*parser.Collection, err
 			if !ok {
 				continue
 			}
-			url, headers, newVars := collectParameters(op, pi, "{{base_url}}"+interpolatePath(path), collVarsSeen)
+			url, headers, newVars := collectParameters(op, pi, "{{base_url}}"+interpolatePath(path), collVarsSeen, walker)
 			for k, v := range newVars {
 				col.Variables.Values[k] = v
 			}
@@ -147,6 +170,7 @@ func collectParameters(
 	pi *openapi3.PathItem,
 	baseURL string,
 	collVarsSeen map[string]bool,
+	w *schemaWalker,
 ) (url string, headers, newVars map[string]string) {
 	// Merge path-level params with operation-level (operation overrides).
 	merged := map[string]*openapi3.Parameter{}
@@ -189,7 +213,30 @@ func collectParameters(
 				collVarsSeen[varName] = true
 				newVars[varName] = ""
 			}
-			// "path" params are handled by interpolatePath; "cookie" ignored.
+		case "path":
+			// interpolatePath has already turned {code} in the URL into
+			// {{code}}. Without a matching variable the generated collection
+			// cannot run at all: it exits 5 with `undefined variable "code"`,
+			// at run time rather than at import time, and §9.P's criterion —
+			// that `curlew run` on the import's own output passes — was
+			// unreachable for any path with a parameter (§11C.10).
+			//
+			// A path parameter has no sensible empty value: an empty string
+			// yields /status/ rather than /status/200. The default comes from
+			// the document — example, enum, default, then the schema's type —
+			// which is the same order buildRequestBody uses for bodies.
+			//
+			// The variable keeps the parameter's own name rather than being
+			// snake-cased like header and query parameters, because
+			// interpolatePath has already written that exact name into the URL
+			// as {{petId}}. The two have to agree, and the URL is the side that
+			// is already published.
+			varName := name
+			if !collVarsSeen[varName] {
+				collVarsSeen[varName] = true
+				newVars[varName] = pathParamDefault(p, w)
+			}
+			// "cookie" is ignored.
 		}
 	}
 
@@ -345,4 +392,93 @@ func synthName(method, path string) string {
 		b.WriteString(seg)
 	}
 	return b.String()
+}
+
+// pathParamDefault produces the value a generated collection uses for a path
+// parameter, so that the import runs unaided (§11C.10).
+//
+// The document decides wherever it can: an explicit example on the parameter or
+// its schema, then an enum member, then a declared default. Only when the
+// document says nothing does this fall back to the schema's type, and a numeric
+// parameter respects a declared minimum — a status-code parameter constrained
+// to 100..599 must not default to 0, which is not a status code at all.
+//
+// The value is always rendered as a string because it is substituted into a URL.
+func pathParamDefault(p *openapi3.Parameter, w *schemaWalker) string {
+	if p == nil {
+		return "1"
+	}
+	if p.Example != nil {
+		return scalarToString(p.Example)
+	}
+	if len(p.Examples) > 0 {
+		for _, k := range sortedExampleKeys(p.Examples) {
+			if ex := p.Examples[k]; ex != nil && ex.Value != nil && ex.Value.Value != nil {
+				return scalarToString(ex.Value.Value)
+			}
+		}
+	}
+	if p.Schema == nil || p.Schema.Value == nil {
+		return "1"
+	}
+	s := p.Schema.Value
+	if s.Example != nil {
+		return scalarToString(s.Example)
+	}
+	if len(s.Enum) > 0 {
+		return scalarToString(s.Enum[0])
+	}
+	if s.Default != nil {
+		return scalarToString(s.Default)
+	}
+
+	switch {
+	case s.Type.Is("integer") || s.Type.Is("number"):
+		if s.Min != nil && *s.Min > 0 {
+			return strconv.FormatFloat(*s.Min, 'f', -1, 64)
+		}
+		return "1"
+	case s.Type.Is("boolean"):
+		return "true"
+	case s.Type.Is("string"):
+		return defaultForStringFormat(s.Format)
+	}
+	// Anything else — an untyped or composed schema. The walker already knows
+	// how to pick a representative value.
+	if v := w.placeholder(p.Schema, map[string]bool{}); v != nil {
+		if str := scalarToString(v); str != "" {
+			return str
+		}
+	}
+	return "1"
+}
+
+// scalarToString renders a schema example/enum/default as URL path text.
+// Composite values have no meaningful path form and yield "".
+func scalarToString(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case bool:
+		return strconv.FormatBool(t)
+	case int:
+		return strconv.Itoa(t)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case map[string]any, []any, nil:
+		return ""
+	default:
+		return fmt.Sprintf("%v", t)
+	}
+}
+
+func sortedExampleKeys(m openapi3.Examples) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

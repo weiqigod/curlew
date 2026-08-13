@@ -50,6 +50,15 @@ func init() {
 			},
 		},
 		apierrors.RegisteredError{
+			Name: "ErrWaitFailed",
+			Err:  ErrWaitFailed,
+			Hint: apierrors.ClassifiedHint{
+				Category: apierrors.CategoryNetwork,
+				Code:     "WS_WAIT_FAILED",
+				Hint:     "The connection broke while a wait step was holding it open. A wait reads the connection rather than sleeping, so a peer that disconnects mid-wait is reported here instead of surfacing on the next step.",
+			},
+		},
+		apierrors.RegisteredError{
 			Name: "ErrExtractFailed",
 			Err:  ErrExtractFailed,
 			Hint: apierrors.ClassifiedHint{

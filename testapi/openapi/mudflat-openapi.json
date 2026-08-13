@@ -3,7 +3,8 @@
   "info": {
     "title": "Mudflat",
     "version": "0.3.0",
-    "description": "HAND-WRITTEN AND VERSION-CONTROLLED. This document is NOT generated from the handlers, and must not become generated: the round trip it exists for is `curlew import openapi` -> `curlew run`, and a document derived from the same source as the server would make that a tautology. It describes a deliberately small slice of the structured layer — enough operations to exercise header generation, body synthesis from schemas, status assertions and path parameters, and no more. Specification section 9.P. NOTE: info.summary is a valid 3.1 field and is deliberately absent — curlew's importer rejects it, along with webhooks and JSON-Schema type arrays. testapi/harness/openapi.sh holds those three as a reproduction."
+    "summary": "A deliberately small slice of mudflat, for the import round trip.",
+    "description": "HAND-WRITTEN AND VERSION-CONTROLLED. This document is NOT generated from the handlers, and must not become generated: the round trip it exists for is `curlew import openapi` -> `curlew run`, and a document derived from the same source as the server would make that a tautology. It describes a deliberately small slice of the structured layer — enough operations to exercise header generation, body synthesis from schemas, status assertions and path parameters, and no more. Specification section 9.P. The info.summary field above is a 3.1 addition that the importer used to reject (section 11C.9); it is present now precisely so the round trip exercises it. The code parameter carries an explicit example so the generated collection runs against this server with only base_url supplied (section 11C.10)."
   },
   "servers": [
     {
@@ -109,6 +110,7 @@
             "in": "path",
             "required": true,
             "description": "The status code to return.",
+            "example": 200,
             "schema": { "type": "integer", "minimum": 100, "maximum": 599 }
           }
         ],

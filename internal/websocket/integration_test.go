@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -149,4 +150,102 @@ func TestExecute_realGorillaDialer_DialFailure(t *testing.T) {
 	if result.Passed {
 		t.Fatal("expected dial failure")
 	}
+}
+
+// TestExecute_realDialerReportsRefusedUpgrade exercises the real gorilla
+// dialer against a server that refuses the upgrade (§11C.4). The unit tests
+// use a fake dialer, but the discarded value came from gorilla itself — so the
+// path that actually mattered is only covered here.
+func TestExecute_realDialerReportsRefusedUpgrade(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Sec-WebSocket-Version", "13")
+		w.WriteHeader(http.StatusUpgradeRequired)
+		_, _ = w.Write([]byte(`{"error":"Upgrade Required","detail":"refused on purpose"}`))
+	}))
+	defer srv.Close()
+
+	req := &parser.Request{
+		Protocol: "websocket",
+		Method:   "WS",
+		URL:      "ws" + strings.TrimPrefix(srv.URL, "http"),
+		WebSocket: &parser.WebSocketConfig{
+			Steps: []parser.WebSocketStep{{Action: "expect", TimeoutMs: 500}},
+		},
+	}
+	result := Execute(context.Background(), req, variable.NewScope(nil), nil)
+
+	if result.Passed {
+		t.Fatal("a refused upgrade reported success")
+	}
+	msg := result.Err.Error()
+	if !strings.Contains(msg, "426") {
+		t.Errorf("message does not name the status: %q", msg)
+	}
+	if !strings.Contains(msg, "refused on purpose") {
+		t.Errorf("message does not carry the server's explanation: %q", msg)
+	}
+}
+
+// §11C.5. A heartbeat exists to hold an IDLE connection open and to notice a
+// peer that stopped answering. curlew's failed precisely when idle: the pong
+// handler is registered with gorilla, which dispatches control frames only from
+// inside ReadMessage, and a `wait` step slept on a timer without reading. The
+// pong landed on the socket, the handler never ran, and the next tick declared
+// a healthy peer dead.
+//
+// This is the A/B pair from the finding, against one server at one interval.
+// The server answers every ping (gorilla's default ping handler does so from
+// inside its own ReadMessage loop), so any timeout here is the client's doing.
+func TestExecute_heartbeatSurvivesAnIdleStep(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := gws.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() { _ = c.Close() }()
+		// Read continuously and discard: this is what dispatches the incoming
+		// pings and sends the automatic pongs.
+		for {
+			if _, _, err := c.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	defer srv.Close()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	newReq := func(step parser.WebSocketStep) *parser.Request {
+		return &parser.Request{
+			Protocol: "websocket",
+			Method:   "WS",
+			URL:      wsURL,
+			WebSocket: &parser.WebSocketConfig{
+				Heartbeat: &parser.HeartbeatConfig{Enabled: true, IntervalMs: 100},
+				Steps:     []parser.WebSocketStep{step},
+			},
+		}
+	}
+
+	// A — a reading step. This passed even before the fix, which is what made
+	// the finding attributable to dispatch rather than to the server.
+	t.Run("reading step", func(t *testing.T) {
+		req := newReq(parser.WebSocketStep{Action: "expect", TimeoutMs: 750})
+		result := Execute(context.Background(), req, variable.NewScope(nil), nil)
+		// The expect itself times out — the server sends nothing — but it must
+		// be an EXPECT timeout, never a heartbeat one.
+		if result.Err != nil && errors.Is(result.Err, ErrHeartbeatTimeout) {
+			t.Fatalf("heartbeat timed out while a step was reading: %v", result.Err)
+		}
+	})
+
+	// B — an idle step, four heartbeat intervals long. This is the defect.
+	t.Run("idle step", func(t *testing.T) {
+		req := newReq(parser.WebSocketStep{Action: "wait", DurationMs: 400})
+		result := Execute(context.Background(), req, variable.NewScope(nil), nil)
+		if !result.Passed {
+			t.Fatalf("a healthy peer was reported dead while a step was idle: %v", result.Err)
+		}
+	})
 }
