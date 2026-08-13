@@ -1070,3 +1070,76 @@ func TestExecute_RefusedUpgradeWithEmptyBody(t *testing.T) {
 		t.Errorf("message announces a body it does not have: %q", msg)
 	}
 }
+
+// §11C.8. With count > 1 an expect step's extract: yields a JSON-encoded ARRAY
+// of the per-message values, not the value from the last message. Neither
+// document said so, and the manual's own example named the variable
+// `last_order_id`, implying the opposite — an author following it would send
+// ["ord_1","ord_2","ord_3"] to a URL and find out then.
+//
+// The behaviour is defensible and is kept; what was missing was anything
+// stating it. This pins the contract that docs/MANUAL.md §7.2 and
+// docs/CLI_SPECIFICATION.md §12.3 now describe.
+func TestExecute_ExtractUnderCountYieldsJSONArray(t *testing.T) {
+	fc := &fakeConn{incoming: [][]byte{
+		[]byte(`{"event":"order_placed","order_id":"ord_1"}`),
+		[]byte(`{"event":"order_placed","order_id":"ord_2"}`),
+		[]byte(`{"event":"order_placed","order_id":"ord_3"}`),
+	}}
+	dialer := &fakeDialer{conn: fc}
+	req := newTestRequest(parser.WebSocketStep{
+		Action:    "expect",
+		TimeoutMs: 500,
+		Count:     3,
+		ExpectAssertions: parser.BodyAssertions{
+			Items: []parser.BodyAssertion{{Path: "$.event", Operator: "equals", Value: "order_placed"}},
+		},
+		Extract: map[string]string{"order_ids": "$.order_id"},
+	})
+
+	scope := variable.NewScope(nil)
+	result := Execute(context.Background(), req, scope, dialer)
+	if !result.Passed {
+		t.Fatalf("result.Passed = false, err = %v", result.Err)
+	}
+
+	got, err := scope.Interpolate("{{order_ids}}")
+	if err != nil {
+		t.Fatalf("interpolate: %v", err)
+	}
+	const want = `["ord_1","ord_2","ord_3"]`
+	if got != want {
+		t.Errorf("{{order_ids}} = %q, want %q", got, want)
+	}
+	// The trap the old manual set: it is NOT the last value.
+	if got == "ord_3" {
+		t.Error("extract yielded the last message's value; the documented contract is an array")
+	}
+}
+
+// count: 1 — the default — binds the plain value, not a one-element array.
+func TestExecute_ExtractWithoutCountYieldsPlainValue(t *testing.T) {
+	fc := &fakeConn{incoming: [][]byte{[]byte(`{"event":"order_placed","order_id":"ord_1"}`)}}
+	dialer := &fakeDialer{conn: fc}
+	req := newTestRequest(parser.WebSocketStep{
+		Action:    "expect",
+		TimeoutMs: 500,
+		ExpectAssertions: parser.BodyAssertions{
+			Items: []parser.BodyAssertion{{Path: "$.event", Operator: "equals", Value: "order_placed"}},
+		},
+		Extract: map[string]string{"order_id": "$.order_id"},
+	})
+
+	scope := variable.NewScope(nil)
+	result := Execute(context.Background(), req, scope, dialer)
+	if !result.Passed {
+		t.Fatalf("result.Passed = false, err = %v", result.Err)
+	}
+	got, err := scope.Interpolate("{{order_id}}")
+	if err != nil {
+		t.Fatalf("interpolate: %v", err)
+	}
+	if got != "ord_1" {
+		t.Errorf("{{order_id}} = %q, want ord_1", got)
+	}
+}

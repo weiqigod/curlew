@@ -1282,7 +1282,7 @@ request:
         message:
           $.type: { equals: "subscribed" }
       - action: wait
-        timeout_ms: 1000
+        duration_ms: 1000
       - action: close
     reconnect:
       enabled: true
@@ -1299,13 +1299,35 @@ Four step actions:
 | Action | Purpose |
 |---|---|
 | `send` | Transmit a payload: `message:` (JSON object), `message_raw:` (literal string), or `message_template:` (external file, interpolated, with optional step-scoped `variables:`) |
-| `expect` | Wait for matching messages. `message:` holds JSONPath assertions; `any_of:` accepts alternative assertion sets; `count:` collects N matches (default 1); `timeout_ms:` bounds the wait |
-| `wait` | Pause for `timeout_ms` |
+| `expect` | Wait for matching messages. `message:` holds JSONPath assertions; `any_of:` accepts alternative assertion sets; `count:` collects N matches (default 1); `timeout_ms:` bounds the wait; `extract:` binds values from the matched messages |
+| `wait` | Pause for `duration_ms` (not `timeout_ms`, which `wait` ignores) |
 | `close` | Close the connection |
+
+**Extraction under `count`.** With `count: 1` — the default — `extract:` binds
+the value from the matching message. With `count` greater than 1 it binds a
+**JSON-encoded array** of the per-message values, in arrival order:
+
+```yaml
+- action: expect
+  count: 3
+  extract:
+    order_ids: "$.order_id"      # -> ["ord_1","ord_2","ord_3"]
+```
+
+`{{order_ids}}` interpolates as that literal text, so a request built from it
+sends the whole array rather than one element.
 
 **Heartbeat.** With `message:` unset the adapter sends a protocol-level ping
 frame and relies on the pong handler. With `message:` set it sends a data frame
 and matches the reply against `expect:` assertions.
+
+A heartbeat holds the connection whether or not a step is reading. Reads are
+served by a single pump that stays inside the underlying `ReadMessage` for the
+life of the connection, which is where control frames — and therefore pongs —
+are dispatched; an idle `wait` is a supported way to keep a subscription alive.
+Messages arriving during a `wait` are buffered and remain available to the next
+`expect`. An orderly close (1000, 1001) during a `wait` ends the step
+successfully; a broken connection fails it.
 
 Steps within one connection are strictly ordered and cannot be parallelised.
 
