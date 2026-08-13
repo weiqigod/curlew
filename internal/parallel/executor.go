@@ -646,3 +646,15 @@ func computeImpact(graph *DependencyGraph, failedIndices map[int]bool, waves []W
 	})
 	return entries
 }
+
+// DependencyFailure reports whether the request at idx depends on one that
+// failed, and the reason to record when it does.
+//
+// The sequential runner needs the same answer this executor has always
+// computed for itself. CLI_SPECIFICATION §11.5 describes one set of
+// failure-and-skip semantics, not one per execution mode: a dependent whose
+// producer failed is skipped whether or not --parallel was passed, and whether
+// or not its reference carries a |default: fallback.
+func DependencyFailure(graph *DependencyGraph, idx int, failedIndices map[int]bool) (bool, string) {
+	return checkDependencyFailure(graph, idx, failedIndices)
+}

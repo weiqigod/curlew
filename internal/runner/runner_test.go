@@ -9123,16 +9123,39 @@ func TestRun_OnlyVariableCliff(t *testing.T) {
 				Body:       []byte(`{"status":"ok"}`),
 			}, nil
 		}
-		_, _, err := Run(context.Background(), col, execNoID, VarSources{
+		results, _, err := Run(context.Background(), col, execNoID, VarSources{
 			Selection: []string{"Create user", "Update user"},
 		})
-		if err == nil {
-			t.Fatal("expected error (user_id not extracted), got nil")
+		// CLI_SPECIFICATION §11.5, third row: the producer succeeded and its
+		// JSONPath did not resolve, so the dependent is *skipped* naming the
+		// variable and the item that owed it. This used to end the whole run
+		// with an undefined-variable error, which is what an undefined variable
+		// means only when nothing was ever going to produce it.
+		if err != nil {
+			t.Fatalf("an unproduced dependency must skip its dependent, not end the run: %v", err)
 		}
-		// The error must NOT be enriched with the cliff message, because the
-		// producer is in the selection — the inSelection branch returns early.
-		if strings.Contains(err.Error(), "not included by --only") {
-			t.Errorf("producer is selected; error must not mention cliff, got: %s", err.Error())
+		var updateResult *RequestResult
+		for i := range results {
+			if results[i].Name == "Update user" {
+				updateResult = &results[i]
+			}
+		}
+		if updateResult == nil {
+			t.Fatal("no result for the dependent request")
+		}
+		if !updateResult.Skipped {
+			t.Errorf("dependent was not skipped; status was %+v", updateResult)
+		}
+		if !strings.Contains(updateResult.SkipReason, "user_id") ||
+			!strings.Contains(updateResult.SkipReason, "Create user") {
+			t.Errorf("the skip reason must name the variable and its producer, got %q",
+				updateResult.SkipReason)
+		}
+		// And it must still not carry the cliff message: the producer is in the
+		// selection, which is the branch this case exists to exercise.
+		if strings.Contains(updateResult.SkipReason, "not included by --only") {
+			t.Errorf("producer is selected; reason must not mention cliff, got: %s",
+				updateResult.SkipReason)
 		}
 	})
 }
