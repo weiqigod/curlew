@@ -476,7 +476,7 @@ No `{{...}}` inside the file is touched. The payload is sent byte-for-byte.
 |---|---|
 | `.json` | `application/json` |
 | `.xml` | `application/xml` or `text/xml` |
-| `.yaml`, `.yml` | `application/yaml` or `text/yaml` |
+| `.yaml`, `.yml` | `application/yaml` — supplied by Curlew where the host's database has no entry |
 | `.txt` | `text/plain; charset=utf-8` |
 | `.html` | `text/html; charset=utf-8` |
 | `.csv` | `text/csv; charset=utf-8` |

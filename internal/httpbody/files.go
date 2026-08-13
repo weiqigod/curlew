@@ -24,6 +24,25 @@ import (
 // body_file and instead stream the payload via an application-level tool.
 const DefaultMaxBytes int64 = 50 * 1024 * 1024 // 50 MiB
 
+// yamlExtensions are the extensions filled in when the host's MIME database has
+// no answer for them.
+var yamlExtensions = []string{".yaml", ".yml"}
+
+// application/yaml was registered in 2024 (RFC 9512), later than the system
+// mime.types files most machines ship, so mime.TypeByExtension answers nothing
+// for a .yaml body on a typical host — and the request went out with no
+// Content-Type at all. Detection still belongs to the host: the registration
+// runs only where the host is silent, so a machine that does know .yaml keeps
+// its own answer and the specification's "the exact mapping is the host's"
+// stays true everywhere it has one.
+func init() {
+	for _, ext := range yamlExtensions {
+		if mime.TypeByExtension(ext) == "" {
+			_ = mime.AddExtensionType(ext, "application/yaml")
+		}
+	}
+}
+
 // LoadBodyInput parameterizes a call to LoadBody.
 type LoadBodyInput struct {
 	// BaseDir is the directory that relative BodyFile paths are resolved against.
