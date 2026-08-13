@@ -117,7 +117,7 @@ type runFlags struct {
 	file, envName, format, report                                   string
 	vars, envVarVars                                                map[string]string
 	seed                                                            *int64
-	noColor                                                         bool
+	color                                                           colorMode
 	verbosity                                                       output.Verbosity
 	allowSensitive, showDeps, dryRun, parallel, confirmLargeDataset bool
 
@@ -150,9 +150,30 @@ func parseRunArgs(args []string) (runFlags, error) {
 	}
 	var positional []string
 	for i := 0; i < len(args); i++ {
+		// --color=<value>; the space-separated form is a case below.
+		if v, ok := strings.CutPrefix(args[i], "--color="); ok {
+			m, cErr := parseColorMode(v)
+			if cErr != nil {
+				return f, cErr
+			}
+			f.color = m
+			continue
+		}
 		switch args[i] {
 		case "--no-color":
-			f.noColor = true
+			// Retained as the spelling most scripts already use; it means
+			// exactly --color=never.
+			f.color = colorNever
+		case "--color":
+			i++
+			if i >= len(args) {
+				return f, fmt.Errorf("--color requires a value (%s)", strings.Join(colorModeValues, "|"))
+			}
+			m, cErr := parseColorMode(args[i])
+			if cErr != nil {
+				return f, cErr
+			}
+			f.color = m
 		case "--allow-sensitive":
 			f.allowSensitive = true
 		case "--show-dependencies":
@@ -263,16 +284,73 @@ func parseRunArgs(args []string) (runFlags, error) {
 	return f, nil
 }
 
-// shouldUseColor returns true when color output is appropriate.
-// Color is disabled by --no-color flag, NO_COLOR env var, or non-TTY output.
-func shouldUseColor(w io.Writer, noColorFlag bool) bool {
-	if noColorFlag {
-		return false
+// colorMode is the resolved value of --color. The zero value is auto, so a
+// caller that never sets it gets the historical behaviour.
+type colorMode int
+
+const (
+	// colorAuto emits colour when the writer is a terminal and NO_COLOR is
+	// unset.
+	colorAuto colorMode = iota
+	// colorAlways emits colour regardless of TTY state or NO_COLOR — for
+	// piping to a pager that renders escapes, or capturing coloured output in
+	// CI.
+	colorAlways
+	// colorNever suppresses colour. `--no-color` is exactly this.
+	colorNever
+)
+
+func (c colorMode) String() string {
+	switch c {
+	case colorAlways:
+		return "always"
+	case colorNever:
+		return "never"
+	default:
+		return "auto"
 	}
-	if _, set := os.LookupEnv("NO_COLOR"); set {
-		return false
+}
+
+// colorModeValues is the accepted set, in the order the help text lists them.
+var colorModeValues = []string{"auto", "always", "never"}
+
+// parseColorMode converts a --color value into a colorMode.
+func parseColorMode(v string) (colorMode, error) {
+	switch v {
+	case "auto":
+		return colorAuto, nil
+	case "always":
+		return colorAlways, nil
+	case "never":
+		return colorNever, nil
+	default:
+		return colorAuto, fmt.Errorf("invalid --color value %q: expected one of %s",
+			v, strings.Join(colorModeValues, ", "))
 	}
-	return output.IsTerminal(w)
+}
+
+// shouldUseColor returns true when color output is appropriate for w.
+//
+// Under auto, colour follows the writer's own TTY state and the NO_COLOR
+// environment variable. An explicit --color wins over NO_COLOR: the variable is
+// a standing preference, the flag is a decision made for this invocation, and
+// the more specific one takes precedence — as it does in git, grep and ripgrep.
+//
+// This is the only place the decision is made. Machine formats never reach a
+// terminal printer at all, so `always` cannot put escape codes into a JSON, TAP
+// or JUnit payload.
+func shouldUseColor(w io.Writer, mode colorMode) bool {
+	switch mode {
+	case colorNever:
+		return false
+	case colorAlways:
+		return true
+	default:
+		if _, set := os.LookupEnv("NO_COLOR"); set {
+			return false
+		}
+		return output.IsTerminal(w)
+	}
 }
 
 // newStderrPrinter constructs an output.Printer bound to os.Stderr whose
@@ -283,16 +361,16 @@ func shouldUseColor(w io.Writer, noColorFlag bool) bool {
 // Prefer this helper over output.NewPrinter(os.Stderr, ...) at every new
 // call site so the "use stdout-derived color on stderr" anti-pattern cannot
 // be reintroduced silently.
-func newStderrPrinter(noColor bool) *output.Printer {
-	return output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, noColor))
+func newStderrPrinter(mode colorMode) *output.Printer {
+	return output.NewPrinter(os.Stderr, shouldUseColor(os.Stderr, mode))
 }
 
 // newStderrPrinterTo constructs an output.Printer bound to the given writer w,
 // deriving color from w's own TTY state. Use this inside runCmdInner (and
 // similar functions that accept an explicit stderr writer) so that injected
 // buffers do not emit ANSI escapes (they are never TTYs).
-func newStderrPrinterTo(w io.Writer, noColor bool) *output.Printer {
-	return output.NewPrinter(w, shouldUseColor(w, noColor))
+func newStderrPrinterTo(w io.Writer, mode colorMode) *output.Printer {
+	return output.NewPrinter(w, shouldUseColor(w, mode))
 }
 
 // buildPreExecVarSet collects all variable names that are available before execution
@@ -414,8 +492,8 @@ func redactedCLIArgs(args []string) []string {
 func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary) {
 	flags, parseErr := parseRunArgs(args)
 	if parseErr != nil {
-		_, _ = fmt.Fprintln(stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--report <file>] [--only \"<name>\"] [--show-dependencies] [--dry-run] [--parallel] [--confirm-large-dataset] [--no-color] [-v] [-vv] [-q]")
-		errOut := newStderrPrinterTo(stderr, flags.noColor)
+		_, _ = fmt.Fprintln(stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--report <file>] [--only \"<name>\"] [--show-dependencies] [--dry-run] [--parallel] [--confirm-large-dataset] [--color <when>] [--no-color] [-v] [-vv] [-q]")
+		errOut := newStderrPrinterTo(stderr, flags.color)
 		errOut.StructuredError(parseErr)
 		return 1, nil
 	}
@@ -427,7 +505,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	cliVars := flags.vars
 	envVarVars := flags.envVarVars
 	seed := flags.seed
-	noColor := flags.noColor
+	color := flags.color
 	verbosity := flags.verbosity
 	allowSensitive := flags.allowSensitive
 	showDeps := flags.showDeps
@@ -436,7 +514,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	confirmLargeDS := flags.confirmLargeDataset
 
 	if format != "" && format != "json" && format != "terminal" && format != "tap" && format != "junit" && format != "html" && format != "markdown" {
-		errOut := newStderrPrinterTo(stderr, noColor)
+		errOut := newStderrPrinterTo(stderr, color)
 		errOut.StructuredError(fmt.Errorf("unknown output format %q (supported: terminal, json, tap, junit, html, markdown)", format))
 		return 1, nil
 	}
@@ -466,7 +544,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	if flags.eventsSet && flags.events != "" {
 		evF, evErr := os.OpenFile(flags.events, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 		if evErr != nil {
-			errEvOut := newStderrPrinterTo(stderr, noColor)
+			errEvOut := newStderrPrinterTo(stderr, color)
 			errEvOut.StructuredError(fmt.Errorf("cannot open --events file %q: %w", flags.events, evErr))
 			return 1, nil
 		}
@@ -474,7 +552,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		em, emErr := events.NewEmitter(evF, events.Options{CurlewVersion: version, RunID: runID})
 		if emErr != nil {
 			_ = evF.Close()
-			errEvOut := newStderrPrinterTo(stderr, noColor)
+			errEvOut := newStderrPrinterTo(stderr, color)
 			errEvOut.StructuredError(fmt.Errorf("cannot initialise events emitter: %w", emErr))
 			return 1, nil
 		}
@@ -521,7 +599,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		// --format html requires --report flag
 		if report == "" {
 			htmlReportErr := fmt.Errorf("--format html requires --report <file> (e.g. --format html --report report.html)")
-			errOut := newStderrPrinterTo(stderr, noColor)
+			errOut := newStderrPrinterTo(stderr, color)
 			errOut.StructuredError(htmlReportErr)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(htmlReportErr)
@@ -535,7 +613,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	if flags.formatSet && format == "markdown" {
 		if report == "" {
 			mdReportErr := fmt.Errorf("format: markdown requires --report <dir>")
-			errOut2 := newStderrPrinterTo(stderr, noColor)
+			errOut2 := newStderrPrinterTo(stderr, color)
 			errOut2.StructuredError(mdReportErr)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(mdReportErr)
@@ -545,8 +623,8 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		}
 	}
 
-	stdoutUseColor := shouldUseColor(stdout, noColor)
-	errOut := newStderrPrinterTo(stderr, noColor)
+	stdoutUseColor := shouldUseColor(stdout, color)
+	errOut := newStderrPrinterTo(stderr, color)
 
 	// Glob-pattern discovery: if the positional argument contains glob
 	// metacharacters, run all matched collections as a batch.
@@ -589,7 +667,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		// For glob runs, the events emitter is not threaded into sub-runs.
 		// evExitCode is set from the returned exit code so deferred run.end carries it.
 		code, discoverySummary := runDiscoveredCollections(matches, envName, format, report, cliVars, envVarVars, seed,
-			noColor, verbosity, allowSensitive, showDeps, dryRun, runParallel, confirmLargeDS, stdout, stderr)
+			color, verbosity, allowSensitive, showDeps, dryRun, runParallel, confirmLargeDS, stdout, stderr)
 		evExitCode = code
 		evSummary = discoverySummary
 		return code, discoverySummary
@@ -821,7 +899,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	if eventsEmitter == nil && flags.events != "" {
 		evF, evErr := os.OpenFile(flags.events, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 		if evErr != nil {
-			errEvOut := newStderrPrinterTo(stderr, noColor)
+			errEvOut := newStderrPrinterTo(stderr, color)
 			errEvOut.StructuredError(fmt.Errorf("cannot open events file %q: %w", flags.events, evErr))
 			return 1, nil
 		}
@@ -829,7 +907,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		em, emErr := events.NewEmitter(evF, events.Options{CurlewVersion: version, RunID: runID})
 		if emErr != nil {
 			_ = evF.Close()
-			errEvOut := newStderrPrinterTo(stderr, noColor)
+			errEvOut := newStderrPrinterTo(stderr, color)
 			errEvOut.StructuredError(fmt.Errorf("cannot initialise events emitter: %w", emErr))
 			return 1, nil
 		}
@@ -1011,7 +1089,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			_ = eventsEmitter.EmitRunError(varErr)
 			evExitCode = 3
 		}
-		errOut := newStderrPrinterTo(stderr, noColor)
+		errOut := newStderrPrinterTo(stderr, color)
 		errOut.StructuredError(varErr)
 		return 3, summary
 	}
@@ -1405,8 +1483,8 @@ func watchCmdOut(args []string, stdout, stderr io.Writer) int {
 
 	watchFlags, err := parseRunArgs(filteredArgs)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, "Usage: curlew watch <collection-file> [--env <name>] [--var key=value ...] [--format <type>] [--clear] [--no-color] [-v] [-vv] [-q]")
-		errOut := newStderrPrinterTo(stderr, watchFlags.noColor)
+		_, _ = fmt.Fprintln(stderr, "Usage: curlew watch <collection-file> [--env <name>] [--var key=value ...] [--format <type>] [--clear] [--color <when>] [--no-color] [-v] [-vv] [-q]")
+		errOut := newStderrPrinterTo(stderr, watchFlags.color)
 		errOut.StructuredError(err)
 		return 1
 	}
@@ -1414,7 +1492,7 @@ func watchCmdOut(args []string, stdout, stderr io.Writer) int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	stdoutUseColor := shouldUseColor(stdout, watchFlags.noColor)
+	stdoutUseColor := shouldUseColor(stdout, watchFlags.color)
 
 	return watch.Run(ctx, watch.Config{
 		CollectionPath: watchFlags.file,
@@ -2249,9 +2327,9 @@ func writeHTMLError(path string, err error) error {
 // validateCmdOut validates one or more collection files without executing HTTP requests.
 // Exit codes: 0 = valid (or warnings only), 1 = usage error, 2 = team template validation error, 3 = collection validation errors.
 func validateCmdOut(args []string, stdout, stderr io.Writer) int {
-	patterns, format, noColor, err := parseValidateArgs(args)
+	patterns, format, color, err := parseValidateArgs(args)
 	if err != nil || len(patterns) == 0 {
-		_, _ = fmt.Fprintln(stderr, "Usage: curlew validate <file|glob> [...] [--format json] [--no-color]")
+		_, _ = fmt.Fprintln(stderr, "Usage: curlew validate <file|glob> [...] [--format json] [--color <when>] [--no-color]")
 		if err != nil {
 			_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
 		}
@@ -2269,7 +2347,7 @@ func validateCmdOut(args []string, stdout, stderr io.Writer) int {
 		return 3
 	}
 
-	useColor := shouldUseColor(stdout, noColor)
+	useColor := shouldUseColor(stdout, color)
 	results := make([]*validator.Result, 0, len(files))
 	for _, f := range files {
 		results = append(results, validator.ValidateAuto(f, nil))
@@ -2318,22 +2396,40 @@ func teamTemplateExitCode(results []*validator.Result) int {
 }
 
 // parseValidateArgs parses arguments for the validate command.
-func parseValidateArgs(args []string) (files []string, format string, noColor bool, err error) {
+func parseValidateArgs(args []string) (files []string, format string, color colorMode, err error) {
 	for i := 0; i < len(args); i++ {
+		if v, ok := strings.CutPrefix(args[i], "--color="); ok {
+			m, cErr := parseColorMode(v)
+			if cErr != nil {
+				return nil, "", colorAuto, cErr
+			}
+			color = m
+			continue
+		}
 		switch args[i] {
 		case "--no-color":
-			noColor = true
+			color = colorNever
+		case "--color":
+			i++
+			if i >= len(args) {
+				return nil, "", colorAuto, fmt.Errorf("--color requires a value (%s)", strings.Join(colorModeValues, "|"))
+			}
+			m, cErr := parseColorMode(args[i])
+			if cErr != nil {
+				return nil, "", colorAuto, cErr
+			}
+			color = m
 		case "--format":
 			i++
 			if i >= len(args) {
-				return nil, "", false, fmt.Errorf("--format requires a value (e.g. --format json)")
+				return nil, "", colorAuto, fmt.Errorf("--format requires a value (e.g. --format json)")
 			}
 			format = args[i]
 		default:
 			files = append(files, args[i])
 		}
 	}
-	return files, format, noColor, nil
+	return files, format, color, nil
 }
 
 // expandGlobs expands any glob patterns in patterns to concrete file paths.
@@ -2701,7 +2797,7 @@ type ExecOptions struct {
 	LogFile        string
 	Format         string
 	NonInteractive bool
-	NoColor        bool
+	Color          colorMode
 	Verbosity      output.Verbosity
 	Vars           map[string]string
 	EnvVars        map[string]string
@@ -2726,7 +2822,7 @@ func parseExecArgs(args []string) (ExecOptions, error) {
 		case "--non-interactive":
 			opts.NonInteractive = true
 		case "--no-color":
-			opts.NoColor = true
+			opts.Color = colorNever
 		case "-v":
 			opts.Verbosity = output.VerbosityVerbose
 		case "-vv":
@@ -2853,19 +2949,19 @@ func parseStdinRequest(r io.Reader) (*parser.Request, error) {
 func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	opts, parseErr := parseExecArgs(args)
 	if parseErr != nil {
-		_, _ = fmt.Fprintln(stderr, "Usage: curlew exec <url> [--stdin] [-X method] [--dry-run] [--log <file>] [--format <type>] [--non-interactive] [--var key=value ...] [--env-var VAR ...] [--no-color] [-v] [-vv] [-q]")
-		errOut := newStderrPrinterTo(stderr, false)
+		_, _ = fmt.Fprintln(stderr, "Usage: curlew exec <url> [--stdin] [-X method] [--dry-run] [--log <file>] [--format <type>] [--non-interactive] [--var key=value ...] [--env-var VAR ...] [--color <when>] [--no-color] [-v] [-vv] [-q]")
+		errOut := newStderrPrinterTo(stderr, colorAuto)
 		errOut.StructuredError(parseErr)
 		return 1
 	}
 
 	if opts.Format != "" && opts.Format != "json" && opts.Format != "terminal" {
-		errOut := newStderrPrinterTo(stderr, opts.NoColor)
+		errOut := newStderrPrinterTo(stderr, opts.Color)
 		errOut.StructuredError(fmt.Errorf("unknown output format %q (supported: terminal, json)", opts.Format))
 		return 1
 	}
 
-	stdoutUseColor := shouldUseColor(stdout, opts.NoColor)
+	stdoutUseColor := shouldUseColor(stdout, opts.Color)
 
 	// M11-004: Mint a single run_id per exec invocation. The same id flows into
 	// every JSONL log entry written by this call (dry-run, exec error, success),
@@ -2883,7 +2979,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				jsonOut := buildJSONOutput("", nil, nil, err, output.VerbosityDefault)
 				_ = output.WriteJSON(stdout, jsonOut)
 			} else {
-				errOut := newStderrPrinterTo(stderr, opts.NoColor)
+				errOut := newStderrPrinterTo(stderr, opts.Color)
 				errOut.StructuredError(err)
 			}
 			return 3
@@ -2907,7 +3003,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// M20-001: Validate locale before building the registry so ERR_LOCALE_UNKNOWN
 	// surfaces cleanly before any request is sent.
 	if err := variable.ValidateLocale(opts.Locale); err != nil {
-		errOut := newStderrPrinterTo(stderr, opts.NoColor)
+		errOut := newStderrPrinterTo(stderr, opts.Color)
 		errOut.StructuredError(err)
 		return 1
 	}
@@ -2923,7 +3019,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 		scope := variable.NewScope(merged)
 		if resolveErr := scope.Resolve(); resolveErr != nil {
-			errOut := newStderrPrinterTo(stderr, opts.NoColor)
+			errOut := newStderrPrinterTo(stderr, opts.Color)
 			errOut.StructuredError(resolveErr)
 			return 3
 		}
@@ -2943,7 +3039,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		var interpErr error
 		req.URL, interpErr = scope.Interpolate(req.URL)
 		if interpErr != nil {
-			errOut := newStderrPrinterTo(stderr, opts.NoColor)
+			errOut := newStderrPrinterTo(stderr, opts.Color)
 			errOut.StructuredError(interpErr)
 			return 3
 		}
@@ -2951,7 +3047,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			for k, v := range req.Headers {
 				req.Headers[k], interpErr = scope.Interpolate(v)
 				if interpErr != nil {
-					errOut := newStderrPrinterTo(stderr, opts.NoColor)
+					errOut := newStderrPrinterTo(stderr, opts.Color)
 					errOut.StructuredError(interpErr)
 					return 3
 				}
@@ -2960,7 +3056,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if bodyStr, ok := req.Body.(string); ok && bodyStr != "" {
 			req.Body, interpErr = scope.Interpolate(bodyStr)
 			if interpErr != nil {
-				errOut := newStderrPrinterTo(stderr, opts.NoColor)
+				errOut := newStderrPrinterTo(stderr, opts.Color)
 				errOut.StructuredError(interpErr)
 				return 3
 			}
@@ -3021,7 +3117,7 @@ func execCmdOut(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			jsonOut := buildJSONOutput("", nil, nil, execErr, output.VerbosityDefault)
 			_ = output.WriteJSON(stdout, jsonOut)
 		} else {
-			errOut := newStderrPrinterTo(stderr, opts.NoColor)
+			errOut := newStderrPrinterTo(stderr, opts.Color)
 			errOut.StructuredError(execErr)
 		}
 		if opts.LogFile != "" {
@@ -3179,7 +3275,8 @@ func printVaultHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Options:")
 	_, _ = fmt.Fprintln(w, "  --format json   Output in JSON format")
-	_, _ = fmt.Fprintln(w, "  --no-color      Disable colored output")
+	_, _ = fmt.Fprintln(w, "  --color <when>  auto (default) | always | never")
+	_, _ = fmt.Fprintln(w, "  --no-color      Disable colored output (same as --color=never)")
 }
 
 // parseVaultArgs extracts the subcommand, --format, and --no-color from vault args.
@@ -3281,7 +3378,8 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  --env-var VAR       Import OS environment variable (repeatable)")
 	_, _ = fmt.Fprintln(w, "  --seed <number>     Seed for deterministic random variable functions (e.g. $faker.*)")
 	_, _ = fmt.Fprintln(w, "  --locale <code>     Faker locale for $faker.* functions (default en-US; e.g. de-DE)")
-	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output")
+	_, _ = fmt.Fprintln(w, "  --color <when>      auto (default) | always | never")
+	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (same as --color=never)")
 	_, _ = fmt.Fprintln(w, "  -v / -vv / -q       Verbosity control")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Run Options:")
@@ -3299,7 +3397,8 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "                      --format markdown requires --report <dir>")
 	_, _ = fmt.Fprintln(w, "  --events <file>     Write an NDJSON event stream for the run (schema v1.6)")
 	_, _ = fmt.Fprintln(w, "                      One JSON object per line; see docs/EVENTS_SCHEMA_v1.6.md")
-	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (also respects NO_COLOR env var)")
+	_, _ = fmt.Fprintln(w, "  --color <when>      auto (default) | always | never. always forces colour on a pipe")
+	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (same as --color=never; auto also respects NO_COLOR)")
 	_, _ = fmt.Fprintln(w, "  -v                  Verbose: show request/response headers")
 	_, _ = fmt.Fprintln(w, "  -vv                 Very verbose: full HTTP request/response dump")
 	_, _ = fmt.Fprintln(w, "  -q, --quiet         Quiet: summary line only")
@@ -3402,7 +3501,7 @@ func importOpenAPICmdOut(args []string, stdout, stderr io.Writer) int {
 
 	col, importErr := openapi.Import(specPath)
 	if importErr != nil {
-		errOut := newStderrPrinterTo(stderr, false)
+		errOut := newStderrPrinterTo(stderr, colorAuto)
 		errOut.StructuredError(importErr)
 		return 3
 	}

@@ -85,7 +85,7 @@ func TestBuildArgsForCollection(t *testing.T) {
 		cliVars        map[string]string
 		envVarVars     map[string]string
 		seed           *int64
-		noColor        bool
+		color          colorMode
 		verbosity      output.Verbosity
 		allowSensitive bool
 		showDeps       bool
@@ -136,10 +136,27 @@ func TestBuildArgsForCollection(t *testing.T) {
 			wantArgs: []string{"col.yaml", "--seed", fmt.Sprintf("%d", seed42)},
 		},
 		{
-			name:     "no-color flag",
+			// Forwarded as --color=never rather than --no-color: the two mean
+			// the same thing to the receiving parser, and the explicit form is
+			// what lets `always` be forwarded too.
+			name:     "colour disabled",
 			path:     "col.yaml",
-			noColor:  true,
-			wantArgs: []string{"col.yaml", "--no-color"},
+			color:    colorNever,
+			wantArgs: []string{"col.yaml", "--color=never"},
+		},
+		{
+			name:     "colour forced",
+			path:     "col.yaml",
+			color:    colorAlways,
+			wantArgs: []string{"col.yaml", "--color=always"},
+		},
+		{
+			// auto is the default and is not forwarded, so a discovered
+			// collection decides for itself exactly as a direct run would.
+			name:     "colour auto is not forwarded",
+			path:     "col.yaml",
+			color:    colorAuto,
+			wantArgs: []string{"col.yaml"},
 		},
 		{
 			name:      "verbosity verbose",
@@ -198,7 +215,7 @@ func TestBuildArgsForCollection(t *testing.T) {
 			cliVars:        map[string]string{"x": "1"},
 			envVarVars:     map[string]string{"y": "2"},
 			seed:           &seed42,
-			noColor:        true,
+			color:          colorNever,
 			verbosity:      output.VerbosityVerbose,
 			allowSensitive: true,
 			showDeps:       true,
@@ -213,7 +230,7 @@ func TestBuildArgsForCollection(t *testing.T) {
 				"--var", "x=1",
 				"--var", "y=2",
 				"--seed", fmt.Sprintf("%d", seed42),
-				"--no-color",
+				"--color=never",
 				"-v",
 				"--allow-sensitive",
 				"--show-dependencies",
@@ -229,7 +246,7 @@ func TestBuildArgsForCollection(t *testing.T) {
 			got := buildArgsForCollection(
 				tt.path, tt.envName, tt.format, tt.report,
 				tt.cliVars, tt.envVarVars, tt.seed,
-				tt.noColor, tt.verbosity,
+				tt.color, tt.verbosity,
 				tt.allowSensitive, tt.showDeps, tt.dryRun, tt.runParallel, tt.confirmLargeDS,
 			)
 			if len(got) != len(tt.wantArgs) {
@@ -351,7 +368,7 @@ func TestCaptureJSONCollection_DoesNotTouchOsStdout(t *testing.T) {
 	tmpDir := t.TempDir()
 	f := writeNamedCollection(t, tmpDir, "col.yaml", "TestCapture", srv.URL)
 
-	args := buildArgsForCollection(f, "", "json", "", nil, nil, nil, true, output.VerbosityDefault,
+	args := buildArgsForCollection(f, "", "json", "", nil, nil, nil, colorNever, output.VerbosityDefault,
 		false, false, false, false, false)
 	var stderr bytes.Buffer
 	doc, _, code := captureJSONCollection(args, &stderr)
