@@ -551,7 +551,7 @@ assertions:
 
 #### Body
 
-The body is always parsed as JSON, and every body assertion targets a JSONPath expression (see §2.3). Thirteen operators are available.
+The body is always parsed as JSON, and every body assertion targets a JSONPath expression (see §2.3). Fourteen operators are available.
 
 **Value operators:**
 

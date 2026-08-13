@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **The documents' behavioural tables are now executed, not just written.** A
+  document states things about the binary in three ways — examples, tables and
+  prose — and only examples were checked. A table is not a snippet: no parser
+  will ever reject one, so a table can promise behaviour the binary does not
+  have and the build stays green. That is what §11C.2 was, in two documents, for
+  as long as it existed.
+
+  `internal/docs` reads a markdown table so tests can run what it claims. The
+  GraphQL outcome × mode matrix is executed cell by cell against the runner —
+  and the two documents must agree with each other first, since they describe
+  one binary. The body and header operator catalogues are held to the evaluator
+  in both directions, with the implemented set read out of the source via
+  `go/ast` rather than restated in the test, because a restated list is a second
+  thing to forget to update. The WebSocket step-field table is held to the
+  parser's own map.
+
+  Each check was verified by a canary rather than trusted because it passes:
+  reverting the §11C.2 fix fails twelve matrix cells by name, adding an
+  undocumented operator fails the parity test, and drifting the step-field table
+  fails with both lists printed.
+
+  Turning the checks on immediately found one more: both documents claimed
+  "Thirteen operators" above a table listing **fourteen**. The count is now
+  checked against the table it introduces.
+
 ### Changed
 - **A WebSocket step field that its action ignores is now a parse error.** Each
   action reads only its own fields — `wait` reads `duration_ms`, `expect` reads

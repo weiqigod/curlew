@@ -1388,6 +1388,40 @@ Checking the specification immediately found two more of its own: a duplicate
 `status:` key used to show two alternatives in one block — invalid YAML that a
 reader would copy — in both documents.
 
+### 11C.12 The documents' tables were checked by nothing
+
+The last shape of the same problem, and the one §11C.2 actually was. A document
+makes three kinds of statement about the binary: **examples**, **tables** and
+**prose**. Examples are now parsed on every build. A table is not a snippet —
+no parser will ever reject one — so a table can promise behaviour the binary
+does not have and the build stays green. §11C.2 was precisely that: a matrix of
+four outcomes against three modes, half of which the binary ignored, in two
+documents, for as long as it existed.
+
+**Fixed** by making the tables executable rather than decorative.
+`internal/docs` reads a markdown table, and the tests run what it says:
+
+| Table | Held to | Direction |
+|---|---|---|
+| GraphQL outcome × mode matrix (§7.1, §12.2) | the runner, every cell | both documents must agree first |
+| Body operators (§7.3) | `evalBodyAssertion` | documented ⇄ implemented |
+| Header operators (§7.2) | `evalHeaderAssertion` | documented ⇄ implemented |
+| WebSocket step fields (§12.3) | `stepFieldsByAction` | documented ⇄ accepted |
+
+The operator sets are read out of the source with `go/ast` rather than restated
+in the test, because a list restated in a test is a second thing to forget to
+update. Each check was verified by a canary: reverting the §11C.2 fix fails
+twelve matrix cells by name, adding an undocumented operator fails the parity
+test, and drifting the step-field table fails with both lists printed.
+
+Turning the checks on found one more: both documents said "Thirteen operators"
+above a table of **fourteen** — a prose claim contradicting the very list it
+introduces. The count is now checked against the table it precedes.
+
+What is still unguarded is ordinary prose. A sentence that describes behaviour
+has no structure to hold it to, and the three mechanisms here — parse the
+examples, execute the tables, count the lists — do not reach it.
+
 ### What came out affirmative
 
 Worth as much as the defects, because each replaces an assumption with evidence:

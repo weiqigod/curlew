@@ -818,7 +818,7 @@ Header names are case-insensitive. Three operators:
 ### 7.3 Body
 
 The response body is parsed as JSON and each assertion targets a JSONPath
-expression. Thirteen operators:
+expression. Fourteen operators:
 
 | Operator | Applies to | Meaning |
 |---|---|---|
