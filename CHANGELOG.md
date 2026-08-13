@@ -6,6 +6,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Prose is now held to the binary by the names it uses.** A sentence cannot be
+  executed, but almost every prose claim worth making names something concrete —
+  a command, a flag, an environment variable — and a name is checkable even when
+  the sentence is not. Every `curlew <command>`, every `--flag` on a line naming
+  curlew, and every `CURLEW_*` variable in the manual and the specification must
+  now exist in the binary or be read by the source.
+
+  This targets drift the project has actually suffered rather than a
+  hypothetical: the licensing and backend strips removed `curlew license`,
+  `curlew login`, `curlew worker`, `--workers`, `--report-upload` and every
+  `CURLEW_BACKEND_*` variable, and M21-002 was four manual surfaces still
+  describing the removed backend, found by reading months later.
+
+  Sections that name removed things on purpose carry an explicit
+  `<!-- doc-check: ignore-names -->` marker. A marker cannot outlive the next
+  heading, so none can blanket a document, and their total is capped so the
+  checks cannot be hollowed out a section at a time.
+
+  It found a live defect at once: the manual documented
+  `--color={auto|always|never}` with three worked examples and called
+  `--no-color` an alias for `--color=never`. **No `--color` flag exists** — the
+  binary answers `unknown flag: --color=never`. The section now describes what
+  ships, including that `NO_COLOR` disables on presence even when empty, which
+  is stricter than no-color.org specifies.
+
+- **`help_parity_test.go` now sees flags accepted outside a switch.** It derived
+  the accepted set from `case "--flag":` clauses alone, so `--clear` on
+  `curlew watch` — accepted by an `if` — was invisible to it.
+
+- **The documents' behavioural tables are now executed, not just written.** A
+  document states things about the binary in three ways — examples, tables and
+  prose — and only examples were checked. A table is not a snippet: no parser
+  will ever reject one, so a table can promise behaviour the binary does not
+  have and the build stays green. That is what §11C.2 was, in two documents, for
+  as long as it existed.
+
+  `internal/docs` reads a markdown table so tests can run what it claims. The
+  GraphQL outcome × mode matrix is executed cell by cell against the runner —
+  and the two documents must agree with each other first, since they describe
+  one binary. The body and header operator catalogues are held to the evaluator
+  in both directions, with the implemented set read out of the source via
+  `go/ast` rather than restated in the test, because a restated list is a second
+  thing to forget to update. The WebSocket step-field table is held to the
+  parser's own map.
+
+  Each check was verified by a canary rather than trusted because it passes:
+  reverting the §11C.2 fix fails twelve matrix cells by name, adding an
+  undocumented operator fails the parity test, and drifting the step-field table
+  fails with both lists printed.
+
+  Turning the checks on immediately found one more: both documents claimed
+  "Thirteen operators" above a table listing **fourteen**. The count is now
+  checked against the table it introduces.
+
 ### Changed
 - **A WebSocket step field that its action ignores is now a parse error.** Each
   action reads only its own fields — `wait` reads `duration_ms`, `expect` reads

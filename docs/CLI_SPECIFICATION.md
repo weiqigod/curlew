@@ -818,7 +818,7 @@ Header names are case-insensitive. Three operators:
 ### 7.3 Body
 
 The response body is parsed as JSON and each assertion targets a JSONPath
-expression. Thirteen operators:
+expression. Fourteen operators:
 
 | Operator | Applies to | Meaning |
 |---|---|---|
@@ -2035,6 +2035,8 @@ The schema describes structure, not cross-field constraints: mutual exclusions
 ---
 
 ## Appendix B — Deliberately Absent Surfaces
+
+<!-- doc-check: ignore-names -->
 
 The following appear in [SPECIFICATION.md](SPECIFICATION.md), which describes the
 platform as designed, and are **not** part of the CLI. They are listed so that a

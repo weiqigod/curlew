@@ -90,22 +90,40 @@ func acceptedFlags(t *testing.T) []string {
 		if err != nil {
 			t.Fatalf("parse %s: %v", name, err)
 		}
-		ast.Inspect(file, func(n ast.Node) bool {
-			clause, ok := n.(*ast.CaseClause)
-			if !ok {
-				return true
+		// Flags are accepted two ways: a `case "--flag":` in a switch, and an
+		// `if a == "--flag"` outside one. Reading only the case clauses missed
+		// the second kind entirely — `--clear` on `curlew watch` was accepted
+		// by the binary and invisible to this test.
+		record := func(lit *ast.BasicLit) {
+			if lit.Kind != token.STRING {
+				return
 			}
-			for _, expr := range clause.List {
-				lit, ok := expr.(*ast.BasicLit)
-				if !ok || lit.Kind != token.STRING {
-					continue
+			val, err := strconv.Unquote(lit.Value)
+			if err != nil {
+				return
+			}
+			if strings.HasPrefix(val, "--") && len(val) > 2 {
+				seen[val] = true
+			}
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch node := n.(type) {
+			case *ast.CaseClause:
+				for _, expr := range node.List {
+					if lit, ok := expr.(*ast.BasicLit); ok {
+						record(lit)
+					}
 				}
-				val, err := strconv.Unquote(lit.Value)
-				if err != nil {
-					continue
+			case *ast.BinaryExpr:
+				// `a == "--flag"` or `"--flag" == a`.
+				if node.Op != token.EQL {
+					return true
 				}
-				if strings.HasPrefix(val, "--") && len(val) > 2 {
-					seen[val] = true
+				if lit, ok := node.X.(*ast.BasicLit); ok {
+					record(lit)
+				}
+				if lit, ok := node.Y.(*ast.BasicLit); ok {
+					record(lit)
 				}
 			}
 			return true

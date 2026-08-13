@@ -1388,6 +1388,78 @@ Checking the specification immediately found two more of its own: a duplicate
 `status:` key used to show two alternatives in one block — invalid YAML that a
 reader would copy — in both documents.
 
+### 11C.12 The documents' tables were checked by nothing
+
+The last shape of the same problem, and the one §11C.2 actually was. A document
+makes three kinds of statement about the binary: **examples**, **tables** and
+**prose**. Examples are now parsed on every build. A table is not a snippet —
+no parser will ever reject one — so a table can promise behaviour the binary
+does not have and the build stays green. §11C.2 was precisely that: a matrix of
+four outcomes against three modes, half of which the binary ignored, in two
+documents, for as long as it existed.
+
+**Fixed** by making the tables executable rather than decorative.
+`internal/docs` reads a markdown table, and the tests run what it says:
+
+| Table | Held to | Direction |
+|---|---|---|
+| GraphQL outcome × mode matrix (§7.1, §12.2) | the runner, every cell | both documents must agree first |
+| Body operators (§7.3) | `evalBodyAssertion` | documented ⇄ implemented |
+| Header operators (§7.2) | `evalHeaderAssertion` | documented ⇄ implemented |
+| WebSocket step fields (§12.3) | `stepFieldsByAction` | documented ⇄ accepted |
+
+The operator sets are read out of the source with `go/ast` rather than restated
+in the test, because a list restated in a test is a second thing to forget to
+update. Each check was verified by a canary: reverting the §11C.2 fix fails
+twelve matrix cells by name, adding an undocumented operator fails the parity
+test, and drifting the step-field table fails with both lists printed.
+
+Turning the checks on found one more: both documents said "Thirteen operators"
+above a table of **fourteen** — a prose claim contradicting the very list it
+introduces. The count is now checked against the table it precedes.
+
+### 11C.13 Prose named things that no longer existed
+
+The last of the three surfaces, and the one this project has actually been
+burned by. A sentence cannot be executed — but almost every prose claim worth
+making **names** something concrete, and a name is checkable even when the
+sentence around it is not.
+
+The drift is not hypothetical. The licensing strip removed `curlew license`;
+the backend strip removed `curlew login`, `curlew worker`, `--workers`,
+`--report-upload` and every `CURLEW_BACKEND_*` variable; M21-002 was four
+`MANUAL.md` surfaces still describing the removed backend, found by reading,
+months later. Every one left prose naming something that no longer existed, and
+nothing failed.
+
+**Fixed** by checking the names: every `curlew <command>`, every `--flag` on a
+line that names curlew, and every `CURLEW_*` variable in `MANUAL.md` and
+`CLI_SPECIFICATION.md` must exist in the binary or be read by the source.
+`CHANGELOG.md` and this document are excluded, because both discuss removed and
+unbuilt things deliberately.
+
+Sections that name removed things *on purpose* — the specification's
+"Deliberately Absent Surfaces" appendix, the manual's "No account, no backend"
+— carry an explicit `<!-- doc-check: ignore-names -->` marker. A marker cannot
+outlive the next heading, so none can blanket a document, and their total is
+capped so the checks cannot be hollowed out a section at a time.
+
+Turning it on found a live defect immediately: the manual documented
+`--color={auto|always|never}` with three worked examples and called `--no-color`
+"an alias for `--color=never`". **No `--color` flag exists** — the binary
+answers `unknown flag: --color=never`. Only `--no-color` and `NO_COLOR` ship,
+and `NO_COLOR` disables on presence even when empty, which is stricter than
+no-color.org specifies. The section now describes what ships.
+
+It also exposed a hole in an existing test: `help_parity_test.go` derived the
+accepted flag set from `case "--flag":` clauses only, so `--clear` — accepted by
+an `if` on `curlew watch` — was invisible to it. The extractor now reads both.
+
+What remains unguarded is a sentence that names nothing: a behavioural claim
+with no command, flag or variable in it. The three mechanisms — parse the
+examples, execute the tables, check the names — do not reach it, and nothing
+here pretends otherwise.
+
 ### What came out affirmative
 
 Worth as much as the defects, because each replaces an assumption with evidence:

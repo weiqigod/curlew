@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 // The documents' own examples, executed.
@@ -246,4 +248,72 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(b)
+}
+
+// TestDocTable_stepFieldsMatchTheParser holds CLI_SPECIFICATION §12.3's
+// step-field table to stepFieldsByAction.
+//
+// That table was added in the same change that made a misplaced field an error,
+// which is exactly when a table is most likely to drift later: the code and the
+// document agreed on the day they were written, and nothing would have noticed
+// afterwards. A table nobody executes is a promise nobody keeps.
+func TestDocTable_stepFieldsMatchTheParser(t *testing.T) {
+	_, rows, err := docs.Table("CLI_SPECIFICATION.md", "Action", "Fields")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("the step-field table has no rows; nothing was checked")
+	}
+
+	documented := map[string][]string{}
+	for _, r := range rows {
+		if len(r) < 2 {
+			continue
+		}
+		action := r[0]
+		var fields []string
+		for _, f := range strings.Split(r[1], ",") {
+			f = strings.Trim(strings.TrimSpace(f), "`")
+			if f != "" {
+				fields = append(fields, f)
+			}
+		}
+		documented[action] = fields
+	}
+
+	for action, want := range documented {
+		got, known := stepFieldsByAction[action]
+		if !known {
+			t.Errorf("CLI_SPECIFICATION documents a %q step, which the parser does not know", action)
+			continue
+		}
+		if !sameStringSet(want, got) {
+			t.Errorf("%q fields differ:\n  documented: %v\n  parser:     %v", action, want, got)
+		}
+	}
+	for action := range stepFieldsByAction {
+		if _, ok := documented[action]; !ok {
+			t.Errorf("the parser accepts a %q step, which CLI_SPECIFICATION's field table omits", action)
+		}
+	}
+}
+
+func sameStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := map[string]int{}
+	for _, s := range a {
+		seen[s]++
+	}
+	for _, s := range b {
+		seen[s]--
+	}
+	for _, n := range seen {
+		if n != 0 {
+			return false
+		}
+	}
+	return true
 }
