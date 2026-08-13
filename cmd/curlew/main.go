@@ -358,6 +358,20 @@ func shouldUseColor(w io.Writer, mode colorMode) bool {
 	}
 }
 
+// runErrorExitCode maps an error that ended a run to its documented exit code.
+//
+// Every such error used to become a 5 — "variable resolution error" — whatever
+// it was. The large-dataset guard is not that: it is a safety rail the caller
+// clears with a flag, which all three exit-code tables document as a 2. The
+// distinction is the point of having separate codes, since a pipeline branching
+// on 5 goes looking for a missing variable.
+func runErrorExitCode(err error) int {
+	if errors.Is(err, runner.ErrLargeDataset) {
+		return 2
+	}
+	return 5
+}
+
 // newStderrPrinter constructs an output.Printer bound to os.Stderr whose
 // color flag is derived from os.Stderr's own TTY state, never from stdout.
 // This prevents ANSI escape sequences from leaking into piped stderr when
@@ -1167,8 +1181,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(varErr)
 			}
-			evExitCode = 5
-			return 5, summary
+			code := runErrorExitCode(varErr)
+			evExitCode = code
+			return code, summary
 		}
 		if summary != nil {
 			mainAssertionFailed := summary.AssertionFailures - summary.TeardownAssertionErrors
@@ -1212,8 +1227,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(varErr)
 			}
-			evExitCode = 5
-			return 5, summary
+			code := runErrorExitCode(varErr)
+			evExitCode = code
+			return code, summary
 		}
 		if summary != nil {
 			mainAssertionFailed := summary.AssertionFailures - summary.TeardownAssertionErrors
@@ -1256,8 +1272,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(varErr)
 			}
-			evExitCode = 5
-			return 5, summary
+			code := runErrorExitCode(varErr)
+			evExitCode = code
+			return code, summary
 		}
 		if summary != nil {
 			mainAssertionFailed := summary.AssertionFailures - summary.TeardownAssertionErrors
@@ -1289,8 +1306,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(varErr)
 			}
-			evExitCode = 5
-			return 5, summary
+			code := runErrorExitCode(varErr)
+			evExitCode = code
+			return code, summary
 		}
 		if summary != nil {
 			mainAssertionFailed := summary.AssertionFailures - summary.TeardownAssertionErrors
@@ -1334,8 +1352,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			if eventsEmitter != nil {
 				_ = eventsEmitter.EmitRunError(varErr)
 			}
-			evExitCode = 5
-			return 5, summary
+			code := runErrorExitCode(varErr)
+			evExitCode = code
+			return code, summary
 		}
 		if summary != nil {
 			mainAssertionFailed := summary.AssertionFailures - summary.TeardownAssertionErrors
@@ -1353,12 +1372,13 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	}
 
 	if varErr != nil {
+		code := runErrorExitCode(varErr)
 		if eventsEmitter != nil {
 			_ = eventsEmitter.EmitRunError(varErr)
-			evExitCode = 5
+			evExitCode = code
 		}
 		errOut.StructuredError(varErr)
-		return 5, summary
+		return code, summary
 	}
 
 	var currentPhase runner.Phase

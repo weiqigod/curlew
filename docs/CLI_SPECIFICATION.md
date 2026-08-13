@@ -82,6 +82,7 @@ specification.
 
 Curlew deliberately does not provide:
 
+<!-- doc-check: table-not-executable a statement of what the CLI declines to be; there is nothing to run -->
 | Non-goal | Rationale |
 |---|---|
 | A GUI for authoring | Files are the interface. The local UI (§20) reads and runs; it never writes collections. |

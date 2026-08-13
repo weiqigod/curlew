@@ -104,7 +104,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   parser had to start refusing the mistake first. Verified with a canary:
   reintroducing the defect fails the test with the file, the line and the fix.
 
+- **Every table in both documents is now accounted for.** "Tables are executed"
+  has been true since #28 only of the three tables someone had wired; there were
+  77, and 70 of them stated something about the binary that no test ran. A count
+  of executed tables cannot close that gap — only a count of *unexecuted* ones
+  can, so `internal/docs` now takes an inventory of every table in the manual and
+  the specification and requires each to be executed, declared unexecutable in
+  the document with a capped marker, or listed in
+  `docs/table-execution-baseline.txt`.
+
+  The baseline is a debt register, not an exemption list, and it can only shrink:
+  an unexecuted table missing from it fails the build, and a listed table that
+  has become executed fails until the line is deleted. Same contract as
+  `testapi/harness/redaction-known-leaks.txt`, which started at thirteen lines
+  and emptied itself. It stands at 35, down from 70.
+
+  Which tables a test reads is derived from the test sources by `go/ast` rather
+  than from a hand-kept list, because a list of "tables we execute" is one more
+  document about the binary and would drift like the ones it guards.
+
+  Now executed: the eleven flag tables (every documented flag must be accepted by
+  a parser, 85 mentions), the twelve dynamic-function tables in both directions,
+  the three exit-code tables, both output-format tables, the telemetry
+  subcommands, and the limits table against the constants the binary enforces.
+
+  It found three live defects at once, below.
+
 ### Fixed
+- **The large-dataset guard exits 2, not 5.** All three exit-code tables
+  document a tripped safety guard as exit 2, and the specification's CI column
+  reads "Fail — fix the invocation". The guard refused correctly and exited 5 —
+  the code reserved for variable resolution — because it returned a bare error
+  and every bare error ending a run became a 5.
+
+  The distinction is the entire reason the codes are separate: a pipeline
+  branching on 5 goes looking for a missing variable, when the fix is to pass
+  `--confirm-large-dataset`. `runner.ErrLargeDataset` now identifies the guard,
+  carried by an error type that keeps the original advice as its message rather
+  than prefixing a sentinel to a complete sentence.
+
+  Found by executing the exit-code tables instead of reading them: exit 2 was
+  documented three times and produced by nothing.
+
+- **The manual's `--seed 42` examples were not what that seed produces.** The
+  faker table's "Example (seed 42)" column is a reproducibility promise, and all
+  ten rows were wrong — `{{$faker.firstName}}` under seed 42 is `Tom`, not
+  `Carol`. The column reproduced under no reading: not per-function, not read
+  across the table in order.
+
+  Regenerated from the binary, and the section now states what the seed
+  guarantees. The rows are independent draws, so `fullName` gives `Tom Edwards`
+  while `lastName` alone gives `Bell`; within a run the same function with the
+  same arguments returns the same value, so a reused placeholder is stable.
+
+- **The manual's output-format table omitted `markdown`** and announced "Five
+  output formats" above a binary that supports six. The specification's table
+  had all six, and §4.1a documents markdown reports at length — the primary
+  table a reader consults for `--format` was the one place it was missing.
+
 - **`NO_COLOR` now takes effect on a non-empty value only**, per
   [no-color.org](https://no-color.org): the variable disables colour "when
   present and not an empty string (regardless of its value)". curlew disabled on
