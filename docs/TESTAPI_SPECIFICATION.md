@@ -1530,6 +1530,14 @@ a success.
 text with no error. Removed, with the prose beneath now naming the dotted forms
 that are real.
 
+**The JSONPath tutorial taught syntax the engine rejects.** §2.3 says "this
+section is all you need" and then lists `$.items[*].sku` and `$..sku` — wildcard
+and recursive descent — which come back as invalid paths. The worked example
+below the table used the wildcard as well, so the tutorial's own assertion fails
+when copied. The section now states what is unimplemented; a test pins that in
+both directions, so building either form fails the build rather than leaving the
+manual wrong the other way round.
+
 Both are the shape §11C.12 was about, one level deeper: not a table nobody
 checked, but a table nobody could check, because the feature it described was
 finished everywhere except where it mattered.

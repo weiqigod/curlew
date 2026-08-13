@@ -26,7 +26,6 @@ CLI_SPECIFICATION.md	### 11.5 Failure and Skip Semantics	Producer outcome | Vari
 CLI_SPECIFICATION.md	### 11.6 Protocol Constraints	Protocol | Parallelism
 CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
 MANUAL.md	#### Loading the body from a file	Extension | Detected Content-Type (typical)
-MANUAL.md	### 2.3 JSONPath crash course	Expression | Result
 MANUAL.md	### 3.2 The precedence ladder	# | Source | Where it lives
 MANUAL.md	#### Where CEL appears	Site | Type | Example
 MANUAL.md	#### Standard activation	Binding | Type | Description

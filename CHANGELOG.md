@@ -136,9 +136,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   Nineteen remain in the register.
 
-  It found five live defects, below.
+  It found seven live defects, below.
 
 ### Fixed
+- **The manual's JSONPath tutorial taught two expressions the engine rejects.**
+  §2.3 opens "if you don't [know JSONPath], this section is all you need" and
+  then teaches `$.items[*].sku` (wildcard across an array) and `$..sku`
+  (recursive descent). Both are rejected as invalid paths — and the worked
+  example three lines below used the wildcard too, so a reader copying the
+  tutorial's own assertion got a failure.
+
+  The section now says plainly that neither is implemented and what to write
+  instead. Both remain unimplemented: adding wildcard and recursive descent to
+  the JSONPath engine is a feature, not a documentation fix, and changes what an
+  assertion receives. A test pins the paragraph in both directions — if either
+  form is built later, it fails rather than leaving the manual wrong the other
+  way round.
+
+  Found by evaluating §2.3's table against the sample body printed above it.
+
 - **`{{name|default:value}}` now substitutes the default.** The syntax was
   documented in three places — §6.1 as an interpolation form, §9.x and §11.5 as
   what lets a dependent run when its producer succeeded but the JSONPath missed
