@@ -290,7 +290,7 @@ type colorMode int
 
 const (
 	// colorAuto emits colour when the writer is a terminal and NO_COLOR is
-	// unset.
+	// unset or empty.
 	colorAuto colorMode = iota
 	// colorAlways emits colour regardless of TTY state or NO_COLOR — for
 	// piping to a pager that renders escapes, or capturing coloured output in
@@ -336,6 +336,11 @@ func parseColorMode(v string) (colorMode, error) {
 // a standing preference, the flag is a decision made for this invocation, and
 // the more specific one takes precedence — as it does in git, grep and ripgrep.
 //
+// NO_COLOR takes effect when it is set to a non-empty value, whatever that
+// value is (no-color.org). An empty NO_COLOR is not a request for plain output:
+// it is how a caller clears an inherited preference for one command, and it
+// leaves the TTY check to decide.
+//
 // This is the only place the decision is made. Machine formats never reach a
 // terminal printer at all, so `always` cannot put escape codes into a JSON, TAP
 // or JUnit payload.
@@ -346,7 +351,7 @@ func shouldUseColor(w io.Writer, mode colorMode) bool {
 	case colorAlways:
 		return true
 	default:
-		if _, set := os.LookupEnv("NO_COLOR"); set {
+		if os.Getenv("NO_COLOR") != "" {
 			return false
 		}
 		return output.IsTerminal(w)
