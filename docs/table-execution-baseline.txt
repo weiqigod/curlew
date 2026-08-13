@@ -28,7 +28,5 @@ CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
 MANUAL.md	#### Loading the body from a file	Extension | Detected Content-Type (typical)
 MANUAL.md	### 3.2 The precedence ladder	# | Source | Where it lives
 MANUAL.md	#### Where CEL appears	Site | Type | Example
-MANUAL.md	#### Standard activation	Binding | Type | Description
-MANUAL.md	#### Validation error codes	Code | Meaning
 MANUAL.md	### 4.1a Markdown response files	Body type | Rendering
 MANUAL.md	### 5.5 Data-driven testing	Variable | Meaning
