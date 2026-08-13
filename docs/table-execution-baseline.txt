@@ -19,13 +19,10 @@ CLI_SPECIFICATION.md	### 4.3 Glob Discovery	Token | Meaning
 CLI_SPECIFICATION.md	### 4.4 File Reference Resolution	Reference | Resolved relative to
 CLI_SPECIFICATION.md	#### 5.1.2 Request	Variant | Unknown extension
 CLI_SPECIFICATION.md	### 6.2 Precedence	# | Source | Where
-CLI_SPECIFICATION.md	### 10.2 Iteration Variables	Variable | Meaning
 CLI_SPECIFICATION.md	### 10.3 Result Storage	store_results | Retained
 CLI_SPECIFICATION.md	### 11.4 Rejected Constructions	Construction | Why | Exit
 CLI_SPECIFICATION.md	### 11.6 Protocol Constraints	Protocol | Parallelism
 CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
 MANUAL.md	#### Loading the body from a file	Extension | Detected Content-Type (typical)
-MANUAL.md	### 3.2 The precedence ladder	# | Source | Where it lives
 MANUAL.md	#### Where CEL appears	Site | Type | Example
 MANUAL.md	### 4.1a Markdown response files	Body type | Rendering
-MANUAL.md	### 5.5 Data-driven testing	Variable | Meaning

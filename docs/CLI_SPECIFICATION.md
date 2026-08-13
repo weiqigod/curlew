@@ -1084,6 +1084,8 @@ column becomes a variable for that iteration.
 | `{{_index}}` | Zero-based row index |
 | `{{_count}}` | One-based row number |
 | `{{_total}}` | Total rows that will execute |
+| `{{_iteration}}` | One-based row number — alias of `{{_count}}` |
+| `{{_row_number}}` | One-based row number — alias of `{{_count}}` |
 
 ### 10.3 Result Storage
 

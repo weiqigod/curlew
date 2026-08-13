@@ -2770,6 +2770,8 @@ requests:
 | `{{_index}}` | zero-based row index |
 | `{{_count}}` | one-based row number |
 | `{{_total}}` | total rows that will run |
+| `{{_iteration}}` | one-based row number — alias of `{{_count}}` |
+| `{{_row_number}}` | one-based row number — alias of `{{_count}}` |
 
 Plus every column name in the data file.
 
