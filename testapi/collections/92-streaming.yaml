@@ -41,10 +41,18 @@ requests:
 
   - name: a stream delivered over time still completes
     description: |
-      Three events 40ms apart. A client that stopped at the first chunk would
-      return in ~0ms; one that reads to completion takes at least 120. The
-      timing assertion is the only evidence available that the whole stream
-      was consumed, since the content cannot be inspected.
+      Three events 40ms apart: a client that stopped at the first chunk returns
+      in ~0ms, one that reads to completion takes at least 120.
+
+      That distinction is only visible since §11C.6 was fixed. The reported
+      duration used to stop when the headers arrived, so this request measured
+      ~0ms however much body followed and the ceiling below asserted nothing at
+      all. It now covers the read, which makes the ceiling a real bound.
+
+      A ceiling alone cannot prove the stream was consumed — for that see the
+      matching entry in testapi/gaps/expected-failures.yaml, where a 50ms
+      ceiling against a one-second stream must FAIL. The two together are the
+      evidence; this one on its own is a sanity bound.
     request:
       method: GET
       url: "{{mud}}/sse?events=3&ms=40"

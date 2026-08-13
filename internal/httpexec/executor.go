@@ -23,9 +23,12 @@ import (
 // Result holds the outcome of an executed HTTP request.
 type Result struct {
 	StatusCode int
-	Duration   time.Duration
-	Body       []byte
-	Headers    http.Header
+	// Duration spans Do() entry to body fully read — the whole exchange. It is
+	// what `duration_ms` reports and what `timing.max_duration_ms` asserts
+	// against, so it has to include the download (§11C.6).
+	Duration time.Duration
+	Body     []byte
+	Headers  http.Header
 	// Timing carries connection-phase durations measured via net/http/httptrace.
 	// Nil for protocols without phase capture (WebSocket, GraphQL transports
 	// that bypass Execute). Added for events schema v1.3.
@@ -41,10 +44,8 @@ type Timing struct {
 	TLS      time.Duration // TLSHandshakeStart → TLSHandshakeDone
 	TTFB     time.Duration // WroteRequest → GotFirstResponseByte
 	Download time.Duration // GotFirstResponseByte → response body fully read
-	Total    time.Duration // Do() entry → body fully read (note: Result.Duration
-	// is measured around Do() only and excludes body read; its semantics are
-	// unchanged — golden output depends on it)
-	Reused bool // GotConnInfo.Reused
+	Total    time.Duration // Do() entry → body fully read; agrees with Result.Duration
+	Reused   bool          // GotConnInfo.Reused
 }
 
 // Request defines the HTTP request to execute.
@@ -84,8 +85,10 @@ func Execute(ctx context.Context, req *Request) (*Result, error) {
 
 	start := time.Now()
 	resp, err := http.DefaultClient.Do(httpReq)
-	duration := time.Since(start)
 	if err != nil {
+		// Do() returned without a response, so there is no body to wait for and
+		// this is the whole of the exchange.
+		duration := time.Since(start)
 		netErr := apierrors.ClassifyNetworkError(err)
 		netErr.Duration = duration
 		if netErr.Kind == apierrors.NetworkTimeout {
@@ -97,6 +100,14 @@ func Execute(ctx context.Context, req *Request) (*Result, error) {
 	}
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
+	// Measured after the body read, not around Do() alone. Do() returns when the
+	// HEADERS arrive, so the earlier placement excluded the download entirely:
+	// a one-second stream reported 0ms, and `timing.max_duration_ms` — a
+	// documented assertion — could not fail on a slow body (§11C.6). For an
+	// ordinary small response the two are indistinguishable, which is why this
+	// went unnoticed.
+	end := time.Now()
+	duration := end.Sub(start)
 	if err != nil {
 		return nil, classifyBodyError(err, duration)
 	}
@@ -106,7 +117,7 @@ func Execute(ctx context.Context, req *Request) (*Result, error) {
 		Duration:   duration,
 		Body:       body,
 		Headers:    resp.Header,
-		Timing:     trace.finalize(start, time.Now()),
+		Timing:     trace.finalize(start, end),
 	}, nil
 }
 
