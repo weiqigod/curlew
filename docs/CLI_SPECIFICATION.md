@@ -1729,6 +1729,26 @@ decoration and emits one JSON document per run. Ctrl+C exits.
 Convert an OpenAPI 3.x specification into a collection, generating headers,
 request bodies, and status assertions. `--output <file>` sets the destination.
 
+**Self-contained output.** Every `{{variable}}` the import writes into a request
+is also emitted in the collection's own `variables:` block, so the generated file
+runs as generated. Header and query parameters default to empty; a path
+parameter takes its value from the document — a parameter or schema `example`,
+then an `enum` member, then `default`, then the schema's type, with a declared
+`minimum` respected for numbers. Only `base_url` normally needs overriding, and
+it defaults to the first entry in `servers:`.
+
+**3.0 and 3.1.** A document declaring 3.1 is translated into the 3.0 spelling of
+the same meaning before validation:
+
+| 3.1 construct | Treatment |
+|---|---|
+| `type: ["string","null"]` | `type: string` with `nullable: true` |
+| `type: ["string","integer"]` | Type dropped (3.0 cannot express a union) and a warning issued |
+| `info.summary`, `info.license.identifier`, `jsonSchemaDialect` | Dropped; the import does not read them |
+| `webhooks` | Dropped with a warning — a webhook is an inbound callback, so there is no request to generate |
+
+A 3.0 document is passed through untouched.
+
 ### 18.9 `pr-check`
 
 Turn a run's results file into a CI gate. Local only — nothing is transmitted.

@@ -17,8 +17,8 @@
 #   testapi/harness/openapi.sh [--url http://127.0.0.1:8080]
 #
 # Exit codes:
-#   0 — the round trip passed and the recorded gaps are still present
-#   1 — the round trip failed, or a recorded gap has closed (promote it)
+#   0 — the round trip passed, the import is self-contained, and 3.1 imports
+#   1 — any of those failed
 #   2 — usage or setup error
 
 set -euo pipefail
@@ -76,23 +76,58 @@ if [ "$ops" -lt 8 ]; then
 fi
 echo "  imported $ops operations" >&2
 
-# 3. §9.P's acceptance criterion, stated literally: run the import's own output
-#    with nothing added. It does not pass today — a path parameter becomes
-#    {{code}}, and the import emits no variables: entry and no default for it,
-#    so the generated collection cannot run as generated. The failure arrives at
-#    run time rather than at import time.
+# 3. The import must be SELF-CONTAINED: every {{var}} it writes into a request
+#    must also appear in its own variables: block. This was §11C.10 — a path
+#    parameter became {{code}} with no variable and no default, so the generated
+#    collection exited 5 with `undefined variable "code"`, at run time rather
+#    than at import time.
+#
+#    The bare run is not required to PASS here, and that is not a curlew gap:
+#    the document names http://127.0.0.1:8080 as its server while this harness
+#    runs mudflat on another port, so an unaided run reaches nothing. What must
+#    never come back is an undefined variable.
 set +e
 "$CURLEW" run "$WORK/imported.yaml" >"$WORK/bare.log" 2>&1
 bare_code=$?
 set -e
-if [ "$bare_code" -eq 0 ]; then
-  echo >&2
-  echo "  FAILED: the bare import now runs unaided — the gap has CLOSED" >&2
-  echo "    §9.P's criterion is met literally. Delete this block and assert" >&2
-  echo "    exit 0 instead." >&2
+if grep -q 'undefined variable' "$WORK/bare.log"; then
+  echo "  FAILED: the import references a variable it did not define" >&2
+  grep -o 'undefined variable "[^"]*"' "$WORK/bare.log" | head -3 | sed 's/^/      /' >&2
+  echo "    §9.P requires the import's own output to be runnable as generated." >&2
   FAILURES=$((FAILURES + 1))
 else
-  echo "  bare import does not run (exit $bare_code): $(grep -o 'undefined variable "[^"]*"' "$WORK/bare.log" | head -1)" >&2
+  echo "  import is self-contained: no undefined variables (bare exit $bare_code)" >&2
+fi
+
+# 3b. The one variable the document cannot know is which server to talk to.
+#     With ONLY base_url supplied — no --var code — every operation must pass,
+#     which is what makes the path-parameter default real rather than a
+#     placeholder that happens to parse.
+set +e
+"$CURLEW" run "$WORK/imported.yaml" --var "base_url=${MUD_URL}" \
+  --format json >"$WORK/selfrun.json" 2>"$WORK/selfrun.err"
+set -e
+self_verdict="$(python3 -c '
+import json, sys
+try:
+    doc = json.load(open(sys.argv[1]))
+except Exception:
+    print("no-json\t0\t0"); sys.exit(0)
+reqs = doc.get("requests") or []
+print("ok\t%d\t%d" % (len(reqs), sum(1 for r in reqs if r.get("status") == "passed")))
+' "$WORK/selfrun.json")"
+IFS=$'\t' read -r self_state self_total self_passed <<<"$self_verdict"
+if [ "$self_state" != "ok" ] || [ "$self_total" -eq 0 ]; then
+  echo "  FAILED: supplying only base_url produced no results" >&2
+  sed 's/^/      /' "$WORK/selfrun.err" | head -5 >&2
+  FAILURES=$((FAILURES + 1))
+elif [ "$self_passed" -ne "$self_total" ]; then
+  echo "  FAILED: with only base_url supplied, $self_passed of $self_total passed" >&2
+  echo "    The path-parameter default the import chose does not work against" >&2
+  echo "    the server that described it (§11C.10)." >&2
+  FAILURES=$((FAILURES + 1))
+else
+  echo "  self-contained run PASSED: $self_passed of $self_total with only base_url supplied" >&2
 fi
 
 # 4. The round trip proper: supply the server and the path parameter the
@@ -136,12 +171,11 @@ else
   echo "  round trip PASSED: $passed of $total operations, against the server that served the document" >&2
 fi
 
-# 5. Three ordinary OpenAPI 3.1 constructs the importer rejects, although both
-#    docs/CLI_SPECIFICATION.md §18.8 and docs/MANUAL.md promise "OpenAPI 3.x".
-#    Each must still fail; when one starts working, this harness fails and the
-#    entry is deleted.
+# 5. Three ordinary OpenAPI 3.1 constructs. Both docs/CLI_SPECIFICATION.md
+#    §18.8 and docs/MANUAL.md promise "OpenAPI 3.x", and each of these was
+#    refused by a validator applying 3.0 rules (§11C.9). Each must now IMPORT.
 echo >&2
-echo "  --- documents that must still be rejected ---" >&2
+echo "  --- OpenAPI 3.1 constructs that must import ---" >&2
 write_31_doc() {
   local file="$1" info_extra="$2" root_extra="$3" schema="$4"
   cat > "$file" <<JSON
@@ -164,12 +198,17 @@ for name in summary webhooks typearray; do
   "$CURLEW" import openapi "$WORK/$name.json" --output "$WORK/$name.yaml" >"$WORK/$name.log" 2>&1
   code=$?
   set -e
-  if [ "$code" -eq 0 ]; then
-    echo "  UNEXPECTED: 3.1 '$name' now imports — the gap has CLOSED" >&2
-    echo "    Remove it from this list; the importer has caught up with 3.1." >&2
+  if [ "$code" -ne 0 ]; then
+    echo "  FAILED: 3.1 '$name' was rejected — $(sed 's/^.*openapi spec: //' "$WORK/$name.log" | head -1)" >&2
+    echo "    Both documents promise OpenAPI 3.x. See internal/openapi/relax31.go." >&2
+    FAILURES=$((FAILURES + 1))
+  elif ! grep -q '^  - name:' "$WORK/$name.yaml"; then
+    # Importing without error but producing nothing would satisfy the exit code
+    # while leaving the document just as unusable.
+    echo "  FAILED: 3.1 '$name' imported but produced no operations" >&2
     FAILURES=$((FAILURES + 1))
   else
-    echo "  still rejected: $name — $(sed 's/^.*validating openapi spec: //' "$WORK/$name.log" | head -1)" >&2
+    echo "  imported: $name" >&2
   fi
 done
 
@@ -178,4 +217,4 @@ if (( FAILURES )); then
   echo "=== openapi FAILED: $FAILURES check(s) ===" >&2
   exit 1
 fi
-echo "=== openapi PASS: round trip green, recorded gaps still present ===" >&2
+echo "=== openapi PASS: round trip green, import self-contained, 3.1 accepted ===" >&2
