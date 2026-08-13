@@ -226,9 +226,22 @@ func CheckBody(assertions []BodyInput, body []byte) []Result {
 	results := make([]Result, 0, len(assertions))
 	for _, a := range assertions {
 		if parseErr != nil {
+			// A body that is not JSON still has a root, and that root is its
+			// text. Assertions at `$` with a text operator evaluate against it,
+			// so an SSE stream, an HTML error page, a CSV export, XML or plain
+			// text can be asserted on rather than being unreachable by every
+			// mechanism there is (§11C.7).
+			//
+			// Deeper paths stay an error: there is no `$.foo` in a document
+			// that has no structure, and answering "no match at path" would
+			// imply there could have been one.
+			if isRootPath(a.Path) && textBodyOperators[a.Operator] {
+				results = append(results, evalBodyAssertion(a, string(body)))
+				continue
+			}
 			results = append(results, bodyID(a).with(
 				formatExpected(a.Operator, a.Value),
-				"response body is not valid JSON",
+				nonJSONBodyActual(a.Path),
 				false,
 			))
 			continue
@@ -236,6 +249,35 @@ func CheckBody(assertions []BodyInput, body []byte) []Result {
 		results = append(results, evalBodyAssertion(a, doc))
 	}
 	return results
+}
+
+// textBodyOperators are the operators that mean something against raw text.
+// Structural operators (type, contains_all, the numeric comparisons) do not
+// and keep reporting that the body is not JSON.
+var textBodyOperators = map[string]bool{
+	"equals":     true,
+	"contains":   true,
+	"matches":    true,
+	"length":     true,
+	"exists":     true,
+	"not_exists": true,
+}
+
+// isRootPath reports whether path addresses the whole body.
+func isRootPath(path string) bool {
+	p := strings.TrimSpace(path)
+	return p == "$" || p == ""
+}
+
+// nonJSONBodyActual explains the failure and points at the one thing that does
+// work, so the message is a route forward rather than a dead end.
+func nonJSONBodyActual(path string) string {
+	if isRootPath(path) {
+		return "response body is not valid JSON (this operator needs a JSON document; " +
+			"$ with contains, matches, equals or length works on the raw text)"
+	}
+	return fmt.Sprintf("response body is not valid JSON, so %s does not address anything "+
+		"(assert at $ with contains, matches, equals or length to match the raw text)", path)
 }
 
 // EvalInput bundles all inputs for assertion evaluation.

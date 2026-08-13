@@ -831,6 +831,28 @@ expression. Thirteen operators:
 | `approximately` | number | `{ value, tolerance }` — passes when `|actual - value| <= tolerance` |
 | `in_range` | number | `{ min, max }` — inclusive |
 
+**Bodies that are not JSON.** A body that does not parse as JSON still has a
+root, and that root is its text. At `$`, the text operators — `equals`,
+`contains`, `matches`, `length`, `exists`, `not_exists` — evaluate against the
+raw body, so an event stream, an HTML error page, a CSV export, XML, NDJSON or
+plain text can be asserted on:
+
+```yaml
+assertions:
+  body:
+    $: { matches: "(?m)^id: 1$" }
+```
+
+Any other path reports that the body is not JSON: there is no `$.foo` in a
+document with no structure, and answering "no match at path" would imply there
+could have been one. Structural operators at `$` — `type`, `contains_all`, the
+numeric comparisons — report the same, so a permissive fallback cannot quietly
+turn every operator into a pass.
+
+In `cel:`, `response.body` is the decoded document for a JSON body and the raw
+string for anything else, which is what makes the escape hatch usable where the
+operator catalogue runs out.
+
 ### 7.4 Timing
 
 ```yaml

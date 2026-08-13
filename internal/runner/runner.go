@@ -2357,18 +2357,27 @@ func executePhase(
 }
 
 // buildCelResponse converts an httpexec.Result into an apicel.Response for use
-// in CEL if: expressions as `previous`. Body is best-effort JSON decode; nil
-// on parse failure (CEL handles missing-key access gracefully via dyn type).
+// in CEL expressions, both for the current response and as `previous`.
+//
+// response.body is the decoded document when the body is JSON, and the raw text
+// when it is not. It used to be left nil on a parse failure, which made `cel:`
+// — offered as the escape hatch for what the operator catalogue cannot express
+// — useless exactly where the catalogue had already run out:
+// `response.body.contains("id: 1")` against an event stream failed with "no
+// such overload" rather than matching the text sitting right there (§11C.7).
 func buildCelResponse(result *httpexec.Result) *apicel.Response {
 	if result == nil {
 		return nil
 	}
 	var body any
 	if len(result.Body) > 0 {
-		// Best-effort JSON decode; leave nil if the body is not JSON.
 		var decoded any
 		if err := json.Unmarshal(result.Body, &decoded); err == nil {
 			body = decoded
+		} else {
+			// Not JSON: expose the text. CEL binds body as dyn, so string
+			// operations resolve on it.
+			body = string(result.Body)
 		}
 	}
 	return &apicel.Response{

@@ -11260,3 +11260,48 @@ func TestResolveLocale_Precedence(t *testing.T) {
 		})
 	}
 }
+
+// §11C.7, the other half. `cel:` is offered as the escape hatch for what the
+// operator catalogue cannot express, and it was useless exactly where the
+// catalogue had run out: buildCelResponse left the body nil on a parse failure,
+// so response.body was null and response.body.contains("id: 1") failed with
+// "no such overload".
+func TestBuildCelResponse_nonJSONBodyIsExposedAsText(t *testing.T) {
+	const sse = "id: 1\ndata: hello\n\n"
+	got := buildCelResponse(&httpexec.Result{
+		StatusCode: 200,
+		Body:       []byte(sse),
+		Headers:    http.Header{"Content-Type": []string{"text/event-stream"}},
+	})
+	if got == nil {
+		t.Fatal("nil response")
+	}
+	text, ok := got.Body.(string)
+	if !ok {
+		t.Fatalf("Body is %T, want string for a non-JSON body", got.Body)
+	}
+	if text != sse {
+		t.Errorf("Body = %q, want the raw text %q", text, sse)
+	}
+}
+
+func TestBuildCelResponse_jsonBodyStaysDecoded(t *testing.T) {
+	got := buildCelResponse(&httpexec.Result{
+		StatusCode: 200,
+		Body:       []byte(`{"a":1}`),
+	})
+	m, ok := got.Body.(map[string]any)
+	if !ok {
+		t.Fatalf("Body is %T, want a decoded map for a JSON body", got.Body)
+	}
+	if m["a"] != float64(1) {
+		t.Errorf("Body[a] = %v", m["a"])
+	}
+}
+
+func TestBuildCelResponse_emptyBodyStaysNil(t *testing.T) {
+	got := buildCelResponse(&httpexec.Result{StatusCode: 204})
+	if got.Body != nil {
+		t.Errorf("Body = %v, want nil for an empty body", got.Body)
+	}
+}

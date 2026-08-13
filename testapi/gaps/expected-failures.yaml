@@ -222,38 +222,29 @@ requests:
       timing:
         max_duration_ms: 50
 
-  - name: "a response body that is not JSON cannot be asserted on at all"
+  - name: "a structural operator on a text body still fails"
     description: |
-      gap: there is no way to assert on a text body, by any mechanism.
+      expected-failure: this assertion is wrong on purpose, and it marks the
+      boundary of the §11C.7 fix.
 
-      CLI_SPECIFICATION §7.3 says the body is parsed as JSON and each assertion
-      targets a JSONPath — so every operator reports the same thing against a
-      text/event-stream:
+      A body that is not JSON is now assertable at `$` with the text
+      operators — contains, matches, equals, length — and `response.body` in
+      CEL is the raw string. The passing side of that lives in
+      92-streaming.yaml.
 
-        ✗ body $ contains: expected contains id: 1, got response body is not valid JSON
-
-      That much is documented. What is not is that `cel:` — offered as the
-      escape hatch for what the operator catalogue cannot express — does not
-      help either. internal/runner buildCelResponse decodes the body
-      best-effort and leaves it nil on failure, so `response.body` is null and
-      `response.body.contains("id: 1")` fails with "no such overload".
-
-      The consequence is broader than SSE. An HTML error page, a CSV export, an
-      XML SOAP response, plain text, NDJSON — none of it is assertable beyond
-      status and headers. §9.K hit the same wall from the other direction: the
-      500 whose body is an HTML error page has no assertion available either.
-
-      Both assertions below are the natural way to write this, and neither can
-      work today.
+      What must NOT happen is a structural operator quietly starting to pass
+      against text. `type: array` against an event stream is a question about
+      a document that does not exist, and it still reports that the body is
+      not JSON. Without this entry, "assert on text bodies" could drift into
+      "every operator succeeds somehow", which is the failure mode a
+      permissive fallback invites.
     request:
       method: GET
       url: "{{mud}}/sse?events=2&ms=0"
     assertions:
       status: 200
       body:
-        $: { contains: "id: 1" }
-      cel:
-        - 'response.body.contains("id: 1")'
+        $: { type: "array" }
 
   - name: "TLS is unreachable, and the failure is at least legible"
     description: |

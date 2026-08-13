@@ -1262,3 +1262,76 @@ func TestCheckBody_ExistsTrueIsUnchanged(t *testing.T) {
 		t.Error("exists:true on a missing path must fail")
 	}
 }
+
+// §11C.7. CLI_SPECIFICATION §7.3 says the body is parsed as JSON and every
+// assertion targets a JSONPath, so a text/event-stream produced "response body
+// is not valid JSON" for every operator — HTML, CSV, XML, plain text, NDJSON
+// and SSE were assertable only by status and headers.
+//
+// A body that is not JSON still has a root, and that root is its text.
+func TestCheckBody_nonJSONBodyIsAssertableAtRoot(t *testing.T) {
+	const sse = "id: 1\ndata: {\"n\":1}\n\nid: 2\ndata: {\"n\":2}\n\n"
+
+	tests := []struct {
+		name     string
+		input    BodyInput
+		wantPass bool
+	}{
+		{"contains matches the text", BodyInput{Path: "$", Operator: "contains", Value: "id: 1"}, true},
+		{"contains that is absent fails", BodyInput{Path: "$", Operator: "contains", Value: "id: 9"}, false},
+		{"matches a regex", BodyInput{Path: "$", Operator: "matches", Value: `^id: \d`}, true},
+		{"equals the whole body", BodyInput{Path: "$", Operator: "equals", Value: sse}, true},
+		{"length of the text", BodyInput{Path: "$", Operator: "length", Value: len(sse)}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CheckBody([]BodyInput{tt.input}, []byte(sse))
+			if len(got) != 1 {
+				t.Fatalf("results = %d, want 1", len(got))
+			}
+			if got[0].Passed != tt.wantPass {
+				t.Errorf("Passed = %v, want %v (actual: %q)", got[0].Passed, tt.wantPass, got[0].Actual)
+			}
+			if strings.Contains(got[0].Actual, "not valid JSON") {
+				t.Errorf("still reporting the body as unusable: %q", got[0].Actual)
+			}
+		})
+	}
+}
+
+// A deeper path into a body with no structure stays an error — answering "no
+// match at path" would imply there could have been one — but the message now
+// names the way forward.
+func TestCheckBody_nonJSONDeepPathExplainsItself(t *testing.T) {
+	got := CheckBody([]BodyInput{{Path: "$.events[0].id", Operator: "equals", Value: "1"}}, []byte("id: 1\n"))
+	if len(got) != 1 || got[0].Passed {
+		t.Fatalf("expected one failing result, got %+v", got)
+	}
+	if !strings.Contains(got[0].Actual, "not valid JSON") {
+		t.Errorf("actual should still say the body is not JSON: %q", got[0].Actual)
+	}
+	if !strings.Contains(got[0].Actual, "$") {
+		t.Errorf("actual should point at the root as the way to assert on text: %q", got[0].Actual)
+	}
+}
+
+// A structural operator at the root has no meaning against text and must not
+// silently start passing.
+func TestCheckBody_nonJSONStructuralOperatorStillFails(t *testing.T) {
+	got := CheckBody([]BodyInput{{Path: "$", Operator: "type", Value: "array"}}, []byte("id: 1\n"))
+	if len(got) != 1 || got[0].Passed {
+		t.Fatalf("expected a failing result, got %+v", got)
+	}
+	if !strings.Contains(got[0].Actual, "not valid JSON") {
+		t.Errorf("actual = %q", got[0].Actual)
+	}
+}
+
+// A JSON body is unaffected: the root is still the decoded document.
+func TestCheckBody_jsonBodyRootIsStillTheDocument(t *testing.T) {
+	got := CheckBody([]BodyInput{{Path: "$", Operator: "type", Value: "object"}}, []byte(`{"a":1}`))
+	if len(got) != 1 || !got[0].Passed {
+		t.Fatalf("a JSON body's root is no longer the document: %+v", got)
+	}
+}
