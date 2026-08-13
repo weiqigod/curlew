@@ -793,10 +793,16 @@ An assertion group targets `status`, `headers`, `body`, `timing`, `schema`, or
 
 ### 7.1 Status
 
+A single code, or a list of acceptable ones:
+
 ```yaml
 assertions:
-  status: 200                 # exact
-  status: [200, 201, 204]     # any of
+  status: 200
+```
+
+```yaml
+assertions:
+  status: [200, 201, 204]
 ```
 
 ### 7.2 Headers
@@ -1322,8 +1328,25 @@ Four step actions:
 |---|---|
 | `send` | Transmit a payload: `message:` (JSON object), `message_raw:` (literal string), or `message_template:` (external file, interpolated, with optional step-scoped `variables:`) |
 | `expect` | Wait for matching messages. `message:` holds JSONPath assertions; `any_of:` accepts alternative assertion sets; `count:` collects N matches (default 1); `timeout_ms:` bounds the wait; `extract:` binds values from the matched messages |
-| `wait` | Pause for `duration_ms` (not `timeout_ms`, which `wait` ignores) |
+| `wait` | Pause for `duration_ms` |
 | `close` | Close the connection |
+
+**Fields are checked against the action.** Each action reads only its own
+fields, and a step carrying any other — `timeout_ms` on a `wait`, `count` on a
+`close` — is rejected at parse time, naming the field, the action, and where
+that field does belong. Unknown fields are rejected too.
+
+| Action | Fields |
+|---|---|
+| `send` | `message`, `message_raw`, `message_template`, `variables` |
+| `expect` | `message`, `any_of`, `timeout_ms`, `count`, `extract` |
+| `wait` | `duration_ms` |
+| `close` | `code`, `reason` |
+
+A field an action ignores is a mistake, not a no-op. The example above once gave
+`wait` a `timeout_ms`, which decoded cleanly into a field the executor never
+reads, so the documented step paused for zero milliseconds and said nothing —
+and survived being written down twice.
 
 **Extraction under `count`.** With `count: 1` — the default — `extract:` binds
 the value from the matching message. With `count` greater than 1 it binds a

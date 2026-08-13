@@ -514,10 +514,18 @@ Assertions are grouped by what they target: `status`, `headers`, `body`, or `tim
 
 The simplest assertion. Scalar or list form.
 
+An exact match:
+
 ```yaml
 assertions:
-  status: 200                 # exact match
-  status: [200, 201, 204]     # any of these
+  status: 200
+```
+
+Or any of several:
+
+```yaml
+assertions:
+  status: [200, 201, 204]
 ```
 
 Failure:

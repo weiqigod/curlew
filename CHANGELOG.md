@@ -6,7 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **A WebSocket step field that its action ignores is now a parse error.** Each
+  action reads only its own fields — `wait` reads `duration_ms`, `expect` reads
+  `timeout_ms` — and the parser accepted either for any action, decoding into a
+  field the executor never consults. A `wait` given a `timeout_ms` paused for
+  zero milliseconds and said nothing about it, which is how the example in
+  `CLI_SPECIFICATION` §12.3 survived being written down twice. The error names
+  the field, the action, and where that field does belong; unknown fields are
+  rejected too.
+
+  This is what made the documentation checkable. An example can parse cleanly
+  and still describe behaviour the binary does not have, so extending the
+  example test to the specification would not have caught it on its own — the
+  parser had to start refusing the mistake first. Verified with a canary:
+  reintroducing the defect fails the test with the file, the line and the fix.
+
 ### Fixed
+- **Both documents' YAML examples are now executed by a test**, not only the
+  manual's. The specification is written in fragments — a bare `request:`
+  mapping, a bare `assertions:` mapping — so a checker that accepted only whole
+  collections found nothing in it; fragments are wrapped into a collection
+  before parsing, because a snippet the reader is expected to paste under a
+  request must be valid there. 22 examples in the manual and 7 in the
+  specification are checked on every run.
+
+  It immediately found one in each: a duplicate `status:` key, used to show two
+  alternatives in a single block, which is invalid YAML a reader would copy.
+
 - **All ten Phase 3 dogfooding defects, and an eleventh found while fixing
   them.** Each reproduction moved rather than being deleted — a gap that closes
   leaves behind the test that proves it stayed closed.
