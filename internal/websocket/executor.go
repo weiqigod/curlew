@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	gws "github.com/gorilla/websocket"
@@ -76,9 +79,9 @@ func Execute(ctx context.Context, req *parser.Request, scope *variable.Scope, di
 		headers.Set(k, v)
 	}
 
-	conn, _, dialErr := dialer.Dial(ctx, req.URL, headers)
+	conn, dialResp, dialErr := dialer.Dial(ctx, req.URL, headers)
 	if dialErr != nil {
-		result.Err = fmt.Errorf("%w: %w", ErrDialFailed, dialErr)
+		result.Err = describeDialFailure(dialResp, dialErr)
 		result.Duration = time.Since(start)
 		return result
 	}
@@ -519,4 +522,63 @@ func isTimeoutErr(err error) bool {
 		return ne.Timeout()
 	}
 	return false
+}
+
+// describeDialFailure builds the error for a failed WebSocket dial, including
+// the refusing response when there is one.
+//
+// A server that declines an upgrade answers with an ordinary HTTP response, and
+// that response is the only channel it has to explain itself: 426 with a
+// supported-version header, 401 with an auth hint, 403, or a 500 carrying a
+// gateway's error page. gorilla hands that response back alongside
+// ErrBadHandshake — having already read up to 1024 bytes of the body into it —
+// and curlew discarded it, so every refusal produced the single string
+// "websocket dial failed: websocket: bad handshake" and the four cases were
+// indistinguishable (§11C.4).
+//
+// The underlying error is still wrapped, so ErrDialFailed and gorilla's own
+// sentinel both remain matchable.
+func describeDialFailure(resp *http.Response, err error) error {
+	if resp == nil {
+		// No response: connection refused, DNS failure, a malformed URL. There
+		// is nothing to report beyond the cause, and inventing a status here
+		// would be worse than saying nothing.
+		return fmt.Errorf("%w: %w", ErrDialFailed, err)
+	}
+
+	status := strings.TrimSpace(resp.Status)
+	if status == "" {
+		status = strconv.Itoa(resp.StatusCode)
+	}
+	detail := "server refused the upgrade with " + status
+	if body := readDialFailureBody(resp); body != "" {
+		detail += "; body: " + body
+	}
+	return fmt.Errorf("%w: %s (%w)", ErrDialFailed, detail, err)
+}
+
+// dialFailureBodyLimit caps how much of a refusing response is quoted. gorilla
+// has already limited its read to 1024 bytes; this keeps a full HTML error page
+// from burying the status it is attached to.
+const dialFailureBodyLimit = 512
+
+// readDialFailureBody returns the refusing response's body as a single line,
+// truncated for display. An unreadable or empty body yields "", which keeps the
+// message from announcing a body that is not there.
+func readDialFailureBody(resp *http.Response) string {
+	if resp.Body == nil {
+		return ""
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, dialFailureBodyLimit+1))
+	_ = resp.Body.Close()
+	if err != nil && len(raw) == 0 {
+		return ""
+	}
+	// An error page is often multi-line; a one-line message stays greppable in
+	// CI output.
+	body := strings.Join(strings.Fields(string(raw)), " ")
+	if len(body) > dialFailureBodyLimit {
+		body = body[:dialFailureBodyLimit] + "…"
+	}
+	return body
 }

@@ -150,3 +150,38 @@ func TestExecute_realGorillaDialer_DialFailure(t *testing.T) {
 		t.Fatal("expected dial failure")
 	}
 }
+
+// TestExecute_realDialerReportsRefusedUpgrade exercises the real gorilla
+// dialer against a server that refuses the upgrade (§11C.4). The unit tests
+// use a fake dialer, but the discarded value came from gorilla itself — so the
+// path that actually mattered is only covered here.
+func TestExecute_realDialerReportsRefusedUpgrade(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Sec-WebSocket-Version", "13")
+		w.WriteHeader(http.StatusUpgradeRequired)
+		_, _ = w.Write([]byte(`{"error":"Upgrade Required","detail":"refused on purpose"}`))
+	}))
+	defer srv.Close()
+
+	req := &parser.Request{
+		Protocol: "websocket",
+		Method:   "WS",
+		URL:      "ws" + strings.TrimPrefix(srv.URL, "http"),
+		WebSocket: &parser.WebSocketConfig{
+			Steps: []parser.WebSocketStep{{Action: "expect", TimeoutMs: 500}},
+		},
+	}
+	result := Execute(context.Background(), req, variable.NewScope(nil), nil)
+
+	if result.Passed {
+		t.Fatal("a refused upgrade reported success")
+	}
+	msg := result.Err.Error()
+	if !strings.Contains(msg, "426") {
+		t.Errorf("message does not name the status: %q", msg)
+	}
+	if !strings.Contains(msg, "refused on purpose") {
+		t.Errorf("message does not carry the server's explanation: %q", msg)
+	}
+}

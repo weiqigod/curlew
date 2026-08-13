@@ -117,26 +117,37 @@ requests:
         $.data: { exists: true }
         $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }
 
-  - name: "a refused WebSocket upgrade loses its status and its body"
+  - name: "a refused WebSocket upgrade reports its status and its body"
     description: |
-      gap: a non-101 upgrade response is reported as "bad handshake" and
-      nothing else.
+      expected-failure: a refused upgrade cannot succeed, and should not. What
+      this checks is what the failure message PRINTS.
 
-      /ws/reject answers 426 Upgrade Required with a JSON body explaining
-      itself. curlew reports:
+      This was §11C.4. /ws/reject answers 426 Upgrade Required with a JSON body
+      explaining itself, and curlew reported only:
 
         websocket dial failed: websocket: bad handshake
 
-      No status code, no body, no headers. 426, 401, 403 and 500 are
+      No status, no body, no headers — so 426, 401, 403 and 500 were
       indistinguishable, and the one thing a server can do to explain a refused
-      upgrade — put it in the response — is discarded.
+      upgrade was discarded. gorilla hands the response back alongside
+      ErrBadHandshake, having already read up to 1024 bytes of the body into
+      it; the dialer threw it away with `conn, _, err :=`.
 
-      §9.L predicted the shape: "a refused upgrade produces a legible error
-      naming the status". The dialer has the response; it is thrown away before
-      the message is built.
+      It now reports:
 
-      This is the same class as §11A.3: the failure is correct, the diagnosis
-      is not.
+        websocket dial failed: server refused the upgrade with 426 Upgrade
+        Required; body: { "detail": "this endpoint refuses every upgrade on
+        purpose", "error": "Upgrade Required", "note": "a client should report
+        the 426 and this body, not a bare dial failure" }
+        (websocket: bad handshake)
+
+      — which is the endpoint's own stated acceptance criterion, quoted back
+      from the body it sends. §9.L asked for "a legible error naming the
+      status"; that is now what arrives.
+
+      The request stays here inverted: it still fails, but the failure is now
+      diagnosable. A gap that closes leaves behind the test that proves it
+      stayed closed.
     request:
       protocol: websocket
       url: "{{ws}}/ws/reject"

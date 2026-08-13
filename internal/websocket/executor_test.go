@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -121,6 +122,7 @@ func (e *timeoutError) Temporary() bool { return true }
 type fakeDialer struct {
 	conn     Conn
 	dialErr  error
+	dialResp *http.Response
 	lastURL  string
 	lastHdrs http.Header
 }
@@ -129,7 +131,7 @@ func (f *fakeDialer) Dial(_ context.Context, url string, headers http.Header) (C
 	f.lastURL = url
 	f.lastHdrs = headers
 	if f.dialErr != nil {
-		return nil, nil, f.dialErr
+		return nil, f.dialResp, f.dialErr
 	}
 	return f.conn, nil, nil
 }
@@ -954,5 +956,82 @@ func TestExecute_BufferWarningSurfaced(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("warnings = %v, want one containing 'buffer'", result.Warnings)
+	}
+}
+
+// §11C.4. gorilla returns the *http.Response alongside ErrBadHandshake — and
+// reads up to 1024 bytes of the body into it before doing so. curlew discarded
+// it, so 426, 401, 403 and 500 all produced one string and the one thing a
+// server can do to explain a refused upgrade was thrown away.
+func TestExecute_RefusedUpgradeReportsStatusAndBody(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusUpgradeRequired,
+		Status:     "426 Upgrade Required",
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"error":"this endpoint refuses upgrades on purpose"}`)),
+	}
+	dialer := &fakeDialer{dialErr: gws.ErrBadHandshake, dialResp: resp}
+
+	req := newTestRequest(parser.WebSocketStep{Action: "expect", TimeoutMs: 100})
+	result := Execute(context.Background(), req, variable.NewScope(nil), dialer)
+
+	if result.Err == nil {
+		t.Fatal("a refused upgrade produced no error")
+	}
+	msg := result.Err.Error()
+	if !errors.Is(result.Err, ErrDialFailed) {
+		t.Errorf("error does not wrap ErrDialFailed: %v", result.Err)
+	}
+	// The status is the whole point: without it the caller cannot tell a 426
+	// from a 401.
+	if !strings.Contains(msg, "426") {
+		t.Errorf("message does not name the status: %q", msg)
+	}
+	// The server's explanation must survive too.
+	if !strings.Contains(msg, "refuses upgrades on purpose") {
+		t.Errorf("message does not carry the response body: %q", msg)
+	}
+}
+
+// A dial failure with no response at all — connection refused, bad URL — must
+// still produce the plain message and must not invent a status.
+func TestExecute_DialFailureWithoutResponseIsUnchanged(t *testing.T) {
+	dialer := &fakeDialer{dialErr: errors.New("dial tcp 127.0.0.1:1: connect: connection refused")}
+
+	req := newTestRequest(parser.WebSocketStep{Action: "expect", TimeoutMs: 100})
+	result := Execute(context.Background(), req, variable.NewScope(nil), dialer)
+
+	if result.Err == nil {
+		t.Fatal("no error")
+	}
+	msg := result.Err.Error()
+	if !strings.Contains(msg, "connection refused") {
+		t.Errorf("message lost the cause: %q", msg)
+	}
+	if strings.Contains(msg, "HTTP") || strings.Contains(msg, "status") {
+		t.Errorf("message invented a status where there was no response: %q", msg)
+	}
+}
+
+// A refused upgrade whose body is empty must name the status and say nothing
+// misleading about a body that does not exist.
+func TestExecute_RefusedUpgradeWithEmptyBody(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Status:     "401 Unauthorized",
+		Header:     http.Header{},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}
+	dialer := &fakeDialer{dialErr: gws.ErrBadHandshake, dialResp: resp}
+
+	req := newTestRequest(parser.WebSocketStep{Action: "expect", TimeoutMs: 100})
+	result := Execute(context.Background(), req, variable.NewScope(nil), dialer)
+
+	msg := result.Err.Error()
+	if !strings.Contains(msg, "401") {
+		t.Errorf("message does not name the status: %q", msg)
+	}
+	if strings.Contains(msg, "body:") {
+		t.Errorf("message announces a body it does not have: %q", msg)
 	}
 }
