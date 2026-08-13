@@ -584,13 +584,15 @@ expansion both honour it.
 | Form | Meaning |
 |---|---|
 | `{{user_id}}` | Simple reference |
-| `{{user.id}}` | Dotted reference |
 | `{{user_id\|default:123}}` | Reference with fallback if undefined |
 | `{{$uuid}}` | Dynamic function (§6.5) — `$` prefix |
 | `{{secrets.NAME}}` | Shared vault template alias (§13.5) |
 
 Note what does **not** match: `{user_id}` (single braces) and `{{ user_id }}`
-(interior spaces). Both pass through as literal text.
+(interior spaces). Both pass through as literal text. A plain reference name is
+`[a-zA-Z_][a-zA-Z0-9_]*` — dots are not part of it, so `{{user.id}}` is literal
+text too. The only dotted forms are the two above, `$`-prefixed functions and
+`secrets.` aliases, each resolved by its own namespace.
 
 Interpolation applies to method, URL, headers, query parameters, body, assertion
 expected values, and `body_file` contents. It does not apply to

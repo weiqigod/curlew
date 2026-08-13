@@ -20,8 +20,33 @@ import (
 	"strings"
 )
 
-// Dir is the documentation directory, relative to a package under internal/.
-const Dir = "../../docs"
+// Dir is the documentation directory.
+//
+// It is found by walking up from the test's working directory rather than
+// written as a fixed number of "../" steps: packages sit at varying depths —
+// internal/retry is two below the root and internal/plugin/hooks is three — and
+// a constant path silently stops resolving for the first test written one level
+// deeper than the last.
+var Dir = findDocsDir()
+
+func findDocsDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "docs"
+	}
+	for i := 0; i < 12; i++ {
+		candidate := filepath.Join(dir, "docs")
+		if _, statErr := os.Stat(filepath.Join(candidate, "MANUAL.md")); statErr == nil {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "docs"
+}
 
 // Table finds the first markdown table in the named document whose header row
 // contains every cell in headerCells, and returns that header and the rows
@@ -56,6 +81,16 @@ func Table(doc string, headerCells ...string) (header []string, rows [][]string,
 		return cells, rows, nil
 	}
 	return nil, nil, fmt.Errorf("no table in %s with header cells %v", path, headerCells)
+}
+
+// ReadDoc returns a document's full text, for the prose claims that sit beside
+// a table and count it.
+func ReadDoc(doc string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(Dir, doc))
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", doc, err)
+	}
+	return string(data), nil
 }
 
 // Data is one table: where it is, its header, and its rows.
@@ -139,15 +174,42 @@ func rowsAt(doc string, headerLine int) ([][]string, error) {
 	return rows, nil
 }
 
-// SplitRow splits one markdown table row into trimmed, backtick-stripped cells.
+// SplitRow splits one markdown table row into trimmed cells, unwrapping the
+// backticks around a cell that is entirely code.
+//
+// Only a cell that both starts and ends with a backtick is unwrapped. Trimming
+// backticks off either end unconditionally mangles the common case of code
+// followed by prose — "`exponential` (default)" would lose its opening backtick
+// and keep its closing one, leaving `exponential“ for the next reader to strip.
 func SplitRow(line string) []string {
 	trimmed := strings.Trim(strings.TrimSpace(line), "|")
 	parts := strings.Split(trimmed, "|")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
-		out = append(out, strings.Trim(strings.TrimSpace(p), "`"))
+		cell := strings.TrimSpace(p)
+		if len(cell) >= 2 && strings.HasPrefix(cell, "`") && strings.HasSuffix(cell, "`") {
+			cell = strings.Trim(cell, "`")
+		}
+		out = append(out, cell)
 	}
 	return out
+}
+
+// FirstName returns the name a cell leads with: the contents of its first
+// backtick span, or its first word when it has none. Table cells name things
+// in both styles — "`exponential` (default)", "terminal" — and every check that
+// reads a name out of a column wants the same answer for both.
+func FirstName(cell string) string {
+	if i := strings.Index(cell, "`"); i >= 0 {
+		if j := strings.Index(cell[i+1:], "`"); j >= 0 {
+			return cell[i+1 : i+1+j]
+		}
+	}
+	name := cell
+	if i := strings.IndexAny(cell, " |"); i > 0 {
+		name = cell[:i]
+	}
+	return strings.Trim(name, "`")
 }
 
 // Column returns the index of the named header cell, or -1. Looking columns up

@@ -708,9 +708,12 @@ The expressions you will use most:
 | `$.tags` | `["urgent", "review"]` |
 | `$.tags[0]` | `"urgent"` |
 | `$.items[0].sku` | `"A"` |
-| `$.items[*].sku` | `["A", "B"]` (all skus) |
-| `$..sku` | `["A", "B"]` (recursive — any `sku` at any depth) |
 | `$.items.length` | use the `length:` operator instead |
+
+Two pieces of JSONPath that other tools support are **not** implemented:
+`$.items[*].sku` (wildcard across an array) and `$..sku` (recursive descent).
+Both are rejected as invalid paths. Address elements by index — `$.items[0].sku`
+— or assert on the array itself with `length:`, `contains:` or `contains_all:`.
 
 Three worked assertions against the response above:
 
@@ -721,8 +724,8 @@ assertions:
       equals: "widget-42"
     $.owner.email:
       matches: "@example\\.com$"
-    $.items[*].sku:
-      contains_all: ["A", "B"]
+    $.items[0].sku:
+      equals: "A"
 ```
 
 ### 2.4 Extracting values into variables
@@ -1020,7 +1023,7 @@ Curlew accepts an optional `output:` block at two levels: in `curlew.yaml` (proj
 
 | Field       | YAML type | Values                                     | Default    |
 |-------------|-----------|---------------------------------------------|------------|
-| `format`    | string    | `terminal`, `json`, `tap`, `junit`, `html`  | `terminal` |
+| `format`    | string    | `terminal`, `json`, `tap`, `junit`, `html`, `markdown` | `terminal` |
 | `report`    | string    | file path (non-empty)                       | _(none)_   |
 | `events`    | string    | file path (non-empty)                       | _(none)_   |
 | `verbosity` | string    | `quiet`, `normal`, `verbose`, `debug`       | `normal`   |

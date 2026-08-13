@@ -1511,6 +1511,37 @@ across eleven tables is accepted by a parser, and the dynamic-function tables
 are complete in both directions — no documented function is missing from the
 registry, and no registered function is missing a row.
 
+**Paying the register down** found two more, both in the same family: a table
+describing a feature that was documented, referenced elsewhere as though it
+worked, and never finished.
+
+**`{{name|default:value}}` never substituted anything.** §6.1 lists it as an
+interpolation form and §11.5 builds a whole row of its skip matrix on it — "the
+default covers the narrower case where the producer succeeded but its JSONPath
+did not resolve". The scanner in `internal/parallel` recognised the form, in
+order to read the dependency name out of it; the runner used it to decide
+skip-versus-run. Nothing put the value in. The dependent ran, as documented, and
+sent `http://host/{{user_id|default:FALLBACK}}` to the server. A reference that
+cannot resolve is supposed to exit 5; this one reached the network looking like
+a success.
+
+**§6.1's dotted reference does not exist.** A plain reference name is
+`[a-zA-Z_][a-zA-Z0-9_]*` and dots are not in it, so `{{user.id}}` was literal
+text with no error. Removed, with the prose beneath now naming the dotted forms
+that are real.
+
+**The JSONPath tutorial taught syntax the engine rejects.** §2.3 says "this
+section is all you need" and then lists `$.items[*].sku` and `$..sku` — wildcard
+and recursive descent — which come back as invalid paths. The worked example
+below the table used the wildcard as well, so the tutorial's own assertion fails
+when copied. The section now states what is unimplemented; a test pins that in
+both directions, so building either form fails the build rather than leaving the
+manual wrong the other way round.
+
+Both are the shape §11C.12 was about, one level deeper: not a table nobody
+checked, but a table nobody could check, because the feature it described was
+finished everywhere except where it mattered.
+
 ### What came out affirmative
 
 Worth as much as the defects, because each replaces an assumption with evidence:
