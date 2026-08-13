@@ -2036,6 +2036,8 @@ The schema describes structure, not cross-field constraints: mutual exclusions
 
 ## Appendix B — Deliberately Absent Surfaces
 
+<!-- doc-check: ignore-names -->
+
 The following appear in [SPECIFICATION.md](SPECIFICATION.md), which describes the
 platform as designed, and are **not** part of the CLI. They are listed so that a
 reader arriving from that document knows the omission is intentional rather than

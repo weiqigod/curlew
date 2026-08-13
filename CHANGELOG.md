@@ -7,6 +7,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Prose is now held to the binary by the names it uses.** A sentence cannot be
+  executed, but almost every prose claim worth making names something concrete —
+  a command, a flag, an environment variable — and a name is checkable even when
+  the sentence is not. Every `curlew <command>`, every `--flag` on a line naming
+  curlew, and every `CURLEW_*` variable in the manual and the specification must
+  now exist in the binary or be read by the source.
+
+  This targets drift the project has actually suffered rather than a
+  hypothetical: the licensing and backend strips removed `curlew license`,
+  `curlew login`, `curlew worker`, `--workers`, `--report-upload` and every
+  `CURLEW_BACKEND_*` variable, and M21-002 was four manual surfaces still
+  describing the removed backend, found by reading months later.
+
+  Sections that name removed things on purpose carry an explicit
+  `<!-- doc-check: ignore-names -->` marker. A marker cannot outlive the next
+  heading, so none can blanket a document, and their total is capped so the
+  checks cannot be hollowed out a section at a time.
+
+  It found a live defect at once: the manual documented
+  `--color={auto|always|never}` with three worked examples and called
+  `--no-color` an alias for `--color=never`. **No `--color` flag exists** — the
+  binary answers `unknown flag: --color=never`. The section now describes what
+  ships, including that `NO_COLOR` disables on presence even when empty, which
+  is stricter than no-color.org specifies.
+
+- **`help_parity_test.go` now sees flags accepted outside a switch.** It derived
+  the accepted set from `case "--flag":` clauses alone, so `--clear` on
+  `curlew watch` — accepted by an `if` — was invisible to it.
+
 - **The documents' behavioural tables are now executed, not just written.** A
   document states things about the binary in three ways — examples, tables and
   prose — and only examples were checked. A table is not a snippet: no parser

@@ -2104,23 +2104,26 @@ Verbosity affects the terminal format only. Machine formats
 (`json`/`tap`/`junit`/`markdown`/`html`) have their own well-defined
 shapes that do not change with `-v` / `-vv`.
 
-**Color control.** `--color={auto|always|never}` governs ANSI escape
-sequences. The default `auto` honours the [NO_COLOR](https://no-color.org)
-environment variable and disables colour when stderr is not a TTY:
+**Color control.** Colour is on when stderr is a TTY and off otherwise. Two
+things turn it off explicitly:
 
 ```bash
-curlew run collections/users.yaml                    # auto: colour if stderr is a TTY
-curlew run collections/users.yaml --color=never      # plain text
-curlew run collections/users.yaml --color=always     # force on (pipe to less -R)
-NO_COLOR=1 curlew run collections/users.yaml        # any non-empty value disables
-curlew run collections/users.yaml --no-color        # alias for --color=never
+curlew run collections/users.yaml                   # colour if stderr is a TTY
+curlew run collections/users.yaml --no-color        # plain text
+NO_COLOR= curlew run collections/users.yaml         # set at all, any value, disables
 ```
 
+There is no `--color=always`: colour cannot be forced on when stderr is not a
+TTY.
+
+`NO_COLOR` disables colour whenever the variable is **set**, including when it
+is set to the empty string. [no-color.org](https://no-color.org) specifies
+presence *and a non-empty value*, so this is stricter than the convention.
+
 Colour is **never** emitted on stdout when `--format` is non-terminal
-(`json`/`tap`/`junit`/`markdown`/`html`), regardless of TTY or `--color`
-value. A piped consumer never sees escape codes in its payload. Colour
-on stderr follows the TTY/`NO_COLOR` rules independently of stdout's
-format.
+(`json`/`tap`/`junit`/`markdown`/`html`), regardless of TTY. A piped consumer
+never sees escape codes in its payload. Colour on stderr follows the
+TTY/`NO_COLOR` rules independently of stdout's format.
 
 ### 4.2b Running a Single Request (--only)
 
@@ -3170,6 +3173,8 @@ requests:
 **Sensitive-secret footgun:** when `secret_key` is a literal string (no `{{var}}` reference), the resolved value is **not** added to the sensitive set — there is no source variable to back-trace. Always prefer variable references for credential params. This mirrors the `$hmacSha256` documentation in §3.7.
 
 ### 6.9 No account, no backend
+
+<!-- doc-check: ignore-names -->
 
 Curlew is entirely local. There is no `curlew login`, no account, and no service it
 reports to. The only network traffic it generates is the HTTP requests your collections

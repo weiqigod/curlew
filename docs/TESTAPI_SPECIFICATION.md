@@ -1418,9 +1418,47 @@ Turning the checks on found one more: both documents said "Thirteen operators"
 above a table of **fourteen** — a prose claim contradicting the very list it
 introduces. The count is now checked against the table it precedes.
 
-What is still unguarded is ordinary prose. A sentence that describes behaviour
-has no structure to hold it to, and the three mechanisms here — parse the
-examples, execute the tables, count the lists — do not reach it.
+### 11C.13 Prose named things that no longer existed
+
+The last of the three surfaces, and the one this project has actually been
+burned by. A sentence cannot be executed — but almost every prose claim worth
+making **names** something concrete, and a name is checkable even when the
+sentence around it is not.
+
+The drift is not hypothetical. The licensing strip removed `curlew license`;
+the backend strip removed `curlew login`, `curlew worker`, `--workers`,
+`--report-upload` and every `CURLEW_BACKEND_*` variable; M21-002 was four
+`MANUAL.md` surfaces still describing the removed backend, found by reading,
+months later. Every one left prose naming something that no longer existed, and
+nothing failed.
+
+**Fixed** by checking the names: every `curlew <command>`, every `--flag` on a
+line that names curlew, and every `CURLEW_*` variable in `MANUAL.md` and
+`CLI_SPECIFICATION.md` must exist in the binary or be read by the source.
+`CHANGELOG.md` and this document are excluded, because both discuss removed and
+unbuilt things deliberately.
+
+Sections that name removed things *on purpose* — the specification's
+"Deliberately Absent Surfaces" appendix, the manual's "No account, no backend"
+— carry an explicit `<!-- doc-check: ignore-names -->` marker. A marker cannot
+outlive the next heading, so none can blanket a document, and their total is
+capped so the checks cannot be hollowed out a section at a time.
+
+Turning it on found a live defect immediately: the manual documented
+`--color={auto|always|never}` with three worked examples and called `--no-color`
+"an alias for `--color=never`". **No `--color` flag exists** — the binary
+answers `unknown flag: --color=never`. Only `--no-color` and `NO_COLOR` ship,
+and `NO_COLOR` disables on presence even when empty, which is stricter than
+no-color.org specifies. The section now describes what ships.
+
+It also exposed a hole in an existing test: `help_parity_test.go` derived the
+accepted flag set from `case "--flag":` clauses only, so `--clear` — accepted by
+an `if` on `curlew watch` — was invisible to it. The extractor now reads both.
+
+What remains unguarded is a sentence that names nothing: a behavioural claim
+with no command, flag or variable in it. The three mechanisms — parse the
+examples, execute the tables, check the names — do not reach it, and nothing
+here pretends otherwise.
 
 ### What came out affirmative
 
