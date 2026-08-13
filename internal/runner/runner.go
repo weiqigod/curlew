@@ -3223,31 +3223,40 @@ func checkDataDrivenFailure(results []RequestResult, checkRequired, stopOnFailur
 // filterDataDrivenResults applies store_results policy to data-driven request results.
 // Must be called AFTER checkDataDrivenFailure so failure detection is unaffected.
 //   - "all": returns results unchanged
-//   - "summary": strips Result, AssertionResults, RequestHeaders, and RequestBody
-//     from all iterations, keeping only Name/Phase/Err and data-driven metadata
+//   - "summary": strips Result, RequestHeaders, RequestBody and the individual
+//     assertion outcomes from all iterations, keeping Name/Phase/Err, the
+//     data-driven metadata, and each iteration's pass/fail verdict
 //   - "failed_only": keeps full details only for failed iterations; strips details
 //     from passed iterations
+//
+// §10.3 heads the column "Retained": a policy decides what a finished run keeps,
+// never what the run was. Summary once dropped AssertionResults outright, and
+// computeSummary reads exactly that field to count failures — so a run whose
+// iteration failed its assertions reported "3 passed, 0 failed" and exited 0.
+// The verdict is retained without its detail, which is what "aggregate counts
+// only" means.
 func filterDataDrivenResults(results []RequestResult, policy string) []RequestResult {
 	switch policy {
 	case datadriven.StoreSummary:
 		out := make([]RequestResult, len(results))
 		for i, r := range results {
 			out[i] = RequestResult{
-				Name:           r.Name,
-				Phase:          r.Phase,
-				Method:         r.Method,
-				URL:            r.URL,
-				Err:            r.Err,
-				Skipped:        r.Skipped,
-				SkipReason:     r.SkipReason,
-				WaveIndex:      r.WaveIndex,
-				IsDataDriven:   r.IsDataDriven,
-				DataDrivenName: r.DataDrivenName,
-				IterationIndex: r.IterationIndex,
-				IterationTotal: r.IterationTotal,
-				IterationData:  r.IterationData,
-				SourceFile:     r.SourceFile,
-				SourceLine:     r.SourceLine,
+				Name:             r.Name,
+				Phase:            r.Phase,
+				Method:           r.Method,
+				URL:              r.URL,
+				Err:              r.Err,
+				AssertionResults: verdictOnly(r.AssertionResults),
+				Skipped:          r.Skipped,
+				SkipReason:       r.SkipReason,
+				WaveIndex:        r.WaveIndex,
+				IsDataDriven:     r.IsDataDriven,
+				DataDrivenName:   r.DataDrivenName,
+				IterationIndex:   r.IterationIndex,
+				IterationTotal:   r.IterationTotal,
+				IterationData:    r.IterationData,
+				SourceFile:       r.SourceFile,
+				SourceLine:       r.SourceLine,
 			}
 		}
 		return out
@@ -3281,6 +3290,16 @@ func filterDataDrivenResults(results []RequestResult, policy string) []RequestRe
 	default: // StoreAll or unrecognized
 		return results
 	}
+}
+
+// verdictOnly reduces assertion results to whether they passed, dropping the
+// per-assertion detail. Nil in, nil out: an iteration with no assertions had no
+// verdict to keep.
+func verdictOnly(ar *assertion.Results) *assertion.Results {
+	if ar == nil {
+		return nil
+	}
+	return &assertion.Results{Passed: ar.Passed}
 }
 
 // computeSummary populates s from all results across all phases.
