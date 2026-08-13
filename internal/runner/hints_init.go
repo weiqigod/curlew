@@ -22,5 +22,14 @@ func init() {
 				Hint:     "Pass --only <name> with a name that matches one of the available main requests. --only does not target setup or teardown items.",
 			},
 		},
+		apierrors.RegisteredError{
+			Name: "ErrLargeDataset",
+			Err:  ErrLargeDataset,
+			Hint: apierrors.ClassifiedHint{
+				Category: apierrors.CategoryInput,
+				Code:     "DATASET_TOO_LARGE",
+				Hint:     "Pass --confirm-large-dataset to run every row, or set store_results: summary|failed_only to bound what the run retains.",
+			},
+		},
 	)
 }

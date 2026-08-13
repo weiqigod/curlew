@@ -58,6 +58,87 @@ func Table(doc string, headerCells ...string) (header []string, rows [][]string,
 	return nil, nil, fmt.Errorf("no table in %s with header cells %v", path, headerCells)
 }
 
+// Data is one table: where it is, its header, and its rows.
+type Data struct {
+	Ref    TableRef
+	Header []string
+	Rows   [][]string
+}
+
+// AllTables returns every table in the document whose header contains
+// headerCells, rather than only the first.
+//
+// Some claims are made by a family of tables rather than by one: the manual
+// lists dynamic functions across twelve tables split by category. A test that
+// reads only the first is a test that stops noticing the moment someone adds a
+// thirteenth, so the reader takes the whole family and the inventory credits
+// every table it returns.
+func AllTables(doc string, headerCells ...string) ([]Data, error) {
+	refs, err := Inventory(doc)
+	if err != nil {
+		return nil, err
+	}
+	var out []Data
+	for _, r := range refs {
+		if !containsAll(r.Header, headerCells) {
+			continue
+		}
+		rows, rowErr := rowsAt(doc, r.Line)
+		if rowErr != nil {
+			return nil, rowErr
+		}
+		out = append(out, Data{Ref: r, Header: r.Header, Rows: rows})
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no table in %s with header cells %v", doc, headerCells)
+	}
+	return out, nil
+}
+
+// TableUnder is Table scoped to one part of the document: it returns the first
+// matching table whose heading or introducing prose line contains where.
+//
+// Several tables often share a header — the manual lists `Flag | Meaning` for
+// `curlew exec`, `curlew ui` and performance testing — and Table would always
+// hand back the first of them. Naming the section is how a test says which one
+// it means without hard-coding a line number that the next edit invalidates.
+func TableUnder(doc, where string, headerCells ...string) (header []string, rows [][]string, err error) {
+	refs, err := Inventory(doc)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, r := range refs {
+		if !r.Under(where) || !containsAll(r.Header, headerCells) {
+			continue
+		}
+		rows, err = rowsAt(doc, r.Line)
+		if err != nil {
+			return nil, nil, err
+		}
+		return r.Header, rows, nil
+	}
+	return nil, nil, fmt.Errorf("no table in %s under %q with header cells %v", doc, where, headerCells)
+}
+
+// rowsAt reads the body rows of the table whose header is at the given 1-based
+// line.
+func rowsAt(doc string, headerLine int) ([][]string, error) {
+	data, err := os.ReadFile(filepath.Join(Dir, doc))
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", doc, err)
+	}
+	lines := strings.Split(string(data), "\n")
+	var rows [][]string
+	// headerLine is 1-based; the line after the header is the |---| separator.
+	for _, r := range lines[headerLine+1:] {
+		if !strings.HasPrefix(strings.TrimSpace(r), "|") {
+			break
+		}
+		rows = append(rows, SplitRow(r))
+	}
+	return rows, nil
+}
+
 // SplitRow splits one markdown table row into trimmed, backtick-stripped cells.
 func SplitRow(line string) []string {
 	trimmed := strings.Trim(strings.TrimSpace(line), "|")

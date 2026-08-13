@@ -127,6 +127,7 @@ You do **not** need to know Go or the Curlew source code to work through this ma
 
 The manual is written to be read straight through, but it is also structured to be sliced:
 
+<!-- doc-check: table-not-executable a reading route through the manual, not a claim about the binary -->
 | If you are … | Read |
 |---|---|
 | A developer kicking the tires | Parts 1–3 |
@@ -877,6 +878,7 @@ curlew run collections/users.yaml --env staging --var region=eu-west-1
 
 The effective scope for the run is:
 
+<!-- doc-check: table-not-executable the worked outcome of the ladder above it, whose rule is executed by the precedence tests -->
 | Variable | Value | Came from |
 |---|---|---|
 | `base_url` | `https://staging.api.example.com` | env file (beats project) |
@@ -1097,16 +1099,24 @@ Dynamic functions generate values at request time. Syntax: `{{$functionName}}`.
 
 | Function | Returns | Example (seed 42) |
 |---|---|---|
-| `{{$faker.firstName}}` | First name from a 50-name en-US pool | `Carol` |
-| `{{$faker.lastName}}` | Last name from a 49-name en-US pool | `Johnson` |
-| `{{$faker.fullName}}` | `<firstName> <lastName>` joined by a single ASCII space | `Carol Johnson` |
-| `{{$faker.username}}` | `<lower(first)>.<lower(last)><0-99>` — matches `^[a-z0-9._]+$` | `carol.johnson42` |
-| `{{$faker.email}}` | `<lower(first)>.<lower(last)>@example.com` | `carol.johnson@example.com` |
-| `{{$faker.phone}}` | US format `(NNN) NNN-NNNN` | `(642) 837-5291` |
-| `{{$faker.phoneInternational}}` | E.164-shape `+1-NNN-NNN-NNNN` (en-US only in M13) | `+1-642-837-5291` |
-| `{{$faker.ssn}}` | US SSN `NNN-NN-NNNN` — **auto-sensitive**, redacted as `[REDACTED]` in JSON/markdown output | `347-82-1924` |
-| `{{$faker.namePrefix}}` | One of `Mr.`, `Mrs.`, `Ms.`, `Dr.`, `Prof.` | `Dr.` |
-| `{{$faker.nameSuffix}}` | One of `Jr.`, `Sr.`, `II`, `III`, `IV`, `PhD`, `MD`, `Esq.` | `PhD` |
+| `{{$faker.firstName}}` | First name from a 50-name en-US pool | `Tom` |
+| `{{$faker.lastName}}` | Last name from a 49-name en-US pool | `Bell` |
+| `{{$faker.fullName}}` | `<firstName> <lastName>` joined by a single ASCII space | `Tom Edwards` |
+| `{{$faker.username}}` | `<lower(first)>.<lower(last)><0-99>` — matches `^[a-z0-9._]+$` | `tom.edwards34` |
+| `{{$faker.email}}` | `<lower(first)>.<lower(last)>@example.com` | `tom.edwards@example.com` |
+| `{{$faker.phone}}` | US format `(NNN) NNN-NNNN` | `(916) 775-3464` |
+| `{{$faker.phoneInternational}}` | E.164-shape `+1-NNN-NNN-NNNN` (en-US only in M13) | `+1-916-775-3464` |
+| `{{$faker.ssn}}` | US SSN `NNN-NN-NNNN` — **auto-sensitive**, redacted as `[REDACTED]` in JSON/markdown output | `896-72-3465` |
+| `{{$faker.namePrefix}}` | One of `Mr.`, `Mrs.`, `Ms.`, `Dr.`, `Prof.` | `Prof.` |
+| `{{$faker.nameSuffix}}` | One of `Jr.`, `Sr.`, `II`, `III`, `IV`, `PhD`, `MD`, `Esq.` | `Sr.` |
+
+Each example is the value that function returns as the **first** dynamic
+function evaluated under `--seed 42`. The rows are independent of one another,
+not one draw read across the row: `fullName` gives `Tom Edwards` while
+`lastName` on its own gives `Bell`, because every call advances the generator.
+Within a single run, repeating the same function with the same arguments
+returns the same value — `{{$faker.firstName}}` twice is `Tom` twice — so a
+value is stable where you reuse it and fresh where you ask for something else.
 
 Name and phone pools are locale-aware as of M20. Use `--locale` (or
 `config.locale:` in the collection) to select any of the 15 supported
@@ -1779,6 +1789,7 @@ Every CEL expression evaluates against the same four bindings:
 
 CEL is the second rung of the scripting ladder — reach for it only when operator assertions cannot express what you mean.
 
+<!-- doc-check: table-not-executable advice on choosing between two features, both of which are executed elsewhere -->
 | Use operator assertions when…                         | Use CEL when…                                                          |
 | ----------------------------------------------------- | ---------------------------------------------------------------------- |
 | Comparing a single JSONPath to a literal              | Comparing two JSONPaths to each other                                  |
@@ -1825,7 +1836,7 @@ Once your tests pass locally, you want them running in CI on every pull request.
 
 ### 4.1 Output formats
 
-Five output formats for the `run` command, selected with `--format`:
+Six output formats for the `run` command, selected with `--format`:
 
 | Format | Intended for | Flag | Notes |
 |---|---|---|---|
@@ -1834,6 +1845,7 @@ Five output formats for the `run` command, selected with `--format`:
 | `tap` | TAP consumers (prove, tappy) | `--format tap` | TAP version 13 |
 | `junit` | CI test reporters | `--format junit` | TAP-compatible JUnit XML |
 | `html` | shareable reports | `--format html --report file.html` | Self-contained single file |
+| `markdown` | reading in an editor, or by an agent | `--format markdown --report dir/` | One file per request plus an index (§4.1a) |
 
 **Side-by-side on the same collection:**
 
@@ -3193,6 +3205,7 @@ define.
 
 Features that used to require an account are now local:
 
+<!-- doc-check: table-not-executable a record of what the backend strip removed; naming removed things is its purpose -->
 | Was | Now |
 |---|---|
 | Team vault fetched from the backend | `CURLEW_TEAM_CONFIG=<path>` reads a local template file (§6.10) |

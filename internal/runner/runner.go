@@ -55,6 +55,24 @@ var ErrAuthProfileNotFound = errors.New("auth profile not found")
 // lists the available main request names.
 var ErrNoMatchingRequests = errors.New("no main requests matched --only")
 
+// ErrLargeDataset identifies the large-dataset guard refusing a run that was
+// not confirmed with --confirm-large-dataset.
+//
+// It exists so the caller can tell this apart from an ordinary run error and
+// exit 2 — a tripped safety guard — rather than 5, which means the run could
+// not resolve its variables. A pipeline branching on 5 goes looking for a
+// missing variable; the fix here is to pass a flag.
+var ErrLargeDataset = errors.New("large dataset guard not confirmed")
+
+// largeDatasetError carries the guard's full advice — row count, estimates and
+// the flag to pass — while remaining identifiable with errors.Is. Wrapping the
+// sentinel the usual way would prefix its text to a message that is already a
+// complete sentence.
+type largeDatasetError struct{ detail string }
+
+func (e largeDatasetError) Error() string { return e.detail }
+func (e largeDatasetError) Unwrap() error { return ErrLargeDataset }
+
 // resolveAuthProfile looks up authName in profiles and returns the header name
 // and value to inject. Returns ("", "", nil) when authName is empty.
 // Returns a descriptive ErrAuthProfileNotFound when the profile is not found,
@@ -2521,11 +2539,11 @@ func executeDataDriven(
 
 	// Large dataset check: warn if >10,000 rows unless confirmed
 	if info := datadriven.CheckLargeDataset(ds); info != nil && !vars.ConfirmLargeDataset {
-		return nil, false, fmt.Errorf(
+		return nil, false, largeDatasetError{detail: fmt.Sprintf(
 			"data file %q has %d rows (>%d). Performance estimate: %s, storage: %s. "+
 				"Use --confirm-large-dataset to proceed or add store_results: summary|failed_only",
 			item.DataDriven.Source, info.TotalRows, datadriven.LargeDatasetThreshold,
-			info.EstimatedDuration, info.StorageEstimate)
+			info.EstimatedDuration, info.StorageEstimate)}
 	}
 
 	// Parallel data-driven execution

@@ -1418,6 +1418,18 @@ Turning the checks on found one more: both documents said "Thirteen operators"
 above a table of **fourteen** — a prose claim contradicting the very list it
 introduces. The count is now checked against the table it precedes.
 
+**What this section claimed, and what was true.** "Tables are executed" was
+true of the three tables wired here, out of **77**. The other 70 were in exactly
+the state the heading describes, and one of them — the environment-variable row
+saying `NO_COLOR` disables on a non-empty value — was right while the binary was
+wrong, unread, for the whole life of the variable (§11C.14).
+
+The lesson is about the shape of the check rather than the tables. Counting what
+*is* executed can never find what is not; only an inventory can. `internal/docs`
+now takes one, and `docs/table-execution-baseline.txt` carries what is still
+owed — a register that fails the build when it grows and fails again when a paid
+entry is left in it.
+
 ### 11C.13 Prose named things that no longer existed
 
 The last of the three surfaces, and the one this project has actually been
@@ -1468,6 +1480,36 @@ What remains unguarded is a sentence that names nothing: a behavioural claim
 with no command, flag or variable in it. The three mechanisms — parse the
 examples, execute the tables, check the names — do not reach it, and nothing
 here pretends otherwise.
+
+### 11C.14 Executing the rest of the tables
+
+Three live defects, each a table that had been stating something false or
+incomplete for as long as it existed.
+
+**The large-dataset guard exited 5, not 2.** Three tables document a tripped
+safety guard as exit 2; the specification's CI column says "Fail — fix the
+invocation". The guard refused correctly and exited 5, the code meaning the run
+could not resolve its variables, because it returned a bare error and every bare
+error ending a run became a 5. A pipeline branching on that goes hunting for a
+missing variable when the fix is a flag. Found by *producing* all six documented
+codes rather than reading about them: 2 was documented three times and produced
+by nothing.
+
+**`--seed 42` did not produce the manual's seeded examples.** The faker table's
+"Example (seed 42)" column is a reproducibility promise and all ten rows were
+wrong — `{{$faker.firstName}}` under that seed is `Tom`, not `Carol` — under no
+reading: not per-function, not read across the table in order. Regenerated from
+the binary, and the section now says what the seed actually guarantees.
+
+**The manual's output-format table omitted `markdown`**, and announced "Five
+output formats" above a binary that supports six. The specification listed all
+six and §4.1a documents markdown reports at length; the one place it was missing
+was the table a reader consults to choose a `--format`.
+
+What came out affirmative is worth as much: every one of the 85 flag mentions
+across eleven tables is accepted by a parser, and the dynamic-function tables
+are complete in both directions — no documented function is missing from the
+registry, and no registered function is missing a row.
 
 ### What came out affirmative
 
