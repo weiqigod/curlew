@@ -1,0 +1,75 @@
+id: M25-002
+title: "v0.1.0 is something a person can download and run"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M25: A deliverable that exists"
+track: go-cli
+
+dependencies:
+  - M25-001
+  - M26-002
+
+observable: |
+  # 1. Every target archive is produced.
+  goreleaser release --snapshot --clean
+  ls dist/*.tar.gz dist/*.zip dist/checksums.txt
+
+  # 2. Each archive carries what the licence requires and a binary that runs.
+  go test ./cmd/curlew/ -run TestRelease_every_archive_is_complete -v
+
+  # 3. The tagged binary reports the tag, not the development default.
+  go test ./cmd/curlew/ -run TestRelease_version_matches_the_tag -v
+
+behaviors:
+  - "Given a snapshot release, when the archives are listed, then all six os/arch combinations named in .goreleaser.yaml are present."
+  - "Given any produced archive, when it is extracted, then it contains LICENSE, NOTICE, README.md, CHANGELOG.md, docs/MANUAL.md and docs/CLI_SPECIFICATION.md."
+  - "Given any produced archive, when the binary inside it is executed with --version, then it reports the release version and not 0.1.0-dev."
+  - "Given the windows targets, when the archive is inspected, then it is a .zip and the binary is named curlew.exe."
+  - "Given checksums.txt, when each archive is hashed, then every digest matches."
+
+scope: |
+  There is no tag in this repository and no release has ever been published.
+  `curlew --version` reports 0.1.0-dev on every machine that has ever run it.
+  The product is, at this moment, undistributable: the only way to obtain it is
+  to clone the source and build it.
+
+  Cut v0.1.0. The work is not the tag -- it is proving the artifacts are what
+  the configuration claims, before anything becomes public and immutable.
+
+  Write a test that drives a snapshot release and inspects the output:
+
+    - all six targets present (linux/darwin/windows x amd64/arm64)
+    - each archive extracts
+    - each carries LICENSE and NOTICE. This is not housekeeping: Apache-2.0
+      section 4(a) requires the License to accompany any distribution and 4(d)
+      requires the NOTICE to travel with it. An archive missing either is a
+      non-compliant distribution, and it is exactly the kind of omission that
+      is invisible until someone else audits it.
+    - each binary executes and reports the release version
+
+  The version assertion is the load-bearing one. -X main.version is a link-time
+  injection that fails silently: if `version` ever regresses to a const the
+  linker ignores the flag without complaint, and every artifact ships reporting
+  0.1.0-dev. TestVersion_is_injectable_at_link_time guards the const case; this
+  guards the whole chain from configuration to extracted artifact.
+
+  Then cut the release: annotated tag, dispatch the workflow (or run goreleaser
+  locally), review the draft, publish. The draft: true setting is deliberate --
+  a human reviews the artifact list before it is public.
+
+  Out of scope: Homebrew, Scoop, or any package manager (M25-003 decides
+  whether those are wanted). Announcements of any kind.
+
+definition_of_done:
+  - A test drives a snapshot release and asserts on the produced archives
+  - All six targets present, each extracting cleanly
+  - LICENSE and NOTICE verified present in every archive
+  - Every archived binary executes and reports the release version
+  - checksums.txt verified against the archives
+  - v0.1.0 tagged, artifacts published, release notes reviewed by a human
+  - "`./scripts/ci-local.sh` passes"
+  - CHANGELOG.md updated with the release entry
+
+complexity: medium
+estimated_effort: "4-5 hours"

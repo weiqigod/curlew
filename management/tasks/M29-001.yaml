@@ -1,0 +1,77 @@
+id: M29-001
+title: "CI runs on push again"
+status: backlog
+priority: 2
+created: 2026-08-14
+phase: "M29: Automation"
+track: infra
+
+dependencies:
+  - M25-001
+
+observable: |
+  # 1. A pushed branch is verified by something other than the author.
+  # Open a pull request; the Go gate reports a status on it.
+
+  # 2. The workflow and the local gate cannot disagree about "green".
+  go test ./internal/docs/ -run TestWorkflows_delegate_to_the_local_gate -v
+
+behaviors:
+  - "Given a push to a feature branch, when the Go workflow runs, then it executes ./scripts/ci-local.sh --go and reports a status."
+  - "Given a workflow that restates gate steps instead of delegating to ci-local.sh, when the test runs, then it fails."
+  - "Given a workflow still carrying the disabled-triggers comment, when the test runs, then it is listed so the set of disabled workflows is explicit rather than assumed."
+
+scope: |
+  BLOCKED ON A BILLING DECISION, WHICH IS THE OWNER'S TO MAKE. Everything below
+  is ready; none of it should be executed until that decision is taken.
+
+  All eight workflows in .github/workflows/ carry:
+
+      # Auto-triggers disabled while GitHub Actions billing is paused
+
+  and fire only on workflow_dispatch. Pushing a branch and opening a pull
+  request verifies nothing.
+
+  This is the structural risk under every other guarantee in this roadmap.
+  ci-local.sh is a genuinely good gate -- nineteen steps, race detector, four
+  dogfood harnesses, 86.1% coverage -- and it runs only when a human chooses to
+  run it. Every "the gate is green" statement in this repository is really "the
+  gate was green when someone last ran it."
+
+  The design work is already done and is worth not undoing. .github/workflows/
+  go.yml runs ./scripts/ci-local.sh --go rather than restating its steps, so
+  the workflow and the local gate cannot drift into disagreeing about what
+  green means. The e2e-* workflows cover .NET, web and Playwright the same way.
+  Re-enabling is one uncommented block per file.
+
+  When the decision is yes:
+
+    1. Uncomment the push/pull_request triggers in go.yml first, alone. Watch
+       one real run before enabling the rest -- the Go gate is the one that
+       matters and the cheapest to run.
+    2. Then the e2e-* workflows, which need the docker stack and cost more.
+    3. release.yml stays dispatch-only unless tag-triggered releases are
+       wanted; M25-002 covers cutting one by hand first.
+    4. Add the guard: a test asserting each workflow delegates to ci-local.sh
+       rather than restating steps, and listing which remain disabled. That
+       list being explicit is what stops "CI is on" becoming an assumption
+       nobody rechecks.
+
+  Estimate the monthly cost before deciding. The Go gate is minutes on
+  ubuntu-latest; the E2E workflows spin up docker-compose and cost
+  considerably more. Enabling only the Go gate may well be the right answer
+  and is a fraction of the price.
+
+  Out of scope: self-hosted runners, and any change to what the gate checks.
+
+definition_of_done:
+  - Billing decision made and recorded by the project owner
+  - Estimated monthly cost documented before enabling anything
+  - Go workflow triggers restored and one real run observed green
+  - Remaining workflows enabled or explicitly left disabled with a stated reason
+  - A test asserts workflows delegate to ci-local.sh rather than restating steps
+  - The set of still-disabled workflows is explicit, not assumed
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "2-3 hours once the decision is made"

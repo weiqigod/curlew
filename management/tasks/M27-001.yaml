@@ -1,0 +1,80 @@
+id: M27-001
+title: "The prose register - checkable claims that are sentences, not rows"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M27: The defects tables cannot find"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. Every checkable prose claim is inventoried, and the unexecuted ones owed.
+  go test ./internal/docs/ -run TestProse_inventory_is_complete -v
+
+  # 2. The register can only shrink.
+  go test ./internal/docs/ -run TestProse_register_cannot_grow -v
+
+  # 3. The count, out loud.
+  cat docs/prose-claim-baseline.txt
+
+behaviors:
+  - "Given the two documents held to the binary, when checkable prose claims are extracted, then each is either executed by a test or listed in docs/prose-claim-baseline.txt."
+  - "Given a claim that is executed but still listed in the register, when the test runs, then it fails -- stale debt is as much a failure as new debt."
+  - "Given a new checkable claim added to a document with no executor and no register line, when the test runs, then it fails."
+  - "Given a claim that states nothing executable, when it carries a doc-check marker naming why, then it is exempt and the marker is counted against a cap."
+  - "Given an extraction that finds zero claims, when the test runs, then it fails rather than reporting a clean register."
+
+scope: |
+  Defect 8 -- the cross-format correlation ID reading id=-iter-0 in markdown
+  while the events stream emitted req-1 -- sat directly beside a table that had
+  been executed. It survived because the promise it broke was a sentence, and
+  every register built so far keys on names in rows.
+
+  Tables were the tractable surface and they are now empty: 77 tables, 72
+  executed, 5 marked, 0 owed. Sentences are the larger surface and the unswept
+  one, and defect 8 is the evidence that it is not empty.
+
+  Build the same machine one level harder. internal/docs already has the
+  reading primitives (ReadDoc, Table, TableUnder, SplitRow, Column).
+
+  The design problem is extraction, and it is where this task will actually be
+  won or lost. Not every sentence is a claim, and a register that lists prose
+  indiscriminately is noise nobody pays off. Start from the shapes that are
+  reliably checkable and reliably present:
+
+    - "X is written to Y" / "X appears in Y"
+    - "X and Y carry the same Z" (the shape defect 8 broke)
+    - "Given ..., curlew <verb>s ..."
+    - "always" / "never" / "every" / "must" applied to an observable surface
+    - a sentence naming a flag, a file, an exit code, or an output artefact
+
+  Anything ambiguous stays out of the inventory. A narrow extractor that
+  catches real claims beats a broad one whose register nobody empties -- the
+  table register worked because every line on it was a line someone could pay.
+
+  Contract identical to docs/table-execution-baseline.txt and
+  testapi/harness/redaction-known-leaks.txt: shrink-only, new debt fails the
+  build, stale debt fails the build, and a marker with a stated reason is the
+  only exemption, against a cap. Zero claims extracted is a failure, never a
+  clean register -- M22-001 is the standing lesson that an empty result reads
+  as good news.
+
+  Then pay it off. Expect defects: the table register began at 70 owed and
+  paying it produced seven.
+
+  Out of scope: the platform specification (docs/SPECIFICATION.md), which
+  describes the .NET backend and is not held to the CLI.
+
+definition_of_done:
+  - Checkable prose claims extracted from both CLI documents, source-derived
+  - docs/prose-claim-baseline.txt created with the initial debt, count stated
+  - New debt, stale debt, and zero-claim extraction each fail the build
+  - Marker exemption implemented with a cap and a stated reason per marker
+  - Guards verified by mutation in all three directions
+  - The extractor's precision measured and reported - what it caught, what it declined
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: high
+estimated_effort: "1-2 days"

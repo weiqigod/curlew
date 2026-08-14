@@ -1,0 +1,71 @@
+id: M25-001
+title: "Exercise the release build before the day it is needed"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M25: A deliverable that exists"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. The release configuration is valid.
+  goreleaser check
+
+  # 2. A real artifact comes out, for this host.
+  goreleaser build --snapshot --clean --single-target
+  ./dist/curlew_*/curlew --version
+
+  # 3. The gate now refuses a broken release config.
+  ./scripts/ci-local.sh --go
+
+behaviors:
+  - "Given .goreleaser.yaml, when the gate runs, then goreleaser check runs against it and a failure stops the gate."
+  - "Given a valid configuration, when the gate runs, then a single-target snapshot binary is built and executed, and its --version output is asserted on."
+  - "Given goreleaser is not installed, when the gate runs, then it fails with an installation instruction -- it does not skip the step and report success."
+  - "Given a change to .goreleaser.yaml that breaks the build (for example an undefined template variable), when the gate runs, then the gate fails naming the release step."
+  - "Given the snapshot binary, when --version is run, then it reports the snapshot version rather than the hardcoded default."
+
+scope: |
+  .goreleaser.yaml was added by #14 and has never been executed. goreleaser is
+  not installed on the development host, ci-local.sh does not mention it, and
+  no tag has ever been pushed. The configuration is careful and well-reasoned
+  -- static CGO_ENABLED=0 builds, -X main.version injection, LICENSE and NOTICE
+  carried into every archive for Apache-2.0 compliance -- and every one of those
+  properties is currently a claim rather than a result.
+
+  This is the same shape as every defect this project has found: a document
+  about the binary that nothing holds to the binary. The release path differs
+  only in consequence. A parser bug is found by the next test run; a release
+  bug is found by the first user, after the tag is public and immutable.
+
+  Add a release step to scripts/ci-local.sh, inside the --go scope so it runs on
+  every gate:
+
+    1. goreleaser check
+    2. goreleaser build --snapshot --clean --single-target
+    3. execute the built binary and assert on its --version output
+
+  Step 3 is the one that matters. `check` proves the YAML parses; only running
+  the artifact proves the ldflags reached it, and a version that still reads
+  0.1.0-dev is the exact failure that would otherwise ship.
+
+  Absence of goreleaser must fail the step, not skip it. A gate that reports
+  PASS while silently omitting a step is the false clear that M22-001 exists to
+  prevent, and the release step is the worst place to reintroduce it. Document
+  the install command in the failure message.
+
+  Out of scope: cutting an actual tag or publishing anything (M25-002). This
+  task builds locally and publishes nothing.
+
+definition_of_done:
+  - "`goreleaser check` and a single-target snapshot build both run in ci-local.sh --go"
+  - The snapshot binary is executed and its --version output asserted on
+  - A missing goreleaser fails the gate with an install instruction, never a skip
+  - Verified by mutation - break the config, confirm the gate fails, restore
+  - dist/ is gitignored
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "2-3 hours"

@@ -7,6 +7,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`docs/PRODUCT_ROADMAP.md`, and M25–M29 in the backlog (12 tasks).** M1–M24
+  closed the backlog for the fourth time. Each of the four campaigns —
+  feature-gating stripped, backend stripped, post-strip drift closed,
+  documentation tables executed — worked the same way: inventory what has not
+  been checked, make the inventory a build-failing register, empty it. The last
+  one found eight defects, including a run reporting `3 passed, 0 failed` and
+  exiting 0 on a suite with a failing assertion.
+
+  The method had never been pointed at the *product* surface, and an audit on
+  2026-08-14 found the results were roughly what that predicts:
+
+  - **No release has ever been built.** `.goreleaser.yaml` is 94 careful lines
+    — static builds, `-X main.version` injection, LICENSE and NOTICE carried
+    into every archive for Apache-2.0 §4(a) and §4(d) — and nothing has ever
+    executed it. `goreleaser` is not installed, `ci-local.sh` never invokes it,
+    there is no tag, and `--version` reports `0.1.0-dev` on every machine that
+    has ever run the binary. (M25)
+  - **The shipped agent skill is wrong.** `curlew init --skill agent` writes
+    `.claude/skills/curlew/` into the user's own repository, where Claude Code
+    and Copilot read it. Three of its files still document the deleted
+    five-tier licensing system: exit 6 "feature gate denied", exit 9 "license
+    grace period expired", and `curlew license --validate`. The binary returns
+    0–5 and has no `license` command. An agent obeys that file literally. (M26)
+  - **Zero fuzz targets and zero property-based tests**, across a YAML parser,
+    a variable interpolator, a JSONPath implementation and a CEL evaluator —
+    every one of them fed by input the project did not author. (M27)
+  - **`src/` is 139,627 lines of C# across 866 files** that the shipped CLI
+    does not call — larger than the entire Go CLI at 134,144 — plus a 186-file
+    dashboard. More than half the repository, unexplained in the README. (M28)
+  - **Nothing runs on push.** All eight workflows are `workflow_dispatch`-only,
+    so every "the gate is green" claim means "green when someone last ran it".
+    (M29)
+
+  The manual and the CLI specification were audited in the same pass and are
+  accurate: removed features appear only in explicit "not in this CLI" and
+  migration sections, which is correct.
+
 - **`--color={auto|always|never}`.** `--no-color` could turn colour off and
   auto-detection could turn it on when safe, but there was no way to say "on
   anyway" — piping a run to `less -R`, or capturing coloured output in CI, both

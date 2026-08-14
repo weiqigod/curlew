@@ -1,0 +1,66 @@
+id: M26-002
+title: "One exit-code truth across binary, specification, manual and skill"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M26: The agent skill tells the truth"
+track: go-cli
+
+dependencies:
+  - M26-001
+
+observable: |
+  # 1. Four surfaces, one set of exit codes.
+  go test ./cmd/curlew/ -run TestExitCodes_all_surfaces_agree -v
+
+  # 2. No branch maps a code the binary cannot produce.
+  go test ./cmd/curlew/ -run TestExitCodes_no_unreachable_mapping -v
+
+behaviors:
+  - "Given the exit codes cmd/curlew can return, when they are compared against the table in docs/CLI_SPECIFICATION.md, then the sets are equal."
+  - "Given the same set, when compared against docs/MANUAL.md and the shipped agent skill, then all four surfaces agree."
+  - "Given exitCodeSeverity in cmd/curlew/discovery_run.go, when its cases are enumerated, then none maps a code the binary cannot return."
+  - "Given a new exit code introduced anywhere in cmd/curlew, when the test suite runs, then it fails until every surface documents it."
+
+scope: |
+  cmd/curlew/discovery_run.go:25 still maps exit code 6 to a "feature gate"
+  severity. The feature-gating system was removed; nothing returns 6. The branch
+  is unreachable and its existence is the last structural trace of the strip --
+  the same trace that produced the wrong entries in the agent skill.
+
+  M26-001 fixes the skill. This makes the whole set impossible to drift again.
+
+  Derive the reachable exit-code set from source once, and assert it against
+  every surface that publishes one:
+
+    1. cmd/curlew itself -- the reachable set, walked from source
+    2. docs/CLI_SPECIFICATION.md -- the normative table
+    3. docs/MANUAL.md -- the user-facing table
+    4. templates/skills/agent/curlew/ -- the agent-facing table
+
+  Equality in every direction. This is the same technique as
+  internal/schema/parity_test.go, which holds the published JSON Schemas to the
+  parser, and it exists for the same reason: four hand-maintained copies of one
+  fact will disagree, and the disagreement will surface at the worst moment.
+
+  Remove the unreachable code-6 branch. Prefer deletion over a comment: a
+  branch that cannot execute is not documentation, it is a claim that the
+  feature might come back, and the next reader has to re-derive that it cannot.
+
+  This is a dependency of M25-002. A release is the wrong moment to discover
+  that the exit codes in the shipped skill and the exit codes in the shipped
+  binary disagree, because the archive carrying both is immutable once
+  published.
+
+  Out of scope: changing any exit code's meaning or adding new ones.
+
+definition_of_done:
+  - The reachable exit-code set is derived from source, not hand-listed
+  - Specification, manual and skill each asserted equal to it
+  - The unreachable code-6 mapping in discovery_run.go removed
+  - Guards verified by mutation on each of the four surfaces
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "3-4 hours"

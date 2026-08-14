@@ -1,0 +1,82 @@
+id: M28-001
+title: "Decide what src/ and web/ are, and make the repository say so"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M28: A repository a stranger can respect"
+track: docs
+
+dependencies: []
+
+observable: |
+  # 1. A reader of the repository root can tell what each top-level directory is.
+  go test ./internal/docs/ -run TestReadme_accounts_for_every_top_level_directory -v
+
+  # 2. Whatever is decided, the gate agrees with it.
+  ./scripts/ci-local.sh --full
+
+behaviors:
+  - "Given every top-level directory in the repository, when README.md is read, then each is named and its relationship to the shipped CLI stated."
+  - "Given a new top-level directory added without a README entry, when the test runs, then it fails."
+  - "Given the decision recorded, when docs/SPECIFICATION.md and docs/TECH_CHOICES.md are read, then both agree with it."
+
+scope: |
+  DECISION REQUIRED FROM THE PROJECT OWNER. This task frames the options; it
+  does not presume one. Do not execute it until the decision is made.
+
+  The numbers, measured on 2026-08-14:
+
+    cmd/ + internal/   463 Go files      134,144 lines   the shipped product
+    testapi/            34 Go files       10,322 lines   dogfooding
+    src/               866 C# files     139,627 lines   .NET backend
+    web/src/           186 files                        SvelteKit dashboard
+
+  src/ alone is larger than the entire Go CLI. The shipped CLI does not call
+  it: the backend strip on 2026-08-03 removed curlew login, curlew worker,
+  distributed execution, report upload, and every CURLEW_BACKEND_* variable.
+
+  So more than half this repository is code the product does not use, and it is
+  the first thing a visitor sees. The README does not explain the relationship.
+  A reader lands on a Go CLI project whose largest directory is C# and has to
+  guess -- and the most natural guess, that the CLI needs a backend, is exactly
+  the thing that is no longer true.
+
+  Three options:
+
+    A. Excise. Move src/ and web/ to their own repository. This repository
+       becomes the CLI, unambiguously. The platform keeps its history via
+       git filter-repo or a fresh repository with a stated origin. Cost:
+       ci-local.sh --full, docker-compose.test.yml, the E2E specs and several
+       scripts/ entries all move or retire.
+
+    B. Keep and explain. A README section stating plainly what src/ and web/
+       are, that the CLI does not call them, and what their status is
+       (maintained / frozen / archived). Cheapest, and honest, but the
+       repository still reads as two projects sharing a directory.
+
+    C. Archive in place. Move both under an archive/ or platform/ directory
+       with its own README, excluded from the default gate scope. A middle
+       path that costs less than A and reads better than B.
+
+  There is no engineering answer here -- it depends on whether the platform is
+  a live product, a paused one, or a finished one. That is the owner's to say.
+
+  Whichever is chosen, add the guard: every top-level directory must be
+  accounted for in the README, and a new one that is not fails the test. That
+  is what stops the same ambiguity growing back, and it is the part of this
+  task that is not a judgement call.
+
+  Out of scope: any change to the .NET or web code itself. This is about where
+  it lives and how it is described.
+
+definition_of_done:
+  - Decision recorded by the project owner, with its reasoning, in docs/TECH_CHOICES.md
+  - Decision executed
+  - Every top-level directory named in README.md with its relationship to the CLI
+  - A new unaccounted-for directory fails the test
+  - docs/SPECIFICATION.md and docs/TECH_CHOICES.md agree with the decision
+  - "`./scripts/ci-local.sh --full` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "1 day if B or C, 2-3 days if A"

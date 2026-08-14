@@ -1963,3 +1963,56 @@ capabilities:
         completed_date: 2026-08-05
         verified_by: ai
         branch: fix/M24-001-assertion-identity-fields
+
+  # --- Roadmap to a shipped tool (docs/PRODUCT_ROADMAP.md, 2026-08-14) --------
+  # M1-M24 made the CLI correct. M25-M29 make it obtainable, honest about
+  # itself, and swept by something other than the campaign that is now spent.
+
+  release_pipeline:
+    description: 'A deliverable that exists - the release build exercised, tagged, and installable'
+    milestone: 'M25'
+    tasks:
+      - id: M25-001
+        status: backlog
+      - id: M25-002
+        status: backlog
+      - id: M25-003
+        status: backlog
+
+  agent_truthfulness:
+    description: 'The shipped agent skill and every exit-code surface tell the truth about the binary'
+    milestone: 'M26'
+    tasks:
+      - id: M26-001
+        status: backlog
+      - id: M26-002
+        status: backlog
+
+  defect_hunt:
+    description: 'The defects tables cannot find - prose claims, malformed input, a new dogfooding surface'
+    milestone: 'M27'
+    tasks:
+      - id: M27-001
+        status: backlog
+      - id: M27-002
+        status: backlog
+      - id: M27-003
+        status: backlog
+
+  repo_front_door:
+    description: 'A repository a stranger can read and contribute to'
+    milestone: 'M28'
+    tasks:
+      - id: M28-001
+        status: backlog
+      - id: M28-002
+        status: backlog
+      - id: M28-003
+        status: backlog
+
+  ci_reenablement:
+    description: 'Something other than the author verifies a push'
+    milestone: 'M29'
+    tasks:
+      - id: M29-001
+        status: backlog

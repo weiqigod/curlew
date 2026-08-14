@@ -1,0 +1,81 @@
+id: M26-001
+title: "The shipped agent skill stops describing a licensing system that was deleted"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M26: The agent skill tells the truth"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. Every exit code the skill names can actually be produced.
+  go test ./cmd/curlew/ -run TestSkill_exit_codes_are_reachable -v
+
+  # 2. No command the skill tells an agent to run is one the CLI lacks.
+  go test ./cmd/curlew/ -run TestSkill_names_only_real_commands -v
+
+  # 3. The scaffolded skill is clean in a user's own directory.
+  curlew init /tmp/probe --skill agent
+  ! grep -ril "license\|feature gate\|tier" /tmp/probe/.claude/skills/
+
+behaviors:
+  - "Given the exit-code table in templates/skills/agent/curlew/SKILL.md, when each code is compared against the codes cmd/curlew can return, then every documented code is reachable."
+  - "Given a code the binary can return that the skill does not document, when the test runs, then it fails -- the table must be complete in both directions."
+  - "Given any `curlew <subcommand>` invocation appearing in the skill, when it is compared against the CLI's command list, then the subcommand exists."
+  - "Given a new exit code added to cmd/curlew without a skill entry, when the test suite runs, then it fails."
+  - "Given curlew init --skill agent, when the scaffolded files are read, then none mentions licensing, feature gates, or tiers."
+
+scope: |
+  curlew init --skill agent writes .claude/skills/curlew/ into the user's own
+  repository, where Claude Code and GitHub Copilot read it. Three of its files
+  still describe the five-tier licensing system that was removed:
+
+    SKILL.md:118            exit 6, "Feature gate denied ... the required tier"
+    SKILL.md:119            exit 9, "License grace period expired"
+    exit-codes.md:43-44     the same two codes
+    failure-playbook.md:84-87  a full playbook for a lapsed license, ending in
+                            "suggest running curlew license --validate"
+
+  The binary returns 0 through 5. There is no exit 6, no exit 9, no
+  feature_gated output anywhere in the source, and no curlew license command.
+
+  This is the worst-placed stale documentation in the repository, for a reason
+  that has nothing to do with its size. Prose in a manual is read by a person
+  who will notice it is wrong. This file is read by an agent that will follow
+  it literally: told the run failed with exit 6, it will inform the user about
+  a licensing tier that does not exist, and instruct them to run a command that
+  will fail. We install that file into other people's repositories.
+
+  Remove the licensing surface from all three files. Then hold the skill to the
+  binary the way every other surface in this project is held -- source-derived,
+  not hand-listed:
+
+    - collect the exit codes cmd/curlew can actually return, by walking the
+      source rather than maintaining a list
+    - collect the codes the skill's table documents
+    - require the two sets to be equal, and report the difference in both
+      directions
+
+  Both directions matter. A code the skill invents sends an agent chasing a
+  fiction; a code the binary can return that the skill omits leaves an agent
+  with no playbook at the moment a user most needs one.
+
+  Also scan the skill for `curlew <subcommand>` invocations and require each to
+  be a real command. That check would have caught curlew license on its own,
+  and it catches the next removed command without anyone remembering to look.
+
+  Out of scope: rewriting the skill's guidance for codes that are correct, and
+  the dead exitCodeSeverity mapping in cmd/curlew/discovery_run.go (M26-002).
+
+definition_of_done:
+  - Licensing, tier, and feature-gate references removed from all three skill files
+  - Exit codes in the skill asserted equal to the codes the binary can return, both directions
+  - Every curlew subcommand named in the skill asserted to exist
+  - Guards verified by mutation - add a fictional code, confirm failure, restore
+  - A scaffolded project contains no reference to the removed system
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "3-4 hours"
