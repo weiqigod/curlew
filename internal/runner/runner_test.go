@@ -5669,13 +5669,19 @@ func TestRun_DataDriven_StoreResultsFailedOnly(t *testing.T) {
 		t.Error("results[1].Result should be preserved (failed iteration in failed_only mode)")
 	}
 
-	// Passed iterations (index 0 and 2) should have details stripped
+	// Passed iterations (index 0 and 2) should have details stripped. The
+	// verdict is not a detail: both retention policies now keep it and drop
+	// only the per-assertion items, so the field is never "sometimes nil,
+	// sometimes a verdict" — the ambiguity that let summary report a failing
+	// run as passing. A verdict-only Results renders identically to nil
+	// everywhere it is consumed, since every consumer branches on len(Items).
 	for _, idx := range []int{0, 2} {
 		if results[idx].Result != nil {
 			t.Errorf("results[%d].Result should be nil (passed iteration in failed_only mode)", idx)
 		}
-		if results[idx].AssertionResults != nil {
-			t.Errorf("results[%d].AssertionResults should be nil (passed iteration in failed_only mode)", idx)
+		if ar := results[idx].AssertionResults; ar == nil || !ar.Passed || len(ar.Items) != 0 {
+			t.Errorf("results[%d].AssertionResults should be the verdict alone, got %+v "+
+				"(passed iteration in failed_only mode)", idx, ar)
 		}
 		if results[idx].Err != nil {
 			t.Errorf("results[%d].Err should be nil (passed iteration)", idx)
