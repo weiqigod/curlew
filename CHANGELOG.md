@@ -154,6 +154,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   It found fourteen live defects, below.
 
 ### Fixed
+- **A retention policy was deciding which of a result's fields exist.**
+  `filterDataDrivenResults` rebuilt `RequestResult` field by field, as a
+  whitelist, so every field added to the struct after the filter was written was
+  silently absent from a `summary` or `failed_only` result — nine fields under
+  the first, eleven under the second.
+
+  Two of them mattered. `AssertionResults` is the entry below: losing it
+  reported a failing run as passing. `RequestID` and `RequestSlug` are this one:
+  the markdown report's correlation sentinel came out as `id=-iter-0` while the
+  events stream for the same run still named `req-1`, so §4.1a's promise that
+  the two link a specific event line to a specific markdown file was false under
+  two of the three policies — and false in the worst available direction, since
+  the event names a file and the file cannot say which event it belongs to.
+
+  `stripResponseDetail` inverts the whitelist: copy the result, clear the
+  response and the per-attempt record of obtaining it. A field added tomorrow
+  survives by default. `Warnings`, `RetryWarnings` and `RetryCount` come back
+  with it — a count is not detail, and "aggregate counts only" is what the row
+  asks for. A reflection guard pins the rule rather than the field list, which
+  is what makes the whitelist unnecessary rather than merely longer.
+
 - **`store_results: summary` turned a failing run green.** §10.3 heads its
   column "Retained": a policy decides what a finished run keeps, never what the
   run was. `summary` dropped the assertion results outright, and the summary

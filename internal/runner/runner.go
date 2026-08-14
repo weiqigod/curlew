@@ -3295,41 +3295,30 @@ func checkDataDrivenFailure(results []RequestResult, checkRequired, stopOnFailur
 // filterDataDrivenResults applies store_results policy to data-driven request results.
 // Must be called AFTER checkDataDrivenFailure so failure detection is unaffected.
 //   - "all": returns results unchanged
-//   - "summary": strips Result, RequestHeaders, RequestBody and the individual
-//     assertion outcomes from all iterations, keeping Name/Phase/Err, the
-//     data-driven metadata, and each iteration's pass/fail verdict
-//   - "failed_only": keeps full details only for failed iterations; strips details
-//     from passed iterations
+//   - "summary": strips the response detail from every iteration, keeping each
+//     one's identity, metadata and pass/fail verdict
+//   - "failed_only": keeps failed iterations whole; strips the response detail
+//     from the ones that passed
 //
 // §10.3 heads the column "Retained": a policy decides what a finished run keeps,
-// never what the run was. Summary once dropped AssertionResults outright, and
-// computeSummary reads exactly that field to count failures — so a run whose
-// iteration failed its assertions reported "3 passed, 0 failed" and exited 0.
-// The verdict is retained without its detail, which is what "aggregate counts
-// only" means.
+// never what the run was, and never which of a result's own fields exist. Both
+// branches used to rebuild RequestResult field by field, as a whitelist, so
+// every field added to the struct afterwards was silently absent. Two of them
+// mattered: AssertionResults, whose loss reported a failing run as passing and
+// exited 0; and RequestID/RequestSlug, whose loss left the markdown report's
+// correlation sentinel reading `id=-iter-0` while the events stream for the
+// same run still named req-1 — so the file an event pointed at could no longer
+// say which event it belonged to.
+//
+// stripResponseDetail is the inverse of that whitelist: it copies the result and
+// clears the named fields, so a field added tomorrow survives by default and
+// dropping one is a deliberate edit.
 func filterDataDrivenResults(results []RequestResult, policy string) []RequestResult {
 	switch policy {
 	case datadriven.StoreSummary:
 		out := make([]RequestResult, len(results))
 		for i, r := range results {
-			out[i] = RequestResult{
-				Name:             r.Name,
-				Phase:            r.Phase,
-				Method:           r.Method,
-				URL:              r.URL,
-				Err:              r.Err,
-				AssertionResults: verdictOnly(r.AssertionResults),
-				Skipped:          r.Skipped,
-				SkipReason:       r.SkipReason,
-				WaveIndex:        r.WaveIndex,
-				IsDataDriven:     r.IsDataDriven,
-				DataDrivenName:   r.DataDrivenName,
-				IterationIndex:   r.IterationIndex,
-				IterationTotal:   r.IterationTotal,
-				IterationData:    r.IterationData,
-				SourceFile:       r.SourceFile,
-				SourceLine:       r.SourceLine,
-			}
+			out[i] = stripResponseDetail(r)
 		}
 		return out
 	case datadriven.StoreFailedOnly:
@@ -3338,30 +3327,27 @@ func filterDataDrivenResults(results []RequestResult, policy string) []RequestRe
 			isFailed := r.Err != nil || (r.AssertionResults != nil && !r.AssertionResults.Passed)
 			if isFailed {
 				out[i] = r // keep full details
-			} else {
-				// Strip details from passed iterations
-				out[i] = RequestResult{
-					Name:           r.Name,
-					Phase:          r.Phase,
-					Method:         r.Method,
-					URL:            r.URL,
-					Skipped:        r.Skipped,
-					SkipReason:     r.SkipReason,
-					WaveIndex:      r.WaveIndex,
-					IsDataDriven:   r.IsDataDriven,
-					DataDrivenName: r.DataDrivenName,
-					IterationIndex: r.IterationIndex,
-					IterationTotal: r.IterationTotal,
-					IterationData:  r.IterationData,
-					SourceFile:     r.SourceFile,
-					SourceLine:     r.SourceLine,
-				}
+				continue
 			}
+			out[i] = stripResponseDetail(r)
 		}
 		return out
 	default: // StoreAll or unrecognized
 		return results
 	}
+}
+
+// stripResponseDetail returns r without the response and the per-attempt record
+// of obtaining it. Everything else — the iteration's identity, its correlation
+// IDs, its warnings, its counts, and its pass/fail verdict — is retained, which
+// is what "aggregate counts only" leaves behind.
+func stripResponseDetail(r RequestResult) RequestResult {
+	r.Result = nil
+	r.RequestHeaders = nil
+	r.RequestBody = nil
+	r.AttemptDetails = nil
+	r.AssertionResults = verdictOnly(r.AssertionResults)
+	return r
 }
 
 // verdictOnly reduces assertion results to whether they passed, dropping the
