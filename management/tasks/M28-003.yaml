@@ -1,0 +1,71 @@
+id: M28-003
+title: "The usage synopsis, and seven test stubs whose reason expired"
+status: backlog
+priority: 3
+created: 2026-08-14
+phase: "M28: A repository a stranger can respect"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. The synopsis a user sees on a typo lists every flag the parser takes.
+  go test ./cmd/curlew/ -run TestUsage_synopsis_lists_every_accepted_flag -v
+
+  # 2. No test is skipped for a reason that is no longer true.
+  go test ./internal/variable/ -run LocaleDeferred -v
+
+behaviors:
+  - "Given every flag the run parser accepts, when the usage synopsis is printed, then each appears in it."
+  - "Given a flag added to the run parser without a synopsis entry, when the test suite runs, then it fails."
+  - "Given a test that skips unconditionally, when the suite runs, then either the skip reason still holds or the test is removed."
+
+scope: |
+  Two small things that are true and should not be.
+
+  1. The run usage synopsis at cmd/curlew/main.go:517 -- printed on every
+     unknown flag, so it is the text a user sees at the exact moment they are
+     confused -- lists sixteen flags and omits three: --allow-sensitive,
+     --events, --locale. All three work. All three are documented in
+     curlew --help, in docs/MANUAL.md and in docs/CLI_SPECIFICATION.md.
+
+     M23-001 built TestHelp_documents_every_accepted_flag for precisely this
+     class of drift, and it passes: it requires each flag to appear in *some*
+     help output, and all three appear in --help. The synopsis is a second
+     surface the parity test does not cover. Extend it rather than writing a
+     new one -- one test that knows about both surfaces is what stops a third
+     surface being missed the same way.
+
+  2. Seven tests in internal/variable/dynamic_test.go skip unconditionally
+     with:
+
+       t.Skip("--locale flag is deferred from M13 entirely (see M13 Open
+              Decision #1, M13-001 plan).")
+
+     M20-001 shipped --locale. The reason expired four milestones ago.
+
+     They are litter rather than a hole: locale has 179 live assertions across
+     doc_locale_test.go, locale_matrix_test.go, locale_pools_test.go and
+     locale_test.go. Read each stub, confirm its intent is covered by a live
+     test, and delete it. Where a stub describes behaviour genuinely not
+     covered -- the recognise-but-warn-and-ignore policy the comments mention
+     is the likely candidate -- write the real test instead of deleting.
+
+     A permanently-skipped test is worse than no test: it shows as present in
+     the suite and proves nothing, which is the vacuous-pass failure mode this
+     project has now removed from four other places.
+
+  Out of scope: any other help surface. If the audit finds a third, note it
+  rather than expanding this task.
+
+definition_of_done:
+  - The run usage synopsis asserted to list every flag the parser accepts
+  - The M23-001 parity test extended rather than duplicated
+  - Guard verified by mutation - add a flag, confirm failure, restore
+  - All seven LocaleDeferred stubs either deleted or replaced by real tests
+  - No unconditional t.Skip remains whose stated reason is untrue
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "2-3 hours"

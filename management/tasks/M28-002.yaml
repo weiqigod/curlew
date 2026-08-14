@@ -1,0 +1,74 @@
+id: M28-002
+title: "The front-door files, and a quickstart that was executed"
+status: backlog
+priority: 2
+created: 2026-08-14
+phase: "M28: A repository a stranger can respect"
+track: docs
+
+dependencies:
+  - M25-003
+
+observable: |
+  # 1. The README quickstart is run, not read.
+  go test ./cmd/curlew/ -run TestReadme_quickstart_actually_works -v
+
+  # 2. The community files exist and point at real things.
+  go test ./internal/docs/ -run TestRepo_front_door_files_are_present -v
+
+behaviors:
+  - "Given the quickstart in README.md, when its commands are run in a temporary directory against a local test server, then each succeeds and the final output matches what the README shows."
+  - "Given CONTRIBUTING.md, when it is read, then the commands it names (build, test, lint, gate) are the ones scripts/ci-local.sh actually runs."
+  - "Given a quickstart that produces no commands when extracted, when the test runs, then it fails rather than passing vacuously."
+  - "Given SECURITY.md, when it is read, then it names a reporting route that exists."
+
+scope: |
+  Missing from the repository root: CONTRIBUTING.md, SECURITY.md, issue
+  templates, a pull-request template. .github/ contains only workflows.
+
+  These are not decoration. CLAUDE.md mandates a specific and unusual workflow
+  -- TDD without exception, feature branches without exception, ci-local.sh as
+  the sole gate because nothing runs in CI -- and none of it is written down
+  anywhere a contributor would look. CLAUDE.md is addressed to an AI assistant,
+  not to a person sending a pull request.
+
+  Write:
+
+    CONTRIBUTING.md   the branch rule, the TDD rule, the gate, the task
+                      lifecycle, and the fact that CI does not run so the
+                      local gate is the whole of it. Derive the command list
+                      from ci-local.sh rather than restating it, so the two
+                      cannot drift.
+    SECURITY.md       how to report a vulnerability privately. curlew handles
+                      credentials, vault secrets and signing keys; there must
+                      be a route that is not a public issue.
+    .github/ISSUE_TEMPLATE/  bug and feature templates that ask for the
+                      version, the collection, and the exit code -- the three
+                      things every diagnosis starts from.
+    .github/pull_request_template.md  the quality-gate checklist from
+                      CLAUDE.md, so it is in front of the author.
+
+  Then the quickstart. README.md's opening example is the first thing anyone
+  runs and nothing has ever executed it. Extract its commands, run them in a
+  temporary directory against a local test server, and assert the output
+  matches what the README shows. mudflat already exists for exactly this and
+  needs no network.
+
+  Guard against vacuity: an extraction that finds no commands must fail. That
+  failure mode -- a check that passes because it found nothing to check -- is
+  the one M22-001 was written about, and it is easy to reintroduce here.
+
+  Out of scope: a code of conduct, a governance document, and anything that
+  presumes contributors who do not yet exist.
+
+definition_of_done:
+  - CONTRIBUTING.md, SECURITY.md, issue templates and a PR template written
+  - CONTRIBUTING.md command list derived from ci-local.sh, not restated
+  - README quickstart extracted and executed against a local server
+  - Its output asserted against what the README shows
+  - An empty extraction fails rather than passing
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "4-6 hours"

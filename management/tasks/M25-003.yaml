@@ -1,0 +1,69 @@
+id: M25-003
+title: "Every install path in the README is one that was executed"
+status: backlog
+priority: 2
+created: 2026-08-14
+phase: "M25: A deliverable that exists"
+track: go-cli
+
+dependencies:
+  - M25-002
+
+observable: |
+  # 1. The commands the README gives are run, not read.
+  go test ./cmd/curlew/ -run TestReadme_install_commands_execute -v
+
+  # 2. A download-and-run path exists and is documented.
+  go test ./cmd/curlew/ -run TestReadme_documents_a_binary_download -v
+
+behaviors:
+  - "Given the Install section of README.md, when a command block in it is extracted, then that command is executed in a temporary directory and must succeed."
+  - "Given the go install line, when it runs against the module path in go.mod, then the module path in the README matches go.mod rather than being a stale copy."
+  - "Given a published release, when the README describes downloading an archive, then the described URL shape matches the name_template in .goreleaser.yaml."
+  - "Given a new install method added to the README without a matching check, when the test suite runs, then it fails."
+
+scope: |
+  README.md offers exactly one install path:
+
+      go install github.com/weiqigod/curlew/cmd/curlew@latest
+
+  That requires a Go toolchain, which contradicts the product's own framing --
+  "a single static binary", "download and run" -- and it is the only option a
+  reader is given. Once M25-002 publishes archives, the download path is the
+  primary one and the README does not mention it.
+
+  Neither line has ever been executed by anything. The module path is a string
+  in a markdown file that happens to match go.mod today.
+
+  Two checks, both source-derived rather than hand-maintained:
+
+    1. Extract the shell blocks under the Install heading and run them. A
+       `go install` into a temporary GOPATH is slow but bounded, and it is the
+       only thing that distinguishes a working instruction from a plausible one.
+       Guard against vacuity: if no command blocks are found under the heading,
+       that is a failure, not a pass.
+
+    2. Assert the documented archive URL shape against name_template in
+       .goreleaser.yaml. These two must agree, and today nothing makes them.
+
+  Then decide on package managers. Homebrew is the one users will ask for on
+  macOS, and goreleaser can publish a tap with a small block. It is a
+  maintenance commitment (a tap repository, a formula that must keep working),
+  so it is a decision to make deliberately rather than a box to tick. Record
+  the decision either way in docs/TECH_CHOICES.md -- a documented "not yet, and
+  here is why" is a better artifact than silence.
+
+  Out of scope: actually operating a Homebrew tap unless the decision is yes.
+
+definition_of_done:
+  - The README Install commands are extracted and executed by a test
+  - An empty extraction fails rather than passing vacuously
+  - The documented archive URL shape is asserted against .goreleaser.yaml
+  - The module path in the README is asserted against go.mod
+  - A download-and-run path is documented and works
+  - Package-manager decision recorded in docs/TECH_CHOICES.md
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: medium
+estimated_effort: "3-4 hours"

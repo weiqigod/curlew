@@ -1,0 +1,83 @@
+id: M27-002
+title: "Fuzz the four surfaces that accept input we did not write"
+status: backlog
+priority: 1
+created: 2026-08-14
+phase: "M27: The defects tables cannot find"
+track: go-cli
+
+dependencies: []
+
+observable: |
+  # 1. Fuzz targets exist and run.
+  go test ./internal/parser/ -run Fuzz -fuzz FuzzParseCollection -fuzztime 60s
+  go test ./internal/variable/ -run Fuzz -fuzz FuzzInterpolate -fuzztime 60s
+  go test ./internal/assertion/ -run Fuzz -fuzz FuzzJSONPath -fuzztime 60s
+  go test ./internal/cel/ -run Fuzz -fuzz FuzzCEL -fuzztime 60s
+
+  # 2. The committed corpora run as ordinary tests on every gate.
+  go test ./internal/parser/ ./internal/variable/ ./internal/assertion/ -run Fuzz -v
+
+behaviors:
+  - "Given any byte sequence as a collection file, when it is parsed, then the parser returns an error or a value -- it never panics."
+  - "Given any byte sequence as a template string, when it is interpolated, then interpolation terminates and never panics."
+  - "Given any byte sequence as a JSONPath expression against arbitrary JSON, when it is evaluated, then it returns a result or an error and never panics."
+  - "Given any byte sequence as a CEL expression, when it is compiled, then it returns an error or a program and never panics."
+  - "Given a crasher found by fuzzing, when it is added to testdata/fuzz, then it runs as an ordinary test case on every subsequent gate."
+  - "Given a template that references itself, when it is interpolated, then it terminates with ErrCircularReference rather than exhausting the stack."
+
+scope: |
+  There are zero fuzz targets and zero property-based tests in this repository.
+  For a tool whose entire job is accepting files and expressions a user wrote,
+  that is the largest untested input surface remaining.
+
+  Four surfaces accept input the project did not author:
+
+    internal/parser      collection YAML, including deeply nested and
+                         self-referential structures
+    internal/variable    {{...}} interpolation, chained and recursive references
+    internal/assertion   JSONPath expressions against arbitrary response bodies
+    internal/cel         CEL expressions in if:, assertions, and extracts
+
+  Every one is reachable from a file a user edits by hand, and every one is
+  reachable from a response a server we do not control returned. The dogfooding
+  campaign found sixteen defects precisely by pointing curlew at a server it
+  did not write; fuzzing is the same idea applied to input rather than output.
+
+  Use native Go fuzzing -- no dependency, corpora are testdata/fuzz directories
+  that run as ordinary unit tests once committed, which means a crasher found
+  once is regression-tested forever without anyone maintaining a list. That
+  property is the same one that makes the debt registers work.
+
+  Seed each corpus from fixtures already in the repository: the sample
+  collections, the mudflat dogfood suite, the expected-failures file. A seed
+  corpus of real inputs finds interesting mutations far faster than a corpus of
+  empty strings.
+
+  The bar is no panic, not no error. An error is correct behaviour for garbage
+  input; a panic in a CLI is an unhandled crash with a stack trace where a
+  diagnostic belongs, and CLAUDE.md's error-handling standard is explicit that
+  we return errors rather than panic. Also assert termination: a self-referential
+  template must produce ErrCircularReference rather than run until the stack
+  gives out.
+
+  Run fuzzing in this task long enough to matter -- hours, not the 60s smoke
+  invocation above -- and fix what it finds. The gate keeps the corpora, not the
+  fuzzing: a multi-minute fuzz run does not belong in a gate that must stay fast
+  enough to actually be run.
+
+  Out of scope: fuzzing the HTTP client against hostile servers, and the .NET
+  backend.
+
+definition_of_done:
+  - Fuzz targets for parser, interpolation, JSONPath and CEL
+  - Each seeded from real fixtures already in the repository
+  - Extended fuzzing run, duration and findings recorded in the verification report
+  - Every crasher fixed and its input committed to testdata/fuzz
+  - Committed corpora run as ordinary tests in the gate
+  - Circular-reference termination asserted, not assumed
+  - "`./scripts/ci-local.sh --go` passes"
+  - CHANGELOG.md updated
+
+complexity: high
+estimated_effort: "1-2 days"
