@@ -1,4 +1,8 @@
-# Tables still owed an executor.
+# Tables still owed an executor. This file is empty.
+#
+# It started at seventy of the seventy-seven tables in the two documents held
+# to the binary. Every one of them is now run by a test, or carries a marker
+# saying why it states nothing executable — five do, against a cap of eight.
 #
 # This is a debt register, not an exemption list. Every line is a table that
 # states something checkable about the binary and that no test runs yet. A
@@ -8,24 +12,11 @@
 # The file can only shrink. internal/docs/inventory_test.go fails when an
 # unexecuted table is missing from this list (new debt), and fails again when a
 # listed table has become executed and the line was not deleted (stale debt) —
-# so the count cannot drift upward quietly, and paying one off is a diff.
+# so the count cannot drift upward quietly, and paying one off is a diff. Empty
+# means the next table anyone adds must arrive with a test or a marker: there
+# is no longer a list to append to quietly.
 #
 # Same contract as testapi/harness/redaction-known-leaks.txt, which started as
 # thirteen lines and emptied itself.
 #
 # Format: <document>\t<heading>\t<header cells joined by " | ">
-CLI_SPECIFICATION.md	### 3.2 Phases	Phase | Ordering | On failure
-CLI_SPECIFICATION.md	### 4.3 Glob Discovery	Token | Meaning
-CLI_SPECIFICATION.md	### 4.4 File Reference Resolution	Reference | Resolved relative to
-CLI_SPECIFICATION.md	#### 5.1.2 Request	Variant | Unknown extension
-CLI_SPECIFICATION.md	### 6.2 Precedence	# | Source | Where
-CLI_SPECIFICATION.md	### 10.2 Iteration Variables	Variable | Meaning
-CLI_SPECIFICATION.md	### 10.3 Result Storage	store_results | Retained
-CLI_SPECIFICATION.md	### 11.4 Rejected Constructions	Construction | Why | Exit
-CLI_SPECIFICATION.md	### 11.6 Protocol Constraints	Protocol | Parallelism
-CLI_SPECIFICATION.md	### 18.8 `import openapi <spec>`	3.1 construct | Treatment
-MANUAL.md	#### Loading the body from a file	Extension | Detected Content-Type (typical)
-MANUAL.md	### 3.2 The precedence ladder	# | Source | Where it lives
-MANUAL.md	#### Where CEL appears	Site | Type | Example
-MANUAL.md	### 4.1a Markdown response files	Body type | Rendering
-MANUAL.md	### 5.5 Data-driven testing	Variable | Meaning

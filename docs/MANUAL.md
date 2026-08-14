@@ -476,7 +476,7 @@ No `{{...}}` inside the file is touched. The payload is sent byte-for-byte.
 |---|---|
 | `.json` | `application/json` |
 | `.xml` | `application/xml` or `text/xml` |
-| `.yaml`, `.yml` | `application/yaml` or `text/yaml` |
+| `.yaml`, `.yml` | `application/yaml` — supplied by Curlew where the host's database has no entry |
 | `.txt` | `text/plain; charset=utf-8` |
 | `.html` | `text/html; charset=utf-8` |
 | `.csv` | `text/csv; charset=utf-8` |
@@ -2065,9 +2065,9 @@ heading plus a placeholder line so diffs stay structural.
 | `application/xml`, `text/xml` | Indented in an `xml` block. |
 | `text/html` | Raw HTML preserved verbatim in a `html` fenced block — never executed. |
 | `text/*` (plain) | Verbatim in a `text` block. |
-| `application/octet-stream`, `image/*`, etc. | First 256 bytes as `hex.Dump` plus total byte count. |
-| HEAD response | `(no body)`. |
-| Empty body | `(empty)`. |
+| `application/octet-stream`, `image/*`, etc. | First 512 bytes as `hex.Dump` plus total byte count. |
+| HEAD response | `_(HEAD — no body)_`. |
+| Empty body | `_(empty body)_`. |
 
 **1 MiB body cap.** Response bodies larger than 1,048,576 bytes are
 truncated *after* redaction; a truncation marker line records the
@@ -2770,6 +2770,8 @@ requests:
 | `{{_index}}` | zero-based row index |
 | `{{_count}}` | one-based row number |
 | `{{_total}}` | total rows that will run |
+| `{{_iteration}}` | one-based row number — alias of `{{_count}}` |
+| `{{_row_number}}` | one-based row number — alias of `{{_count}}` |
 
 Plus every column name in the data file.
 

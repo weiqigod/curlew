@@ -369,6 +369,9 @@ func runErrorExitCode(err error) int {
 	if errors.Is(err, runner.ErrLargeDataset) {
 		return 2
 	}
+	if errors.Is(err, runner.ErrParallelAnalysis) {
+		return 3
+	}
 	return 5
 }
 
@@ -987,7 +990,9 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			}
 			depsItems = filtered
 		}
-		graph := parallel.Analyze(depsItems, preExecVars)
+		graph := parallel.Analyze(depsItems, preExecVars, parallel.AnalyzeOptions{
+			OtherPhaseNames: showDepsOtherPhaseNames(col),
+		})
 		if !graph.IsValid {
 			for _, e := range graph.Errors {
 				_, _ = fmt.Fprintln(stderr, e)
@@ -3666,4 +3671,19 @@ func parseImportOpenAPIArgs(args []string) (specPath, outputPath string, err err
 		return "", "", fmt.Errorf("unexpected extra arguments: %v", positional[1:])
 	}
 	return positional[0], outputPath, nil
+}
+
+// showDepsOtherPhaseNames mirrors the runner's view of which names belong to
+// another phase, so --show-dependencies rejects what a run would reject rather
+// than drawing a graph for a collection that will not start.
+func showDepsOtherPhaseNames(col *parser.Collection) map[string]bool {
+	out := make(map[string]bool, len(col.Setup.Items)+len(col.Teardown.Items))
+	for _, section := range [][]parser.RequestItem{col.Setup.Items, col.Teardown.Items} {
+		for _, item := range section {
+			if item.Name != "" {
+				out[item.Name] = true
+			}
+		}
+	}
+	return out
 }

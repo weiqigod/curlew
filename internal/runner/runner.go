@@ -73,6 +73,22 @@ type largeDatasetError struct{ detail string }
 func (e largeDatasetError) Error() string { return e.detail }
 func (e largeDatasetError) Unwrap() error { return ErrLargeDataset }
 
+// ErrParallelAnalysis identifies the dependency analysis refusing a collection
+// before any request is sent: a cycle, a variable collision, a dynamic extract
+// key, a depends_on that cannot be ordered. §11.4 gives every one of them exit
+// code 3, and §17 puts them under "Parse or configuration error … dependency
+// cycle, variable collision" — the code that tells CI the tests never started.
+// They all exited 5 instead, which sends a pipeline looking for a missing
+// variable.
+var ErrParallelAnalysis = errors.New("parallel analysis rejected the collection")
+
+// parallelAnalysisError carries the analyzer's own message, which names the
+// requests involved, while classifying as ErrParallelAnalysis.
+type parallelAnalysisError struct{ detail string }
+
+func (e parallelAnalysisError) Error() string { return e.detail }
+func (e parallelAnalysisError) Unwrap() error { return ErrParallelAnalysis }
+
 // resolveAuthProfile looks up authName in profiles and returns the header name
 // and value to inject. Returns ("", "", nil) when authName is empty.
 // Returns a descriptive ErrAuthProfileNotFound when the profile is not found,
@@ -1391,6 +1407,24 @@ func runPhases(ctx context.Context, col *parser.Collection, exec ExecuteFunc, sc
 		}
 	}
 
+	// §3.1: validation errors abort before any HTTP traffic. The dependency
+	// analysis is a validation, and it used to run when the main phase started
+	// — after setup had already created whatever it creates on a collection
+	// that was never going to run. It is hoisted here, against the variables
+	// the scope will hold once setup has extracted its own, so the graph is the
+	// one the main phase will see rather than a stricter guess.
+	if vars.Parallel && len(col.Requests.Items) > 0 {
+		graph := parallel.Analyze(col.Requests.Items, preExecVarsAfterSetup(col, scope), parallel.AnalyzeOptions{
+			OtherPhaseNames: otherPhaseNames(col),
+		})
+		if !graph.IsValid {
+			summary.Duration = time.Since(start)
+			return nil, summary, parallelAnalysisError{
+				detail: fmt.Sprintf("parallel analysis: %s", strings.Join(graph.Errors, "; ")),
+			}
+		}
+	}
+
 	// Phase 1: Setup
 	setupFailed := false
 	if len(col.Setup.Items) > 0 {
@@ -1466,6 +1500,40 @@ func buildPreExecVarSet(scope *variable.Scope) map[string]bool {
 	return out
 }
 
+// preExecVarsAfterSetup is the variable set the main phase will analyse
+// against: what the scope holds now, plus everything setup extracts. Analysing
+// before setup with only the former would treat a setup-provided variable as
+// one a main item must produce, and could reject a collection the run would
+// accept.
+func preExecVarsAfterSetup(col *parser.Collection, scope *variable.Scope) map[string]bool {
+	out := buildPreExecVarSet(scope)
+	for _, item := range col.Setup.Items {
+		produced, errMsg := parallel.ExtractProducedVars(item.Extract)
+		if errMsg != "" {
+			continue
+		}
+		for name := range produced {
+			out[name] = true
+		}
+	}
+	return out
+}
+
+// otherPhaseNames returns the request names defined outside the main phase, so
+// the analyzer can tell a depends_on that reaches across phases from one whose
+// target --only removed.
+func otherPhaseNames(col *parser.Collection) map[string]bool {
+	out := make(map[string]bool, len(col.Setup.Items)+len(col.Teardown.Items))
+	for _, section := range [][]parser.RequestItem{col.Setup.Items, col.Teardown.Items} {
+		for _, item := range section {
+			if item.Name != "" {
+				out[item.Name] = true
+			}
+		}
+	}
+	return out
+}
+
 // executeParallelMain runs the main phase requests using parallel wave-based execution.
 // Returns the results tagged with PhaseMain, the number of HTTP requests executed, impact entries,
 // wave count, max parallelism, wave durations, and any error.
@@ -1473,9 +1541,13 @@ func executeParallelMain(ctx context.Context, col *parser.Collection, scope *var
 	// Build pre-execution variable set from the scope's resolved vars
 	preExecVars := buildPreExecVarSet(scope)
 
-	graph := parallel.Analyze(col.Requests.Items, preExecVars)
+	graph := parallel.Analyze(col.Requests.Items, preExecVars, parallel.AnalyzeOptions{
+		OtherPhaseNames: otherPhaseNames(col),
+	})
 	if !graph.IsValid {
-		return nil, 0, nil, 0, 0, nil, fmt.Errorf("parallel analysis: %s", strings.Join(graph.Errors, "; "))
+		return nil, 0, nil, 0, 0, nil, parallelAnalysisError{
+			detail: fmt.Sprintf("parallel analysis: %s", strings.Join(graph.Errors, "; ")),
+		}
 	}
 
 	remaining := MaxRequests - *counter
@@ -3223,31 +3295,40 @@ func checkDataDrivenFailure(results []RequestResult, checkRequired, stopOnFailur
 // filterDataDrivenResults applies store_results policy to data-driven request results.
 // Must be called AFTER checkDataDrivenFailure so failure detection is unaffected.
 //   - "all": returns results unchanged
-//   - "summary": strips Result, AssertionResults, RequestHeaders, and RequestBody
-//     from all iterations, keeping only Name/Phase/Err and data-driven metadata
+//   - "summary": strips Result, RequestHeaders, RequestBody and the individual
+//     assertion outcomes from all iterations, keeping Name/Phase/Err, the
+//     data-driven metadata, and each iteration's pass/fail verdict
 //   - "failed_only": keeps full details only for failed iterations; strips details
 //     from passed iterations
+//
+// §10.3 heads the column "Retained": a policy decides what a finished run keeps,
+// never what the run was. Summary once dropped AssertionResults outright, and
+// computeSummary reads exactly that field to count failures — so a run whose
+// iteration failed its assertions reported "3 passed, 0 failed" and exited 0.
+// The verdict is retained without its detail, which is what "aggregate counts
+// only" means.
 func filterDataDrivenResults(results []RequestResult, policy string) []RequestResult {
 	switch policy {
 	case datadriven.StoreSummary:
 		out := make([]RequestResult, len(results))
 		for i, r := range results {
 			out[i] = RequestResult{
-				Name:           r.Name,
-				Phase:          r.Phase,
-				Method:         r.Method,
-				URL:            r.URL,
-				Err:            r.Err,
-				Skipped:        r.Skipped,
-				SkipReason:     r.SkipReason,
-				WaveIndex:      r.WaveIndex,
-				IsDataDriven:   r.IsDataDriven,
-				DataDrivenName: r.DataDrivenName,
-				IterationIndex: r.IterationIndex,
-				IterationTotal: r.IterationTotal,
-				IterationData:  r.IterationData,
-				SourceFile:     r.SourceFile,
-				SourceLine:     r.SourceLine,
+				Name:             r.Name,
+				Phase:            r.Phase,
+				Method:           r.Method,
+				URL:              r.URL,
+				Err:              r.Err,
+				AssertionResults: verdictOnly(r.AssertionResults),
+				Skipped:          r.Skipped,
+				SkipReason:       r.SkipReason,
+				WaveIndex:        r.WaveIndex,
+				IsDataDriven:     r.IsDataDriven,
+				DataDrivenName:   r.DataDrivenName,
+				IterationIndex:   r.IterationIndex,
+				IterationTotal:   r.IterationTotal,
+				IterationData:    r.IterationData,
+				SourceFile:       r.SourceFile,
+				SourceLine:       r.SourceLine,
 			}
 		}
 		return out
@@ -3281,6 +3362,16 @@ func filterDataDrivenResults(results []RequestResult, policy string) []RequestRe
 	default: // StoreAll or unrecognized
 		return results
 	}
+}
+
+// verdictOnly reduces assertion results to whether they passed, dropping the
+// per-assertion detail. Nil in, nil out: an iteration with no assertions had no
+// verdict to keep.
+func verdictOnly(ar *assertion.Results) *assertion.Results {
+	if ar == nil {
+		return nil
+	}
+	return &assertion.Results{Passed: ar.Passed}
 }
 
 // computeSummary populates s from all results across all phases.

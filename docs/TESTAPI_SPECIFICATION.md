@@ -1430,6 +1430,13 @@ now takes one, and `docs/table-execution-baseline.txt` carries what is still
 owed — a register that fails the build when it grows and fails again when a paid
 entry is left in it.
 
+The register is now **empty**: 72 of the 77 tables are executed and the other
+five carry a marker saying why they state nothing executable, against a cap of
+eight. Paying it down found seven further defects on top of the seven the first
+pass found — among them `store_results: summary` reporting a failing run as "3
+passed, 0 failed" and exiting 0, and a `depends_on:` reaching into another
+phase that parsed, ordered nothing, and propagated no skip.
+
 ### 11C.13 Prose named things that no longer existed
 
 The last of the three surfaces, and the one this project has actually been

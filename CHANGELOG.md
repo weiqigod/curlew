@@ -117,13 +117,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   an unexecuted table missing from it fails the build, and a listed table that
   has become executed fails until the line is deleted. Same contract as
   `testapi/harness/redaction-known-leaks.txt`, which started at thirteen lines
-  and emptied itself. It stands at 35, down from 70.
+  and emptied itself. **This one is empty too.** It started at 70 and every
+  entry has been paid off; empty means the next table anyone adds must arrive
+  with a test or a marker, because there is no longer a list to append to.
 
   Which tables a test reads is derived from the test sources by `go/ast` rather
   than from a hand-kept list, because a list of "tables we execute" is one more
   document about the binary and would drift like the ones it guards.
 
-  Now executed, 53 of 77: the eleven flag tables (85 mentions, every one accepted
+  Now executed, 72 of 77 — the other five carry a marker, against a cap of
+  eight. The last fifteen were the ones no reading could settle: the ten-rung
+  precedence ladder, proven pair by pair with the same variable defined from
+  both rungs; the phase and protocol tables, proven by a server that counts how
+  many requests are in flight at once, because sequential and parallel produce
+  the same output in the same order; every file-reference rule, run with a
+  decoy of the same name in the working directory so that resolving from the
+  wrong place finds a file rather than nothing; §11.4's four rejected
+  constructions, each paired with a control that must run; the glob tokens,
+  proven by what they must *not* match; §18.8's 3.1 translations, warnings
+  included; the iteration variables, `store_results`, the body-file
+  Content-Type tables, the CEL sites, and the markdown rendering matrix.
+
+  Already executed before that, 53 of 77: the eleven flag tables (85 mentions, every one accepted
   by a parser), the twelve dynamic-function tables in both directions, the three
   exit-code tables, both output-format tables and both `output:` block tables,
   the telemetry subcommands, the limits table against the constants the binary
@@ -134,11 +149,73 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   map, both plugin-hook tables against the payload structs, the signer types
   against the registry, and the vault providers against their constants.
 
-  Nineteen remain in the register.
+  Nothing remains in the register.
 
-  It found seven live defects, below.
+  It found fourteen live defects, below.
 
 ### Fixed
+- **`store_results: summary` turned a failing run green.** §10.3 heads its
+  column "Retained": a policy decides what a finished run keeps, never what the
+  run was. `summary` dropped the assertion results outright, and the summary
+  counter reads exactly that field — so three iterations, one of them failing
+  its status assertion, were reported as "3 passed, 0 failed" and the run
+  exited 0.
+
+  The CLI's own out-of-memory hint recommends the flag ("set `store_results:
+  summary|failed_only` to bound what the run retains"), so the advice for a
+  large suite was also the way to stop noticing it was broken. `failed_only`
+  was unaffected: it keeps failing iterations whole, verdict included.
+
+  Each iteration's verdict now survives the filter without its per-assertion
+  detail, which is what "aggregate counts only" means.
+
+- **`{{_count}}` was documented in both documents and never existed.** §10.2 and
+  §5.5 name three built-in iteration variables; the injector defined `_index`,
+  `_total`, `_iteration` and `_row_number`. A collection written from either
+  table died with `undefined variable "_count"` before its first request.
+
+  `_count` now exists. `_iteration` and `_row_number` keep working and are
+  documented as the aliases they are, rather than left for a reader to
+  encounter in someone else's collection.
+
+- **A YAML body file went out with no `Content-Type` at all.** Detection
+  delegates to the host's MIME database, and the host has no entry:
+  `application/yaml` was registered in 2024 (RFC 9512), later than the system
+  `mime.types` files most machines ship. So `body_file: payload.yaml` sent its
+  body unlabelled while the manual promised `application/yaml`, and a server
+  requiring the header rejected a request whose error said nothing about
+  content types.
+
+  The gap is filled without taking the mapping away from the host — the
+  registration runs only where the host is silent — and §5.1.2 now says so
+  instead of claiming the mapping is purely the platform's.
+
+- **§11.4's four rejected constructions exited 5, and one did not happen.**
+  Every row gives exit code 3, and §17 puts these under "parse or configuration
+  error … dependency cycle, variable collision" — the code that tells CI the
+  tests never started rather than that a variable is missing. Three of the four
+  exited 5.
+
+  The fourth was not rejected at all. A `depends_on:` naming an item in another
+  phase parses, and the wave planner dropped the edge silently on the reasoning
+  that phases are ordered anyway — but skip propagation is same-phase (§3.3),
+  so the line a user wrote as a safety link did nothing: the item ran even when
+  the setup item it named had failed. It is now rejected under `--parallel`,
+  where the planner is the thing that cannot honour it. A name that resolves
+  nowhere is still skipped, because that is `--only` having removed the item.
+
+  The analysis is also hoisted ahead of the setup phase. §3.1 says validation
+  errors abort before any HTTP traffic, and a rejected collection was running
+  its setup — creating whatever setup creates — before anyone looked at the
+  graph.
+
+- **Three cells of §4.1a's content-type matrix did not describe the
+  formatter.** It dumps the first 512 bytes of a binary body, not 256, and the
+  HEAD and empty-body markers are `_(HEAD — no body)_` and `_(empty body)_`
+  rather than the shorter forms the table gave. The markdown report is
+  described in the manual as the record you check into git, so the table is a
+  promise about a file a reader may never regenerate.
+
 - **The manual's JSONPath tutorial taught two expressions the engine rejects.**
   §2.3 opens "if you don't [know JSONPath], this section is all you need" and
   then teaches `$.items[*].sku` (wildcard across an array) and `$..sku`

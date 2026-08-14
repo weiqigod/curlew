@@ -27,9 +27,16 @@ type executeConfig struct {
 }
 
 // InjectIterationVars creates a scope snapshot and adds special iteration
-// variables (_index, _iteration, _total, _row_number) and row column values.
-// Row data is injected first, then special vars are set on top so that
-// special vars always take precedence if a CSV column shares their name.
+// variables (_index, _count, _total, and the _iteration/_row_number aliases)
+// and row column values. Row data is injected first, then special vars are set
+// on top so that special vars always take precedence if a CSV column shares
+// their name.
+//
+// _count is the name both docs/CLI_SPECIFICATION.md §10.2 and docs/MANUAL.md
+// §5.5 give the one-based row number, and it was documented without ever being
+// injected: a collection written from either table died with "undefined
+// variable" before its first request. _iteration and _row_number are the older
+// spellings, kept working and now documented as the aliases they are.
 func InjectIterationVars(scope *variable.Scope, row Row, index, total int) *variable.Scope {
 	snap := scope.Snapshot()
 	// Row data first (lower precedence)
@@ -37,10 +44,12 @@ func InjectIterationVars(scope *variable.Scope, row Row, index, total int) *vari
 		snap.Set(k, v)
 	}
 	// Special iteration variables (higher precedence -- override row data)
+	oneBased := fmt.Sprintf("%d", index+1)
 	snap.Set("_index", fmt.Sprintf("%d", index))
-	snap.Set("_iteration", fmt.Sprintf("%d", index+1))
+	snap.Set("_count", oneBased)
+	snap.Set("_iteration", oneBased)
 	snap.Set("_total", fmt.Sprintf("%d", total))
-	snap.Set("_row_number", fmt.Sprintf("%d", index+1))
+	snap.Set("_row_number", oneBased)
 	return snap
 }
 

@@ -13,6 +13,14 @@ type AnalyzeOptions struct {
 	// Used for nested variable resolution depth checking.
 	// If nil, nested resolution is not performed.
 	PreExecValues map[string]string
+
+	// OtherPhaseNames holds the request names defined in the collection's
+	// other phases. A depends_on resolving to one of them is rejected (§11.4):
+	// the wave planner only ever sees one phase, so it cannot honour the edge,
+	// and skip propagation is same-phase — the line does nothing at all. When
+	// nil, such names are tolerated and dropped, which is what the sequential
+	// path and the dependency viewer want.
+	OtherPhaseNames map[string]bool
 }
 
 // Analyze performs the full 6-phase dependency analysis on a collection's main requests.
@@ -76,12 +84,18 @@ func Analyze(items []parser.RequestItem, preExecVars map[string]bool, opts ...An
 	}
 
 	// Explicit depends_on edges. Parse-time validation (validateDependsOn)
-	// has already rejected names unknown to the collection; names that don't
-	// resolve within this item slice reference another phase (setup/teardown,
-	// already sequenced by phase ordering) or an item removed by --only, so
-	// they are skipped. Self-references are skipped to match the sequential
-	// path, where they are harmless. A pair already ordered by a variable
-	// edge keeps that edge unchanged.
+	// has already rejected names unknown to the collection, so a name that does
+	// not resolve here belongs either to another phase or to an item --only
+	// removed. The two are not the same: a name in another phase is a link the
+	// planner cannot honour and skip propagation will not honour either, so it
+	// is rejected when the caller says which names those are (§11.4). A name
+	// left behind by --only is skipped, as before. Self-references are skipped
+	// to match the sequential path, where they are harmless. A pair already
+	// ordered by a variable edge keeps that edge unchanged.
+	var otherPhase map[string]bool
+	if len(opts) > 0 {
+		otherPhase = opts[0].OtherPhaseNames
+	}
 	nameToIndex := make(map[string]int, len(items))
 	for i := range items {
 		if _, ok := nameToIndex[items[i].Name]; !ok {
@@ -91,12 +105,24 @@ func Analyze(items []parser.RequestItem, preExecVars map[string]bool, opts ...An
 	for i := range items {
 		for _, dep := range items[i].DependsOn {
 			j, ok := nameToIndex[dep]
-			if !ok || j == i || graph.Nodes[i].Dependencies[j] {
+			if !ok {
+				if otherPhase[dep] {
+					graph.IsValid = false
+					graph.Errors = append(graph.Errors, fmt.Sprintf(
+						"request %q: depends_on %q names an item in another phase, which cannot be "+
+							"ordered against this one", items[i].Name, dep))
+				}
+				continue
+			}
+			if j == i || graph.Nodes[i].Dependencies[j] {
 				continue
 			}
 			graph.Nodes[i].Dependencies[j] = true
 			graph.Edges = append(graph.Edges, Edge{From: j, To: i, Explicit: true})
 		}
+	}
+	if !graph.IsValid {
+		return graph
 	}
 
 	// Phase 4: Cycle detection using Kahn's algorithm

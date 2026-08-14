@@ -427,8 +427,11 @@ the cap.
 
 **Content-Type auto-detection** delegates to the platform MIME database
 (Go's `mime.TypeByExtension`), so the exact mapping is the host's, not a table
-maintained here. The two variants differ in what happens when the extension is
-unknown:
+maintained here. The one exception is `.yaml`/`.yml`: `application/yaml` was
+registered late (RFC 9512, 2024) and most hosts have no entry for it, so one is
+added — but only where the host is silent, so a host that does know the
+extension keeps its own answer. The two variants differ in what happens when
+the extension is unknown:
 
 | Variant | Unknown extension |
 |---|---|
@@ -1084,6 +1087,8 @@ column becomes a variable for that iteration.
 | `{{_index}}` | Zero-based row index |
 | `{{_count}}` | One-based row number |
 | `{{_total}}` | Total rows that will execute |
+| `{{_iteration}}` | One-based row number — alias of `{{_count}}` |
+| `{{_row_number}}` | One-based row number — alias of `{{_count}}` |
 
 ### 10.3 Result Storage
 
