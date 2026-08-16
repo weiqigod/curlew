@@ -63,22 +63,49 @@ func readmeSectionBounds(lines []string, heading string) (start, end int, ok boo
 // readmeSectionText returns the raw text of the "## <heading>" section of
 // doc, used for prose assertions. Empty when the heading is not found.
 func readmeSectionText(doc, heading string) string {
-	// STUB (RED phase): always empty, so every prose assertion against it
-	// fails until this is implemented for real.
-	_ = doc
-	_ = heading
-	return ""
+	lines := strings.Split(doc, "\n")
+	start, end, ok := readmeSectionBounds(lines, heading)
+	if !ok {
+		return ""
+	}
+	return strings.Join(lines[start:end], "\n")
 }
 
 // readmeSectionBlocks returns every fenced code block that appears under the
 // "## <heading>" section of doc, stopping at the next top-level "## "
 // heading. Inline `code spans` are never returned, only fenced ``` blocks.
 func readmeSectionBlocks(doc, heading string) []readmeBlock {
-	// STUB (RED phase): always empty, so TestReadme_install_blocks_extraction
-	// fails on every non-empty-want case until this is implemented for real.
-	_ = doc
-	_ = heading
-	return nil
+	lines := strings.Split(doc, "\n")
+	start, end, ok := readmeSectionBounds(lines, heading)
+	if !ok {
+		return nil
+	}
+
+	var out []readmeBlock
+	inFence := false
+	fenceLang := ""
+	fenceStart := 0
+	var fenceLines []string
+	for i := start; i < end; i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			if inFence {
+				out = append(out, readmeBlock{lang: fenceLang, body: strings.Join(fenceLines, "\n"), line: fenceStart})
+				fenceLines = nil
+				inFence = false
+				continue
+			}
+			fenceLang = strings.TrimSpace(strings.TrimPrefix(trimmed, "```"))
+			fenceStart = i + 1 // 1-based, absolute within doc
+			inFence = true
+			continue
+		}
+		if inFence {
+			fenceLines = append(fenceLines, line)
+		}
+	}
+	return out
 }
 
 // readmeRepoRoot resolves the repository root from a test in cmd/curlew, the
@@ -173,10 +200,22 @@ var readmeTemplateActionRE = regexp.MustCompile(`\{\{\s*\.(\w+)\s*\}\}`)
 // name_template that grows a new action (e.g. {{ .Tag }}) fails this test
 // loudly instead of silently comparing against a half-rendered string.
 func renderNameTemplate(tmpl, projectName string) (rendered string, unknown []string) {
-	// STUB (RED phase): return the template completely unrendered, so every
-	// rendered-name assertion fails until this is implemented for real.
-	_ = projectName
-	return tmpl, nil
+	known := map[string]string{
+		"ProjectName": projectName,
+		"Version":     "<version>",
+		"Os":          "<os>",
+		"Arch":        "<arch>",
+	}
+	rendered = readmeTemplateActionRE.ReplaceAllStringFunc(tmpl, func(action string) string {
+		m := readmeTemplateActionRE.FindStringSubmatch(action)
+		val, ok := known[m[1]]
+		if !ok {
+			unknown = append(unknown, action)
+			return action
+		}
+		return val
+	})
+	return rendered, unknown
 }
 
 func TestReadme_install_blocks_extraction(t *testing.T) {
