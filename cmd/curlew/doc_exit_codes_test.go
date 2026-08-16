@@ -29,25 +29,31 @@ var exitCodeTables = []struct {
 	doc    string
 	where  string
 	header []string
+	column string
 }{
-	{"MANUAL.md", "4.3 Exit codes", []string{"Code", "Meaning"}},
-	{"MANUAL.md", "D. Exit codes", []string{"Code", "Meaning"}},
-	{"CLI_SPECIFICATION.md", "17. Exit Codes", []string{"Code", "Meaning", "CI treatment"}},
+	{"MANUAL.md", "4.3 Exit codes", []string{"Code", "Meaning"}, "Code"},
+	{"MANUAL.md", "D. Exit codes", []string{"Code", "Meaning"}, "Code"},
+	{"CLI_SPECIFICATION.md", "17. Exit Codes", []string{"Code", "Meaning", "CI treatment"}, "Code"},
 }
 
 // codeCell reads a code out of a first column written as `0`, `130`.
 var codeCell = regexp.MustCompile(`^\d+$`)
 
-func documentedExitCodes(t *testing.T, doc, where string, header []string) []int {
+// documentedExitCodes reads the integer exit codes out of column in the table
+// found under where in doc. column is a parameter rather than a hardcoded
+// "Code" because docs/UI_SPECIFICATION.md's per-command table (§2.4, read by
+// TestExitCodes_all_surfaces_agree, M26-002) heads its exit-code column
+// "Exit", not "Code".
+func documentedExitCodes(t *testing.T, doc, where, column string, header []string) []int {
 	t.Helper()
 
 	hdr, rows, err := docs.TableUnder(doc, where, header...)
 	if err != nil {
 		t.Fatalf("%s under %q: %v", doc, where, err)
 	}
-	col := docs.Column(hdr, "Code")
+	col := docs.Column(hdr, column)
 	if col < 0 {
-		t.Fatalf("%s under %q: no Code column in %v", doc, where, hdr)
+		t.Fatalf("%s under %q: no %s column in %v", doc, where, column, hdr)
 	}
 
 	var codes []int
@@ -74,7 +80,7 @@ func TestDocTables_theThreeExitCodeTablesAgree(t *testing.T) {
 		firstS string
 	)
 	for i, tbl := range exitCodeTables {
-		codes := documentedExitCodes(t, tbl.doc, tbl.where, tbl.header)
+		codes := documentedExitCodes(t, tbl.doc, tbl.where, tbl.column, tbl.header)
 		got := fmt.Sprint(codes)
 		if i == 0 {
 			first, firstS = codes, got
@@ -113,10 +119,12 @@ func TestDocTables_everyDocumentedExitCodeIsProduced(t *testing.T) {
 
 	passing := write("pass.yaml", fmt.Sprintf(
 		"name: pass\nrequests:\n  - name: r\n    request:\n      method: GET\n      url: %q\n"+
-			"    assertions:\n      status: 200\n", srv.URL))
+			"    assertions:\n      status: 200\n", srv.URL,
+	))
 	failing := write("fail.yaml", fmt.Sprintf(
 		"name: fail\nrequests:\n  - name: r\n    request:\n      method: GET\n      url: %q\n"+
-			"    assertions:\n      status: 418\n", srv.URL))
+			"    assertions:\n      status: 418\n", srv.URL,
+	))
 	refused := write("refused.yaml",
 		"name: refused\nrequests:\n  - name: r\n    request:\n      method: GET\n"+
 			"      url: \"http://127.0.0.1:1/\"\n")
@@ -135,7 +143,8 @@ func TestDocTables_everyDocumentedExitCodeIsProduced(t *testing.T) {
 	guarded := write("guarded.yaml", fmt.Sprintf(
 		"name: guarded\nrequests:\n  - name: r\n    data_driven:\n      source: %q\n"+
 			"    request:\n      method: GET\n      url: %q\n",
-		dataFile, srv.URL))
+		dataFile, srv.URL,
+	))
 
 	produced := map[int]string{}
 	for _, c := range []struct {
@@ -166,7 +175,7 @@ func TestDocTables_everyDocumentedExitCodeIsProduced(t *testing.T) {
 	const signalCode = 130
 
 	for _, tbl := range exitCodeTables {
-		for _, code := range documentedExitCodes(t, tbl.doc, tbl.where, tbl.header) {
+		for _, code := range documentedExitCodes(t, tbl.doc, tbl.where, tbl.column, tbl.header) {
 			if code == signalCode {
 				continue
 			}
@@ -180,7 +189,7 @@ func TestDocTables_everyDocumentedExitCodeIsProduced(t *testing.T) {
 	// And the reverse: a code the binary produced with no row anywhere.
 	documented := map[int]bool{}
 	for _, tbl := range exitCodeTables {
-		for _, code := range documentedExitCodes(t, tbl.doc, tbl.where, tbl.header) {
+		for _, code := range documentedExitCodes(t, tbl.doc, tbl.where, tbl.column, tbl.header) {
 			documented[code] = true
 		}
 	}

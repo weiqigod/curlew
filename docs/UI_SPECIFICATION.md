@@ -78,7 +78,7 @@ New file `cmd/curlew/ui.go` (precedent: `worker.go`, `perf.go`, `license.go` as 
 
 Wiring (all three asserted in sync by the existing `TestUsageSynopsis_MatchesPrintHelpFirstLine` pattern):
 
-- `case "ui":` in the command switch in `runWithWriters` (cmd/curlew/main.go). Like `run`, it first calls `checkGraceExpiredTo(stderr)` and returns 9 if the license grace period has expired.
+- `case "ui":` in the command switch in `runWithWriters` (cmd/curlew/main.go) dispatches directly to `uiCmdOut(args[1:], stdout, stderr)`.
 - Entry in the `usageSynopses` map.
 - Line in `printHelpTo`: `  ui              Start the local web UI (runner & inspector)`.
 
@@ -109,13 +109,12 @@ Usage: curlew ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] [
 
 ### 2.3 Startup sequence
 
-1. Grace check (`checkGraceExpiredTo`) → exit 9 if expired.
-2. `os.Getwd()` → `config.FindProjectRoot(wd)`. Not found → stderr `no curlew project found (no curlew.yaml in current or parent directories)` → exit 5 (identical to `curlew info`).
-3. `config.LoadProjectConfig(root)`; parse failure → exit 3.
-4. Resolve port/host per precedence: flag > `ui:` config block > built-in default (§11). Non-loopback host in config → exit 3.
-5. `net.Listen("tcp", "127.0.0.1:"+port)`; busy handling per the flags table → exit 1 with a hint naming the busy port.
-6. Mint the session token (§9.3), print `curlew ui listening on http://127.0.0.1:<port>/?token=<t>` to stdout, open the browser unless `--no-open` (darwin `open`, linux `xdg-open`, windows `cmd /c start`, via `exec.Command`; best-effort — failure is a stderr warning only).
-7. Serve until SIGINT/SIGTERM (`signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` — the watch command handles Interrupt only; `ui` adds SIGTERM for service managers). On signal: cancel any active run, flush the history store, `http.Server.Shutdown` with a 5 s timeout → exit 0.
+1. `os.Getwd()` → `config.FindProjectRoot(wd)`. Not found → stderr `no curlew project found (no curlew.yaml in current or parent directories)` → exit 5 (identical to `curlew info`).
+2. `config.LoadProjectConfig(root)`; parse failure → exit 3.
+3. Resolve port/host per precedence: flag > `ui:` config block > built-in default (§11). Non-loopback host in config → exit 3.
+4. `net.Listen("tcp", "127.0.0.1:"+port)`; busy handling per the flags table → exit 1 with a hint naming the busy port.
+5. Mint the session token (§9.3), print `curlew ui listening on http://127.0.0.1:<port>/?token=<t>` to stdout, open the browser unless `--no-open` (darwin `open`, linux `xdg-open`, windows `cmd /c start`, via `exec.Command`; best-effort — failure is a stderr warning only).
+6. Serve until SIGINT/SIGTERM (`signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` — the watch command handles Interrupt only; `ui` adds SIGTERM for service managers). On signal: cancel any active run, flush the history store, `http.Server.Shutdown` with a 5 s timeout → exit 0.
 
 ### 2.4 Exit codes
 
@@ -125,7 +124,6 @@ Usage: curlew ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] [
 | 1 | usage error; port bind failure; fatal server error after start |
 | 3 | invalid config (bad `ui:` block, unknown `--env`, `--collection` outside root) |
 | 5 | no project found |
-| 9 | license grace period expired |
 
 Note: the MANUAL's master exit-code table lists 2 for usage errors, but every `*CmdOut` in main.go returns 1 for usage/flag errors today; `ui` follows the de-facto convention (1). Reconciling the MANUAL table is a deferred follow-up (§15).
 
