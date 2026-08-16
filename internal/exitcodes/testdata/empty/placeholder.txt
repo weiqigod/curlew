@@ -1,0 +1,4 @@
+This directory deliberately contains no .go files. It exists so
+TestReachable's "empty_package_is_an_error" case has a real directory to
+point Reachable at, one that git will track (git does not track empty
+directories) without giving the AST walk any source to parse.
