@@ -1979,10 +1979,12 @@ capabilities:
         verified_by: ai
         branch: feature/M25-001-release-build-gate
       - id: M25-002
-        status: review
+        status: done
         planned_date: 2026-08-16
         started_date: 2026-08-16
         review_date: 2026-08-16
+        completed_date: 2026-08-16
+        verified_by: ai
         branch: feature/M25-002-release-artifact-verification
       - id: M25-003
         status: backlog
