@@ -1,9 +1,10 @@
 id: M26-001
 title: "The shipped agent skill stops describing a licensing system that was deleted"
-status: in_progress
+status: review
 priority: 1
 created: 2026-08-14
 planned_date: 2026-08-16
+review_date: 2026-08-16
 branch: feature/M26-001-agent-skill-truth
 phase: "M26: The agent skill tells the truth"
 track: go-cli
