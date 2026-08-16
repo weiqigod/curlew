@@ -2,12 +2,16 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/weiqigod/curlew/internal/docs"
 	"github.com/weiqigod/curlew/internal/exitcodes"
 )
 
@@ -289,5 +293,111 @@ func TestExitCodes_skillProseNamesOnlyReachableCodes(t *testing.T) {
 		t.Fatalf("prose exit-code mentions found in only %d file(s) (%v) — the regex has "+
 			"stopped matching, not that the skill stopped naming exit codes in prose",
 			len(filesWithMatch), filesWithMatch)
+	}
+}
+
+// docsWithoutExitCodeContract are the documents whose exit-code sections are
+// deliberately not held to the binary, each with its reason in code rather
+// than in a commit message. A map[string]string rather than a []string: an
+// entry without a reason does not compile.
+var docsWithoutExitCodeContract = map[string]string{
+	"SPECIFICATION.md": "platform spec — its own scope note (2026-08-04) states it " +
+		"describes the src/ backend and web/ dashboard as designed through v4.4, " +
+		"including the five-tier feature gating throughout, not code that exists",
+	"history/IMPROVEMENT.md": "archived record of a past improvement pass",
+}
+
+// exitCodeHeadingRe matches a markdown heading naming an exit-code section:
+// "## 17. Exit Codes", "### 4.3 Exit codes — master table", "## Exit codes
+// for `curlew plugins list`", "## Failure playbook by exit code".
+//
+// Headings, not table headers: `| Code | Meaning |` also matches the CEL
+// error table at MANUAL.md:1820 and the precedence table at
+// CLI_SPECIFICATION.md:615, while a heading naming "exit code(s)" does not
+// match either of those.
+var exitCodeHeadingRe = regexp.MustCompile(`(?i)^#{1,6}\s+.*exit codes?\b`)
+
+// exitCodeHeading is one markdown heading found while sweeping docs/ that
+// names an exit-code section.
+type exitCodeHeading struct {
+	doc  string // path relative to docs.Dir, forward-slashed, e.g. "history/IMPROVEMENT.md"
+	line int
+	text string
+}
+
+// sweepExitCodeHeadings walks docs.Dir for every markdown heading naming an
+// exit-code section.
+//
+// Rooted at docs.Dir specifically, never a repo-wide glob:
+// .claude/worktrees/*/ is a second full checkout of this repository, and a
+// glob would contribute a phantom copy of every document under it.
+func sweepExitCodeHeadings(t *testing.T) []exitCodeHeading {
+	t.Helper()
+	var out []exitCodeHeading
+	err := filepath.WalkDir(docs.Dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".md") {
+			return nil
+		}
+		rel, relErr := filepath.Rel(docs.Dir, path)
+		if relErr != nil {
+			return relErr
+		}
+		rel = filepath.ToSlash(rel)
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			if exitCodeHeadingRe.MatchString(line) {
+				out = append(out, exitCodeHeading{doc: rel, line: i + 1, text: strings.TrimSpace(line)})
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("sweeping %s for exit-code headings: %v", docs.Dir, err)
+	}
+	return out
+}
+
+// TestExitCodes_everyExitCodeSectionIsRegistered walks docs/ for exit-code
+// section headings and fails on any the surface registry does not classify.
+//
+// A hand-maintained list of surfaces is another document about the binary
+// and drifts like the ones it guards: when this task was written, the
+// four-surface list named in the task did not include
+// docs/UI_SPECIFICATION.md §2.4 — publishing an exit 9 for a licensing grace
+// check deleted long ago. This is the analogue of
+// internal/schema/parity_test.go's
+// TestSchema_parity_table_covers_every_parser_struct, which reflects over
+// every struct reachable from parser.Collection and fails if one is in
+// neither the parity table nor its exemption list.
+func TestExitCodes_everyExitCodeSectionIsRegistered(t *testing.T) {
+	headings := sweepExitCodeHeadings(t)
+	if len(headings) < 5 {
+		t.Fatalf("found %d exit-code section heading(s) under %s — the sweep is broken, "+
+			"not that the documentation shrank (measured 7 on this tree)", len(headings), docs.Dir)
+	}
+
+	surfaces := exitCodeSurfaces()
+	for _, h := range headings {
+		if _, excluded := docsWithoutExitCodeContract[h.doc]; excluded {
+			continue
+		}
+		covered := false
+		for _, s := range surfaces {
+			if s.doc == h.doc && s.sect != "" && strings.Contains(h.text, s.sect) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			t.Errorf("docs/%s:%d %q publishes exit codes but no surface in exitCodeSurfaces() "+
+				"reads it, and it is not in docsWithoutExitCodeContract — either hold it to the "+
+				"binary or record why not", h.doc, h.line, h.text)
+		}
 	}
 }
