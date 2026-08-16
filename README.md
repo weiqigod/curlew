@@ -100,19 +100,46 @@ Everything is available unconditionally — this repository contains no feature 
 
 ## Install
 
-From source (requires Go 1.24+):
+The repository is private, so every path below needs GitHub access — an
+authenticated `gh`, or git credentials for `github.com/weiqigod`. There is no
+anonymous install: a plain `curl` against a release asset returns 404, and
+`go install` without `GOPRIVATE` fails because the public checksum database
+cannot read the module.
+
+### Download a release binary
+
+No Go toolchain required. Release archives are named
+`curlew_<version>_<os>_<arch>.tar.gz` — `.zip` on Windows — and are served from
+`https://github.com/weiqigod/curlew/releases/download/v<version>/curlew_<version>_<os>_<arch>.tar.gz`.
 
 ```bash
-go install github.com/weiqigod/curlew/cmd/curlew@latest
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+arch=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
+gh release download --repo weiqigod/curlew --pattern "curlew_*_${os}_${arch}.tar.gz"
+tar -xzf curlew_*_"${os}"_"${arch}".tar.gz
+./curlew --version
 ```
 
-Or clone and build:
+This is the only path that produces a binary reporting its real version. A
+release build injects the version at link time; anything built from source
+reports `0.1.0-dev` (`cmd/curlew/main.go`).
+
+### Install from source (requires Go 1.24+)
+
+```bash
+GOPRIVATE='github.com/weiqigod/*' go install github.com/weiqigod/curlew/cmd/curlew@latest
+```
+
+### Clone and build
 
 ```bash
 git clone https://github.com/weiqigod/curlew
 cd curlew
 go build ./cmd/curlew
 ```
+
+Every command block above is executed by
+`TestReadme_install_commands_execute` — see `cmd/curlew/readme_install_exec_test.go`.
 
 ## Quickstart
 
