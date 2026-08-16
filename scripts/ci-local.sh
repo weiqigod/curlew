@@ -134,6 +134,31 @@ lint_cmd() {
   fi
 }
 
+# Resolve goreleaser, the same way and for the same reason as lint_cmd above:
+# probe the Go install location before PATH, and *fail* when it is absent.
+#
+# The absent branch returns 1 rather than skipping the release step. A gate that
+# reports PASS while quietly omitting a step is the false clear M22-001 exists
+# to prevent (see internal/backlog/backlog.go), and the release path is the
+# worst place to reintroduce it: a parser bug is caught by the next test run, a
+# release bug by the first user, after the tag is public and immutable.
+#
+# Unlike lint_cmd this asks `go env GOPATH` rather than hardcoding ~/go/bin,
+# because the failure message below tells the operator to run `go install`, and
+# the probe should look where `go install` actually writes.
+goreleaser_cmd() {
+  if [ -x "$(go env GOPATH)/bin/goreleaser" ]; then
+    "$(go env GOPATH)/bin/goreleaser" "$@"
+  elif command -v goreleaser >/dev/null 2>&1; then
+    goreleaser "$@"
+  else
+    echo "goreleaser not found (checked \$(go env GOPATH)/bin and PATH)." >&2
+    echo "Install it with:" >&2
+    echo "    go install github.com/goreleaser/goreleaser/v2@latest" >&2
+    return 1
+  fi
+}
+
 # Untracked node_modules (npm install in web/ or site/) can contain vendored
 # Go files (e.g. flatted ships a Go port) that have no go.mod, so `./...`
 # would pick them up. Filter them out of every package-list expansion.
