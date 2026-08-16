@@ -1988,7 +1988,9 @@ capabilities:
     milestone: 'M26'
     tasks:
       - id: M26-001
-        status: backlog
+        status: planned
+        planned_date: 2026-08-16
+        branch: feature/M26-001-agent-skill-truth
       - id: M26-002
         status: backlog
 
