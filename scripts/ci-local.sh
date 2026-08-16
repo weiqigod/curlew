@@ -283,7 +283,19 @@ step "release: the built artifact reports its injected version"
 # Resolved by count rather than by bare glob: a glob that expanded to nothing
 # would turn this assertion into a no-op, which is the one outcome this step
 # exists to prevent.
-release_bin_count="$(find dist -type f -name curlew | wc -l | tr -d ' ')"
+#
+# dist/ is tested for separately rather than left to find: find exits non-zero
+# on a missing directory, and under `set -o pipefail` (line 28) that aborts the
+# assignment before the check below can run — so the operator saw find's own
+# "No such file or directory" on stderr instead of the message written for
+# them (measured). Every *other* find failure is deliberately left to abort
+# rather than folded into "found 0": reporting a count find never produced
+# would be the same false clear this step exists to prevent.
+if [ -d dist ]; then
+  release_bin_count="$(find dist -type f -name curlew | wc -l | tr -d ' ')"
+else
+  release_bin_count=0
+fi
 if [ "$release_bin_count" != "1" ]; then
   echo "expected exactly one built curlew under dist/, found ${release_bin_count}" >&2
   exit 1
