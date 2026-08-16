@@ -39,6 +39,22 @@ jobs:
           go-version: '1.24'
           cache: true
 
+      # The gate at the next step now runs the release build (M25-001) and fails
+      # hard when goreleaser is absent -- by design. Install it first, with the
+      # same `~> v2` constraint the publish step below uses, so the gate and the
+      # release cannot run different goreleasers.
+      #
+      # Deliberately install-only rather than `go install`: this workflow pins
+      # go-version: '1.24' above, and goreleaser v2.17.1 declares go >= 1.26.5,
+      # so `go install` would trigger a toolchain download on every release run.
+      # The action installs a prebuilt binary instead, so no Go toolchain change
+      # is needed just to run the gate.
+      - name: Install goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          install-only: true
+
       # The gate runs before anything is published. A release is the one build
       # that must not be the first place a failure is noticed.
       - name: Go gate

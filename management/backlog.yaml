@@ -1973,7 +1973,11 @@ capabilities:
     milestone: 'M25'
     tasks:
       - id: M25-001
-        status: backlog
+        status: done
+        planned_date: 2026-08-16
+        completed_date: 2026-08-16
+        verified_by: ai
+        branch: feature/M25-001-release-build-gate
       - id: M25-002
         status: backlog
       - id: M25-003

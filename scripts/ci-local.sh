@@ -134,6 +134,31 @@ lint_cmd() {
   fi
 }
 
+# Resolve goreleaser, the same way and for the same reason as lint_cmd above:
+# probe the Go install location before PATH, and *fail* when it is absent.
+#
+# The absent branch returns 1 rather than skipping the release step. A gate that
+# reports PASS while quietly omitting a step is the false clear M22-001 exists
+# to prevent (see internal/backlog/backlog.go), and the release path is the
+# worst place to reintroduce it: a parser bug is caught by the next test run, a
+# release bug by the first user, after the tag is public and immutable.
+#
+# Unlike lint_cmd this asks `go env GOPATH` rather than hardcoding ~/go/bin,
+# because the failure message below tells the operator to run `go install`, and
+# the probe should look where `go install` actually writes.
+goreleaser_cmd() {
+  if [ -x "$(go env GOPATH)/bin/goreleaser" ]; then
+    "$(go env GOPATH)/bin/goreleaser" "$@"
+  elif command -v goreleaser >/dev/null 2>&1; then
+    goreleaser "$@"
+  else
+    echo "goreleaser not found (checked \$(go env GOPATH)/bin and PATH)." >&2
+    echo "Install it with:" >&2
+    echo "    go install github.com/goreleaser/goreleaser/v2@latest" >&2
+    return 1
+  fi
+}
+
 # Untracked node_modules (npm install in web/ or site/) can contain vendored
 # Go files (e.g. flatted ships a Go port) that have no go.mod, so `./...`
 # would pick them up. Filter them out of every package-list expansion.
@@ -200,6 +225,99 @@ awk '
 
 step "smoke"
 ./smoke/run.sh
+
+# --- Release gate: .goreleaser.yaml, executed rather than trusted ---
+#
+# Added by M25-001. .goreleaser.yaml shipped in #14 and was never once run: no
+# tag exists, goreleaser was not installed, and this script did not mention it.
+# Every property the config claims — static CGO_ENABLED=0 builds, -X
+# main.version injection, LICENSE and NOTICE carried per Apache-2.0 4(a)/4(d) —
+# was a claim about a build nobody had performed.
+#
+# This runs on every --go gate. Measured cost is ~2.1s: `check` is 0.07s and the
+# single-target snapshot is 2s, which is why it can afford to be unconditional.
+# It sits before the dogfood gate so a broken release config fails in seconds
+# rather than after several minutes of mudflat harnesses.
+#
+# Nothing here publishes: no tag, no `goreleaser release`, no network push.
+step "release: goreleaser is installed and new enough"
+# Anchored on the GitVersion: line on purpose — `goreleaser --version` also
+# prints `GoVersion: go1.26.6`, and an unanchored semver grep picks up the Go
+# version instead. An unparseable version fails rather than being assumed
+# compatible, for the same reason a missing binary does.
+goreleaser_version="$(goreleaser_cmd --version | awk '/^GitVersion:/ { v=$2; sub(/^v/,"",v); print v; exit }')"
+goreleaser_major="${goreleaser_version%%.*}"
+case "$goreleaser_major" in
+  ''|*[!0-9]*)
+    echo "could not read a version out of \`goreleaser --version\` (parsed: '${goreleaser_version}')." >&2
+    echo "Refusing to continue rather than assume it is compatible." >&2
+    echo "Install a known-good build with:" >&2
+    echo "    go install github.com/goreleaser/goreleaser/v2@latest" >&2
+    exit 1
+    ;;
+esac
+if [ "$goreleaser_major" -lt 2 ]; then
+  echo "goreleaser $goreleaser_version is too old: .goreleaser.yaml declares 'version: 2'." >&2
+  echo "    go install github.com/goreleaser/goreleaser/v2@latest" >&2
+  exit 1
+fi
+echo "goreleaser $goreleaser_version"
+
+step "release: goreleaser check"
+goreleaser_cmd check
+
+step "release: snapshot build for this host"
+# --single-target builds only the host platform, which is what keeps this
+# affordable on every gate; the full six-target matrix is M25-002's job, at tag
+# time. --clean wipes dist/ (gitignored, .gitignore:42) and does not touch the
+# tracked internal/uiserver/assets/dist/index.html, which lives under a
+# different directory entirely.
+goreleaser_cmd build --snapshot --clean --single-target
+
+step "release: the built artifact reports its injected version"
+# The step that actually matters. `check` proves the YAML parses and the build
+# proves it compiles; only running the artifact proves -X main.version reached
+# it. A binary still reporting the cmd/curlew/main.go default is exactly the
+# failure that would otherwise be discovered by a user, after the tag is public.
+#
+# Resolved by count rather than by bare glob: a glob that expanded to nothing
+# would turn this assertion into a no-op, which is the one outcome this step
+# exists to prevent.
+#
+# dist/ is tested for separately rather than left to find: find exits non-zero
+# on a missing directory, and under `set -o pipefail` (line 28) that aborts the
+# assignment before the check below can run — so the operator saw find's own
+# "No such file or directory" on stderr instead of the message written for
+# them (measured). Every *other* find failure is deliberately left to abort
+# rather than folded into "found 0": reporting a count find never produced
+# would be the same false clear this step exists to prevent.
+if [ -d dist ]; then
+  release_bin_count="$(find dist -type f -name curlew | wc -l | tr -d ' ')"
+else
+  release_bin_count=0
+fi
+if [ "$release_bin_count" != "1" ]; then
+  echo "expected exactly one built curlew under dist/, found ${release_bin_count}" >&2
+  exit 1
+fi
+release_bin="$(find dist -type f -name curlew)"
+release_version="$("$release_bin" --version)"
+echo "${release_bin}: ${release_version}"
+
+if [ "$release_version" = "curlew 0.1.0-dev" ]; then
+  echo "FAIL: the release artifact reports the cmd/curlew/main.go default." >&2
+  echo "      -X main.version never reached the binary; every published archive" >&2
+  echo "      would be mislabelled with no build step failing to warn." >&2
+  exit 1
+fi
+# X.Y.Z-snapshot, from snapshot.version_template "{{ incpatch .Version }}-snapshot".
+# Deliberately not an equality check: this reads 0.0.1-snapshot while no tag
+# exists and 0.1.1-snapshot once M25-002 cuts v0.1.0, and both are correct.
+if ! printf '%s\n' "$release_version" | grep -qE '^curlew [0-9]+\.[0-9]+\.[0-9]+-snapshot$'; then
+  echo "FAIL: release artifact reported '${release_version}'," >&2
+  echo "      want 'curlew <X.Y.Z>-snapshot' from snapshot.version_template." >&2
+  exit 1
+fi
 
 # --- Dogfood gate: curlew against mudflat ---
 #

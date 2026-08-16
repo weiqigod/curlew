@@ -37,6 +37,23 @@ jobs:
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.2
 
+      # ci-local.sh's release step (M25-001) requires goreleaser and fails
+      # without it rather than skipping -- so the workflow that delegates to that
+      # script has to supply it. Pinned for the same reason golangci-lint is:
+      # a new goreleaser release must not fail a branch on a day nobody touched
+      # .goreleaser.yaml.
+      #
+      # `go install` here despite the same Go-version gap that makes release.yml
+      # avoid it below: goreleaser v2.17.1's go.mod declares go 1.26.5, and
+      # go-version-file: go.mod above resolves to 1.24.0. It works because
+      # GOTOOLCHAIN is `auto` -- the default, not overridden anywhere in this
+      # repo -- so this one `go install` transparently downloads the newer
+      # toolchain it needs. Measured on a dev host at go1.25.5: it fetched
+      # go1.26.6 and exited 0. release.yml declines to pay that download on
+      # release day and installs a prebuilt goreleaser binary instead.
+      - name: Install goreleaser
+        run: go install github.com/goreleaser/goreleaser/v2@v2.17.1
+
       # The gate is scripts/ci-local.sh, not a copy of it. Restating the steps
       # here is how a workflow and the local gate drift until "CI is green"
       # and "ci-local passed" stop meaning the same thing — so this job shells

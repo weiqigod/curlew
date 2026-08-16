@@ -7,6 +7,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The release build is now executed on every gate, not trusted.**
+  `.goreleaser.yaml` shipped in #14 and had never been run once: no tag
+  existed, `goreleaser` was not installed, and `ci-local.sh` never mentioned
+  it. Every property the config claimed — static `CGO_ENABLED=0` builds, `-X
+  main.version` injection, LICENSE and NOTICE carried into every archive for
+  Apache-2.0 §4(a)/§4(d) — was a claim about a build nobody had performed.
+
+  `ci-local.sh --go` now runs four steps between `smoke` and the dogfood gate:
+  confirm `goreleaser` is installed and at least major version 2 (parsed off
+  the `GitVersion:` line, not an unanchored semver grep — which also matches
+  the reported Go version), `goreleaser check`, a single-target `--snapshot`
+  build for the host, and — the step that actually matters — execute the built
+  binary and assert on its `--version` output. Measured cost is ~2.1s (`check`
+  0.07s, the snapshot build ~2s), so the step runs unconditionally. A missing
+  `goreleaser` fails the gate with the install command rather than skipping
+  the step and reporting PASS — the same false-clear M22-001 exists to
+  prevent, applied to the release path.
+
+  First-ever execution of `.goreleaser.yaml` produced a real artifact:
+  `curlew 0.0.1-snapshot` at `dist/curlew_darwin_arm64_v8.0/curlew`.
+
+  Verified by mutating the config three ways and confirming each restores
+  cleanly afterward: an invalid `goos` value is caught by `goreleaser check`;
+  deleting the `-X main.version` ldflag entirely passes `check` and `build`
+  and is only caught by the `--version` assertion — the failure the task
+  exists to prevent, since a binary silently reporting the `0.1.0-dev` default
+  is exactly what would otherwise ship. A third mutation (an undefined
+  template variable in `ldflags`) fails at the **build** step itself, as
+  originally expected: `goreleaser build --snapshot --clean --single-target`
+  exits 1 with `map has no entry for key "NoSuchVar"` and leaves `dist/` with
+  zero files — it does not link a binary, silently or otherwise. `goreleaser
+  check` alone is confirmed **not** sufficient on its own: it does not catch
+  either template problem, only structural ones such as the invalid `goos`
+  value above.
+
+  **Correction to an earlier revision of this entry.** It previously stated
+  the opposite of the paragraph above — that `goreleaser build --snapshot`
+  "accepts [the undefined template variable] silently and links a binary
+  carrying the same `0.1.0-dev` default instead." That claim is false and
+  does not reproduce. `management/plans/M25-001-plan.md` retracted the same
+  claim during `/execute`, after it failed to reproduce across repeated runs,
+  but this file was not corrected to match until now — and nothing automated
+  would have caught the drift, since CHANGELOG.md is deliberately excluded
+  from this project's doc-prose and doc-table checks. Recorded as a
+  correction rather than silently overwritten: a task whose whole argument is
+  that unexecuted claims are worthless cannot itself carry a changelog entry
+  that quietly rewrites its own measurement.
+
+  `.github/workflows/go.yml` and `release.yml` — the two workflows that
+  delegate to `ci-local.sh --go` — now install `goreleaser` first;
+  `release.yml` uses `goreleaser-action`'s `install-only` mode rather than
+  `go install`, since it pins Go 1.24 while goreleaser v2.17.1 requires
+  Go >= 1.26.5.
+
+  Nothing here publishes: no tag, no `goreleaser release`, no push. Cutting
+  `v0.1.0` is M25-002.
+
 - **`docs/PRODUCT_ROADMAP.md`, and M25–M29 in the backlog (12 tasks).** M1–M24
   closed the backlog for the fourth time. Each of the four campaigns —
   feature-gating stripped, backend stripped, post-strip drift closed,
