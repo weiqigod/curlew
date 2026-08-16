@@ -226,22 +226,49 @@ func TestReadme_install_blocks_extraction(t *testing.T) {
 		wantLangs  []string
 		wantBodies []string
 	}{
-		{"single bash block", "## Install\n\n```bash\nls\n```\n", "Install",
-			[]string{"bash"}, []string{"ls"}},
-		{"stops at the next ## heading", "## Install\n\n```bash\na\n```\n\n## Next\n\n```bash\nb\n```\n",
-			"Install", []string{"bash"}, []string{"a"}},
-		{"### subheadings do not end the section", "## Install\n\n### One\n\n```bash\na\n```\n\n### Two\n\n```bash\nb\n```\n",
-			"Install", []string{"bash", "bash"}, []string{"a", "b"}},
-		{"inline code spans are not blocks", "## Install\n\nrun `curlew run x` first\n\n```bash\na\n```\n",
-			"Install", []string{"bash"}, []string{"a"}},
-		{"fence language is preserved", "## Install\n\n```text\nnot a command\n```\n",
-			"Install", []string{"text"}, []string{"not a command"}},
-		{"multi-line block keeps its lines", "## Install\n\n```bash\ncd x\nmake\n```\n",
-			"Install", []string{"bash"}, []string{"cd x\nmake"}},
-		{"edge case - missing heading yields nothing", "## Other\n\n```bash\na\n```\n",
-			"Install", nil, nil},
-		{"edge case - heading with no blocks", "## Install\n\njust prose\n\n## Next\n",
-			"Install", nil, nil},
+		{
+			"single bash block", "## Install\n\n```bash\nls\n```\n", "Install",
+			[]string{"bash"},
+			[]string{"ls"},
+		},
+		{
+			"stops at the next ## heading", "## Install\n\n```bash\na\n```\n\n## Next\n\n```bash\nb\n```\n",
+			"Install",
+			[]string{"bash"},
+			[]string{"a"},
+		},
+		{
+			"### subheadings do not end the section", "## Install\n\n### One\n\n```bash\na\n```\n\n### Two\n\n```bash\nb\n```\n",
+			"Install",
+			[]string{"bash", "bash"},
+			[]string{"a", "b"},
+		},
+		{
+			"inline code spans are not blocks", "## Install\n\nrun `curlew run x` first\n\n```bash\na\n```\n",
+			"Install",
+			[]string{"bash"},
+			[]string{"a"},
+		},
+		{
+			"fence language is preserved", "## Install\n\n```text\nnot a command\n```\n",
+			"Install",
+			[]string{"text"},
+			[]string{"not a command"},
+		},
+		{
+			"multi-line block keeps its lines", "## Install\n\n```bash\ncd x\nmake\n```\n",
+			"Install",
+			[]string{"bash"},
+			[]string{"cd x\nmake"},
+		},
+		{
+			"edge case - missing heading yields nothing", "## Other\n\n```bash\na\n```\n",
+			"Install", nil, nil,
+		},
+		{
+			"edge case - heading with no blocks", "## Install\n\njust prose\n\n## Next\n",
+			"Install", nil, nil,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
