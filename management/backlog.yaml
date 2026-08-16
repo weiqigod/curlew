@@ -1973,7 +1973,7 @@ capabilities:
     milestone: 'M25'
     tasks:
       - id: M25-001
-        status: in_progress
+        status: review
         planned_date: 2026-08-16
         branch: feature/M25-001-release-build-gate
       - id: M25-002
