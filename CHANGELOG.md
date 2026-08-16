@@ -34,12 +34,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and is only caught by the `--version` assertion — the failure the task
   exists to prevent, since a binary silently reporting the `0.1.0-dev` default
   is exactly what would otherwise ship. A third mutation (an undefined
-  template variable in `ldflags`) was expected to fail at `build`, but
-  measurement showed `goreleaser build --snapshot` accepts it silently and
-  links a binary carrying the same `0.1.0-dev` default instead — so the
-  `--version` assertion catches that case too. `goreleaser check` alone is
-  confirmed **not** sufficient on its own: it does not catch either template
-  problem, only structural ones.
+  template variable in `ldflags`) fails at the **build** step itself, as
+  originally expected: `goreleaser build --snapshot --clean --single-target`
+  exits 1 with `map has no entry for key "NoSuchVar"` and leaves `dist/` with
+  zero files — it does not link a binary, silently or otherwise. `goreleaser
+  check` alone is confirmed **not** sufficient on its own: it does not catch
+  either template problem, only structural ones such as the invalid `goos`
+  value above.
+
+  **Correction to an earlier revision of this entry.** It previously stated
+  the opposite of the paragraph above — that `goreleaser build --snapshot`
+  "accepts [the undefined template variable] silently and links a binary
+  carrying the same `0.1.0-dev` default instead." That claim is false and
+  does not reproduce. `management/plans/M25-001-plan.md` retracted the same
+  claim during `/execute`, after it failed to reproduce across repeated runs,
+  but this file was not corrected to match until now — and nothing automated
+  would have caught the drift, since CHANGELOG.md is deliberately excluded
+  from this project's doc-prose and doc-table checks. Recorded as a
+  correction rather than silently overwritten: a task whose whole argument is
+  that unexecuted claims are worthless cannot itself carry a changelog entry
+  that quietly rewrites its own measurement.
 
   `.github/workflows/go.yml` and `release.yml` — the two workflows that
   delegate to `ci-local.sh --go` — now install `goreleaser` first;
