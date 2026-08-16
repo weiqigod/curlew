@@ -16,10 +16,15 @@ observable: |
   ls dist/*.tar.gz dist/*.zip dist/checksums.txt
 
   # 2. Each archive carries what the licence requires and a binary that runs.
-  go test ./cmd/curlew/ -run TestRelease_every_archive_is_complete -v
+  #    -tags release_artifacts is required: the test lives behind that build
+  #    tag (see M25-002 plan D1), and without it this command reports "no
+  #    tests to run" at exit 0 -- a command that proves nothing while
+  #    reporting success, which is the exact defect class this task exists
+  #    to close. Deviation recorded in M25-002 plan D9.
+  go test -tags release_artifacts ./cmd/curlew/ -run TestRelease_every_archive_is_complete -v
 
   # 3. The tagged binary reports the tag, not the development default.
-  go test ./cmd/curlew/ -run TestRelease_version_matches_the_tag -v
+  go test -tags release_artifacts ./cmd/curlew/ -run TestRelease_version_matches_the_tag -v
 
 behaviors:
   - "Given a snapshot release, when the archives are listed, then all six os/arch combinations named in .goreleaser.yaml are present."
