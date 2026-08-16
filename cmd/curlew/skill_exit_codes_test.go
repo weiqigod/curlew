@@ -26,9 +26,9 @@ const skillRoot = "runWithWriters"
 
 // skillStatement is one place the skill states the exit-code contract.
 type skillStatement struct {
-	file string                          // base name under .claude/skills/curlew/
-	what string                          // names the statement in failure output, e.g. "master table"
-	sub  string                          // t.Run subtest name suffix, e.g. "master_table"
+	file string // base name under .claude/skills/curlew/
+	what string // names the statement in failure output, e.g. "master table"
+	sub  string // t.Run subtest name suffix, e.g. "master_table"
 	read func(*testing.T, string) []int
 }
 

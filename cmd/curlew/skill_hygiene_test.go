@@ -27,7 +27,8 @@ var licensingSurface = regexp.MustCompile(
 		`tiers?` + `|` +
 		`subscription` + `|` +
 		`(?:free|solo|professional|enterprise)[ -]tier` +
-		`)\b`)
+		`)\b`,
+)
 
 // licensingExceptions records any "file:line" (relative to
 // .claude/skills/curlew/) deliberately permitted to name the removed system.

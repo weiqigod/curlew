@@ -3,7 +3,8 @@ package exitcodes
 import apierrors "github.com/weiqigod/curlew/internal/errors"
 
 func init() {
-	apierrors.RegisterPackage("exitcodes",
+	apierrors.RegisterPackage(
+		"exitcodes",
 		apierrors.RegisteredError{
 			Name: "ErrRootNotFound",
 			Err:  ErrRootNotFound,
