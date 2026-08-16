@@ -14,7 +14,13 @@ import (
 )
 
 // exitCodeSeverity maps exit codes to their severity rank for comparison.
-// Higher rank = more severe. Ordering: 0 < 4 < 2 < 5 < 3 < 1 < 6.
+// Higher rank = more severe. Ordering: 0 < 4 < 2 < 5 < 3 < 1.
+//
+// Every key must be a code cmd/curlew can actually return;
+// TestExitCodes_no_unreachable_mapping enforces it. The reverse does not hold
+// and is not asserted: 130 is reachable but unranked, because a SIGINT during
+// `curlew perf` never reaches the worst-wins fold across discovered
+// collections.
 var exitCodeSeverity = map[int]int{
 	0: 0, // success
 	4: 1, // network error
@@ -22,11 +28,11 @@ var exitCodeSeverity = map[int]int{
 	5: 3, // config/var error
 	3: 4, // collection parse error
 	1: 5, // assertion failure
-	6: 6, // feature gate
 }
 
-// worseExitCode returns the more-severe of two exit codes using the
-// severity ordering 0 < 4 < 2 < 5 < 3 < 1 < 6.
+// worseExitCode returns the more-severe of two exit codes using the severity
+// ordering 0 < 4 < 2 < 5 < 3 < 1. A code absent from exitCodeSeverity ranks
+// as severity 0.
 func worseExitCode(a, b int) int {
 	sa, ok := exitCodeSeverity[a]
 	if !ok {

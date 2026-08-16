@@ -25,7 +25,6 @@ func TestWorseExitCode(t *testing.T) {
 	}{
 		{"both zero", 0, 0, 0},
 		{"assertion beats network", 1, 4, 1},
-		{"feature gate beats all", 6, 1, 6},
 		{"collection error beats guard rail", 3, 2, 3},
 		{"guard rail beats network", 2, 4, 2},
 		{"config error beats guard rail", 5, 2, 5},
@@ -59,7 +58,6 @@ func TestAggregateExitCodes(t *testing.T) {
 		{"empty returns 0", []int{}, 0},
 		{"all pass", []int{0, 0, 0}, 0},
 		{"one failure wins", []int{0, 1, 0}, 1},
-		{"feature gate wins all", []int{0, 1, 6}, 6},
 		{"network error", []int{0, 4, 0}, 4},
 		{"guard rail beats network", []int{4, 2}, 2},
 	}

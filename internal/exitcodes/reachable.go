@@ -3,12 +3,16 @@
 // binary rather than to a list someone maintains.
 //
 // The walk is scoped to return statements reachable from a named root. That
-// scoping is the point, not an implementation detail: cmd/curlew's
-// exitCodeSeverity map contains a dead `6: 6, // feature gate` entry left by
-// the removed licensing system, and a walk that collected "integers appearing
-// near the word exit" would resurrect it as a code the binary can return. A
-// composite literal's keys and values are never return statements, so that
-// entry is excluded structurally rather than by an exception list.
+// scoping is the point, not an implementation detail: a walk that collected
+// "integers appearing near the word exit" would sweep up any composite
+// literal keyed by exit code — cmd/curlew's exitCodeSeverity map is one — and
+// report a severity rank as a code the binary can return. A composite
+// literal's keys and values are never return statements, so those are
+// excluded structurally rather than by an exception list. That mattered
+// concretely: when this package was written, exitCodeSeverity still carried a
+// dead `6: 6, // feature gate` entry from the removed licensing system, and
+// the structural exclusion is what let M26-002 delete it as provably
+// unreachable rather than argue about it.
 package exitcodes
 
 import (
