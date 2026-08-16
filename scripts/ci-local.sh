@@ -223,6 +223,19 @@ awk '
   }
 ' smoke/run.sh
 
+step "check-signing-keys unit tests (M18-009)"
+# The --check-signing-keys mode above delegates to check-signing-keys.sh with
+# the comment "for unit-testability" — but the tests that justified extracting
+# it were written and then never invoked by anything. A test file nothing runs
+# is the same shape as a checker that answers "clear" without reading: it looks
+# like coverage in a directory listing and proves nothing.
+#
+# It runs in the Go gate (so --go covers it too) rather than beside the
+# --check-signing-keys mode, because that mode exec's away and is only ever
+# invoked by hand against a real database. The tests need neither: they stub
+# psql on PATH, so this step is hermetic and costs about 0.1s.
+./scripts/check-signing-keys_test.sh
+
 step "smoke"
 ./smoke/run.sh
 
