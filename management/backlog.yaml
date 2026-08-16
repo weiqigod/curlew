@@ -1996,7 +1996,9 @@ capabilities:
         verified_by: ai
         branch: feature/M26-001-agent-skill-truth
       - id: M26-002
-        status: backlog
+        status: planned
+        planned_date: 2026-08-16
+        branch: feature/M26-002-one-exit-code-truth
 
   defect_hunt:
     description: 'The defects tables cannot find - prose claims, malformed input, a new dogfooding surface'
