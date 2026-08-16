@@ -19,6 +19,8 @@ func TestReachable(t *testing.T) {
 		{"helper_called_in_return_position_included", "testdata/callchain", "run", []int{0, 1, 3}, nil},
 		{"code_via_local_assignment_included", "testdata/identflow", "run", []int{0, 2, 5}, nil},
 		{"int_helper_outside_return_position_excluded", "testdata/nonexit", "run", []int{0, 1}, nil},
+		{"full_value_forward_and_named_result_group", "testdata/multiresult", "run", []int{0, 9}, nil},
+		{"unresolvable_calls_contribute_nothing", "testdata/unresolvable", "run", []int{0}, nil},
 		{"unknown_root_is_an_error", "testdata/callchain", "nosuchfunc", nil, ErrRootNotFound},
 		{"empty_package_is_an_error", "testdata/empty", "run", nil, ErrNoSources},
 	}
