@@ -51,6 +51,31 @@ go.sum
 
 **Documentation:** `godoc` conventions. Every exported symbol gets a comment. Package-level doc comments explain purpose and usage.
 
+### Distribution
+
+**Release artifacts:** goreleaser builds six archives (linux/darwin/windows ×
+amd64/arm64) from a tag, each carrying LICENSE, NOTICE, README.md, CHANGELOG.md
+and the two manuals. See `.goreleaser.yaml`.
+
+**Package managers: no, not yet.** Homebrew is the one macOS users would ask
+for, and goreleaser can publish a tap from a small `brews:` block, so the
+question is whether to. The answer today is no, and the reason is disqualifying
+rather than cautious: a tap's formula fetches the release asset
+**anonymously**, and this repository is private — an unauthenticated request for
+a v0.1.0 asset returns HTTP 404 (measured 2026-08-16). A tap would not be a
+maintenance burden so much as a formula that cannot install anything.
+
+Two further costs, for when the blocking reason clears: a tap needs its own
+`homebrew-tap` repository and a write-scoped token, which adds a publish target
+that can fail *after* the tag is immutable; and with one maintainer and a first
+release cut on 2026-08-16, there is no install volume to justify a second
+distribution channel.
+
+**Revisit when** the repository is public *and* a second release exists — the
+point at which a tap has something to serve and a cadence to keep. Until then
+the documented install paths are a release archive, `go install`, and a clone;
+all three are executed on every gate by `TestReadme_install_commands_execute`.
+
 ### Conventions
 
 - **Error handling:** Return errors, don't panic. Wrap errors with `fmt.Errorf("context: %w", err)` to build traceable chains. Sentinel errors for well-known failure modes (e.g., `ErrCircularReference`, `ErrUnsupportedFeature`).
@@ -219,7 +244,9 @@ The following will be decided when they become relevant, not before:
 - **Database** for the backend (PostgreSQL is the likely default, but Phase 3 will clarify requirements)
 - **Container orchestration** (single container may suffice initially)
 - **Monitoring and observability** stack
-- **Release and versioning** strategy (semantic versioning is assumed but cadence is TBD)
+- **Release cadence** — the mechanism is decided and executed (see Distribution
+  above and `.goreleaser.yaml`; v0.1.0 was tagged 2026-08-16). How often to cut
+  one is not.
 - **CI platform** selection
 
 These are recorded here so they aren't forgotten, but premature decisions on infrastructure create constraints without evidence. Decide when the first slice that needs them arrives.
