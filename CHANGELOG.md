@@ -73,6 +73,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   somewhere else: `cmd/curlew can return exit 7 (perf.go:142, in
   perfCmdOut) but no skill file documents it`.
 
+- **Every exit-code surface is now held to one source-derived set, and the
+  last structural trace of the licensing strip is gone.**
+  `cmd/curlew/discovery_run.go` ranked exit `6` ("feature gate") in
+  `exitCodeSeverity` even though nothing in the binary can return it — the
+  map's own comment claimed an ordering ending "< 6" that no branch could
+  reach. `docs/UI_SPECIFICATION.md` published exit `9` ("license grace
+  period expired") in its §2.4 table and described a startup step and a
+  dispatch-wiring bullet both calling a `checkGraceExpiredTo` that
+  `grep -rn 'checkGraceExpired' --include='*.go' .` finds nowhere — the same
+  licensing residue M26-001 removed from the skill, one document further
+  out, and not one of the four surfaces the task named.
+
+  All four *named* surfaces — `docs/CLI_SPECIFICATION.md` §17,
+  `docs/MANUAL.md` §4.3 and appendix D, and the agent skill — already
+  agreed with the binary's actual set, `{0, 1, 2, 3, 4, 5, 130}`, when
+  measured on this branch. Their new guard, `TestExitCodes_all_surfaces_agree`,
+  was therefore green on arrival for all four; the mutation harness below is
+  the only evidence it can fail at all. It reuses `internal/exitcodes`
+  (M26-001) rather than building a second extractor, and
+  `documentedExitCodes` (`doc_exit_codes_test.go`) rather than a second
+  table reader — the one signature change is a column-name parameter,
+  since `docs/UI_SPECIFICATION.md`'s per-command table heads its code
+  column "Exit", not "Code". That table and `docs/plugins.md`'s are two
+  more per-command surfaces, asserted by containment only: a table naming a
+  subset of the contract is correct by construction, not incomplete.
+
+  Three more guards close paths the four-surface check does not reach.
+  `TestExitCodes_no_unreachable_mapping` asserts every key in
+  `exitCodeSeverity` is reachable — 130 stays deliberately unranked, since
+  it is raised inside a single `perf` run and never reaches the worst-wins
+  fold across discovered collections, and forcing it a rank would be
+  inventing an exit code's meaning.
+  `TestExitCodes_skillProseNamesOnlyReachableCodes` sweeps all eleven
+  scaffolded skill files for a prose "code N" mention — `assertions.md`,
+  `variables.md`, and `vault.md` each make one — rather than trusting the
+  four table/list/heading statements M26-001 already pinned.
+  `TestExitCodes_everyExitCodeSectionIsRegistered` sweeps `docs/` (rooted at
+  `docs.Dir`, not a repo-wide glob, since a second checkout under
+  `.claude/worktrees/` would otherwise contribute a phantom copy of every
+  document) for exit-code section headings and fails on any the registry
+  does not classify — the analogue of `internal/schema/parity_test.go`'s
+  parser-struct coverage test, and the reason a sixth surface can't repeat
+  what happened here. `docs/SPECIFICATION.md`'s exit-code table, including
+  its own `6` row, and `docs/history/IMPROVEMENT.md` stay excluded, each
+  with its reason recorded in code rather than a commit message: the former
+  is platform-scoped by its own 2026-08-04 scope note, the latter is an
+  archived record.
+
+  Verified by six mutations, each applied and reverted under a
+  `trap ... EXIT INT TERM` with `git status --porcelain` confirmed empty
+  afterward. Making the binary return a new code (`case flags.vus < 0:
+  return 7` in `perfCmdOut` — statically reachable, dynamically
+  unreachable, since `parsePerfArgs` already rejects negative `--vus`)
+  fails all four full-contract surfaces at once, each naming `perf.go:142`
+  by file and line, plus M26-001's own skill guard. Inventing exit `7` in
+  `docs/CLI_SPECIFICATION.md` §17 fails that surface's own equality check
+  and the pre-existing pairwise `TestDocTables_theThreeExitCodeTablesAgree`
+  (`CLI_SPECIFICATION.md ... lists [0 1 2 3 4 5 7 130]; MANUAL.md ... lists
+  [0 1 2 3 4 5 130]`). Dropping the real `130` row from all three doc
+  tables at once is the case that matters most: pairwise agreement between
+  the documents passes — they now agree with each other, having all gone
+  wrong together — but `TestExitCodes_all_surfaces_agree` still fails on
+  each of the three independently, because the reference is the binary,
+  not a peer document. Inventing exit `7` in the skill's master table fails
+  the new skill subtest plus both of M26-001's own guards. Adding a `` `6`
+  feature gate `` clause to `CLI_SPECIFICATION.md` §21's prose sentence
+  reproduces the original defect shape and is caught by the new
+  per-command reader. Appending an unregistered `### Z. Exit codes for
+  something new` section to `docs/MANUAL.md` is caught by the coverage
+  guard: `docs/MANUAL.md:3950 "### Z. Exit codes for something new"
+  publishes exit codes but no surface in exitCodeSurfaces() reads it`.
+
+  Two gaps found and deliberately left alone, each recorded rather than
+  silently skipped: `docs/CLI_SPECIFICATION.md` §20 omits exit `5` from its
+  `ui` prose sentence though `cmd/curlew/ui.go:149` returns it (an
+  omission, not a false claim, so containment still passes); and
+  `docs/MANUAL.md`'s `pr-check` sentence outside §4.3 is phrased without
+  the `Exit codes: ` anchor the per-command reader requires. Both are
+  noted as follow-up candidates in `management/plans/M26-002-plan.md`
+  rather than fixed here, since fixing either would need an unproven
+  per-command reachable-code walk this task does not build.
+
 ### Added
 - **The release build is now executed on every gate, not trusted.**
   `.goreleaser.yaml` shipped in #14 and had never been run once: no tag
