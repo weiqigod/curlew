@@ -1,6 +1,6 @@
 id: M25-003
 title: "Every install path in the README is one that was executed"
-status: review
+status: done
 priority: 2
 created: 2026-08-14
 phase: "M25: A deliverable that exists"
