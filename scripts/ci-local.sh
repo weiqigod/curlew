@@ -319,6 +319,43 @@ if ! printf '%s\n' "$release_version" | grep -qE '^curlew [0-9]+\.[0-9]+\.[0-9]+
   exit 1
 fi
 
+step "release: all six archives are complete and correctly versioned"
+# M25-002. The steps above build one target for this host in ~2s and prove the
+# config is not broken. This one builds all six and opens what they produced.
+#
+# Behind a build tag so it stays out of the three routine `go test` passes
+# above (lines 190/193/196) — it drives a 28s six-target release, and running
+# that three times, once of them under -race, would add ~24% to this gate for
+# no additional coverage. Cost is cache-sensitive: ~9s standalone with a warm
+# Go build cache (repeated invocations against this tree during /execute),
+# ~30s from the plan's own colder-cache measurement — both real, on the same
+# host, the gap being cache state rather than a discrepancy. Budget for the
+# colder figure on a fresh checkout or after `go clean -cache`.
+#
+# The tag is not an opt-out: this step names it unconditionally, on every --go
+# gate, for the same reason there is no CURLEW_SKIP_RELEASE_CHECK.
+#
+# It runs last in the release block on purpose. A six-target release leaves
+# four files named `curlew` under dist/ plus two named `curlew.exe`, and the
+# release_bin_count guard above requires exactly one — so this must come after
+# that assertion, not before it. Nothing below reads dist/.
+#
+# Still nothing published: --snapshot implies --skip=announce,publish,validate.
+#
+# -list guard first: a typo in -run or in the build tag itself would otherwise
+# report "ok ... [no tests to run]" at exit 0 — the identical vacuity this
+# whole task exists to close, one level down. `|| true` is required under
+# `set -euo pipefail` (line 28): grep -c exits 1 on zero matches, which would
+# abort the pipeline before the message below could print — the same class of
+# trap the release_bin_count guard above avoids by resolving dist/ existence
+# before the find that counts it.
+release_tests="$(go test -tags release_artifacts -list '^TestRelease' ./cmd/curlew/ | grep -c '^TestRelease' || true)"
+if [ "$release_tests" != "3" ]; then
+  echo "expected 3 TestRelease_* tests under -tags release_artifacts, found ${release_tests}." >&2
+  exit 1
+fi
+go test -tags release_artifacts -run '^TestRelease' ./cmd/curlew/ -count=1 -v
+
 # --- Dogfood gate: curlew against mudflat ---
 #
 # The only step in this script that points curlew at a server curlew did not

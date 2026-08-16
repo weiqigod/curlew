@@ -156,6 +156,109 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   per-command reachable-code walk this task does not build.
 
 ### Added
+- **The gate now builds all six release targets and opens what they
+  produced, not just one binary for the host running it.** M25-001 (previous
+  entry) proved *a* release build works; it single-targeted the host
+  platform, so LICENSE/NOTICE presence, the version injection, and every
+  binary's format were never checked for the other five targets a user might
+  actually download. `ci-local.sh --go` gains one more step, after the
+  existing single-target checks and deliberately after the `release_bin_count`
+  guard that requires exactly one file named `curlew` under `dist/` — a
+  six-target release leaves four (`linux`×2, `darwin`×2) plus two named
+  `curlew.exe`, so ordering matters here, not just presence.
+
+  Two mutations shaped what gets asserted and why a config-derived check
+  alone is not enough. **Deleting `- NOTICE` from `.goreleaser.yaml`'s
+  `archives[].files` list** — dropping the file Apache-2.0 §4(d) requires to
+  travel with the distribution — produces six *valid* archives at exit 0,
+  simply missing NOTICE; a check that derives its expected-file list from the
+  same config that produced the archive agrees with itself and passes. The
+  new step therefore checks every archive against **two** independent
+  sources: `.goreleaser.yaml` itself (catches a target or file goreleaser
+  silently failed to include despite declaring it) and a hardcoded floor of
+  six targets and six required files that does not shrink when the config
+  does (catches exactly the NOTICE mutation, with a message naming
+  Apache-2.0 explicitly). **Deleting the `NOTICE` file entirely** (rather
+  than un-declaring it) makes goreleaser fail loudly on its own — but leaves
+  behind 32-byte `.tar.gz` and 22-byte `.zip` stubs in `dist/` that Go's
+  `archive/tar` and `archive/zip` read as *zero entries with no error*. Every
+  archive's entry count is asserted positively for exactly this reason: a
+  test that only checked "did it open without an error" would have passed on
+  six archives containing nothing.
+
+  Per archive: extension and binary entry name match the target
+  (`curlew`/`curlew.exe`), the binary entry's mode is `0755` (a `0644` binary
+  extracts unrunnable and nothing else would have noticed), `debug/buildinfo`
+  confirms `GOOS`/`GOARCH`/`CGO_ENABLED=0` match the filename, and a
+  `debug/elf`/`debug/macho`/`debug/pe` parser — chosen by the *expected* GOOS,
+  so a windows archive holding an ELF binary fails on the parse rather than a
+  generic magic-byte error — confirms the machine field matches the GOARCH.
+  Linux binaries are additionally checked for the *absence* of an ELF
+  `.interp` section, which is what "requires no dynamic linker" actually
+  means; this is deliberately not a `Type == ET_EXEC` check, since a
+  statically linked binary built with a future `-buildmode=pie` default would
+  legitimately be `ET_DYN` with no `.interp`, and a `Type` check would then
+  fail on a harmless build-mode change while the binary stayed exactly as
+  static as before. Each archive **file's** own filesystem mtime (never an
+  entry's — those are pinned to the commit timestamp by `mod_timestamp` for
+  reproducibility and would not reflect a fresh run) is checked against the
+  moment the test invoked goreleaser, guarding against a stale `dist/`
+  somehow surviving `--clean`.
+
+  The version chain is checked at every hop — archive filenames,
+  `checksums.txt`, and every binary's `buildinfo` `-ldflags` — against
+  `cmd/curlew/main.go`'s `version` symbol directly (never the literal
+  `"0.1.0-dev"`, so the comparison cannot drift if the default ever changes;
+  the literal already matches the semver shape regex anyway, which is why the
+  regex alone was never the assertion). The `-X main.version=` flag is
+  matched as an exact, case-sensitive literal — never a substring or
+  case-insensitive test — because the linker silently drops `-X` for a
+  symbol that does not exist: `-X main.Version=` (wrong case) would leave
+  every binary reporting the development default while `buildinfo` still
+  faithfully echoed back the flag text it was given, and a loose match would
+  have called that "injected" anyway.
+
+  `buildinfo` alone is blind to one regression: `version` changing from a
+  `var` to a `const`, which the linker also silently ignores while
+  `buildinfo` keeps recording the flag it was never able to apply. Only
+  executing a binary catches that, and only one of the six can run on any
+  given host — this gate's darwin/arm64 runner executes the darwin/arm64
+  archive; a Linux CI runner would execute a different one. Rosetta makes
+  darwin/amd64 *also* runnable here, and that capability is deliberately
+  unused: a check that passes only when a translation layer happens to be
+  installed is a conditional pass, not a property of the artifact. The other
+  five targets stay covered by `buildinfo` and the format/machine parse
+  above — stated honestly as five-of-six-by-static-inspection,
+  one-of-six-by-execution, rather than implying full execution coverage that
+  doesn't exist on a single host.
+
+  `checksums.txt` is re-hashed with `crypto/sha256` rather than trusted, and
+  checked in both directions — every archive has a line, every line names an
+  archive that exists — with cardinality asserted **first and independently**
+  of either direction: a release that produced zero archives and no
+  `checksums.txt` would otherwise satisfy both directions vacuously, having
+  had nothing to range over.
+
+  Cost is cache-sensitive: measured standalone at 6.5s with a warm Go build
+  cache (this host, after repeated same-day invocations); the six-target
+  `goreleaser release --snapshot --clean` alone measured 28s earlier the same
+  day on a colder cache. Behind `//go:build release_artifacts` so it stays
+  out of the three routine `go test` passes `ci-local.sh` already runs
+  (plain, `-race`, `-coverprofile`) — tripling either figure for no added
+  coverage, since none of what this drives is concurrent code this package
+  owns. The tag is not an escape hatch: `ci-local.sh` names the step
+  unconditionally on every `--go` gate, the same way the M25-001 release
+  steps are unconditional. `.golangci.yml` gained a `run.build-tags` entry so
+  the tagged file is still linted — proved, not assumed, by a real lint pass
+  that caught five genuine `errcheck` violations and one `gofumpt` issue in
+  the file on first write (fixed), followed by a planted-and-removed
+  synthetic violation confirmed caught and the tree confirmed clean
+  afterward.
+
+  No tag was created and nothing was published. `git tag -l` stays empty;
+  cutting `v0.1.0` remains a deliberately deferred, human-reviewed step (see
+  `management/plans/M25-002-plan.md`).
+
 - **The release build is now executed on every gate, not trusted.**
   `.goreleaser.yaml` shipped in #14 and had never been run once: no tag
   existed, `goreleaser` was not installed, and `ci-local.sh` never mentioned
