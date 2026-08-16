@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-08-16
+
+The first released build. Every prior version of this tool reported
+`0.1.0-dev`, because no tag existed and no archive had ever been produced.
+
 ### Fixed
 - **The shipped agent skill stops describing a licensing system that was
   deleted.** `curlew init --skill agent` writes `.claude/skills/curlew/`
