@@ -401,3 +401,84 @@ func TestExitCodes_everyExitCodeSectionIsRegistered(t *testing.T) {
 		}
 	}
 }
+
+// exitCodesStatementRe finds each "Exit codes: …" sentence in
+// CLI_SPECIFICATION.md's command reference and captures everything up to the
+// next blank line (the sentences wrap across source lines, so (?s) lets .
+// cross a single newline; the non-greedy .*? stops at the first paragraph
+// break rather than running to the end of the document).
+//
+// The anchor is "Exit codes: " — plural, with the colon — not "exit code".
+// That is what lets it, by construction rather than by an exception list,
+// skip Appendix B's singular, colon-less "- Exit code `6` (feature gate)."
+// and "- Exit code `10` (worker unauthorized).", which correctly document
+// codes the CLI deliberately does not have (D7 in the M26-002 plan).
+var exitCodesStatementRe = regexp.MustCompile(`(?s)Exit codes: (.*?)\n\n`)
+
+// backtickIntRe pulls the exit codes named within one matched statement.
+var backtickIntRe = regexp.MustCompile("`(\\d+)`")
+
+// exitCodesStatement is one "Exit codes: …" sentence, with its raw text kept
+// alongside the parsed codes so a failure can quote exactly what was read.
+type exitCodesStatement struct {
+	text  string
+	codes []int
+}
+
+// exitCodesPerCommandStatements reads every "Exit codes: …" sentence out of
+// CLI_SPECIFICATION.md.
+func exitCodesPerCommandStatements(t *testing.T) []exitCodesStatement {
+	t.Helper()
+	body, err := docs.ReadDoc("CLI_SPECIFICATION.md")
+	if err != nil {
+		t.Fatalf("reading CLI_SPECIFICATION.md: %v", err)
+	}
+	var out []exitCodesStatement
+	for _, m := range exitCodesStatementRe.FindAllStringSubmatch(body, -1) {
+		text := m[1]
+		var codes []int
+		for _, im := range backtickIntRe.FindAllStringSubmatch(text, -1) {
+			n, convErr := strconv.Atoi(im[1])
+			if convErr != nil {
+				continue // the pattern only captures \d+; unreachable in practice
+			}
+			codes = append(codes, n)
+		}
+		if len(codes) > 0 {
+			out = append(out, exitCodesStatement{text: text, codes: codes})
+		}
+	}
+	return out
+}
+
+// TestExitCodes_perCommandStatementsAreReachable holds every "Exit codes: …"
+// prose sentence in CLI_SPECIFICATION.md's command reference to the
+// reachable set.
+//
+// Containment only: each sentence documents one command's own subset of the
+// contract (§18.9's pr-check: {0,1,2}; §20's ui: {0,1,3}; §21's perf:
+// {0,1,2,3,130}), not the whole thing, so naming a subset is correct by
+// construction rather than incomplete.
+func TestExitCodes_perCommandStatementsAreReachable(t *testing.T) {
+	reachable := reachableExitCodes(t)
+	reachableSet := map[int]bool{}
+	for _, v := range exitcodes.Set(reachable) {
+		reachableSet[v] = true
+	}
+
+	statements := exitCodesPerCommandStatements(t)
+	if len(statements) < 3 {
+		t.Fatalf("found %d \"Exit codes: \" statement(s) in CLI_SPECIFICATION.md, want at "+
+			"least 3 (§18.9 pr-check, §20 ui, §21 perf) — the anchor has stopped matching, "+
+			"not that the sections were deleted", len(statements))
+	}
+
+	for _, s := range statements {
+		for _, c := range s.codes {
+			if !reachableSet[c] {
+				t.Errorf("CLI_SPECIFICATION.md's statement %q names exit %d, which cmd/curlew "+
+					"cannot return (reachable: %v)", s.text, c, exitcodes.Set(reachable))
+			}
+		}
+	}
+}
