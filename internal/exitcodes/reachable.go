@@ -207,55 +207,71 @@ func (w *walker) walk(fn *funcInfo, slot, depth int) {
 	w.visiting[key] = true
 	defer delete(w.visiting, key)
 
-	w.walkStmt(fn, fn.decl.Body, slot, depth)
+	for _, stmt := range ownStatements(fn.decl.Body) {
+		if ret, ok := stmt.(*ast.ReturnStmt); ok {
+			w.examineReturn(fn, ret, slot, depth)
+		}
+	}
 }
 
-// walkStmt descends through the statements that share fn's own local scope —
-// blocks, if/for/switch/select bodies, case clauses — stopping at a return
-// statement to examine it and refusing to descend into a nested function
-// literal, whose return statements return from the closure, not from fn.
-func (w *walker) walkStmt(fn *funcInfo, stmt ast.Stmt, slot, depth int) {
-	if stmt == nil {
-		return
+// ownStatements flattens every statement in body's own local scope — nested
+// blocks, if/for/switch/select bodies, case clauses — into one slice in
+// source order. It stops at a function literal rather than descending into
+// it: a closure's statements belong to the closure, not to the enclosing
+// function, and a `return` inside one returns from the closure.
+//
+// Both callers (walk, looking for return statements, and findAssignment,
+// looking for assignments) want the same scope; they differ only in which
+// statement kind they keep, so the traversal is written once here and
+// filtered by each caller.
+func ownStatements(body *ast.BlockStmt) []ast.Stmt {
+	var out []ast.Stmt
+	var walk func(ast.Stmt)
+	walk = func(stmt ast.Stmt) {
+		if stmt == nil {
+			return
+		}
+		out = append(out, stmt)
+		switch s := stmt.(type) {
+		case *ast.BlockStmt:
+			for _, s2 := range s.List {
+				walk(s2)
+			}
+		case *ast.IfStmt:
+			walk(s.Init)
+			walk(s.Body)
+			walk(s.Else)
+		case *ast.ForStmt:
+			walk(s.Init)
+			walk(s.Body)
+		case *ast.RangeStmt:
+			walk(s.Body)
+		case *ast.SwitchStmt:
+			walk(s.Init)
+			walk(s.Body)
+		case *ast.TypeSwitchStmt:
+			walk(s.Init)
+			walk(s.Body)
+		case *ast.SelectStmt:
+			walk(s.Body)
+		case *ast.CaseClause:
+			for _, s2 := range s.Body {
+				walk(s2)
+			}
+		case *ast.CommClause:
+			for _, s2 := range s.Body {
+				walk(s2)
+			}
+		case *ast.LabeledStmt:
+			walk(s.Stmt)
+		default:
+			// ReturnStmt, AssignStmt, ExprStmt, DeclStmt and everything else
+			// carry no nested statements of the enclosing function's own
+			// scope to descend into.
+		}
 	}
-	switch s := stmt.(type) {
-	case *ast.BlockStmt:
-		for _, s2 := range s.List {
-			w.walkStmt(fn, s2, slot, depth)
-		}
-	case *ast.IfStmt:
-		w.walkStmt(fn, s.Init, slot, depth)
-		w.walkStmt(fn, s.Body, slot, depth)
-		w.walkStmt(fn, s.Else, slot, depth)
-	case *ast.ForStmt:
-		w.walkStmt(fn, s.Body, slot, depth)
-	case *ast.RangeStmt:
-		w.walkStmt(fn, s.Body, slot, depth)
-	case *ast.SwitchStmt:
-		w.walkStmt(fn, s.Init, slot, depth)
-		w.walkStmt(fn, s.Body, slot, depth)
-	case *ast.TypeSwitchStmt:
-		w.walkStmt(fn, s.Init, slot, depth)
-		w.walkStmt(fn, s.Body, slot, depth)
-	case *ast.SelectStmt:
-		w.walkStmt(fn, s.Body, slot, depth)
-	case *ast.CaseClause:
-		for _, s2 := range s.Body {
-			w.walkStmt(fn, s2, slot, depth)
-		}
-	case *ast.CommClause:
-		for _, s2 := range s.Body {
-			w.walkStmt(fn, s2, slot, depth)
-		}
-	case *ast.LabeledStmt:
-		w.walkStmt(fn, s.Stmt, slot, depth)
-	case *ast.ReturnStmt:
-		w.examineReturn(fn, s, slot, depth)
-	default:
-		// AssignStmt, ExprStmt, DeclStmt and everything else carry no return
-		// statements of fn's own to descend into. Assignments are read on
-		// demand by resolveIdent, not discovered by walking past them.
-	}
+	walk(body)
+	return out
 }
 
 // examineReturn reads the expression at slot out of a return statement.
@@ -353,61 +369,22 @@ func (w *walker) resolveIdent(fn *funcInfo, id *ast.Ident, depth int) {
 // given return, anywhere in the function, is that branch's own.
 func findAssignment(body *ast.BlockStmt, name string, pos token.Pos) (assign *ast.AssignStmt, index int, found bool) {
 	var bestPos token.Pos
-
-	var walk func(ast.Stmt)
-	walk = func(stmt ast.Stmt) {
-		if stmt == nil {
-			return
+	for _, stmt := range ownStatements(body) {
+		as, ok := stmt.(*ast.AssignStmt)
+		if !ok || as.Pos() >= pos {
+			continue // only assignments strictly before the reference point count
 		}
-		switch s := stmt.(type) {
-		case *ast.BlockStmt:
-			for _, s2 := range s.List {
-				walk(s2)
+		for i, lhs := range as.Lhs {
+			lid, ok := lhs.(*ast.Ident)
+			if !ok || lid.Name != name {
+				continue
 			}
-		case *ast.IfStmt:
-			walk(s.Init)
-			walk(s.Body)
-			walk(s.Else)
-		case *ast.ForStmt:
-			walk(s.Init)
-			walk(s.Body)
-		case *ast.RangeStmt:
-			walk(s.Body)
-		case *ast.SwitchStmt:
-			walk(s.Init)
-			walk(s.Body)
-		case *ast.TypeSwitchStmt:
-			walk(s.Init)
-			walk(s.Body)
-		case *ast.SelectStmt:
-			walk(s.Body)
-		case *ast.CaseClause:
-			for _, s2 := range s.Body {
-				walk(s2)
-			}
-		case *ast.CommClause:
-			for _, s2 := range s.Body {
-				walk(s2)
-			}
-		case *ast.LabeledStmt:
-			walk(s.Stmt)
-		case *ast.AssignStmt:
-			if s.Pos() >= pos {
-				return // only assignments strictly before the reference point count
-			}
-			for i, lhs := range s.Lhs {
-				lid, ok := lhs.(*ast.Ident)
-				if !ok || lid.Name != name {
-					continue
-				}
-				if !found || s.Pos() > bestPos {
-					assign, index, found = s, i, true
-					bestPos = s.Pos()
-				}
+			if !found || as.Pos() > bestPos {
+				assign, index, found = as, i, true
+				bestPos = as.Pos()
 			}
 		}
 	}
-	walk(body)
 	return assign, index, found
 }
 
