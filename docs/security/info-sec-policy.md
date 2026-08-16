@@ -14,8 +14,9 @@ This policy applies to:
 - All Curlew engineering personnel, contractors, and third-party service providers
   with access to Curlew systems or customer data.
 - The Curlew SaaS backend (C# .NET, hosted on AWS).
-- The Curlew CLI distribution chain (Go binary; distributed via GitHub Releases and
-  Homebrew tap).
+- The Curlew CLI distribution chain (Go binary; distributed via GitHub Releases).
+  No Homebrew tap exists; see `docs/TECH_CHOICES.md` "Distribution" for the
+  decision and its revisit trigger.
 - Development, staging, and production environments.
 
 Vendor obligations are captured in the Vendor Inventory

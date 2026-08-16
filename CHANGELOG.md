@@ -6,6 +6,97 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **The README's only install command has never worked, for anyone.**
+  `README.md`'s `## Install` section offered exactly one command —
+  `go install github.com/weiqigod/curlew/cmd/curlew@latest` — and nothing had
+  ever run it. Verified directly: it exits 1, because the repository is
+  private and the public checksum database (`sum.golang.org`) cannot read
+  the module (`404 Not Found`), and git's non-interactive credential helper
+  then fails outright (`fatal: could not read Username for
+  'https://github.com': terminal prompts disabled`). The section is
+  rewritten around three paths, each now executed for real by a new test: a
+  `gh release download` of the release archive (no Go toolchain needed, and
+  the only path that reports a released version rather than `0.1.0-dev`),
+  `go install` with `GOPRIVATE` set, and clone-and-build. A new paragraph
+  states plainly that every path needs GitHub access, since the repository
+  being private means none of them are anonymous — a plain `curl` against a
+  release asset returns 404 (established in M25-002).
+
+- **The Homebrew tap two shipped security documents described does not
+  exist.** `docs/security/info-sec-policy.md:18` and
+  `docs/security/pentest-2026-Q2.md:45` both listed a Homebrew tap as part
+  of the CLI's distribution chain. No tap exists and `.goreleaser.yaml` has
+  no `brews:` block. Both are corrected, pointing at a new decision record
+  (below) rather than silence.
+
+### Added
+- **Every README install command is now executed by a test, not merely
+  read.** `TestReadme_install_commands_execute`
+  (`cmd/curlew/readme_install_exec_test.go`) extracts every fenced bash/sh
+  block under `## Install` and runs each as a whole script (`bash -euo
+  pipefail`) in its own temp directory, so a `cd curlew` on one line affects
+  the `go build` on the next — exactly what a reader copying the block would
+  experience. Two vacuity guards run before any command does: zero blocks (a
+  renamed or deleted heading) and fewer than three (the measured floor on
+  this tree) both fail the test rather than silently executing nothing. A
+  fence tagged anything other than `bash`/`sh` under `## Install` is also a
+  failure, not a silent skip — there is no way to park a broken command in a
+  fence tagged `text` and exempt it. Behind `//go:build readme_install`, the
+  same pattern M25-002 established for `release_artifacts`: it costs several
+  seconds and needs the public internet, an authenticated `gh`, and git
+  credentials for a private repo, none of which the three routine `go test`
+  passes in `ci-local.sh` should acquire. `scripts/ci-local.sh` names it as
+  an unconditional step of its own — probing for `gh` and failing loudly if
+  it is absent, then a `-list` vacuity guard using an anchored test-name
+  alternation rather than a bare `^TestReadme` prefix, which would also
+  catch `help_parity_test.go`'s pre-existing
+  `TestReadme_lists_every_command_the_CLI_advertises` (measured: the prefix
+  returns 4 matches, the alternation exactly 3).
+
+  `TestReadme_documents_a_binary_download`
+  (`cmd/curlew/readme_install_test.go`, untagged and hermetic) holds the
+  section's prose to two source-of-truth files instead of hand-typed
+  strings: the documented archive name and extension (including the Windows
+  `.zip` override) are rendered from `.goreleaser.yaml`'s
+  `archives[0].name_template` and asserted against the README text, and the
+  `go install` line and the download URL's `owner/repo` are asserted against
+  `go.mod`'s module path. The extractor (`readmeSectionBlocks`,
+  `readmeSectionText`) is a fresh, purpose-built markdown walker rather than
+  a reuse of `skill_commands_test.go`'s `codeSpansWithLines`, which discards
+  the fence language and would not distinguish an executable block from one
+  tagged `text`.
+
+  Verified in this session by three mutations, each applied and reverted
+  with the working tree confirmed clean afterward, plus two direct checks.
+  Reverting `README.md` to its pre-fix content (two command blocks, not
+  three) fails the exec test's floor guard before it attempts to run
+  anything: `found 2 command block(s) under '## Install'; measured 3 on
+  this tree`. Changing the `go install` line's module path to
+  `github.com/wrong/curlew` fails only the "go install line matches the
+  go.mod module path" subtest; changing `.goreleaser.yaml`'s
+  `name_template` separator fails only the "documented archive name matches
+  name_template" subtest — every other subtest stays green in each case,
+  showing the checks are independent rather than one masking the others.
+  Separately: running the real (fixed) README executes all three blocks in
+  6.55s–8.43s across two runs, and the download block's output matched a
+  released version (`curlew X.Y.Z`, no `-dev`/`-snapshot` suffix) — proving
+  the download-and-run claim rather than assuming it. And
+  `management/tasks/M25-003.yaml`'s own observable command needed the same
+  correction M25-002's did: run without `-tags readme_install`, it exits 0
+  with `[no tests to run]` — the identical vacuity.
+
+- **The package-manager decision is recorded rather than silent.**
+  `docs/TECH_CHOICES.md` gains a `### Distribution` section under `## CLI —
+  Go`: no Homebrew tap yet, and the reason is disqualifying rather than
+  cautious — a tap's formula fetches its release asset anonymously, and this
+  repository is private, so an unauthenticated request for the v0.1.0 asset
+  returns HTTP 404 (established in M25-002). Revisit when the repository is
+  public and a second release exists. The stale "Release and versioning
+  strategy… cadence is TBD" bullet under "Decisions Not Yet Made" is also
+  refreshed: the mechanism is decided and executed (v0.1.0 was tagged
+  2026-08-16); only cadence remains open.
+
 ## [0.1.0] — 2026-08-16
 
 The first released build. Every prior version of this tool reported

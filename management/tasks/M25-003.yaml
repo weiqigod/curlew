@@ -1,6 +1,6 @@
 id: M25-003
 title: "Every install path in the README is one that was executed"
-status: backlog
+status: done
 priority: 2
 created: 2026-08-14
 phase: "M25: A deliverable that exists"
@@ -11,9 +11,12 @@ dependencies:
 
 observable: |
   # 1. The commands the README gives are run, not read.
-  go test ./cmd/curlew/ -run TestReadme_install_commands_execute -v
+  #    The build tag is required: without it this exits 0 having run nothing,
+  #    the same vacuity M25-002 hit for release_artifacts_test.go.
+  go test -tags readme_install ./cmd/curlew/ -run TestReadme_install_commands_execute -v
 
-  # 2. A download-and-run path exists and is documented.
+  # 2. A download-and-run path exists and is documented. Hermetic, no tag,
+  #    no network.
   go test ./cmd/curlew/ -run TestReadme_documents_a_binary_download -v
 
 behaviors:
