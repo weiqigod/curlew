@@ -115,8 +115,7 @@ variable, etc.), `responses/run.md` may not exist yet — read stderr or the
 | 3 | Configuration error before HTTP fired | stderr (parse error names the YAML line; config error names the missing key; `--only` no-match lists available request names) | Echo the stderr line; tell the user which file/line/option to fix. |
 | 4 | Non-assertion runtime error | `.curlew/run.ndjson` (`request.end` event with `outcome: error`, `error.category: network`) | Connection refused / DNS failure / TLS error. Suggest checking the URL and environment variables. |
 | 5 | Undefined or circular variable | `.curlew/run.ndjson` (`run.error` event names the variable) | Tell the user which variable is missing and the most likely producer (env file, `--var`, an upstream extract). |
-| 6 | Feature gate denied | stderr (`feature_gated` line; json/tap/junit emit a structured gate envelope) | Name the feature, the required tier, and the workaround the CLI suggests. |
-| 9 | License grace period expired | stderr (`feature_gated: grace period expired ...`) | Tell the user to run `curlew license --validate` and re-authenticate. |
+| 130 | Interrupted (SIGINT) during `curlew perf` | — (the partial summary is already on stdout) | The load test was cancelled by Ctrl+C. Report the partial summary; the run did not finish. |
 
 When the run produced multiple failures, walk the user through them one at
 a time, file-by-file.
