@@ -12,7 +12,7 @@ the NDJSON event stream, or `output:` block configuration.
 | `json` | Scripting, `jq` pipelines | stdout JSON or `report:` file |
 | `tap` | Legacy CI systems expecting TAP | stdout TAP or `report:` file |
 | `junit` | JUnit-compatible CI (Jenkins, Azure Pipelines) | `report:` XML file |
-| `html` | Shareable standalone report | `report:` HTML file (Professional tier) |
+| `html` | Shareable standalone report | `report:` HTML file |
 
 For agent-driven runs, use `markdown`. The per-request `.md` files are the
 canonical artifacts you should read and narrate.
@@ -81,5 +81,5 @@ TAP consumers.
 Failures include the assertion message. Upload to Jenkins, Azure Pipelines, or
 GitHub Actions test-results annotations.
 
-**HTML** — requires Professional tier. Single self-contained `.html` file,
-suitable for emailing or attaching to a ticket.
+**HTML** — a single self-contained `.html` file, suitable for emailing or
+attaching to a ticket.

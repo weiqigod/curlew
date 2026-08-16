@@ -13,8 +13,7 @@ non-zero exit, or which artifact to read for a given code.
 | 3 | `ERR_CONFIG` | Configuration error before any HTTP fired | stderr |
 | 4 | `ERR_RUNTIME` | Non-assertion runtime error (network, TLS, DNS) | `.curlew/run.ndjson` (`request.end` with `error.category: network`) |
 | 5 | `ERR_VARIABLE` | Undefined or circular variable reference | `.curlew/run.ndjson` (`run.error` event names the variable) |
-| 6 | `ERR_FEATURE_GATE` | Feature requires a higher subscription tier | stderr (`feature_gated` line) |
-| 9 | `ERR_LICENSE` | License grace period expired | stderr (`feature_gated: grace period expired ...`) |
+| 130 | — | SIGINT during a `curlew perf` run | stdout (partial summary) |
 
 ## CEL-specific codes (surfaced by `curlew validate`)
 
@@ -40,8 +39,8 @@ early.
    `error.category: "network"`.
 6. **Exit 5** — read `.curlew/run.ndjson`; filter `kind: "run.error"` for the
    variable name.
-7. **Exit 6** — read stderr for the feature name and required tier.
-8. **Exit 9** — read stderr; tell the user to run `curlew license --validate`.
+7. **Exit 130** — the user pressed Ctrl+C during `curlew perf`. Report the
+   partial summary already written to stdout; do not re-run without asking.
 
 For CEL errors (exit 3 with `ERR_CEL_PARSE` or `ERR_CEL_TYPE`): run
 `curlew validate` against the collection file to see the detailed message.

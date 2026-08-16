@@ -6,6 +6,73 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **The shipped agent skill stops describing a licensing system that was
+  deleted.** `curlew init --skill agent` writes `.claude/skills/curlew/`
+  into a user's own repository, where an agent reads it and acts on it
+  literally. Four of its files still described the five-tier licensing
+  system removed on 2026-08-03: `SKILL.md`'s failure playbook and
+  `exit-codes.md`'s master table and numbered list each documented exit 6
+  ("Feature gate denied") and exit 9 ("License grace period expired"),
+  `failure-playbook.md` carried a full two-section remediation ending in
+  "suggest running `curlew license --validate`" — a command that does not
+  exist — and `output-formats.md` claimed HTML output "requires
+  Professional tier" while `internal/output/config.go` lists it
+  unconditionally. That fourth file was not named in the task that started
+  this work; it surfaced only once the fix was held to a source-derived
+  check rather than to the task's own hand-written file list.
+
+  The binary's actual exit-code set is `{0, 1, 2, 3, 4, 5, 130}`, not
+  `{0, 1, 2, 3, 4, 5, 6, 9}`: the skill invented two codes and omitted one.
+  130 (128+SIGINT, `cmd/curlew/perf.go`'s `perfCmdOut`, a `curlew perf` run
+  cancelled by Ctrl+C) is not a new claim — `docs/MANUAL.md` and
+  `docs/CLI_SPECIFICATION.md` already published it, and
+  `TestPerfCmd_ContextCancelExitCode130` already covered it behaviourally —
+  the skill was the sole surface still missing it. All four exit-code
+  statements now list `{0, 1, 2, 3, 4, 5, 130}`, including a new Exit 130
+  row/section explaining that the run was cancelled, not failed, and that
+  the partial summary already on stdout should be reported as partial.
+
+  Held to the binary going forward by a new `internal/exitcodes` package
+  rather than by a hand-maintained list: it parses `cmd/curlew`, roots a
+  call graph at `runWithWriters`, and collects the integer literals in
+  return statements reached only through a return-position call or a local
+  identifier resolved back to one (`code := runErrorExitCode(varErr);
+  return code, summary`, the pattern a naive call-graph walk misses).
+  `cmd/curlew/discovery_run.go`'s dead `6: 6, // feature gate` map entry
+  (left by the same removed system, out of scope here as M26-002) is
+  excluded structurally rather than by an exception list: a composite
+  literal's key and value are never a return statement. Four new CLI tests
+  read the skill's contract from a freshly scaffolded project (not from
+  `templates/` directly) and check it against that derived set in both
+  directions, against each other, and against `runWithWriters`'s dispatch
+  switch for every `curlew <subcommand>` the skill names in a code span —
+  scoping extraction to markdown code rather than prose removes the need
+  for `doc_prose_test.go`'s 60-entry `nonCommandWords` blocklist, since a
+  prose sentence like "driving curlew with an agent" is never wrapped in
+  backticks. A fifth new test holds `output-formats.md`'s format table to
+  `output.SupportedFormats` the same way `doc_name_tables_test.go` already
+  holds the manual and the CLI spec.
+
+  Verified by mutating three ways and confirming each restores cleanly
+  afterward. Inventing a code (`| 7 | ERR_FICTION | ... |` added to
+  `exit-codes.md`'s master table) fires two failures at once: `exit-codes.md
+  (master table) documents exit 7, which cmd/curlew cannot return
+  (reachable: [0 1 2 3 4 5 130])` and the four-statement agreement check.
+  Omitting a real code shows the two guards are independent: deleting only
+  `exit-codes.md`'s 130 row (leaving it in the other three files) trips the
+  agreement check alone (`exit-codes.md (master table) lists [0 1 2 3 4 5];
+  SKILL.md (failure playbook) lists [0 1 2 3 4 5 130]`); deleting it from
+  all four files makes the four statements agree with each other again but
+  still fails the binary comparison (`cmd/curlew can return exit 130
+  (perf.go:142, in perfCmdOut) but no skill file documents it`). Adding a
+  statically-reachable, dynamically-unreachable `case flags.vus < 0: return
+  7` to `perfCmdOut` (guarded by a negative `--vus` that `parsePerfArgs`
+  already rejects, so no behavioural test changes outcome) proves the
+  AST walk itself reaches `perfCmdOut`, not merely that 130 came from
+  somewhere else: `cmd/curlew can return exit 7 (perf.go:142, in
+  perfCmdOut) but no skill file documents it`.
+
 ### Added
 - **The release build is now executed on every gate, not trusted.**
   `.goreleaser.yaml` shipped in #14 and had never been run once: no tag
