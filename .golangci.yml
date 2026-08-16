@@ -1,5 +1,15 @@
 version: "2"
 
+# cmd/curlew/release_artifacts_test.go sits behind //go:build release_artifacts
+# so it is excluded from the three routine `go test` passes in
+# scripts/ci-local.sh (it drives a 28s six-target goreleaser release; see
+# M25-002 D1). Without this, golangci-lint would build with default tags and
+# skip that file entirely — an unlinted file in a repo whose gate claims to
+# lint everything.
+run:
+  build-tags:
+    - release_artifacts
+
 linters:
   enable:
     - govet
