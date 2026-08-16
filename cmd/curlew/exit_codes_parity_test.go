@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -219,5 +221,73 @@ func TestExitCodes_all_surfaces_agree(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// exitCodeProseRe matches a prose exit-code mention such as "exit code 1"
+// (assertions.md, variables.md) or "code 3" (vault.md's "exits with code
+// 3"). The anchor is bare "code N" rather than "exit code N": "exit code 1"
+// already contains "code 1" as a substring, so one pattern catches both
+// phrasings without needing to enumerate them.
+//
+// It deliberately does not match the `exit_code: N` NDJSON field name that
+// appears in backticked code spans (exit-codes.md, failure-playbook.md,
+// SKILL.md): \b never fires between two word characters, "_" is a word
+// character in Go's regexp package, so "code" inside "exit_code" sits at no
+// word boundary and the leading \b cannot match there.
+var exitCodeProseRe = regexp.MustCompile(`(?i)\bcode (\d+)\b`)
+
+// skillTopicFiles are every file `curlew init --skill agent` scaffolds under
+// .claude/skills/curlew/ that can carry exit-code prose. Kept as its own list
+// rather than a directory walk of the scaffolded tree, so a file added to the
+// skill without being added here fails the file-count guard below instead of
+// silently going unchecked.
+var skillTopicFiles = []string{
+	"SKILL.md", "assertions.md", "exit-codes.md", "expressions.md",
+	"failure-playbook.md", "output-formats.md", "parallel.md", "retry.md",
+	"signing.md", "variables.md", "vault.md",
+}
+
+// TestExitCodes_skillProseNamesOnlyReachableCodes sweeps every scaffolded
+// skill file for a prose exit-code mention and requires it to be reachable.
+//
+// Containment only, by design: a topic file names the codes relevant to its
+// own topic, not the whole contract, so naming a subset is correct rather
+// than incomplete. M26-001 pinned the skill's four *table* statements of the
+// contract; nothing pinned this prose before, and a regrown "exit code 6" in
+// a topic file — assertions.md, variables.md, vault.md all make exactly this
+// kind of claim — is precisely what an agent would act on literally.
+func TestExitCodes_skillProseNamesOnlyReachableCodes(t *testing.T) {
+	tree := scaffoldTreeWithSkill(t, "agent")
+	reachable := reachableExitCodes(t)
+	reachableSet := map[int]bool{}
+	for _, v := range exitcodes.Set(reachable) {
+		reachableSet[v] = true
+	}
+
+	const root = ".claude/skills/curlew/"
+	filesWithMatch := map[string]bool{}
+	for _, name := range skillTopicFiles {
+		body, ok := tree[root+name]
+		if !ok {
+			t.Fatalf("scaffolded skill missing %s%s", root, name)
+		}
+		for _, m := range exitCodeProseRe.FindAllStringSubmatch(body, -1) {
+			n, err := strconv.Atoi(m[1])
+			if err != nil {
+				continue // the pattern only captures \d+; unreachable in practice
+			}
+			filesWithMatch[name] = true
+			if !reachableSet[n] {
+				t.Errorf("%s names exit %d in prose, which cmd/curlew cannot return (reachable: %v)",
+					name, n, exitcodes.Set(reachable))
+			}
+		}
+	}
+
+	if len(filesWithMatch) < 3 {
+		t.Fatalf("prose exit-code mentions found in only %d file(s) (%v) — the regex has "+
+			"stopped matching, not that the skill stopped naming exit codes in prose",
+			len(filesWithMatch), filesWithMatch)
 	}
 }
