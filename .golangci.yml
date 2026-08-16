@@ -9,6 +9,13 @@ version: "2"
 run:
   build-tags:
     - release_artifacts
+    # cmd/curlew/readme_install_exec_test.go sits behind //go:build
+    # readme_install for the same reason (M25-003 D1): it executes the
+    # README's install commands, which costs several seconds and needs
+    # network, gh and git credentials. Listed here so the file is linted
+    # rather than silently skipped. Note both tags are set at once, so
+    # symbols must be unique across the two tagged files.
+    - readme_install
 
 linters:
   enable:

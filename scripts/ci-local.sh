@@ -356,6 +356,41 @@ if [ "$release_tests" != "3" ]; then
 fi
 go test -tags release_artifacts -run '^TestRelease' ./cmd/curlew/ -count=1 -v
 
+step "install: every README install command is executed (M25-003)"
+# The README's install commands had never been run by anything. Measured
+# while planning M25-003: the only command the README then offered --
+# `go install github.com/weiqigod/curlew/cmd/curlew@latest` -- exits 1,
+# because the repository is private and sum.golang.org cannot verify the
+# module.
+#
+# Behind //go:build readme_install so it stays out of the three routine `go
+# test` passes above (lines 190/193/196), which would otherwise run it three
+# times and acquire a dependency on the public internet, gh, and GitHub
+# credentials. The tag is not an opt-out: this step names it unconditionally.
+#
+# Needs `gh`; probed and failed loudly rather than skipped, same as lint_cmd
+# and goreleaser_cmd above.
+if ! command -v gh >/dev/null 2>&1; then
+  echo "gh not found -- the README documents \`gh release download\` as the primary" >&2
+  echo "install path, and this step executes it. Install it from https://cli.github.com" >&2
+  exit 1
+fi
+
+# -list guard: a typo in -run or in the build tag would otherwise report
+# "ok ... [no tests to run]" at exit 0 -- the same vacuity the release step
+# above guards against. Anchored alternation rather than '^TestReadme'
+# because help_parity_test.go already defines
+# TestReadme_lists_every_command_the_CLI_advertises (untagged, measured: a
+# bare '^TestReadme' prefix returns 4, this alternation returns 3), which a
+# prefix would also catch.
+readme_tests_re='^TestReadme_(install_commands_execute|documents_a_binary_download|install_blocks_extraction)$'
+readme_tests="$(go test -tags readme_install -list "$readme_tests_re" ./cmd/curlew/ | grep -cE '^TestReadme_' || true)"
+if [ "$readme_tests" != "3" ]; then
+  echo "expected 3 README install tests under -tags readme_install, found ${readme_tests}." >&2
+  exit 1
+fi
+go test -tags readme_install -run "$readme_tests_re" ./cmd/curlew/ -count=1 -v
+
 # --- Dogfood gate: curlew against mudflat ---
 #
 # The only step in this script that points curlew at a server curlew did not
