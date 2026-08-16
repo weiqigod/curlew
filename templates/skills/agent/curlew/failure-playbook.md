@@ -71,20 +71,11 @@ see the CEL section below.
 
 ---
 
-### Exit 6 — feature gate denied
+### Exit 130 — interrupted (SIGINT)
 
-1. Read stderr. Look for the `feature_gated` line.
-2. It names the feature, the current tier, and the required tier.
-3. Tell the user the feature requires the named tier and suggest the
-   workaround the CLI prints (e.g. use a different output format).
-
----
-
-### Exit 9 — license grace period expired
-
-1. Read stderr. Look for `feature_gated: grace period expired`.
-2. Tell the user their license validation has lapsed.
-3. Suggest running `curlew license --validate` to refresh the license.
+1. The user pressed Ctrl+C during a `curlew perf` run. This is not an error.
+2. The partial summary is already on stdout. Report it as partial.
+3. Do not re-run the load test without asking — it was cancelled deliberately.
 
 ---
 
