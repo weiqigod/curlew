@@ -1996,8 +1996,9 @@ capabilities:
         verified_by: ai
         branch: feature/M26-001-agent-skill-truth
       - id: M26-002
-        status: planned
+        status: in_progress
         planned_date: 2026-08-16
+        started_date: 2026-08-16
         branch: feature/M26-002-one-exit-code-truth
 
   defect_hunt:

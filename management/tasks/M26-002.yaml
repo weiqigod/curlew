@@ -1,9 +1,10 @@
 id: M26-002
 title: "One exit-code truth across binary, specification, manual and skill"
-status: planned
+status: in_progress
 priority: 1
 created: 2026-08-14
 planned_date: 2026-08-16
+started_date: 2026-08-16
 branch: feature/M26-002-one-exit-code-truth
 phase: "M26: The agent skill tells the truth"
 track: go-cli
