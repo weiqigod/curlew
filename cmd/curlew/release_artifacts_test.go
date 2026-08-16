@@ -948,42 +948,110 @@ func TestRelease_version_matches_the_tag(t *testing.T) {
 
 // TestRelease_checksums_match_the_archives re-hashes rather than trusting
 // the file, in both directions so neither can be vacuous.
+// releaseChecksumProblems compares a set of on-disk archive names against a
+// checksums.txt map and reports every problem found: wrong cardinality on
+// either side (checked first and independently — "every archive has a
+// line" and "every line has an archive" are jointly vacuous when both sets
+// are empty, which a release producing zero archives and no checksums.txt
+// would otherwise satisfy trivially) and both set-differences. Extracted
+// from TestRelease_checksums_match_the_archives so it can be exercised
+// against fabricated input: D2's design drives its own --clean release and
+// therefore never reads an externally mutated dist/, so N5 (a line
+// truncated from checksums.txt after the fact) cannot be reproduced as a
+// live mutation the way N1/N2/N4 can. This is what lets it be verified
+// directly instead.
+func releaseChecksumProblems(archiveNames []string, checksums map[string]string, wantCount int) []string {
+	var problems []string
+	if len(archiveNames) != wantCount {
+		problems = append(problems, fmt.Sprintf("got %d archives on disk, want %d", len(archiveNames), wantCount))
+	}
+	if len(checksums) != wantCount {
+		problems = append(problems, fmt.Sprintf("got %d entries in checksums.txt, want %d", len(checksums), wantCount))
+	}
+
+	onDisk := make(map[string]bool, len(archiveNames))
+	for _, n := range archiveNames {
+		onDisk[n] = true
+		if _, ok := checksums[n]; !ok {
+			problems = append(problems, fmt.Sprintf("%s exists on disk but has no line in checksums.txt", n))
+		}
+	}
+	for n := range checksums {
+		if !onDisk[n] {
+			problems = append(problems, fmt.Sprintf("checksums.txt names %q, which does not exist on disk", n))
+		}
+	}
+	return problems
+}
+
 func TestRelease_checksums_match_the_archives(t *testing.T) {
+	t.Run("releaseChecksumProblems against fabricated input", func(t *testing.T) {
+		full := map[string]string{
+			"a_linux_amd64.tar.gz":  "1111111111111111111111111111111111111111111111111111111111111111",
+			"a_linux_arm64.tar.gz":  "2222222222222222222222222222222222222222222222222222222222222222",
+			"a_darwin_amd64.tar.gz": "3333333333333333333333333333333333333333333333333333333333333333",
+			"a_darwin_arm64.tar.gz": "4444444444444444444444444444444444444444444444444444444444444444",
+			"a_windows_amd64.zip":   "5555555555555555555555555555555555555555555555555555555555555555",
+			"a_windows_arm64.zip":   "6666666666666666666666666666666666666666666666666666666666666666",
+		}
+		fullNames := make([]string, 0, len(full))
+		for n := range full {
+			fullNames = append(fullNames, n)
+		}
+
+		t.Run("six archives, six matching lines: no problems", func(t *testing.T) {
+			if got := releaseChecksumProblems(fullNames, full, 6); len(got) != 0 {
+				t.Errorf("got problems %v, want none", got)
+			}
+		})
+
+		t.Run("N5: one line truncated from checksums.txt", func(t *testing.T) {
+			truncated := make(map[string]string, len(full)-1)
+			for n, sum := range full {
+				truncated[n] = sum
+			}
+			delete(truncated, "a_windows_arm64.zip")
+
+			got := releaseChecksumProblems(fullNames, truncated, 6)
+			wantSubstrings := []string{
+				"got 5 entries in checksums.txt, want 6",
+				`a_windows_arm64.zip exists on disk but has no line in checksums.txt`,
+			}
+			for _, want := range wantSubstrings {
+				found := false
+				for _, p := range got {
+					if strings.Contains(p, want) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("problems %v do not contain %q", got, want)
+				}
+			}
+		})
+
+		t.Run("both sets empty is not silently clean", func(t *testing.T) {
+			got := releaseChecksumProblems(nil, map[string]string{}, 6)
+			if len(got) == 0 {
+				t.Errorf("empty archive list and empty checksums.txt against wantCount=6 produced no problems — cardinality must be checked before either set-difference, since two empty sets are jointly vacuous against each other")
+			}
+		})
+	})
+
 	rel := releaseSnapshot(t)
 	wantCount := len(releaseTargets)
 
-	// Cardinality first, and independently of either set-difference check
-	// below: "every archive has a line" and "every line has an archive" are
-	// jointly vacuous when both sets are empty — a release that produced
-	// zero archives and no checksums.txt would pass both with nothing to
-	// range over.
-	t.Run("both sides have the expected cardinality", func(t *testing.T) {
-		if len(rel.Archives) != wantCount {
-			t.Errorf("got %d archives on disk, want %d", len(rel.Archives), wantCount)
-		}
-		if len(rel.Checksums) != wantCount {
-			t.Errorf("got %d entries in checksums.txt, want %d", len(rel.Checksums), wantCount)
-		}
-	})
-
 	onDisk := make(map[string]releaseArchive, len(rel.Archives))
+	archiveNames := make([]string, 0, len(rel.Archives))
 	for _, a := range rel.Archives {
 		onDisk[a.Name] = a
+		archiveNames = append(archiveNames, a.Name)
 	}
 
-	t.Run("every archive appears in checksums.txt", func(t *testing.T) {
-		for name := range onDisk {
-			if _, ok := rel.Checksums[name]; !ok {
-				t.Errorf("%s exists in dist/ but has no line in checksums.txt", name)
-			}
-		}
-	})
-
-	t.Run("every checksums.txt line names an archive that exists", func(t *testing.T) {
-		for name := range rel.Checksums {
-			if _, ok := onDisk[name]; !ok {
-				t.Errorf("checksums.txt names %q, which does not exist on disk", name)
-			}
+	t.Run("live release: no cardinality or set-difference problems", func(t *testing.T) {
+		for _, p := range releaseChecksumProblems(archiveNames, rel.Checksums, wantCount) {
+			t.Error(p)
 		}
 	})
 
