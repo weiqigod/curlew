@@ -1,6 +1,6 @@
 id: M25-001
 title: "Exercise the release build before the day it is needed"
-status: review
+status: done
 priority: 1
 created: 2026-08-14
 phase: "M25: A deliverable that exists"
