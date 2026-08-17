@@ -8831,8 +8831,9 @@ func TestInit_SkillAgent_VersionInTemplate(t *testing.T) {
 	if strings.Contains(string(body), "{{curlew_version}}") {
 		t.Errorf("SKILL.md still contains untouched {{curlew_version}} token:\n%s", body)
 	}
-	// The version comment must contain the live binary version constant.
-	wantComment := "<!-- curlew-skill: agent v1.0 (curlew " + version + ") -->"
+	// The version comment must contain the live binary's resolved version —
+	// what --version, --help and info --format json all report (M25-004).
+	wantComment := "<!-- curlew-skill: agent v1.0 (curlew " + resolvedVersion + ") -->"
 	if !strings.Contains(string(body), wantComment) {
 		t.Errorf("SKILL.md missing version comment %q;\ngot:\n%s", wantComment, body)
 	}

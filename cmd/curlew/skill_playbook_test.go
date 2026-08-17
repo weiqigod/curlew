@@ -441,13 +441,13 @@ func TestSkillAgent_SkillFileSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Substitute the binary's actual version with a stable placeholder so the
-	// golden file is stable across version bumps. Two forms appear in the
-	// rendered SKILL.md:
+	// Substitute the binary's actual (resolved) version with a stable
+	// placeholder so the golden file is stable across version bumps. Two
+	// forms appear in the rendered SKILL.md:
 	//   1. "curlew 0.1.0-dev"  — in the version comment line
 	//   2. "**0.1.0-dev**"      — in the Notes section (bold markdown)
-	got = bytes.ReplaceAll(got, []byte("curlew "+version), []byte("curlew v0.0.0-test"))
-	got = bytes.ReplaceAll(got, []byte("**"+version+"**"), []byte("**v0.0.0-test**"))
+	got = bytes.ReplaceAll(got, []byte("curlew "+resolvedVersion), []byte("curlew v0.0.0-test"))
+	got = bytes.ReplaceAll(got, []byte("**"+resolvedVersion+"**"), []byte("**v0.0.0-test**"))
 
 	goldenPath := filepath.Join("testdata", "skill_agent_golden.md")
 	if os.Getenv("CURLEW_UPDATE_SNAPSHOTS") == "1" {
