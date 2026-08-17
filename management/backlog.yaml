@@ -1995,8 +1995,9 @@ capabilities:
         verified_by: ai
         branch: feature/M25-003-readme-install-paths
       - id: M25-004
-        status: planned
+        status: in_progress
         planned_date: 2026-08-17
+        started_date: 2026-08-17
         branch: feature/M25-004-buildinfo-version
 
   agent_truthfulness:
