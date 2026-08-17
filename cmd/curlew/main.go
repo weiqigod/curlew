@@ -40,17 +40,6 @@ import (
 	"github.com/weiqigod/curlew/templates"
 )
 
-// version is the build's reported version. It is deliberately a var, not a
-// const: release builds overwrite it at link time with
-//
-//	go build -ldflags "-X main.version=$(git describe --tags)"
-//
-// and -ldflags -X is silently ignored for constants — the build would succeed
-// and every released binary would claim to be the development version. The
-// default applies to a plain `go build` or `go install`, which must still
-// report something rather than an empty string.
-var version = "0.1.0-dev"
-
 func main() {
 	os.Exit(run(os.Args[1:]))
 }
@@ -72,7 +61,7 @@ func runWithWriters(args []string, stdout, stderr io.Writer) int {
 
 	switch args[0] {
 	case "--version":
-		_, _ = fmt.Fprintf(stdout, "curlew %s\n", version)
+		_, _ = fmt.Fprintf(stdout, "curlew %s\n", resolvedVersion)
 		return 0
 	case "--help", "-h":
 		printHelpTo(stdout)
@@ -571,7 +560,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			return 1, nil
 		}
 		eventsCloser = evF
-		em, emErr := events.NewEmitter(evF, events.Options{CurlewVersion: version, RunID: runID})
+		em, emErr := events.NewEmitter(evF, events.Options{CurlewVersion: resolvedVersion, RunID: runID})
 		if emErr != nil {
 			_ = evF.Close()
 			errEvOut := newStderrPrinterTo(stderr, color)
@@ -926,7 +915,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			return 1, nil
 		}
 		eventsCloser = evF
-		em, emErr := events.NewEmitter(evF, events.Options{CurlewVersion: version, RunID: runID})
+		em, emErr := events.NewEmitter(evF, events.Options{CurlewVersion: resolvedVersion, RunID: runID})
 		if emErr != nil {
 			_ = evF.Close()
 			errEvOut := newStderrPrinterTo(stderr, color)
@@ -2629,7 +2618,7 @@ func initCmdOut(args []string, stdout, stderr io.Writer) int {
 		ProjectName:   projectName,
 		OutputFormat:  outputFormat,
 		SkillName:     skillName,
-		CurlewVersion: version,
+		CurlewVersion: resolvedVersion,
 	}); err != nil {
 		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
@@ -2722,7 +2711,7 @@ func infoCmdOut(args []string, stdout, stderr io.Writer) int {
 			ProjectName:  cfg.ProjectName,
 			Collections:  collections,
 			Environments: environments,
-			Version:      version,
+			Version:      resolvedVersion,
 		}
 		if writeErr := output.WriteInfoJSON(stdout, out); writeErr != nil {
 			_, _ = fmt.Fprintf(stderr, "json encode error: %v\n", writeErr)
@@ -3371,7 +3360,7 @@ func usageSynopsis(cmd string) string {
 func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "curlew — a file-based API testing tool")
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintf(w, "Version: %s\n", version)
+	_, _ = fmt.Fprintf(w, "Version: %s\n", resolvedVersion)
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Usage:")
 	_, _ = fmt.Fprintln(w, "  curlew <command> [arguments]")

@@ -224,7 +224,7 @@ func uiCmdOut(args []string, stdout, stderr io.Writer) int {
 	srv, err := uiserver.NewServer(uiserver.Options{
 		Root:             root,
 		ProjectName:      projectCfg.ProjectName,
-		Version:          version,
+		Version:          resolvedVersion,
 		DefaultEnv:       flags.env,
 		CollectionFilter: collectionFilter,
 		Token:            token,

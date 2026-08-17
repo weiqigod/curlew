@@ -148,6 +148,11 @@ func TestVersion_falls_back_to_build_info(t *testing.T) {
 		{"absent build info", defaultVersion, "", false, defaultVersion},
 		{"pseudo-version from a commit after a tag", defaultVersion, "v0.1.1-0.20260817171911-ee182919250e", true, defaultVersion},
 		{"pseudo-version from an untagged repo", defaultVersion, "v0.0.0-20260817171911-ee182919250e", true, defaultVersion},
+		// Go's third canonical pseudo-version form (base is a pre-release tag,
+		// https://go.dev/ref/mod#pseudo-versions): not in the plan's measured
+		// table, but the same "-0." infix bug that failed the "commit after a
+		// tag" case above would also have let this one through.
+		{"pseudo-version from a pre-release base", defaultVersion, "v0.2.0-rc.0.20260817171911-ee182919250e", true, defaultVersion},
 		{"dirty pseudo-version", defaultVersion, "v0.1.1-0.20260817171911-ee182919250e+dirty", true, defaultVersion},
 		{"dirty at an exact tag", defaultVersion, "v1.2.3+dirty", true, defaultVersion},
 		{"incompatible major", defaultVersion, "v2.0.0+incompatible", true, defaultVersion},
