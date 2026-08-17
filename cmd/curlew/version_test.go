@@ -123,3 +123,66 @@ func TestVersion_default_when_not_injected(t *testing.T) {
 		t.Errorf("--version = %q, want a non-empty default version", got)
 	}
 }
+
+// TestVersion_falls_back_to_build_info is resolveVersion's contract: every
+// row is either a real measurement (M25-004 plan D2) or a synthetic
+// precedence/edge case. No I/O — buildVer/buildOK stand in for
+// debug.ReadBuildInfo.
+func TestVersion_falls_back_to_build_info(t *testing.T) {
+	const injectedByRelease = "0.1.0" // goreleaser's {{ .Version }} form
+	tests := []struct {
+		name     string
+		injected string
+		buildVer string
+		buildOK  bool
+		want     string
+	}{
+		{"installed at a tag", defaultVersion, "v0.1.0", true, "0.1.0"},
+		{"installed at a pre-release tag", defaultVersion, "v0.2.0-rc.1", true, "0.2.0-rc.1"},
+		{"built at a local tag", defaultVersion, "v0.99.0", true, "0.99.0"},
+		{"ldflag wins over build info", "9.9.9-ldflags-test", "v0.1.0", true, "9.9.9-ldflags-test"},
+		{"ldflag wins even when build info is junk", "9.9.9-ldflags-test", "(devel)", true, "9.9.9-ldflags-test"},
+		{"goreleaser form is passed through verbatim", injectedByRelease, "v0.1.0", true, injectedByRelease},
+		{"devel is not a version", defaultVersion, "(devel)", true, defaultVersion},
+		{"empty is not a version", defaultVersion, "", true, defaultVersion},
+		{"absent build info", defaultVersion, "", false, defaultVersion},
+		{"pseudo-version from a commit after a tag", defaultVersion, "v0.1.1-0.20260817171911-ee182919250e", true, defaultVersion},
+		{"pseudo-version from an untagged repo", defaultVersion, "v0.0.0-20260817171911-ee182919250e", true, defaultVersion},
+		{"dirty pseudo-version", defaultVersion, "v0.1.1-0.20260817171911-ee182919250e+dirty", true, defaultVersion},
+		{"dirty at an exact tag", defaultVersion, "v1.2.3+dirty", true, defaultVersion},
+		{"incompatible major", defaultVersion, "v2.0.0+incompatible", true, defaultVersion},
+		{"module path is not a version", defaultVersion, "github.com/weiqigod/curlew", true, defaultVersion},
+		{"empty injection is treated as untouched", "", "v0.1.0", true, "0.1.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveVersion(tt.injected, func() (string, bool) { return tt.buildVer, tt.buildOK })
+			if got != tt.want {
+				t.Errorf("resolveVersion(%q, ->(%q,%v)) = %q, want %q", tt.injected, tt.buildVer, tt.buildOK, got, tt.want)
+			}
+		})
+	}
+}
+
+// The var must still be initialised from the const, or `version != defaultVersion`
+// silently becomes "always injected" and the fallback never fires.
+func TestVersion_default_is_the_constant(t *testing.T) {
+	if version != defaultVersion {
+		t.Errorf("version = %q, want it initialised from defaultVersion %q", version, defaultVersion)
+	}
+}
+
+// buildInfoVersion must read Main.Version, not Main.Path or the sum. A test
+// binary is not VCS-stamped, so this is "(devel)" — measured on go1.25.5
+// (both in an isolated scratch module and inside this module, git tag
+// present). If a future toolchain stamps test binaries this fails loudly,
+// which is correct: the design depends on the fact.
+func TestVersion_build_info_reader_reads_this_binary(t *testing.T) {
+	v, ok := buildInfoVersion()
+	if !ok {
+		t.Fatalf("buildInfoVersion() ok = false, want true — debug.ReadBuildInfo should always succeed for a binary built by `go test`")
+	}
+	if v != "(devel)" {
+		t.Errorf("buildInfoVersion() = %q, want %q — a test binary is not VCS-stamped on go1.25.5; if a newer toolchain changes this, update the test to match reality rather than deleting it", v, "(devel)")
+	}
+}
