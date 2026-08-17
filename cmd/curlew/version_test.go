@@ -1,6 +1,7 @@
 package main
 
 import (
+	"debug/buildinfo"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -311,4 +312,224 @@ func TestVersion_only_version_go_reads_the_raw_symbol(t *testing.T) {
 		t.Fatalf("found read(s) of the raw `version` symbol outside version.go — use `resolvedVersion` instead:\n  %s",
 			strings.Join(offenders, "\n  "))
 	}
+}
+
+// copyWorkingTree copies every git-tracked file, plus every untracked file
+// `git` would not ignore, from src into dst, preserving relative paths and
+// file mode. Deliberately not `git clone`: a clone reflects HEAD rather than
+// the working tree, so it would miss uncommitted work during TDD, and a
+// clone of a shallow repository is itself shallow, where Go ignores tags
+// entirely and stamps a pseudo-version instead (M25-004 plan measurement 6d).
+// Symlinks are skipped — none are tracked in this repository today, and a
+// dangling one would fail the build for a reason unrelated to versioning.
+func copyWorkingTree(t *testing.T, src, dst string) {
+	t.Helper()
+
+	var rels []string
+	for _, args := range [][]string{
+		{"ls-files", "-z"},
+		{"ls-files", "-z", "--others", "--exclude-standard"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = src
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("git %s: %v", strings.Join(args, " "), err)
+		}
+		for _, rel := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+			if rel != "" {
+				rels = append(rels, rel)
+			}
+		}
+	}
+	if len(rels) == 0 {
+		t.Fatalf("git ls-files (tracked + untracked) returned no paths from %s — the fixture would build from an empty tree", src)
+	}
+
+	for _, rel := range rels {
+		srcPath := filepath.Join(src, rel)
+		info, err := os.Lstat(srcPath)
+		if err != nil {
+			t.Fatalf("lstat %s: %v", srcPath, err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		data, err := os.ReadFile(srcPath)
+		if err != nil {
+			t.Fatalf("read %s: %v", srcPath, err)
+		}
+		dstPath := filepath.Join(dst, rel)
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", dstPath, err)
+		}
+		if err := os.WriteFile(dstPath, data, info.Mode().Perm()); err != nil {
+			t.Fatalf("write %s: %v", dstPath, err)
+		}
+	}
+}
+
+// runFixtureGit runs `git <args...>` in dir and fails the test with the
+// command's combined output on error.
+func runFixtureGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s (in %s): %v\n%s", strings.Join(args, " "), dir, err, out)
+	}
+	return string(out)
+}
+
+// buildTaggedFixture copies the live working tree into a fresh git
+// repository, commits it, and tags HEAD with tag. It never touches this
+// repository's own refs: `git worktree` is deliberately not used, because it
+// writes into the developer's .git/worktrees/ and a tag created in a
+// worktree is a tag in the real repository. All git identity, signing and
+// hook configuration is set locally on the fixture repo (not via the
+// developer's global config), so this works in a container with no git
+// identity and does not hang on a global commit-signing or hook setup.
+//
+// Returns the fixture directory. Callers build from it (buildFixtureBinary)
+// once for the clean leg, and again after dirtying the tree for the dirty
+// leg — the copy and git setup above are the expensive part (measurement 11:
+// ~3.3s combined) and are deliberately done only once per test.
+func buildTaggedFixture(t *testing.T, tag string) string {
+	t.Helper()
+
+	repoRoot := readmeRepoRoot(t)
+	fixtureDir := t.TempDir()
+
+	copyWorkingTree(t, repoRoot, fixtureDir)
+
+	// Guard: the copy actually carries the fix, not a stale or partial copy.
+	if _, err := os.Stat(filepath.Join(fixtureDir, "cmd", "curlew", "version.go")); err != nil {
+		t.Fatalf("copied fixture tree is missing cmd/curlew/version.go: %v", err)
+	}
+
+	runFixtureGit(t, fixtureDir, "init", "-q")
+	runFixtureGit(t, fixtureDir, "config", "user.email", "fixture@curlew.test")
+	runFixtureGit(t, fixtureDir, "config", "user.name", "curlew-fixture")
+	runFixtureGit(t, fixtureDir, "config", "commit.gpgsign", "false")
+	runFixtureGit(t, fixtureDir, "config", "tag.gpgsign", "false")
+	runFixtureGit(t, fixtureDir, "config", "core.hooksPath", "/dev/null")
+	runFixtureGit(t, fixtureDir, "add", "-A")
+	runFixtureGit(t, fixtureDir, "commit", "-q", "--no-verify", "-m", "fixture commit")
+	runFixtureGit(t, fixtureDir, "tag", tag)
+
+	// Guard: the tag actually landed on HEAD. Without this, a failure below
+	// cannot tell "the fixture's tag didn't take" from "our resolver is
+	// broken".
+	gotTag := strings.TrimSpace(runFixtureGit(t, fixtureDir, "describe", "--tags", "--exact-match", "HEAD"))
+	if gotTag != tag {
+		t.Fatalf("git describe --tags --exact-match HEAD = %q, want %q", gotTag, tag)
+	}
+	// Guard: the freshly tagged tree is clean before any leg dirties it.
+	if status := runFixtureGit(t, fixtureDir, "status", "--porcelain"); status != "" {
+		t.Fatalf("fixture tree is not clean immediately after tagging:\n%s", status)
+	}
+
+	return fixtureDir
+}
+
+// buildFixtureBinary builds ./cmd/curlew from fixtureDir into a location
+// outside it (a build product inside the fixture tree would itself make the
+// tree dirty, per M25-004 plan measurement 6c) and returns the binary's path
+// plus the version debug/buildinfo.Read finds stamped into it.
+//
+// GOWORK=off and a cleared GOFLAGS keep the build from picking up an ambient
+// workspace file or -mod=vendor from the environment this test runs in,
+// neither of which the fixture tree itself carries.
+func buildFixtureBinary(t *testing.T, fixtureDir string) (binPath, stampedVersion string) {
+	t.Helper()
+
+	binDir := t.TempDir()
+	binPath = filepath.Join(binDir, "curlew")
+
+	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/curlew")
+	cmd.Dir = fixtureDir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go build in fixture: %v\n%s", err, out)
+	}
+
+	// Guard: the toolchain actually stamped VCS info into the binary — a
+	// failure here means the fixture's git setup is broken (e.g. Go decided
+	// the checkout was shallow or unclean for reasons other than the ones
+	// this test controls), not that resolveVersion is broken.
+	info, err := buildinfo.ReadFile(binPath)
+	if err != nil {
+		t.Fatalf("debug/buildinfo.ReadFile(%s): %v", binPath, err)
+	}
+	return binPath, info.Main.Version
+}
+
+// TestVersion_tagged_build_reports_the_tag is the end-to-end proof: a real
+// tag, real Go VCS stamping, real debug.ReadBuildInfo, real --version. Two
+// legs, both required — accept-everything would pass the clean leg alone,
+// accept-nothing would pass the dirty leg alone, and only checking both
+// proves the boundary is in the right place.
+//
+// What this does NOT prove, stated plainly (M25-004 plan D7): behavior 2
+// names `go install <module>@<tag>`. That exact path is unreachable today —
+// the only tag in THIS repository is v0.1.0, whose source predates this fix,
+// and creating a new tag here is out of bounds. Measurement 7 (plan)
+// established that `go install @<tag>` populates Main.Version with a clean
+// "vX.Y.Z" — the identical shape this fixture produces via VCS stamping
+// instead of the module proxy. The fixture is a faithful proxy for that
+// path, not a `go install` invocation, and this comment says so rather than
+// letting the test name imply one ran.
+func TestVersion_tagged_build_reports_the_tag(t *testing.T) {
+	// Major 0 or 1: go.mod declares an unsuffixed module path
+	// (github.com/weiqigod/curlew), so a v2+ tag is silently ignored for
+	// versioning and falls back to a pseudo-version instead (M25-004 plan
+	// measurement 6b) — this fixture is about proving the tagged case, so it
+	// must pick a tag Go will actually honour.
+	const tag = "v0.99.0"
+
+	fixtureDir := buildTaggedFixture(t, tag)
+
+	t.Run("clean checkout at the tag reports the tag", func(t *testing.T) {
+		binPath, stamped := buildFixtureBinary(t, fixtureDir)
+		if stamped != tag {
+			t.Fatalf("fixture binary build info Main.Version = %q, want %q — toolchain did not stamp the tag", stamped, tag)
+		}
+
+		stdout, _, code := runBinary(t, binPath, "--version")
+		if code != 0 {
+			t.Fatalf("--version exited %d", code)
+		}
+		got := strings.TrimSpace(stdout)
+		want := "curlew " + strings.TrimPrefix(tag, "v")
+		if got != want {
+			t.Errorf("--version = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("dirty checkout at the tag reports the default", func(t *testing.T) {
+		marker := filepath.Join(fixtureDir, "DIRTY_MARKER.txt")
+		if err := os.WriteFile(marker, []byte("dirty\n"), 0o600); err != nil {
+			t.Fatalf("dirty the fixture tree: %v", err)
+		}
+		if status := runFixtureGit(t, fixtureDir, "status", "--porcelain"); status == "" {
+			t.Fatalf("fixture tree still reports clean after adding a marker file — dirty leg would not be testing anything")
+		}
+
+		binPath, stamped := buildFixtureBinary(t, fixtureDir)
+		wantStamped := tag + "+dirty"
+		if stamped != wantStamped {
+			t.Fatalf("fixture binary build info Main.Version = %q, want %q — toolchain did not mark the tree dirty", stamped, wantStamped)
+		}
+
+		stdout, _, code := runBinary(t, binPath, "--version")
+		if code != 0 {
+			t.Fatalf("--version exited %d", code)
+		}
+		got := strings.TrimSpace(stdout)
+		want := "curlew " + defaultVersion
+		if got != want {
+			t.Errorf("--version = %q, want %q — a dirty tag checkout must fall back to the default, not report a version with +dirty appended", got, want)
+		}
+	})
 }
