@@ -7,6 +7,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The unit tests that justified an extraction were never run by anything.**
+  `ci-local.sh`'s `--check-signing-keys` mode delegates to
+  `scripts/check-signing-keys.sh` under the comment "Delegated to
+  check-signing-keys.sh for unit-testability" — and M18-009 duly wrote
+  `scripts/check-signing-keys_test.sh`, six tests covering all three exit-code
+  paths with a stubbed `psql`. Nothing ever invoked it. Not `ci-local.sh`, not
+  any workflow in `.github/workflows/`; the only occurrences of its name in the
+  repository were inside the file itself and in its own verification report,
+  which recorded "6/6 bash unit tests pass" as of the day it was written and
+  bound nothing thereafter.
+
+  That is the shape this project keeps naming as the thing worse than no
+  checker: a test file present in a directory listing, cited in a report, and
+  never executed. The extraction bought testability and then never spent it.
+
+  The tests run in the Go gate now, so `--go` and every workflow that shells out
+  to it cover them. They were confirmed to pass before wiring, and confirmed to
+  be load-bearing after: inverting the failure branch of
+  `check-signing-keys.sh` so a NULL `kms_key_id` row wrongly exits 0 turns the
+  new step red and stops the run, which is the only evidence that distinguishes
+  a gate step from a decoration. They stub `psql` on `PATH`, so the step needs
+  no database and costs about 0.1s.
+
 - **The README's only install command has never worked, for anyone.**
   `README.md`'s `## Install` section offered exactly one command —
   `go install github.com/weiqigod/curlew/cmd/curlew@latest` — and nothing had
