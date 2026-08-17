@@ -2,6 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"go/ast"
+	goparser "go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -246,5 +250,65 @@ func TestVersion_build_info_form_matches_goreleaser(t *testing.T) {
 	got := resolveVersion(defaultVersion, func() (string, bool) { return "v0.1.0", true })
 	if got != "0.1.0" {
 		t.Errorf("resolveVersion(defaultVersion, ->\"v0.1.0\") = %q, want %q — must match goreleaser's {{ .Version }} form byte for byte", got, "0.1.0")
+	}
+}
+
+// TestVersion_only_version_go_reads_the_raw_symbol guards against an eighth
+// surface reading the pre-fallback `version` var instead of `resolvedVersion`.
+// A new surface that read `version` would silently report the placeholder
+// while every other surface reported the real version, and nothing else in
+// the suite would catch it — `resolvedVersion == version == defaultVersion`
+// in every test binary (buildInfoVersion is "(devel)"), so the two symbols
+// are indistinguishable by value in-process.
+//
+// An AST walk, not a grep: "version" occurs as a substring in the flag
+// "--version" and in the string literal "TAP version 13" (main.go), neither
+// of which is an identifier. Modelled on TestNoOsStdoutAssignment above,
+// which walks the same directory the same way for a different symbol.
+func TestVersion_only_version_go_reads_the_raw_symbol(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	fset := token.NewFileSet()
+	var offenders []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		// version.go is where `version` is declared and read exactly once,
+		// by design (see its own doc comment). Test files are exempt: they
+		// legitimately compare against the raw symbol (e.g.
+		// TestVersion_default_is_the_constant above).
+		if strings.HasSuffix(name, "_test.go") || name == "version.go" {
+			continue
+		}
+		file, parseErr := goparser.ParseFile(fset, name, nil, goparser.SkipObjectResolution)
+		if parseErr != nil {
+			t.Fatalf("parse %s: %v", name, parseErr)
+		}
+
+		var visit func(ast.Node) bool
+		visit = func(n ast.Node) bool {
+			// A SelectorExpr's Sel (the "Foo" in "pkg.Foo") is a field or
+			// method name, not a reference to this package's `version` —
+			// only its receiver (X) can collide. Manually walking X and
+			// returning false stops the default walk from also visiting Sel.
+			if sel, ok := n.(*ast.SelectorExpr); ok {
+				ast.Inspect(sel.X, visit)
+				return false
+			}
+			if ident, ok := n.(*ast.Ident); ok && ident.Name == "version" {
+				pos := fset.Position(ident.Pos())
+				offenders = append(offenders, fmt.Sprintf("%s:%d", pos.Filename, pos.Line))
+			}
+			return true
+		}
+		ast.Inspect(file, visit)
+	}
+	if len(offenders) > 0 {
+		t.Fatalf("found read(s) of the raw `version` symbol outside version.go — use `resolvedVersion` instead:\n  %s",
+			strings.Join(offenders, "\n  "))
 	}
 }
