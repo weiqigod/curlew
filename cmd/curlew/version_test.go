@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 // The version must be settable at link time. A release binary has to report
@@ -189,5 +192,59 @@ func TestVersion_build_info_reader_reads_this_binary(t *testing.T) {
 	}
 	if v != "(devel)" {
 		t.Errorf("buildInfoVersion() = %q, want %q — a test binary is not VCS-stamped on go1.25.5; if a newer toolchain changes this, update the test to match reality rather than deleting it", v, "(devel)")
+	}
+}
+
+// versionGoreleaserBuildsConfig is the subset of .goreleaser.yaml this test
+// needs: builds[0].ldflags. Deliberately separate from readmeArchiveConfig
+// (readme_install_test.go, archives[] only) and releaseConfig
+// (release_artifacts_test.go, behind a different build tag) — each file
+// parses only the section it cares about rather than sharing one config
+// struct that would need every field every caller happens to need.
+type versionGoreleaserBuildsConfig struct {
+	Builds []struct {
+		Ldflags []string `yaml:"ldflags"`
+	} `yaml:"builds"`
+}
+
+// goreleaser's {{ .Version }} strips the leading v: the published v0.1.0
+// archive was linked with -X main.version=0.1.0 while its own build info reads
+// v0.1.0 (M25-004 plan measurement 8). {{ .Tag }} would keep the v, and that
+// one-word swap is exactly what would make the two install paths disagree
+// about the same release. This test pins the goreleaser half of that
+// byte-identity claim offline (no network, no release); the fallback half is
+// resolveVersion itself, exercised directly below.
+func TestVersion_build_info_form_matches_goreleaser(t *testing.T) {
+	repoRoot := readmeRepoRoot(t)
+	raw, err := os.ReadFile(filepath.Join(repoRoot, ".goreleaser.yaml"))
+	if err != nil {
+		t.Fatalf("read .goreleaser.yaml: %v", err)
+	}
+	var cfg versionGoreleaserBuildsConfig
+	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("parse .goreleaser.yaml: %v", err)
+	}
+	if len(cfg.Builds) == 0 {
+		t.Fatalf(".goreleaser.yaml: no builds[] entries")
+	}
+
+	var ldflagsJoined string
+	for _, f := range cfg.Builds[0].Ldflags {
+		ldflagsJoined += f + " "
+	}
+	if !strings.Contains(ldflagsJoined, "-X main.version={{ .Version }}") {
+		t.Errorf(".goreleaser.yaml builds[0].ldflags %q does not contain \"-X main.version={{ .Version }}\"", ldflagsJoined)
+	}
+	if strings.Contains(ldflagsJoined, "{{ .Tag }}") {
+		t.Errorf(".goreleaser.yaml builds[0].ldflags %q uses {{ .Tag }}, which keeps the leading \"v\" — "+
+			"the fallback strips it, so the two paths would disagree about the same release", ldflagsJoined)
+	}
+
+	// The fallback must reproduce {{ .Version }}'s form byte for byte: for the
+	// same release, -X yields "0.1.0" (measurement 8) and the fallback must
+	// yield the same from build info's "v0.1.0".
+	got := resolveVersion(defaultVersion, func() (string, bool) { return "v0.1.0", true })
+	if got != "0.1.0" {
+		t.Errorf("resolveVersion(defaultVersion, ->\"v0.1.0\") = %q, want %q — must match goreleaser's {{ .Version }} form byte for byte", got, "0.1.0")
 	}
 }
