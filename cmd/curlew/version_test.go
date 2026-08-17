@@ -24,19 +24,28 @@ import (
 
 const testVersion = "9.9.9-ldflags-test"
 
+// buildBinaryWithFlags is buildBinary (main_test.go) generalised to accept
+// extra `go build` flags ahead of "-o". buildBinaryWithVersion below is
+// expressed through it, and TestVersion_default_when_not_injected uses it
+// directly to pass -buildvcs=false.
+func buildBinaryWithFlags(t *testing.T, extraFlags ...string) string {
+	t.Helper()
+	binary := filepath.Join(t.TempDir(), "curlew")
+	args := append([]string{"build"}, extraFlags...)
+	args = append(args, "-o", binary, ".")
+	cmd := exec.Command("go", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build (flags=%v) failed: %v\n%s", extraFlags, err, out)
+	}
+	return binary
+}
+
 // buildBinaryWithVersion builds the real binary with the version injected,
 // exactly as a release build would.
 func buildBinaryWithVersion(t *testing.T, v string) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "curlew")
-	cmd := exec.Command("go", "build",
-		"-ldflags", "-X main.version="+v,
-		"-o", binary, ".")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("build with -ldflags failed: %v\n%s", err, out)
-	}
-	return binary
+	return buildBinaryWithFlags(t, "-ldflags", "-X main.version="+v)
 }
 
 func TestVersion_is_injectable_at_link_time(t *testing.T) {
@@ -117,18 +126,112 @@ func TestVersion_injection_reaches_info_json(t *testing.T) {
 	}
 }
 
-// Without an override the binary still reports a sensible default, so a
-// plain `go build` or `go install` is never versionless.
+// A build with VCS stamping suppressed reports "(devel)" from build info,
+// which is not a version — the binary must fall back to the compile-time
+// default and report it exactly. Exact equality, not a prefix check: the old
+// assertion here (`strings.HasPrefix(got, "curlew ")`) was satisfied equally
+// by the placeholder, by a real version, and by "curlew (devel)" — it tested
+// only that something was printed, not what.
+//
+// -buildvcs=false rather than a plain build: a plain `go build` in this
+// repository is stamped with whatever the ambient checkout yields — normally
+// a pseudo-version (M25-004 plan measurement 1), but the tag itself during a
+// release (measurement 5), when asserting the default would be wrong either
+// way. -buildvcs=false is the one build mode with a deterministic build-info
+// result ("(devel)") on any checkout, tagged or not.
 func TestVersion_default_when_not_injected(t *testing.T) {
-	binary := buildBinary(t)
+	binary := buildBinaryWithFlags(t, "-buildvcs=false")
 
 	stdout, _, code := runBinary(t, binary, "--version")
 	if code != 0 {
 		t.Fatalf("--version exited %d", code)
 	}
 	got := strings.TrimSpace(stdout)
-	if got == "curlew " || !strings.HasPrefix(got, "curlew ") {
-		t.Errorf("--version = %q, want a non-empty default version", got)
+	want := "curlew " + defaultVersion
+	if got != want {
+		t.Errorf("--version = %q, want %q", got, want)
+	}
+}
+
+// Whatever the ambient checkout stamped — tagged, untagged, dirty, or
+// shallow — the binary's own report must equal what resolveVersion makes of
+// that same stamp. This is the wiring proof: that --version actually reads
+// this process's own debug.ReadBuildInfo() and routes it through
+// resolveVersion, rather than e.g. a hardcoded value that happens to match
+// in the common case. On its own this is a weaker proof than
+// TestVersion_tagged_build_reports_the_tag (on an untagged checkout both
+// sides reduce to the same default, so a hardcoded default would also pass
+// here) — the two are complementary, not redundant.
+func TestVersion_reported_matches_this_binarys_build_info(t *testing.T) {
+	binary := buildBinary(t)
+
+	info, err := buildinfo.ReadFile(binary)
+	if err != nil {
+		t.Fatalf("debug/buildinfo.ReadFile(%s): %v", binary, err)
+	}
+	want := "curlew " + resolveVersion(defaultVersion, func() (string, bool) { return info.Main.Version, true })
+
+	stdout, _, code := runBinary(t, binary, "--version")
+	if code != 0 {
+		t.Fatalf("--version exited %d", code)
+	}
+	got := strings.TrimSpace(stdout)
+	if got != want {
+		t.Errorf("--version = %q, want %q (derived from this binary's own build info %q)", got, want, info.Main.Version)
+	}
+}
+
+// --version, --help and `info --format json` are the three surfaces the task
+// names explicitly; they must report one identical string for the same
+// binary and the same run. Deliberately does not assume what that string is
+// (tagged checkout, untagged, dirty — all report something different) —
+// only that the three surfaces cannot disagree with each other.
+func TestVersion_all_surfaces_agree(t *testing.T) {
+	binary := buildBinary(t)
+	dir := t.TempDir()
+
+	if _, stderr, code := runBinaryIn(t, dir, binary, "init"); code != 0 {
+		t.Fatalf("init exited %d: %s", code, stderr)
+	}
+
+	versionOut, _, code := runBinary(t, binary, "--version")
+	if code != 0 {
+		t.Fatalf("--version exited %d", code)
+	}
+	fromVersion := strings.TrimPrefix(strings.TrimSpace(versionOut), "curlew ")
+	if fromVersion == "" {
+		t.Fatalf("--version reported an empty version: %q", versionOut)
+	}
+
+	helpOut, _, code := runBinary(t, binary, "--help")
+	if code != 0 {
+		t.Fatalf("--help exited %d", code)
+	}
+	var fromHelp string
+	var sawHelpLine bool
+	for _, line := range strings.Split(helpOut, "\n") {
+		if v, ok := strings.CutPrefix(line, "Version: "); ok {
+			fromHelp, sawHelpLine = v, true
+			break
+		}
+	}
+	if !sawHelpLine {
+		t.Fatalf("--help output has no \"Version: \" line:\n%s", helpOut)
+	}
+
+	infoOut, stderr, code := runBinaryIn(t, dir, binary, "info", "--format", "json")
+	if code != 0 {
+		t.Fatalf("info --format json exited %d: %s", code, stderr)
+	}
+	var payload struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal([]byte(infoOut), &payload); err != nil {
+		t.Fatalf("info --format json is not valid JSON: %v\n---\n%s", err, infoOut)
+	}
+
+	if fromVersion != fromHelp || fromVersion != payload.Version {
+		t.Errorf("surfaces disagree: --version=%q --help=%q info-json=%q", fromVersion, fromHelp, payload.Version)
 	}
 }
 

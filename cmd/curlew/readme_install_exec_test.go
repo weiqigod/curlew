@@ -17,14 +17,21 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
 
 // readmeReleasedVersionRE matches a real release version only: `curlew
-// 0.1.0-dev` and `curlew 0.1.1-snapshot` must not satisfy it, since both
-// go install and go build (unlike a release archive) report the
-// cmd/curlew/main.go default with no -X main.version injection.
+// 0.1.0-dev` and `curlew 0.1.1-snapshot` must not satisfy it. Before M25-004,
+// only a release archive built by goreleaser could ever match here -- go
+// install and go build both reported the cmd/curlew/main.go default
+// unconditionally, no matter what was checked out. Since M25-004, a source
+// build or install AT A TAG also resolves to a real released version
+// (cmd/curlew/version.go's build-info fallback), so a match against this
+// regex no longer by itself proves the download block is what worked --
+// TestReadme_install_commands_execute below additionally requires the match
+// to come from the block whose body contains `gh release download`.
 var readmeReleasedVersionRE = regexp.MustCompile(`(?m)^curlew [0-9]+\.[0-9]+\.[0-9]+$`)
 
 // TestReadme_install_commands_execute runs every fenced bash/sh block under
@@ -57,7 +64,7 @@ func TestReadme_install_commands_execute(t *testing.T) {
 	defer cancel()
 
 	executed := 0
-	sawReleasedVersion := false
+	sawReleasedVersionFromDownloadBlock := false
 	for _, b := range blocks {
 		if b.lang != "bash" && b.lang != "sh" {
 			t.Errorf("README.md:%d: fence language %q under '## Install' -- a block here is either an executable bash command or it does not belong in the Install section", b.line, b.lang)
@@ -91,7 +98,19 @@ func TestReadme_install_commands_execute(t *testing.T) {
 			continue
 		}
 		if readmeReleasedVersionRE.Match(out) {
-			sawReleasedVersion = true
+			// M25-004: a released version must be attributed to the block
+			// that actually produced it, not merely observed from some
+			// block. Once a post-fix tag exists, `go install …@latest` and
+			// clone-and-build will ALSO report a released version -- that is
+			// the point of M25-004 -- so seeing one anywhere stops implying
+			// the download path is what worked.
+			if !strings.Contains(b.body, "gh release download") {
+				t.Errorf("README.md:%d: install block produced a released version but its body does not contain "+
+					"\"gh release download\" -- want the released version attributed specifically to the download block\n--- block ---\n%s\n--- output ---\n%s",
+					b.line, b.body, out)
+				continue
+			}
+			sawReleasedVersionFromDownloadBlock = true
 		}
 	}
 
@@ -99,14 +118,17 @@ func TestReadme_install_commands_execute(t *testing.T) {
 		t.Errorf("executed %d of %d blocks under '## Install' -- see the fence-language error(s) above", executed, len(blocks))
 	}
 	// This is how the DoD item "a download-and-run path is documented and
-	// works" is enforced without hand-naming which block is the download
-	// one: it is derived from what the blocks actually printed. go install
-	// and go build both report the cmd/curlew/main.go default
-	// ("0.1.0-dev"); only a release archive built by goreleaser carries
-	// -X main.version, so this can only be satisfied by the download block
-	// actually working.
-	if !sawReleasedVersion {
-		t.Error("no install block produced a binary reporting a released version " +
+	// works" is enforced without hand-naming which block is the download one
+	// by line number: it is derived from what the blocks actually printed,
+	// attributed to the block whose body contains `gh release download`.
+	// Before M25-004, any released version at all could only have come from
+	// that block, since go install and go build both reported the
+	// cmd/curlew/main.go default unconditionally -- that inference broke the
+	// moment a source build could also report a released version, which is
+	// why the attribution check above exists rather than a bare "did any
+	// block print a released version" test.
+	if !sawReleasedVersionFromDownloadBlock {
+		t.Error("no install block whose body contains \"gh release download\" produced a binary reporting a released version " +
 			"(want `curlew X.Y.Z`, not X.Y.Z-dev or X.Y.Z-snapshot) -- the download-and-run path is gone")
 	}
 }

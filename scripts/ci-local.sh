@@ -317,8 +317,17 @@ release_bin="$(find dist -type f -name curlew)"
 release_version="$("$release_bin" --version)"
 echo "${release_bin}: ${release_version}"
 
+# "curlew 0.1.0-dev" is cmd/curlew/version.go's defaultVersion, hardcoded
+# here rather than derived from the source file -- shelling out to parse Go
+# source is not worth the machinery for one string (M25-004). If
+# defaultVersion ever changes, update this literal to match. This check
+# still fires even though M25-004 gave the binary a build-info fallback:
+# a snapshot build's own checkout is untagged for versioning purposes (the
+# fallback only accepts an exact tag), so a broken -X still resolves to this
+# same literal, and the -snapshot-suffix check just below is a second,
+# independent guard that does not depend on that fallback at all.
 if [ "$release_version" = "curlew 0.1.0-dev" ]; then
-  echo "FAIL: the release artifact reports the cmd/curlew/main.go default." >&2
+  echo "FAIL: the release artifact reports cmd/curlew/version.go's default." >&2
   echo "      -X main.version never reached the binary; every published archive" >&2
   echo "      would be mislabelled with no build step failing to warn." >&2
   exit 1

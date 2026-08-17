@@ -120,9 +120,11 @@ tar -xzf curlew_*_"${os}"_"${arch}".tar.gz
 ./curlew --version
 ```
 
-This is the only path that produces a binary reporting its real version. A
-release build injects the version at link time; anything built from source
-reports `0.1.0-dev` (`cmd/curlew/main.go`).
+A binary reports a real version when it was built from a release tag — the
+release build injects it at link time, and a source build or `go install`
+at that same tag derives it from the module version instead (see
+`cmd/curlew/version.go`). Built from an untagged commit, either path reports
+`0.1.0-dev`.
 
 ### Install from source (requires Go 1.24+)
 
