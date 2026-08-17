@@ -1995,7 +1995,9 @@ capabilities:
         verified_by: ai
         branch: feature/M25-003-readme-install-paths
       - id: M25-004
-        status: backlog
+        status: planned
+        planned_date: 2026-08-17
+        branch: feature/M25-004-buildinfo-version
 
   agent_truthfulness:
     description: 'The shipped agent skill and every exit-code surface tell the truth about the binary'
