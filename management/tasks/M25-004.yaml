@@ -23,7 +23,7 @@ observable: |
 behaviors:
   - "Given a binary built with -X main.version, when --version runs, then it reports the injected value and the build-info fallback is not consulted."
   - "Given a binary installed with `go install <module>@<tag>`, when --version runs, then it reports that tag rather than the compile-time default."
-  - "Given a plain local `go build`, when --version runs, then it reports the compile-time default, because build info reports `(devel)` which is not a version."
+  - "Given a plain local `go build`, when --version runs, then it reports the compile-time default, because build info reports a pseudo-version or `(devel)`, neither of which is a release."
   - "Given a version resolved from build info, when it carries a leading `v`, then the reported string matches the form goreleaser produces, so the two paths cannot disagree about the same release."
   - "Given any resolution path, when --version, --help and `info --format json` are compared, then all three report the same string."
 
@@ -58,12 +58,23 @@ scope: |
        preference to an injected value, and that test must keep passing
        unmodified.
 
-    2. `(devel)` IS NOT A VERSION. A plain local `go build` yields
-       Main.Version == "(devel)". Reporting that is worse than the current
-       placeholder. Anything that is not a real version must leave the default
-       in place. Enumerate what "not a real version" covers -- empty string,
-       "(devel)", a nil BuildInfo when ReadBuildInfo returns ok == false --
-       and test each, rather than special-casing the one you happened to see.
+    2. A LOCAL BUILD IS NOT A RELEASE. Corrected 2026-08-17 by measurement:
+       this task originally claimed a plain `go build` yields "(devel)". It
+       does not. On go1.25.5 it yields a PSEUDO-VERSION --
+
+           go build ./cmd/curlew
+           go version -m ./curlew
+             mod  github.com/weiqigod/curlew  v0.1.1-0.20260817175035-80cf5922ee66
+
+       -- because Go stamps the main module from VCS. "(devel)" appears only
+       under -buildvcs=false (and in test binaries). This makes the trap worse
+       than stated: a naive fallback does not report an obviously-bogus
+       "(devel)", it reports 0.1.1, a release that does not exist and never
+       will, and it writes that string into every scaffolded SKILL.md.
+       Anything that is not a real release must leave the default in place.
+       Enumerate what "not a real version" covers -- ok == false, nil info,
+       empty string, "(devel)", pseudo-versions, and any build metadata
+       suffix -- and test each, rather than special-casing the one you saw.
 
     3. THE TWO PATHS MUST AGREE ON FORM. goreleaser's {{ .Version }} strips
        the leading v, which is why the published archive reports `curlew
@@ -86,7 +97,7 @@ scope: |
 definition_of_done:
   - A test proves an installed binary reports its module version
   - A test proves the ldflag still takes precedence over the fallback
-  - A test proves `(devel)`, empty, and absent build info all keep the default
+  - A test proves pseudo-versions, `(devel)`, empty, and absent build info all keep the default
   - A test proves the fallback and goreleaser forms are byte-identical
   - --version, --help and `info --format json` verified to agree
   - TestVersion_default_when_not_injected no longer passes for `(devel)`
