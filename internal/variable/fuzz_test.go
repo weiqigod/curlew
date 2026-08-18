@@ -10,6 +10,17 @@ import (
 	"github.com/weiqigod/curlew/internal/fuzzseed"
 )
 
+// maxFuzzInterpolateOutputBytes bounds Interpolate's output for the fuzz
+// target. Every legitimate dynamic-function result is capped well below this
+// (MaxRandomBytes is 1 MiB, and base64 encoding inflates by ~4/3), so no seed
+// or fuzzer-discovered mutation should ever approach it. It exists solely as
+// a regression guard for the unbounded-allocation defect the committed
+// corpus entry FuzzInterpolate/c5a99887a2d322cc regression-tests: without
+// this bound, replaying that entry against a reverted MaxRandomBytes check
+// allocates ~1.4 GB and reports a silent PASS, because Interpolate's error
+// and result were otherwise both discarded (see M27-002 review finding #1).
+const maxFuzzInterpolateOutputBytes = 16 * 1024 * 1024 // 16 MiB
+
 // chainVars builds a linear reference chain of n variables: v0 -> v1 -> ... ->
 // v(n-1), where v(n-1) is a literal. Resolving v0 walks n-1 hops, so
 // chainVars(MaxDepth) is the shortest chain guaranteed to exceed MaxDepth.
@@ -136,7 +147,9 @@ func FuzzInterpolate(f *testing.F) {
 		}
 		s.BeginRequest()
 		defer s.EndRequest()
-		_, _ = s.Interpolate(tmpl)
+		if out, err := s.Interpolate(tmpl); err == nil && len(out) > maxFuzzInterpolateOutputBytes {
+			t.Fatalf("Interpolate(%q) produced %d bytes, want <= %d -- an unbounded-allocation regression (see maxFuzzInterpolateOutputBytes)", tmpl, len(out), maxFuzzInterpolateOutputBytes)
+		}
 		_, _ = s.InterpolateMap(map[string]string{"k": tmpl})
 		_, _ = s.InterpolateBody(map[string]any{"k": []any{tmpl, 1, true}})
 	})
