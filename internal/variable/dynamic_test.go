@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/weiqigod/curlew/internal/docs"
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
@@ -1062,6 +1063,10 @@ func TestRegistry_HmacSha256_caches_per_request(t *testing.T) {
 // --- Step 3: sensitive-arg propagation tests ---
 
 func TestRegistry_HmacSha256_KeyIsSensitive_HeuristicName(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "registered as a redaction trigger for the run"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	// Behavior 4: key resolves from a variable whose name matches the
 	// sensitive-name heuristic ("contains 'secret'"). Resolved key
 	// string must land on the runtimeSensitive set.

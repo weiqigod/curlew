@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/weiqigod/curlew/internal/assertion"
+	"github.com/weiqigod/curlew/internal/docs"
 	"github.com/weiqigod/curlew/internal/httpexec"
 	"github.com/weiqigod/curlew/internal/output"
 	"github.com/weiqigod/curlew/internal/output/events"
@@ -7663,6 +7664,11 @@ func TestPrCheckCmd_MissingResultsFile(t *testing.T) {
 }
 
 func TestPrCheckCmd_SuccessAllPass(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md",
+		"exits 0 when every test passed, 1 when the results contain failures, and 2 on a usage error"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	resultsFile := makePrCheckResultsFile(t, 3, 0)
 	stdout, _, exitCode := captureRun(t, "pr-check", "--results", resultsFile)
 	if exitCode != 0 {

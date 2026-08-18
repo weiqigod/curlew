@@ -2,6 +2,8 @@
 
 ## A File-Based HTTP Testing and Validation Tool
 
+<!-- doc-check: prose-not-executable the document's own completeness claim about itself, not a claim about the binary's behaviour -->
+
 **Version:** 1.0
 **Date:** 2026-08-04
 **Status:** Describes the CLI as shipped. Every behaviour in this document is implemented in `cmd/curlew` and `internal/`.
@@ -123,6 +125,8 @@ needs to run a test lives outside the project directory except the user's own
 secrets.
 
 ### 2.2 Progressive Sophistication
+
+<!-- doc-check: prose-not-executable narrative description of the format's generality, not a specific checkable behaviour -->
 
 A first test is a single file with an inline request and a status assertion. The
 same file format scales to external request files, environments, composition via
@@ -1350,6 +1354,8 @@ that field does belong. Unknown fields are rejected too.
 | `expect` | `message`, `any_of`, `timeout_ms`, `count`, `extract` |
 | `wait` | `duration_ms` |
 | `close` | `code`, `reason` |
+
+<!-- doc-check: prose-not-executable rationale recounting a past mistake, not a claim about current behaviour -->
 
 A field an action ignores is a mistake, not a no-op. The example above once gave
 `wait` a `timeout_ms`, which decoded cleanly into a field the executor never

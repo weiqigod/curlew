@@ -5,9 +5,15 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 func TestParseUIArgs(t *testing.T) {
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "rejects `--allow-sensitive` and never emits an unredacted value"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	f, help, err := parseUIArgs([]string{"--port", "9000", "--env", "dev", "--no-open"})
 	if err != nil || help {
 		t.Fatalf("err=%v help=%v", err, help)

@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 func TestRun_version(t *testing.T) {
@@ -1552,6 +1554,10 @@ requests:
 // and headers in the .md output remain redacted because main.go rewrites
 // results[i] before dispatch.
 func TestRun_MarkdownFormat_RedactionInvariant(t *testing.T) {
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "unless `--allow-sensitive` was passed to a command that accepts it"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	const secret = "sk_live_secret123"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

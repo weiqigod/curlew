@@ -211,6 +211,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   refreshed: the mechanism is decided and executed (v0.1.0 was tagged
   2026-08-16); only cadence remains open.
 
+### Added
+- **A debt register for checkable claims stated in sentences, not rows.**
+  Defect 8 — a markdown correlation ID reading `id=-iter-0` while the events
+  stream emitted `req-1` — sat directly beside a table that had already been
+  executed. It survived because the promise it broke was a sentence, and
+  `docs/table-execution-baseline.txt` only ever tracked tables.
+  `internal/docs/prose.go` (new) extracts checkable claims from `MANUAL.md`
+  and `CLI_SPECIFICATION.md`: a block filter drops fenced code, tables,
+  headings, blockquotes and HTML comments; hard-wrapped paragraphs are
+  reflowed to one line (load-bearing — the defect-8 sentence at
+  `MANUAL.md:2315` wraps across five source lines); sentences are split on
+  `.`/`!`/`?`/`;`, guarded against abbreviations, bare initials, mid-number
+  decimals and punctuation inside an open backtick span; and a sentence
+  becomes a claim only when it matches one of four shapes (`modal`,
+  `same-as`, `written-appears`, `given-curlew`) **and** names a concrete
+  referent — a flag, a `CURLEW_*` variable, an exit code, a filename, a
+  `curlew ...` command, or any backticked code span.
+
+  103 claims were extracted (`MANUAL.md` 70, `CLI_SPECIFICATION.md` 33).
+  Three are exempt by a `<!-- doc-check: prose-not-executable <why> -->`
+  marker (cap 12, same governance as the table register's cap of 8): the
+  specification's own completeness statement about itself, a narrative line
+  about the request-file format's generality, and rationale recounting a
+  past documentation mistake — none states anything the binary can be asked
+  to demonstrate. Fourteen are executed in this same change via a new
+  `docs.Prose(doc, substring)` reader — resolved from test sources by a new
+  `docs.ProseClaims` AST walk, exactly the way `docs.Claims` derives the
+  table register, so the link from test to claim is never a hand-kept list —
+  prioritising the defect-8 family (`TestMarkdown_correlationIDsSurviveEveryRetentionPolicy`
+  now names the three correlation-ID sentences it already proved), redaction
+  invariants (the HMAC redaction-trigger and `[REDACTED]`-propagation
+  claims), colour/stream discipline (`TestStreamDisciplineMatrix` adopts
+  four claims it already enforced), exit codes (`pr-check`'s 0/1/2
+  contract), and determinism under `--seed`
+  (`TestDocTables_seededExamplesReproduce` adopts two). The remaining 86
+  claims are debt, listed in `docs/prose-claim-baseline.txt` with the count
+  stated in its header.
+
+  Same shrink-only contract as `docs/table-execution-baseline.txt` and
+  `testapi/harness/redaction-known-leaks.txt`: `TestProse_inventory_is_complete`
+  fails the build on new debt (an unexecuted claim missing from the
+  register), on stale debt (a registered claim that is now executed and
+  whose line was not deleted), and on zero claims extracted from either
+  document — the M22-001 lesson that an empty result must never read as a
+  clean register. `TestProse_register_cannot_grow` proves the new-debt and
+  stale-debt guards by mutation against synthetic documents, independent of
+  the real files' current content. `AuditProse` takes slices and a map
+  rather than reading the filesystem specifically so that proof is possible.
+
+  Precision measured directly against the two real documents rather than
+  estimated: of 103 extracted claims, only the 3 now under a marker read as
+  false positives on inspection — the extractor's recall is deliberately
+  narrower than its precision (a sentence using "not" rather than "never",
+  for instance, is left uncaught), which is the same trade-off the task
+  description asked for: "a narrow extractor that catches real claims beats
+  a broad one whose register nobody empties."
+
 ## [0.1.0] — 2026-08-16
 
 The first released build. Every prior version of this tool reported
