@@ -10,15 +10,21 @@ import (
 	"github.com/weiqigod/curlew/internal/fuzzseed"
 )
 
-// maxFuzzInterpolateOutputBytes bounds Interpolate's output for the fuzz
+// maxFuzzInterpolateOutputBytes bounds the output of every call FuzzInterpolate
+// makes -- Interpolate, InterpolateMap, and InterpolateBody -- for the fuzz
 // target. Every legitimate dynamic-function result is capped well below this
 // (MaxRandomBytes is 1 MiB, and base64 encoding inflates by ~4/3), so no seed
-// or fuzzer-discovered mutation should ever approach it. It exists solely as
-// a regression guard for the unbounded-allocation defect the committed
+// or fuzzer-discovered mutation should ever approach it. It exists primarily
+// as a regression guard for the unbounded-allocation defect the committed
 // corpus entry FuzzInterpolate/c5a99887a2d322cc regression-tests: without
 // this bound, replaying that entry against a reverted MaxRandomBytes check
 // allocates ~1.4 GB and reports a silent PASS, because Interpolate's error
 // and result were otherwise both discarded (see M27-002 review finding #1).
+// InterpolateMap and InterpolateBody are checked against the same bound
+// (M27-002 review iteration 2, finding #3) because both re-interpolate the
+// fuzzed template through their own call paths rather than reusing an
+// already-checked result, so a regression reachable only through one of
+// those two paths would otherwise pass silently.
 const maxFuzzInterpolateOutputBytes = 16 * 1024 * 1024 // 16 MiB
 
 // chainVars builds a linear reference chain of n variables: v0 -> v1 -> ... ->
@@ -150,7 +156,45 @@ func FuzzInterpolate(f *testing.F) {
 		if out, err := s.Interpolate(tmpl); err == nil && len(out) > maxFuzzInterpolateOutputBytes {
 			t.Fatalf("Interpolate(%q) produced %d bytes, want <= %d -- an unbounded-allocation regression (see maxFuzzInterpolateOutputBytes)", tmpl, len(out), maxFuzzInterpolateOutputBytes)
 		}
-		_, _ = s.InterpolateMap(map[string]string{"k": tmpl})
-		_, _ = s.InterpolateBody(map[string]any{"k": []any{tmpl, 1, true}})
+		if out, err := s.InterpolateMap(map[string]string{"k": tmpl}); err == nil {
+			if v := out["k"]; len(v) > maxFuzzInterpolateOutputBytes {
+				t.Fatalf("InterpolateMap(%q) produced %d bytes, want <= %d -- an unbounded-allocation regression (see maxFuzzInterpolateOutputBytes)", tmpl, len(v), maxFuzzInterpolateOutputBytes)
+			}
+		}
+		if out, err := s.InterpolateBody(map[string]any{"k": []any{tmpl, 1, true}}); err == nil {
+			if n, bad := fuzzBodyExceedsOutputBound(out); bad {
+				t.Fatalf("InterpolateBody(%q) produced a %d-byte string, want <= %d -- an unbounded-allocation regression (see maxFuzzInterpolateOutputBytes)", tmpl, n, maxFuzzInterpolateOutputBytes)
+			}
+		}
 	})
+}
+
+// fuzzBodyExceedsOutputBound walks a value returned by InterpolateBody --
+// which may nest map[string]any and []any around interpolated strings -- and
+// reports the length and true for the first string found that exceeds
+// maxFuzzInterpolateOutputBytes. Extends the same regression guard applied
+// directly to Interpolate's return value (see maxFuzzInterpolateOutputBytes)
+// to InterpolateBody, which re-interpolates the identical template through a
+// different call path (Scope.interpolateValue) rather than reusing
+// Interpolate's already-checked result.
+func fuzzBodyExceedsOutputBound(v any) (int, bool) {
+	switch x := v.(type) {
+	case string:
+		if len(x) > maxFuzzInterpolateOutputBytes {
+			return len(x), true
+		}
+	case map[string]any:
+		for _, elem := range x {
+			if n, bad := fuzzBodyExceedsOutputBound(elem); bad {
+				return n, bad
+			}
+		}
+	case []any:
+		for _, elem := range x {
+			if n, bad := fuzzBodyExceedsOutputBound(elem); bad {
+				return n, bad
+			}
+		}
+	}
+	return 0, false
 }
