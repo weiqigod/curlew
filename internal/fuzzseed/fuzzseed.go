@@ -210,7 +210,7 @@ func JSONBodies(root string) ([]Seed, error) {
 		return nil, fmt.Errorf("reading internal: %w", err)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("internal: %w", fmt.Errorf("not a directory"))
+		return nil, fmt.Errorf("internal: not a directory")
 	}
 	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
