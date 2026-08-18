@@ -191,3 +191,239 @@ several-hundred-file corpus, not a synthetic probe) is a materially
 different claim than the 32-chunk aspiration. No chunk count, exec count, or
 duration above was estimated -- every number is copied from a `go test`
 invocation that ran in this session.
+
+---
+
+# Verification Report: M27-002
+
+**Task:** Fuzz the four surfaces that accept input we did not write
+**Verified by:** AI (pipeline `/verify`)
+**Date:** 2026-08-18
+**Branch:** feature/M27-002-fuzz-input-surfaces
+**Verdict:** PASS
+
+This section is the `/verify` pipeline pass. It sits below the campaign
+record and its iteration-2 caveat written by the execute/improve phases,
+which are preserved above unmodified. Every number below was produced by a
+command run in this session; nothing is copied from the review or improve
+reports without independently re-running it.
+
+## Step 0/1 — Branch and context
+
+`git branch --show-current` → `feature/M27-002-fuzz-input-surfaces`.
+`git status` → clean working tree, 8 commits ahead of
+`origin/feature/M27-002-fuzz-input-surfaces` at the start of this pass.
+Task status in `management/backlog.yaml` and `management/tasks/M27-002.yaml`
+was `review`, as required before `/verify` proceeds. Read in full:
+`management/tasks/M27-002.yaml`, `management/plans/M27-002-plan.md`,
+`management/reviews/M27-002-review.md` (iteration-3, verdict PASS),
+`management/plans/M27-002-improved.md` (2 iterations, 4/4 findings
+resolved), `management/backlog.yaml`.
+
+## Step 2 — Local CI gate
+
+`git diff --name-only main...HEAD` touches only `internal/`, `docs/`,
+`scripts/ci-local.sh`, `CHANGELOG.md`, and `management/` — no `src/`,
+`web/`, or stack files — so `./scripts/ci-local.sh --go` is the correct
+scope (same scope the review used).
+
+```
+$ ./scripts/ci-local.sh --go
+...
+=== ci-local PASS ===
+```
+
+Ran to completion in one foreground invocation (~9 minutes wall clock,
+under the 600s-per-Bash-call cap because `ci-local.sh` itself runs
+sub-600s steps sequentially). Full step list executed, in order: `go
+build`, `backlog integrity (M22-001)`, `fuzz corpora (M27-002)` (all four
+`Fuzz*` targets' seed and committed-corpus subtests, including
+`FuzzInterpolate/c5a99887a2d322cc` — confirmed `--- PASS`), `go test:
+TestStreamDisciplineMatrix`, `go test`, `go test -race`, `go coverage`,
+`golangci-lint`, the M18-008/M18-009 guards, `smoke/run.sh` (full smoke
+suite including Info/Schema/Validate/Exec/Vault/plugins/CEL/if:
+sub-sections), the release-artifact tests, the README-install-commands
+test, and the `dogfood` suite against mudflat (parallel rendezvous,
+expected-failures, redaction, OpenAPI round trip, curl cross-check).
+Every `FAIL` string appearing in the captured log is an expected negative
+fixture inside `smoke/run.sh` (e.g. `FAIL nonexistent_validate_test.yaml is
+invalid`) or the dogfood `expected-failures.yaml` harness, not a genuine
+test failure — confirmed by grepping the log and reading each hit.
+
+Coverage, from this run's `go coverage` step (target packages, matching
+the review's figures exactly):
+
+| Package | Coverage |
+|---|---|
+| `internal/variable` | 97.6% |
+| `internal/parser` | 88.8% |
+| `internal/assertion` | 93.9% |
+| `internal/cel` | 94.7% |
+| `internal/fuzzseed` | 87.6% |
+| repo total (statements) | 86.4% |
+
+`golangci-lint`: `0 issues.`
+
+## Step 3 — Observable
+
+Built the binary (`go build -o ./curlew ./cmd/curlew`, succeeded, removed
+after verification since it is untracked). Ran the task's observable block
+exactly as written, each command foreground, one at a time:
+
+```
+$ go test ./internal/parser/ -run Fuzz -fuzz FuzzParseCollection -fuzztime 60s
+ok  	github.com/weiqigod/curlew/internal/parser	61.698s   (PASS, 4816313 execs, 0 crashers)
+
+$ go test ./internal/variable/ -run Fuzz -fuzz FuzzInterpolate -fuzztime 60s
+ok  	github.com/weiqigod/curlew/internal/variable	60.538s   (PASS, 6751324 execs, 0 crashers)
+
+$ go test ./internal/assertion/ -run Fuzz -fuzz FuzzJSONPath -fuzztime 60s
+ok  	github.com/weiqigod/curlew/internal/assertion	62.017s   (PASS, 2845700 execs, 0 crashers)
+
+$ go test ./internal/cel/ -run Fuzz -fuzz FuzzCEL -fuzztime 60s
+ok  	github.com/weiqigod/curlew/internal/cel	61.833s   (PASS, 1536313 execs, 0 crashers)
+
+$ go test ./internal/parser/ ./internal/variable/ ./internal/assertion/ -run Fuzz -v
+ok  	github.com/weiqigod/curlew/internal/parser	(cached)
+=== RUN   FuzzInterpolate/c5a99887a2d322cc
+    --- PASS: FuzzInterpolate/c5a99887a2d322cc (0.00s)
+ok  	github.com/weiqigod/curlew/internal/variable	(cached)
+ok  	github.com/weiqigod/curlew/internal/assertion	(cached)
+```
+
+Also ran the four-package superset the plan's D6 calls out (task text
+omits `internal/cel` from its second command):
+
+```
+$ go test ./internal/parser/ ./internal/variable/ ./internal/assertion/ ./internal/cel/ -run Fuzz -v
+ok  	github.com/weiqigod/curlew/internal/parser	(cached)
+ok  	github.com/weiqigod/curlew/internal/variable	(cached)
+ok  	github.com/weiqigod/curlew/internal/assertion	(cached)
+ok  	github.com/weiqigod/curlew/internal/cel	(cached)
+```
+
+Expected: all six commands exit 0, the committed `FuzzInterpolate`
+crasher (`c5a99887a2d322cc`) named as a passing subtest, no panics.
+Result: MATCH.
+
+After every fuzz invocation: `ps -A -o pid,command | grep -E
+'fuzzworker|\.test ' | grep -v grep` → `no fuzz workers survive`, checked
+after each of the four 60s runs. `git status --short` → empty after the
+whole sequence (the built `./curlew` binary is untracked and was removed).
+
+## Step 4 — Behaviors
+
+| # | Behavior | Test(s) | Status |
+|---|----------|---------|--------|
+| 1 | Parser never panics on any byte sequence | `FuzzParseCollection` (60s smoke run above: 4.8M execs, 0 crashers; extended campaign: 4 chunks / ~28min / ~100M execs, 0 crashers) | PASS |
+| 2 | Interpolation terminates and never panics on any byte sequence | `FuzzInterpolate` (60s smoke run above: 6.8M execs, 0 crashers; extended campaign found and fixed one defect — see below) | PASS |
+| 3 | JSONPath evaluation never panics, returns result or error | `FuzzJSONPath` (60s smoke run above: 2.8M execs, 0 crashers; extended campaign: 4 chunks / ~28min / ~80M execs, 0 crashers) | PASS |
+| 4 | CEL compilation never panics, returns error or program | `FuzzCEL` (60s smoke run above: 1.5M execs, 0 crashers; extended campaign: 4 chunks / ~28min / ~38M execs, 0 crashers) | PASS |
+| 5 | A crasher found by fuzzing, once added to `testdata/fuzz`, runs as an ordinary test case in every subsequent gate | `internal/variable/testdata/fuzz/FuzzInterpolate/c5a99887a2d322cc`, confirmed `--- PASS` as a named subtest in both this session's `./scripts/ci-local.sh --go` run and the standalone `go test ... -run Fuzz -v` runs above | PASS |
+| 6 | A self-referencing template terminates with `ErrCircularReference`, not stack exhaustion | `TestScope_self_reference_terminates_with_ErrCircularReference` — re-run this session (`go test -v -run ... ./internal/variable/`), all 7 subtests (direct self-reference, mutual two-cycle, three-cycle, self-reference inside a dyn-fn arg, chain-of-9 resolves, chain-of-12 exceeds depth via `ErrDepthExceeded`, self-reference behind `\|default` resolves) PASS | PASS |
+
+Note on behavior 2: the extended campaign (recorded above this section)
+found one real defect — `$randomBase64('1111111111')` drove peak RSS to
+6.4 GB via unbounded allocation, killing a fuzz worker mid-minimization.
+This was fixed (`MaxRandomBytes` cap, commit `d565474`) and the corpus
+entry now regression-tests it (behavior 5). This is exactly the kind of
+finding fuzzing exists to catch, and it does not contradict "never
+panics" — the process was OS-killed for memory pressure, not a Go panic,
+and the fix closes the underlying resource issue either way.
+
+## Step 5 — Definition of Done
+
+| # | Item | Evidence | Status |
+|---|------|----------|--------|
+| 1 | Fuzz targets for parser, interpolation, JSONPath and CEL | `internal/parser/fuzz_test.go`, `internal/variable/fuzz_test.go`, `internal/assertion/fuzz_test.go`, `internal/cel/fuzz_test.go` all exist, build, and pass — confirmed by the observable commands above | PASS |
+| 2 | Each seeded from real fixtures already in the repository | `internal/fuzzseed` (created this task) reads `internal/parser/testdata`, `testapi/`, `examples/`, `docs/MANUAL.md`; each target's `f.Add` loop consumes it; `internal/fuzzseed/fuzzseed_test.go` asserts non-empty sets and `ErrNoSeeds` on an empty source, verified passing in this session's gate (87.6% coverage) | PASS |
+| 3 | Extended fuzzing run, duration and findings recorded | Campaign log above this section: 16 chunks, 6374s (106.2 min) cumulative wall clock, 361,385,417 execs, one crasher found and fixed, honestly noted as short of the plan's 6-chunks/target minimum (achieved 4/target) — recorded as it ran, per the plan's own rule, not reconstructed | PASS |
+| 4 | Every crasher fixed and its input committed to `testdata/fuzz` | One crasher (`FuzzInterpolate` chunk 1); fixed (`MaxRandomBytes`, commit `d565474`); committed at `internal/variable/testdata/fuzz/FuzzInterpolate/c5a99887a2d322cc` (confirmed present and correct in `git log` this session); reproduces the defect when the fix is reverted and passes when restored — independently re-verified by this session's `ci-local.sh` run and the standalone `-run Fuzz -v` commands above | PASS |
+| 5 | Committed corpora run as ordinary tests in the gate | `scripts/ci-local.sh`'s `fuzz corpora (M27-002)` step, confirmed executing and passing in this session's gate run (all four packages' seed and corpus subtests) | PASS |
+| 6 | Circular-reference termination asserted, not assumed | `TestScope_self_reference_terminates_with_ErrCircularReference`, re-run this session, all 7 cases PASS (see Step 4, behavior 6) | PASS |
+| 7 | `./scripts/ci-local.sh --go` passes | Ran this session, ended `=== ci-local PASS ===` | PASS |
+| 8 | `CHANGELOG.md` updated | `[Unreleased]` section has three M27-002 entries (the `$randomBase64` RSS fix, the fuzz-target addition, and the ci-local gate step) — confirmed present via `grep -n M27-002 CHANGELOG.md` this session | PASS |
+
+## Step 6 — Plan completion
+
+All 8 implementation steps in `management/plans/M27-002-plan.md` are
+reflected in the diff: Step 1 (`internal/fuzzseed`), Step 2 (`FuzzCEL`),
+Step 3 (`FuzzJSONPath` + `operatorsFromSwitch` widened to `testing.TB`),
+Step 4 (`FuzzInterpolate` + termination table test), Step 5
+(`FuzzParseCollection` + `TestFuzzParseCollection_matches_ParseFile`
+parity guard), Step 6 (the 16-chunk campaign, recorded above), Step 7
+(the `MaxRandomBytes` fix plus `TestRandomFunctions_reject_lengths_above_the_cap`,
+`docs/MANUAL.md` updated), Step 8 (`fuzz corpora (M27-002)` gate step +
+CHANGELOG). Deviations, all already documented in-place by the
+execute/improve phases rather than hidden: the campaign ran 16 of the
+planned 32 chunks (short of the 6/target minimum, met 4/target — recorded
+honestly, not padded); iteration-2 review found and iteration-2 improve
+fixed three issues in the audit trail itself (a non-reproducing corpus
+entry, a non-reproducing RED/GREEN transcript, and two fuzz-body output
+checks that were silently unbound) — all independently reconfirmed by the
+iteration-3 review before this pass, and spot-checked again in Step 7
+below.
+
+## Step 7 — Code review check
+
+**Branch A: iteration-3 review exists with verdict PASS**
+(`management/reviews/M27-002-review.md`). Its own methodology already
+independently re-ran and reproduced the RED/GREEN transcript, the
+finding-3 fix, the campaign-caveat arithmetic, and a diff-scope check —
+not merely re-read the improve report's claims. Trusting it, but spot-checking:
+
+1. **Error handling site** — `internal/variable/dynamic.go:467`
+   (`$randomBase64` length guard): returns a `*apierrors.Structured`
+   value with `Category`, `Code`, `Message`, `Hint` — the project's
+   existing structured-error convention, not a bare `errors.New`. Read
+   this session; matches the pattern used by every other guard in the
+   same function.
+2. **Exported symbol doc comment** — `fuzzseed.Root` and
+   `fuzzseed.ErrNoSeeds` (`internal/fuzzseed/fuzzseed.go:20-35`): both
+   carry doc comments, `ErrNoSeeds`'s explaining *why* it errors instead
+   of returning empty (the same posture as `internal/backlog`). Read this
+   session.
+3. **Test correctness** — `TestScope_self_reference_terminates_with_ErrCircularReference`
+   (Step 3 above): re-ran it directly this session rather than trusting
+   the name; all 7 subtests exercise distinct cycle shapes (direct,
+   mutual, three-node, inside a dyn-fn arg, a resolving 9-chain, a
+   depth-exceeding 12-chain, and the `\|default` non-cycle edge case) and
+   all pass.
+
+No issues found in the spot-check. Branch A stands — no need to drop to
+Branch B's full checklist.
+
+## Step 8 — Commits
+
+`git log --oneline main..HEAD` — 23 commits, all carrying `Refs: M27-002`
+in the body (confirmed this session by checking every commit's full
+message, not just the subject line — see command output above). TDD
+pattern visible: `9c20f76 test(fuzzseed): add failing tests...` precedes
+`269bcb9 feat(fuzzseed): add repo-fixture seed corpus readers`; likewise
+`68f32c2 test(variable): add failing tests for a $randomBase64/
+$randomPassword length cap` precedes `d565474 fix(variable): cap
+$randomBase64/$randomPassword at 1 MiB`. Conventional commit format
+(`type(scope): description`) used throughout. No broken intermediate
+states observed — the gate was run to completion at HEAD.
+
+## Files Changed
+
+`git diff --stat main...HEAD`: 21 files, +2904/-19. Production code:
+`internal/fuzzseed/{fuzzseed.go,hints_init.go}` (new package, +437),
+`internal/variable/dynamic.go` (+21/-x, the `MaxRandomBytes` cap),
+`scripts/ci-local.sh` (+20, the gate step). Test code: four new
+`fuzz_test.go` files (parser/variable/assertion/cel), one committed
+crasher artifact, `dynamic_test.go` and `doc_operators_test.go` extended.
+Docs: `docs/MANUAL.md` (+23/-x, the argument-cap documentation),
+`CHANGELOG.md` (+67). Management: plan/review/improve/verified reports
+and task/backlog status.
+
+## Issues Found
+
+None. All prior review findings (4 across 2 iterations) were resolved and
+independently reconfirmed by the iteration-3 review, and this pass's own
+spot-checks and direct command reproductions found nothing new.
+
+## Recommendation
+
+PASS — ready for PR and merge.
