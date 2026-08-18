@@ -1,6 +1,6 @@
 id: M25-004
 title: "A binary built from source knows which version it is"
-status: review
+status: done
 priority: 2
 created: 2026-08-17
 phase: "M25: A deliverable that exists"
