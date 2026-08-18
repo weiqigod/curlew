@@ -116,10 +116,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `TestReadme_install_commands_execute` (`cmd/curlew/readme_install_exec_test.go`)
   now attributes a released-version output specifically to the block whose
   body contains `gh release download`, rather than to any block producing
-  one — a distinction that changed nothing today (only the download path
-  could ever produce a released version) but would have gone silently
-  vacuous the moment a post-fix tag lets `go install` and clone-and-build
-  report one too, since that is precisely the behaviour this change adds.
+  one. Of the README's three install blocks, only that one runs the binary
+  it produces — "Install from source" ends at `go install` and "clone and
+  build" ends at `go build`, and neither invokes `--version` — so a match
+  can only ever come from the download block, at any tag: verified by
+  running the other two blocks in isolation and observing no version output
+  from either. `TestReadme_documents_a_binary_download` now checks that same
+  assumption directly (`readme_install_test.go`), so it is enforced rather
+  than only asserted in a comment.
 
 - **Every README install command is now executed by a test, not merely
   read.** `TestReadme_install_commands_execute`

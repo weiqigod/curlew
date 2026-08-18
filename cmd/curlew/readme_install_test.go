@@ -304,6 +304,25 @@ func TestReadme_documents_a_binary_download(t *testing.T) {
 		}
 	})
 
+	t.Run("only the download block runs the built binary", func(t *testing.T) {
+		// readme_install_exec_test.go attributes a released-version output to
+		// whichever install block's body contains `gh release download`, on
+		// the assumption that it is the only block that ever runs the binary
+		// it installs or builds. That assumption is a claim about this
+		// README's contents, so it is checked here instead of resting on it
+		// in a comment: for every install block, "invokes --version" and "is
+		// the download block" must agree in both directions.
+		for _, b := range readmeSectionBlocks(doc, "Install") {
+			runsVersion := strings.Contains(b.body, "--version")
+			isDownloadBlock := strings.Contains(b.body, "gh release download")
+			if runsVersion != isDownloadBlock {
+				t.Errorf("README.md:%d: block invokes --version=%v, is the download block=%v -- "+
+					"readme_install_exec_test.go's attribution assumes these always agree\n--- block ---\n%s",
+					b.line, runsVersion, isDownloadBlock, b.body)
+			}
+		}
+	})
+
 	cfg, err := loadReadmeArchiveConfig(filepath.Join(repoRoot, ".goreleaser.yaml"))
 	if err != nil {
 		t.Fatalf("load .goreleaser.yaml: %v", err)
