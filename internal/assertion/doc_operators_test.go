@@ -34,8 +34,10 @@ import (
 // because a list restated in a test is just a second thing to forget to update.
 
 // operatorsFromSwitch returns the case labels of the operator switch inside the
-// named function in assertion.go.
-func operatorsFromSwitch(t *testing.T, funcName string) []string {
+// named function in assertion.go. It takes testing.TB rather than *testing.T
+// so FuzzJSONPath can build its operator matrix from the same source of truth
+// the documentation tests use.
+func operatorsFromSwitch(t testing.TB, funcName string) []string {
 	t.Helper()
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "assertion.go", nil, 0)
