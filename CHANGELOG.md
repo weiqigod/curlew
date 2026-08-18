@@ -216,7 +216,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Defect 8 — a markdown correlation ID reading `id=-iter-0` while the events
   stream emitted `req-1` — sat directly beside a table that had already been
   executed. It survived because the promise it broke was a sentence, and
-  `internal/docs/table-execution-baseline.txt` only ever tracked tables.
+  `docs/table-execution-baseline.txt` only ever tracked tables.
   `internal/docs/prose.go` (new) extracts checkable claims from `MANUAL.md`
   and `CLI_SPECIFICATION.md`: a block filter drops fenced code, tables,
   headings, blockquotes and HTML comments; hard-wrapped paragraphs are
