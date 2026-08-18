@@ -1,7 +1,10 @@
 package docs_test
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/weiqigod/curlew/internal/docs"
@@ -189,4 +192,91 @@ func TestProseRef_KeyTruncatesLongText(t *testing.T) {
 	if len(key) != wantLen {
 		t.Errorf("Key() length = %d, want %d (text must be truncated to 120)", len(key), wantLen)
 	}
+}
+
+// TestProseClaims mirrors internal/docs/claims_test.go's shape for
+// docs.Claims: a claim is derived from a call expression carrying a ".md"
+// string literal and a substring, read out of test sources rather than a
+// hand-kept list.
+func TestProseClaims(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want []docs.ProseClaim
+	}{
+		{
+			name: "direct call",
+			src: `package p
+import "github.com/weiqigod/curlew/internal/docs"
+func f() { docs.Prose("MANUAL.md", "link a specific event line") }`,
+			want: []docs.ProseClaim{{Doc: "MANUAL.md", Substr: "link a specific event line"}},
+		},
+		{
+			name: "unqualified call",
+			src: `package p
+func f() { Prose("MANUAL.md", "always") }`,
+			want: []docs.ProseClaim{{Doc: "MANUAL.md", Substr: "always"}},
+		},
+		{
+			name: "non-md first arg is not a claim",
+			src: `package p
+func f() { Prose("x.txt", "y") }`,
+			want: nil,
+		},
+		{
+			name: "no string args",
+			src: `package p
+func f(doc, substr string) { Prose(doc, substr) }`,
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "x_test.go")
+			if err := os.WriteFile(path, []byte(tt.src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			claims, err := docs.ProseClaims(dir)
+			if err != nil {
+				t.Fatalf("ProseClaims: %v", err)
+			}
+			var got []docs.ProseClaim
+			for _, c := range claims {
+				got = append(got, docs.ProseClaim{Doc: c.Doc, Substr: c.Substr})
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ProseClaims() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestProse_reader exercises docs.Prose against the real MANUAL.md, the same
+// way docs.Table is exercised against real documents elsewhere in this
+// package.
+func TestProse_reader(t *testing.T) {
+	got, err := docs.Prose("MANUAL.md", "link a specific event line")
+	if err != nil {
+		t.Fatalf("Prose: %v", err)
+	}
+	if !strings.Contains(got, "link a specific event line") {
+		t.Errorf("Prose() = %q, want it to contain %q", got, "link a specific event line")
+	}
+}
+
+func TestProse_readerErrors(t *testing.T) {
+	t.Run("substring matches no claim", func(t *testing.T) {
+		_, err := docs.Prose("MANUAL.md", "zzz_no_such_claim_in_the_manual_zzz")
+		if err == nil {
+			t.Fatal("want error: substring matches no claim")
+		}
+	})
+	t.Run("substring matches two or more claims", func(t *testing.T) {
+		_, err := docs.Prose("MANUAL.md", "the")
+		if err == nil {
+			t.Fatal("want error: substring is ambiguous across multiple claims")
+		}
+	})
 }
