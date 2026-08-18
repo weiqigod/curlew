@@ -7,6 +7,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Two of the README's three install paths reported a version that
+  identified nothing.** `go install <module>@latest` and `git clone && go
+  build` both printed `curlew 0.1.0-dev` regardless of what was actually
+  checked out — installing the published `v0.1.0` tag through `go install`
+  still printed the development placeholder (measured 2026-08-16, M25-004
+  plan). Only `gh release download` ever reported a real version, because
+  nothing else in the tree derived one from the build itself:
+  `debug.ReadBuildInfo` appeared zero times across `cmd/`, `internal/` and
+  `testapi/`. A bug report filed from either of the other two paths carried
+  a version string that identified nothing, and every project scaffolded by
+  `curlew init --skill agent` from a source build embedded the placeholder
+  in `SKILL.md` forever.
+
+  `cmd/curlew/version.go` (new) now falls back to
+  `debug.ReadBuildInfo().Main.Version` whenever `-X main.version` did not
+  inject anything; the ldflag still wins whenever it did
+  (`TestVersion_is_injectable_at_link_time` passes unmodified). The fallback
+  accepts only a real release or pre-release version and rejects everything
+  else: `ok == false`, a nil build-info, an empty string, `"(devel)"`, any Go
+  pseudo-version, and anything carrying `+`-prefixed build metadata
+  (`+dirty`, `+incompatible`). Pseudo-versions were the case that mattered
+  most: on go1.25.5 a plain `go build` does not report the obviously-fake
+  `(devel)`, it reports a pseudo-version — measured freshly this session as
+  `v0.1.1-0.20260817162458-f8584df3c908` from a clean clone of `main` — a
+  patch release that was never cut and that sorts *above* the real `v0.1.0`
+  under semver, which would have been worse than the placeholder it
+  replaced. All seven production reads of the version, not only the three
+  most visible ones, now go through one resolved value (`resolvedVersion`),
+  and a new AST-walking test fails the build if an eighth surface ever reads
+  the pre-fallback symbol directly, so `--version`, `--help`,
+  `info --format json` and a scaffolded `SKILL.md` cannot drift apart from
+  each other or from the events file for the same run.
+
+  A follow-up correction to this same task's own README paragraph (found in
+  review, after the attribution fix above had already landed): it claimed,
+  present tense and unqualified, that "a source build or `go install` at
+  that same tag derives it from the module version instead." False for the
+  only tag that exists — `v0.1.0`'s source predates this fix
+  (`cmd/curlew/version.go` does not exist at that tag), so `go install
+  .../curlew@v0.1.0` and `@latest` both still print `curlew 0.1.0-dev`,
+  measured directly. The plan's own D7 already said as much ("will report
+  `0.1.0-dev` forever and correctly"); the README contradicted its own
+  task's plan. Reworded to state the mechanism generally — a source build or
+  `go install` reports a tag's real version only once that tag's own source
+  carries the fallback — and to name `v0.1.0` as the concrete tag that does
+  not, rather than asserting a present-tense claim the one real tag
+  contradicts. That phrasing needs no future edit: it is true for `v0.1.0`
+  today and stays true for every tag cut hereafter, unlike the wording it
+  replaced. `TestVersion_v0_1_0_predates_the_fallback` (new) pins the
+  underlying git fact — `git cat-file -e v0.1.0:cmd/curlew/version.go`
+  fails — as an executable check rather than leaving it only as prose,
+  mirroring the attribution fix's own hermetic subtest above.
+
 - **The unit tests that justified an extraction were never run by anything.**
   `ci-local.sh`'s `--check-signing-keys` mode delegates to
   `scripts/check-signing-keys.sh` under the comment "Delegated to
@@ -54,6 +107,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (below) rather than silence.
 
 ### Added
+- **The version resolver is proven by five layers of test, not asserted
+  once.** Pure table tests (`TestVersion_falls_back_to_build_info`, 17 rows)
+  cover the resolver's contract with no I/O; a `-buildvcs=false` build
+  deterministically reports `(devel)` and is asserted byte-for-byte against
+  the default, replacing `TestVersion_default_when_not_injected`'s old
+  assertion, which had passed identically for the placeholder, a real
+  version, and `(devel)` alike; a wiring test crosses the process boundary
+  and reproduces `--version` from the binary's own `debug/buildinfo` read; a
+  real tag, a `git init`-from-working-tree fixture (never `git clone`, which
+  would reflect HEAD instead of uncommitted work, or be shallow and lose Go's
+  tag stamping; never `git worktree`, which would tag this repository for
+  real) and a real build prove the end-to-end path that `go install
+  <module>@<tag>` cannot exercise here, since the repository's only tag
+  (`v0.1.0`) predates this fix; and a three-surface agreement test holds
+  `--version`, `--help` and `info --format json` to one string for the same
+  run.
+
+  Two of Go's three canonical pseudo-version forms were caught only by
+  testing them directly during implementation, not by inspection: an initial
+  regex matched the untagged-repo form (`v0.0.0-<timestamp>-<hash>`) but not
+  the more common commit-after-a-release-tag form
+  (`vX.Y.(Z+1)-0.<timestamp>-<hash>`), which inserts a `.` rather than a `-`
+  immediately before the timestamp — caught by the table test built to cover
+  exactly this case. Both forms are now rejected, along with the third
+  (pre-release-base) form the original table did not name.
+
+  `TestReadme_install_commands_execute` (`cmd/curlew/readme_install_exec_test.go`)
+  now attributes a released-version output specifically to the block whose
+  body contains `gh release download`, rather than to any block producing
+  one. Of the README's three install blocks, only that one runs the binary
+  it produces — "Install from source" ends at `go install` and "clone and
+  build" ends at `go build`, and neither invokes `--version` — so a match
+  can only ever come from the download block, at any tag: verified by
+  running the other two blocks in isolation and observing no version output
+  from either. `TestReadme_documents_a_binary_download` now checks that same
+  assumption directly (`readme_install_test.go`), so it is enforced rather
+  than only asserted in a comment.
+
 - **Every README install command is now executed by a test, not merely
   read.** `TestReadme_install_commands_execute`
   (`cmd/curlew/readme_install_exec_test.go`) extracts every fenced bash/sh

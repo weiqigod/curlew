@@ -17,14 +17,31 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
 
 // readmeReleasedVersionRE matches a real release version only: `curlew
-// 0.1.0-dev` and `curlew 0.1.1-snapshot` must not satisfy it, since both
-// go install and go build (unlike a release archive) report the
-// cmd/curlew/main.go default with no -X main.version injection.
+// 0.1.0-dev` and `curlew 0.1.1-snapshot` must not satisfy it. Of the
+// README's three install blocks, only the download block ever runs the
+// binary it produces -- it ends `./curlew --version`. "Install from
+// source" ends at `go install` and "clone and build" ends at `go build`;
+// neither invokes the binary, so neither can print a version at all. That
+// is a property of the commands the README documents, not of the
+// repository's tag state -- it held before M25-004 and holds after it, and
+// a future tag does not change it. Verified by running both other blocks in
+// isolation: `go install` prints nothing on success, and `git clone && go
+// build` prints only git's own "Cloning into..." line.
+//
+// So a match here can only ever come from the download block.
+// TestReadme_install_commands_execute below attributes it there directly
+// rather than relying on that being the only possibility: it requires the
+// matching block's body to contain `gh release download`.
+// TestReadme_documents_a_binary_download's "only the download block runs
+// the built binary" subtest (readme_install_test.go) holds that assumption
+// itself to the README, hermetically, so it is enforced rather than only
+// asserted here.
 var readmeReleasedVersionRE = regexp.MustCompile(`(?m)^curlew [0-9]+\.[0-9]+\.[0-9]+$`)
 
 // TestReadme_install_commands_execute runs every fenced bash/sh block under
@@ -57,7 +74,7 @@ func TestReadme_install_commands_execute(t *testing.T) {
 	defer cancel()
 
 	executed := 0
-	sawReleasedVersion := false
+	sawReleasedVersionFromDownloadBlock := false
 	for _, b := range blocks {
 		if b.lang != "bash" && b.lang != "sh" {
 			t.Errorf("README.md:%d: fence language %q under '## Install' -- a block here is either an executable bash command or it does not belong in the Install section", b.line, b.lang)
@@ -91,7 +108,20 @@ func TestReadme_install_commands_execute(t *testing.T) {
 			continue
 		}
 		if readmeReleasedVersionRE.Match(out) {
-			sawReleasedVersion = true
+			// M25-004: a released version must be attributed to the block
+			// that actually produced it, not merely observed from some
+			// block. Only the download block can ever reach this far with a
+			// match (see readmeReleasedVersionRE) -- the other two blocks
+			// never run the binary they install or build, at any tag -- so
+			// the branch below is a tripwire against a future README edit,
+			// not a condition today's tree can trigger.
+			if !strings.Contains(b.body, "gh release download") {
+				t.Errorf("README.md:%d: install block produced a released version but its body does not contain "+
+					"\"gh release download\" -- want the released version attributed specifically to the download block\n--- block ---\n%s\n--- output ---\n%s",
+					b.line, b.body, out)
+				continue
+			}
+			sawReleasedVersionFromDownloadBlock = true
 		}
 	}
 
@@ -99,14 +129,17 @@ func TestReadme_install_commands_execute(t *testing.T) {
 		t.Errorf("executed %d of %d blocks under '## Install' -- see the fence-language error(s) above", executed, len(blocks))
 	}
 	// This is how the DoD item "a download-and-run path is documented and
-	// works" is enforced without hand-naming which block is the download
-	// one: it is derived from what the blocks actually printed. go install
-	// and go build both report the cmd/curlew/main.go default
-	// ("0.1.0-dev"); only a release archive built by goreleaser carries
-	// -X main.version, so this can only be satisfied by the download block
-	// actually working.
-	if !sawReleasedVersion {
-		t.Error("no install block produced a binary reporting a released version " +
+	// works" is enforced without hand-naming which block is the download one
+	// by line number: it is derived from what the blocks actually printed,
+	// attributed to the block whose body contains `gh release download`. A
+	// bare "did any block print a released version" check would give the
+	// same answer today, since the download block is the only one that runs
+	// a binary at all -- but it would give it because of what the other two
+	// blocks' bodies happen not to contain, which is exactly the kind of
+	// thing that should be checked, not assumed. Attribution costs one
+	// strings.Contains and does not depend on that holding.
+	if !sawReleasedVersionFromDownloadBlock {
+		t.Error("no install block whose body contains \"gh release download\" produced a binary reporting a released version " +
 			"(want `curlew X.Y.Z`, not X.Y.Z-dev or X.Y.Z-snapshot) -- the download-and-run path is gone")
 	}
 }

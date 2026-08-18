@@ -1,0 +1,109 @@
+id: M25-004
+title: "A binary built from source knows which version it is"
+status: done
+priority: 2
+created: 2026-08-17
+phase: "M25: A deliverable that exists"
+track: go-cli
+
+dependencies:
+  - M25-003
+
+observable: |
+  # 1. An installed binary reports the version it was installed from,
+  #    not the compile-time placeholder.
+  go test ./cmd/curlew/ -run TestVersion_falls_back_to_build_info -v
+
+  # 2. The link-time injection still wins over the fallback.
+  go test ./cmd/curlew/ -run TestVersion_is_injectable_at_link_time -v
+
+  # 3. All three surfaces agree.
+  go test ./cmd/curlew/ -run TestVersion_ -v
+
+behaviors:
+  - "Given a binary built with -X main.version, when --version runs, then it reports the injected value and the build-info fallback is not consulted."
+  - "Given a binary installed with `go install <module>@<tag>`, when --version runs, then it reports that tag rather than the compile-time default."
+  - "Given a plain local `go build`, when --version runs, then it reports the compile-time default, because build info reports a pseudo-version or `(devel)`, neither of which is a release."
+  - "Given a version resolved from build info, when it carries a leading `v`, then the reported string matches the form goreleaser produces, so the two paths cannot disagree about the same release."
+  - "Given any resolution path, when --version, --help and `info --format json` are compared, then all three report the same string."
+
+scope: |
+  Measured 2026-08-16, both on this machine:
+
+      go install github.com/weiqigod/curlew/cmd/curlew@latest   ->  curlew 0.1.0-dev
+      the published v0.1.0 archive                              ->  curlew 0.1.0
+
+  Only goreleaser-built binaries know their version. Everything else reports
+  the placeholder at cmd/curlew/main.go:52, because `-X main.version`
+  (.goreleaser.yaml:47) is the only thing that ever sets it, and nothing in
+  the tree derives a version from the build itself -- `debug.ReadBuildInfo`
+  appears zero times across cmd/, internal/ and testapi/.
+
+  This matters more since M25-003. The README now documents three install
+  paths, and two of the three produce a binary that misreports itself. A user
+  who installs a tagged version and runs --version is told they are running a
+  development build. Any bug report from those two paths carries a version
+  string that identifies nothing.
+
+  Fix: when `version` still holds its compile-time default, fall back to
+  debug.ReadBuildInfo().Main.Version, which Go populates with the resolved
+  module version for `go install <pkg>@<version>` builds.
+
+  Three things this must not get wrong:
+
+    1. THE LDFLAG MUST STILL WIN. TestVersion_is_injectable_at_link_time
+       (cmd/curlew/version_test.go:34) exists because -X is silently ignored
+       for a const -- the build succeeds and every released binary lies. The
+       fallback must be consulted only when `version` is untouched, never in
+       preference to an injected value, and that test must keep passing
+       unmodified.
+
+    2. A LOCAL BUILD IS NOT A RELEASE. Corrected 2026-08-17 by measurement:
+       this task originally claimed a plain `go build` yields "(devel)". It
+       does not. On go1.25.5 it yields a PSEUDO-VERSION --
+
+           go build ./cmd/curlew
+           go version -m ./curlew
+             mod  github.com/weiqigod/curlew  v0.1.1-0.20260817175035-80cf5922ee66
+
+       -- because Go stamps the main module from VCS. "(devel)" appears only
+       under -buildvcs=false (and in test binaries). This makes the trap worse
+       than stated: a naive fallback does not report an obviously-bogus
+       "(devel)", it reports 0.1.1, a release that does not exist and never
+       will, and it writes that string into every scaffolded SKILL.md.
+       Anything that is not a real release must leave the default in place.
+       Enumerate what "not a real version" covers -- ok == false, nil info,
+       empty string, "(devel)", pseudo-versions, and any build metadata
+       suffix -- and test each, rather than special-casing the one you saw.
+
+    3. THE TWO PATHS MUST AGREE ON FORM. goreleaser's {{ .Version }} strips
+       the leading v, which is why the published archive reports `curlew
+       0.1.0`. Build info does not strip it: Main.Version is `v0.1.0`. Left
+       alone, the same release reports two different strings depending on how
+       it was obtained. Normalise, and test that a tag and its goreleaser
+       equivalent produce byte-identical output.
+
+  TestVersion_default_when_not_injected (version_test.go:114) currently
+  asserts only that the output is non-empty and prefixed `curlew `. That is
+  what let this ship: the assertion passes for the placeholder, for a real
+  version, and for `curlew (devel)` alike. It is not a test of the default so
+  much as a test that something was printed. Replace it with an assertion that
+  can distinguish the three cases it currently conflates.
+
+  Out of scope: changing goreleaser's version template, the git-describe
+  shape of dev builds, or the `+dirty` suffixes some projects add. This task
+  makes an installed binary honest; it does not redesign version strings.
+
+definition_of_done:
+  - A test proves an installed binary reports its module version
+  - A test proves the ldflag still takes precedence over the fallback
+  - A test proves pseudo-versions, `(devel)`, empty, and absent build info all keep the default
+  - A test proves the fallback and goreleaser forms are byte-identical
+  - --version, --help and `info --format json` verified to agree
+  - TestVersion_default_when_not_injected no longer passes for `(devel)`
+  - "`./scripts/ci-local.sh --go` passes"
+  - Coverage >= 80%
+  - CHANGELOG.md updated
+
+complexity: low
+estimated_effort: "2-3 hours"

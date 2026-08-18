@@ -88,7 +88,7 @@ var releaseRequiredFileCases = []struct{ caseName, path, why string }{
 // releaseSemverRE is the shape a release version must have. Note
 // "0.1.0-dev" matches this regex too — the shape check alone never rejects
 // the unreleased default; TestRelease_version_matches_the_tag additionally
-// compares against the `version` symbol directly.
+// compares against the `defaultVersion` symbol directly.
 var releaseSemverRE = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
 
 // releaseArchiveNameRE parses curlew_<version>_<goos>_<goarch>.(tar.gz|zip).
@@ -854,10 +854,11 @@ func TestRelease_version_matches_the_tag(t *testing.T) {
 		t.Errorf("release version %q is not semver-shaped (X.Y.Z or X.Y.Z-pre)", releaseVersion)
 	}
 	// The default is referenced by symbol, not by literal, so this
-	// assertion cannot drift if cmd/curlew/main.go's default is ever
-	// changed. `version` is that package-level var; this test binary is
-	// built without -ldflags, so it holds the plain source default here.
-	if releaseVersion == version {
+	// assertion cannot drift if cmd/curlew/version.go's default is ever
+	// changed. `defaultVersion` is that compile-time constant (M25-004) —
+	// deliberately not `resolvedVersion`, which falls back to this test
+	// binary's own build info and would not equal the placeholder.
+	if releaseVersion == defaultVersion {
 		t.Errorf("release version %q equals the unreleased default — -X main.version never reached these archives", releaseVersion)
 	}
 	// Mode-specific: this test always invokes --snapshot, so the version
