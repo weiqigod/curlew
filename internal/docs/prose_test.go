@@ -111,6 +111,51 @@ func TestExtractProse(t *testing.T) {
 			src:  "<!-- doc-check: prose-not-executable why -->\nA is always `--x`.\n\nB is never `--y`.",
 			want: []string{"A is always `--x`.", "B is never `--y`."},
 		},
+		{
+			name: "exit code referent without a backtick",
+			src:  "The command always returns exit 2 on a usage error.",
+			want: []string{"The command always returns exit 2 on a usage error."},
+		},
+		{
+			name: "environment variable referent without a backtick",
+			src:  "The value always comes from CURLEW_VAULT_STUB when set.",
+			want: []string{"The value always comes from CURLEW_VAULT_STUB when set."},
+		},
+		{
+			name: "command referent without a backtick",
+			src:  "curlew always validates the collection before running it.",
+			want: []string{"curlew always validates the collection before running it."},
+		},
+		{
+			name: "filename referent without a backtick",
+			src:  "See MANUAL.md, which every reader must consult first.",
+			want: []string{"See MANUAL.md, which every reader must consult first."},
+		},
+		{
+			name: "single-letter enumeration marker does not split",
+			src:  "Step A. `--format` always applies to every request.",
+			want: []string{"Step A. `--format` always applies to every request."},
+		},
+		{
+			name: "single letter at the very start of a block does not split",
+			src:  "A. `--format` always applies to every request.",
+			want: []string{"A. `--format` always applies to every request."},
+		},
+		{
+			// A period with nothing before it is not an enumeration marker
+			// (isSingleLetterToken correctly declines to suppress the split
+			// on an empty prefix) -- it splits normally into an empty
+			// fragment, which states no shape and is dropped, and the
+			// substantive sentence that follows.
+			name: "leading period with no preceding text does not crash the guard",
+			src:  ". `--format` is always accepted from the start.",
+			want: []string{"`--format` is always accepted from the start."},
+		},
+		{
+			name: "bare flag referent without a backtick",
+			src:  "The --format flag always controls output shape.",
+			want: []string{"The --format flag always controls output shape."},
+		},
 	}
 
 	for _, tt := range tests {
@@ -171,6 +216,20 @@ func TestExtractProse_listItemIsOwnBlock(t *testing.T) {
 	refs := docs.ExtractProse("TEST.md", src)
 	if len(refs) != 2 {
 		t.Fatalf("got %d refs, want 2 (one per list item): %#v", len(refs), refs)
+	}
+}
+
+func TestProseRef_String(t *testing.T) {
+	r := docs.ProseRef{Doc: "MANUAL.md", Line: 42, Heading: "1.1 Correlation", Text: "claim text"}
+	want := "MANUAL.md:42 1.1 Correlation | claim text"
+	if got := r.String(); got != want {
+		t.Errorf("String() = %q, want %q", got, want)
+	}
+}
+
+func TestProseInventory_missingDocument(t *testing.T) {
+	if _, err := docs.ProseInventory("NO_SUCH_DOCUMENT.md"); err == nil {
+		t.Fatal("want error for a document that does not exist")
 	}
 }
 
@@ -301,12 +360,13 @@ func TestProse_register_cannot_grow(t *testing.T) {
 	const claimB = "`request_id` is never reused across `--log` entries."
 
 	tests := []struct {
-		name      string
-		src       string
-		claims    []docs.ProseClaim
-		baseline  func(refs []docs.ProseRef) map[string]bool
-		wantNew   int
-		wantStale int
+		name           string
+		src            string
+		claims         []docs.ProseClaim
+		baseline       func(refs []docs.ProseRef) map[string]bool
+		wantNew        int
+		wantStale      int
+		wantUnresolved int
 	}{
 		{
 			name:     "clean: executed claim, empty register",
@@ -356,6 +416,17 @@ func TestProse_register_cannot_grow(t *testing.T) {
 			claims:   nil,
 			baseline: func([]docs.ProseRef) map[string]bool { return map[string]bool{} },
 		},
+		{
+			// A stale executor -- its substring now matches nothing -- must
+			// not silently credit some other claim as executed. The claim it
+			// once covered is unexecuted, so it still owes new debt too.
+			name:           "an executor whose substring matches nothing is unresolved, not silently dropped",
+			src:            claimA,
+			claims:         []docs.ProseClaim{{Doc: "SYN.md", Substr: "no longer in the document anywhere"}},
+			baseline:       func([]docs.ProseRef) map[string]bool { return map[string]bool{} },
+			wantNew:        1,
+			wantUnresolved: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -370,6 +441,9 @@ func TestProse_register_cannot_grow(t *testing.T) {
 			}
 			if len(audit.StaleDebt) != tt.wantStale {
 				t.Errorf("StaleDebt = %d, want %d: %v", len(audit.StaleDebt), tt.wantStale, audit.StaleDebt)
+			}
+			if len(audit.Unresolved) != tt.wantUnresolved {
+				t.Errorf("Unresolved = %d, want %d: %v", len(audit.Unresolved), tt.wantUnresolved, audit.Unresolved)
 			}
 		})
 	}
