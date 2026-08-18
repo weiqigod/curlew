@@ -1978,6 +1978,55 @@ func TestRegistry_RandomBase64_arity_errors(t *testing.T) {
 	}
 }
 
+// TestRandomFunctions_reject_lengths_above_the_cap guards against the
+// unbounded allocation FuzzInterpolate found (M27-002): a fuzz worker was
+// killed mid-minimization while mutating the digits of a seeded
+// {{$randomBase64('32')}} template, and a direct measurement of
+// {{$randomBase64('1111111111')}} confirmed why -- 6.4 GB peak RSS and 7.1s
+// for a single interpolation (measured 2026-08-18). Ten characters in a
+// header value should not be able to ask for gigabytes.
+func TestRandomFunctions_reject_lengths_above_the_cap(t *testing.T) {
+	reg := NewRegistry(nil)
+	tests := []struct {
+		name     string
+		fn       string
+		arg      string
+		wantCode string // empty means "must succeed"
+	}{
+		{"randomBase64 at the cap", "randomBase64", strconv.Itoa(MaxRandomBytes), ""},
+		{"randomBase64 one over the cap", "randomBase64", strconv.Itoa(MaxRandomBytes + 1), "DYNFN_RANDOMBASE64_BAD_LENGTH"},
+		{"randomBase64 ten digits", "randomBase64", "9999999999", "DYNFN_RANDOMBASE64_BAD_LENGTH"},
+		{"randomBase64 still valid at 32", "randomBase64", "32", ""},
+		{"randomPassword at the cap", "randomPassword", strconv.Itoa(MaxRandomBytes), ""},
+		{"randomPassword one over the cap", "randomPassword", strconv.Itoa(MaxRandomBytes + 1), "DYNFN_RANDOMPASSWORD_BAD_LENGTH"},
+		{"randomPassword ten digits", "randomPassword", "9999999999", "DYNFN_RANDOMPASSWORD_BAD_LENGTH"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := reg.Evaluate(tt.fn, []string{tt.arg}, nil)
+			if tt.wantCode == "" {
+				if err != nil {
+					t.Fatalf("Evaluate(%s, %s): unexpected error: %v", tt.fn, tt.arg, err)
+				}
+				if len(got) == 0 {
+					t.Fatalf("Evaluate(%s, %s): got empty result", tt.fn, tt.arg)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Evaluate(%s, %s): expected error, got nil", tt.fn, tt.arg)
+			}
+			var se *apierrors.Structured
+			if !errors.As(err, &se) {
+				t.Fatalf("Evaluate(%s, %s): expected *apierrors.Structured, got %T: %v", tt.fn, tt.arg, err, err)
+			}
+			if se.Code != tt.wantCode {
+				t.Errorf("Code = %q, want %q", se.Code, tt.wantCode)
+			}
+		})
+	}
+}
+
 // TestRegistry_RandomPassword verifies length and four-class invariants.
 // Behaviors 1 + 2 + observable.
 func TestRegistry_RandomPassword(t *testing.T) {
