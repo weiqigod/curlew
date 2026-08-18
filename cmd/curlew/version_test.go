@@ -583,6 +583,9 @@ func buildFixtureBinary(t *testing.T, fixtureDir string) (binPath, stampedVersio
 // instead of the module proxy. The fixture is a faithful proxy for that
 // path, not a `go install` invocation, and this comment says so rather than
 // letting the test name imply one ran.
+//
+// "v0.1.0 predates this fix" above is pinned as an executable check, not
+// left as only a comment, by TestVersion_v0_1_0_predates_the_fallback below.
 func TestVersion_tagged_build_reports_the_tag(t *testing.T) {
 	// Major 0 or 1: go.mod declares an unsuffixed module path
 	// (github.com/weiqigod/curlew), so a v2+ tag is silently ignored for
@@ -635,4 +638,41 @@ func TestVersion_tagged_build_reports_the_tag(t *testing.T) {
 			t.Errorf("--version = %q, want %q — a dirty tag checkout must fall back to the default, not report a version with +dirty appended", got, want)
 		}
 	})
+}
+
+// TestVersion_v0_1_0_predates_the_fallback pins, as an executable check
+// rather than only a comment, a fact two places in this repository state in
+// prose: README.md's "Download a release binary" paragraph and the doc
+// comment on TestVersion_tagged_build_reports_the_tag above both say v0.1.0
+// -- the only tag this repository has ever published -- predates this file,
+// so a source build or `go install` at v0.1.0 has no fallback to run and
+// reports defaultVersion forever, regardless of how resolveVersion handles
+// any tag cut after this one. Verified directly during the M25-004 improve
+// phase that added this test: `git cat-file -e
+// v0.1.0:cmd/curlew/version.go` fails because the path does not exist at
+// that tag, and both `go install .../curlew@latest` and
+// `go install .../curlew@v0.1.0` print `curlew 0.1.0-dev` from a clean
+// GOBIN.
+//
+// This does not re-check that README.md's wording still matches the fact --
+// only that the fact itself still holds. It exists so that if v0.1.0 ever
+// came to carry this file (the tag recreated at a different commit -- not a
+// thing this repository's workflow does, but not something git itself
+// forbids either), both places making the claim would need updating, and
+// this test would say so loudly here instead of the claim staying silently
+// wrong in a document nothing else exercises.
+func TestVersion_v0_1_0_predates_the_fallback(t *testing.T) {
+	// Guard: the tag itself must resolve in this checkout before the absence
+	// check below means anything -- otherwise a checkout that cannot see the
+	// tag at all (e.g. a shallow clone with tags pruned) would look
+	// identical to "version.go is absent at the tag" without actually
+	// checking anything.
+	if out, err := exec.Command("git", "rev-parse", "--verify", "-q", "v0.1.0^{commit}").CombinedOutput(); err != nil {
+		t.Fatalf("git rev-parse v0.1.0 failed (%v) -- this checkout cannot resolve tag v0.1.0 (a shallow clone would look like this), so the check below would be meaningless\n%s", err, out)
+	}
+
+	if out, err := exec.Command("git", "cat-file", "-e", "v0.1.0:cmd/curlew/version.go").CombinedOutput(); err == nil {
+		t.Fatalf("cmd/curlew/version.go exists at tag v0.1.0 -- README.md's \"Download a release binary\" paragraph and the doc comment on "+
+			"TestVersion_tagged_build_reports_the_tag both say v0.1.0 predates the build-info fallback; that is no longer true and both need updating\n%s", out)
+	}
 }

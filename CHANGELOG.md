@@ -40,6 +40,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `info --format json` and a scaffolded `SKILL.md` cannot drift apart from
   each other or from the events file for the same run.
 
+  A follow-up correction to this same task's own README paragraph (found in
+  review, after the attribution fix above had already landed): it claimed,
+  present tense and unqualified, that "a source build or `go install` at
+  that same tag derives it from the module version instead." False for the
+  only tag that exists — `v0.1.0`'s source predates this fix
+  (`cmd/curlew/version.go` does not exist at that tag), so `go install
+  .../curlew@v0.1.0` and `@latest` both still print `curlew 0.1.0-dev`,
+  measured directly. The plan's own D7 already said as much ("will report
+  `0.1.0-dev` forever and correctly"); the README contradicted its own
+  task's plan. Reworded to state the mechanism generally — a source build or
+  `go install` reports a tag's real version only once that tag's own source
+  carries the fallback — and to name `v0.1.0` as the concrete tag that does
+  not, rather than asserting a present-tense claim the one real tag
+  contradicts. That phrasing needs no future edit: it is true for `v0.1.0`
+  today and stays true for every tag cut hereafter, unlike the wording it
+  replaced. `TestVersion_v0_1_0_predates_the_fallback` (new) pins the
+  underlying git fact — `git cat-file -e v0.1.0:cmd/curlew/version.go`
+  fails — as an executable check rather than leaving it only as prose,
+  mirroring the attribution fix's own hermetic subtest above.
+
 - **The unit tests that justified an extraction were never run by anything.**
   `ci-local.sh`'s `--check-signing-keys` mode delegates to
   `scripts/check-signing-keys.sh` under the comment "Delegated to
