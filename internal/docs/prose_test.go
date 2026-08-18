@@ -1,9 +1,11 @@
 package docs_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -279,4 +281,221 @@ func TestProse_readerErrors(t *testing.T) {
 			t.Fatal("want error: substring is ambiguous across multiple claims")
 		}
 	})
+}
+
+// TestProse_register_cannot_grow proves the shrink-only guards by mutation
+// against synthetic documents, in all three directions the task requires:
+// new debt, stale debt, and (in TestProse_inventory_is_complete) zero
+// claims. AuditProse takes slices and a map rather than reading the
+// filesystem specifically so this proof does not depend on the real
+// documents' current content.
+func TestProse_register_cannot_grow(t *testing.T) {
+	const claimA = "`run_id` is always the same across `--events` and `--log`."
+	const claimB = "`request_id` is never reused across `--log` entries."
+
+	tests := []struct {
+		name      string
+		src       string
+		claims    []docs.ProseClaim
+		baseline  func(refs []docs.ProseRef) map[string]bool
+		wantNew   int
+		wantStale int
+	}{
+		{
+			name:     "clean: executed claim, empty register",
+			src:      claimA,
+			claims:   []docs.ProseClaim{{Doc: "SYN.md", Substr: "is always the same"}},
+			baseline: func([]docs.ProseRef) map[string]bool { return map[string]bool{} },
+		},
+		{
+			name:   "clean: unexecuted claim, registered",
+			src:    claimA,
+			claims: nil,
+			baseline: func(refs []docs.ProseRef) map[string]bool {
+				return map[string]bool{refs[0].Key(): true}
+			},
+		},
+		{
+			name:     "MUTATION new debt: unexecuted claim absent from register",
+			src:      claimA,
+			claims:   nil,
+			baseline: func([]docs.ProseRef) map[string]bool { return map[string]bool{} },
+			wantNew:  1,
+		},
+		{
+			name:   "MUTATION stale debt: executed claim still registered",
+			src:    claimA,
+			claims: []docs.ProseClaim{{Doc: "SYN.md", Substr: "is always the same"}},
+			baseline: func(refs []docs.ProseRef) map[string]bool {
+				return map[string]bool{refs[0].Key(): true}
+			},
+			wantStale: 1,
+		},
+		{
+			name:   "MUTATION both at once",
+			src:    claimA + " " + claimB,
+			claims: []docs.ProseClaim{{Doc: "SYN.md", Substr: "is always the same"}},
+			baseline: func(refs []docs.ProseRef) map[string]bool {
+				// refs[0] (claimA) is executed and still registered -> stale.
+				// refs[1] (claimB) is unexecuted and unregistered -> new.
+				return map[string]bool{refs[0].Key(): true}
+			},
+			wantNew:   1,
+			wantStale: 1,
+		},
+		{
+			name:     "exempt claim is neither new nor stale",
+			src:      "<!-- doc-check: prose-not-executable why -->\n" + claimA,
+			claims:   nil,
+			baseline: func([]docs.ProseRef) map[string]bool { return map[string]bool{} },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			refs := docs.ExtractProse("SYN.md", tt.src)
+			if len(refs) == 0 {
+				t.Fatal("fixture produced zero refs; the fixture itself is broken")
+			}
+			audit := docs.AuditProse(refs, tt.claims, tt.baseline(refs))
+			if len(audit.NewDebt) != tt.wantNew {
+				t.Errorf("NewDebt = %d, want %d: %v", len(audit.NewDebt), tt.wantNew, audit.NewDebt)
+			}
+			if len(audit.StaleDebt) != tt.wantStale {
+				t.Errorf("StaleDebt = %d, want %d: %v", len(audit.StaleDebt), tt.wantStale, audit.StaleDebt)
+			}
+		})
+	}
+}
+
+// maxProseMarkers caps how much of the documentation can declare a prose
+// claim unexecutable, the same guard maxExemptTables is for tables: without
+// a cap the check can be hollowed out one paragraph at a time. 105-ish
+// claims at the table register's ~10% ratio is about eleven; twelve gives
+// one marker of headroom and raising it is still a deliberate, diffable act.
+const maxProseMarkers = 12
+
+// proseBaselineFile holds the prose claims still owed an executor, beside
+// the documents it is about -- same contract as
+// docs/table-execution-baseline.txt: a debt register, not an exemption
+// list, and it can only shrink.
+var proseBaselineFile = filepath.Join(docs.Dir, "prose-claim-baseline.txt")
+
+func readProseBaseline() (map[string]bool, error) {
+	data, err := os.ReadFile(proseBaselineFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]bool{}, nil
+		}
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimRight(line, "\r")
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		out[line] = true
+	}
+	return out, nil
+}
+
+// countProseMarkers counts marker occurrences, not the claims each one
+// exempts -- one marker can cover several claims in the same block, and the
+// cap is on the deliberate act of writing a marker, not on its blast radius.
+func countProseMarkers(t *testing.T) int {
+	t.Helper()
+	count := 0
+	for _, doc := range docs.Docs {
+		src, err := docs.ReadDoc(doc)
+		if err != nil {
+			t.Fatalf("reading %s: %v", doc, err)
+		}
+		for _, line := range strings.Split(src, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), docs.ProseMarker) {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// TestProse_inventory_is_complete is about extraction: claims are found,
+// non-zero overall and per document, every shape still matches something (a
+// rotted predicate is a build failure, not a silent narrowing), the marker
+// cap holds, and every claim is accounted for as executed, exempt, or
+// registered.
+func TestProse_inventory_is_complete(t *testing.T) {
+	claims, err := docs.ProseClaims(repoRoot)
+	if err != nil {
+		t.Fatalf("reading prose claims from test sources: %v", err)
+	}
+	if len(claims) == 0 {
+		t.Fatal("no test anywhere reads a documented prose claim via docs.Prose; the extractor is broken")
+	}
+
+	var all []docs.ProseRef
+	shapesSeen := map[string]bool{}
+	for _, doc := range docs.Docs {
+		refs, invErr := docs.ProseInventory(doc)
+		if invErr != nil {
+			t.Fatalf("prose inventory of %s: %v", doc, invErr)
+		}
+		if len(refs) == 0 {
+			t.Fatalf("no checkable prose claims found in %s; the extractor is broken, not the document", doc)
+		}
+		for _, r := range refs {
+			shapesSeen[r.Shape] = true
+		}
+		all = append(all, refs...)
+	}
+	if len(all) == 0 {
+		t.Fatal("no checkable prose claims found in either document; this must never read as a clean register")
+	}
+
+	for _, shape := range []string{"modal", "same-as", "written-appears", "given-curlew"} {
+		if !shapesSeen[shape] {
+			t.Errorf("no claim anywhere matches shape %q; the predicate has rotted", shape)
+		}
+	}
+
+	if markerCount := countProseMarkers(t); markerCount > maxProseMarkers {
+		t.Fatalf("%d prose-not-executable markers, cap is %d; raise the cap deliberately or execute a claim instead",
+			markerCount, maxProseMarkers)
+	}
+
+	baseline, err := readProseBaseline()
+	if err != nil {
+		t.Fatalf("reading %s: %v", proseBaselineFile, err)
+	}
+	audit := docs.AuditProse(all, claims, baseline)
+
+	if len(audit.NewDebt) > 0 || len(audit.Unresolved) > 0 {
+		var b strings.Builder
+		if len(audit.NewDebt) > 0 {
+			fmt.Fprintf(&b, "%d prose claim(s) state something about the binary that no test runs.\n", len(audit.NewDebt))
+			b.WriteString("Execute each one with docs.Prose(doc, substring), or mark it with\n    ")
+			b.WriteString(docs.ProseMarker)
+			b.WriteString(" <why> -->\non the line before its paragraph.\n\n")
+			for _, r := range audit.NewDebt {
+				fmt.Fprintf(&b, "  %s\n    baseline id: %s\n", r, r.Key())
+			}
+		}
+		if len(audit.Unresolved) > 0 {
+			b.WriteString("\ndocs.Prose(...) call(s) that matched no claim, or an ambiguous one:\n")
+			for _, c := range audit.Unresolved {
+				fmt.Fprintf(&b, "  %s:%d docs.Prose(%q, %q)\n", c.File, c.Line, c.Doc, c.Substr)
+			}
+		}
+		t.Fatal(b.String())
+	}
+
+	if len(audit.StaleDebt) > 0 {
+		sort.Strings(audit.StaleDebt)
+		t.Errorf("%d baseline entr(ies) are now executed or exempt — delete them from %s so the debt cannot grow back:\n  %s",
+			len(audit.StaleDebt), proseBaselineFile, strings.Join(audit.StaleDebt, "\n  "))
+	}
+
+	t.Logf("%d prose claims: %d executed, %d exempt (cap %d), %d owed an executor (%s)",
+		len(all), len(audit.Executed), len(audit.Exempt), maxProseMarkers, len(audit.StillOwed), proseBaselineFile)
 }
