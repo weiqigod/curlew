@@ -126,6 +126,75 @@ func ProseInventory(doc string) ([]ProseRef, error) {
 	return ExtractProse(doc, src), nil
 }
 
+// ProseAudit is the outcome of holding a prose inventory to its executors
+// and a debt register.
+type ProseAudit struct {
+	All        []ProseRef
+	Executed   []ProseRef
+	Exempt     []ProseRef
+	StillOwed  []ProseRef   // unexecuted and correctly registered
+	NewDebt    []ProseRef   // unexecuted and NOT registered -- fails the build
+	StaleDebt  []string     // registered but no longer owed -- fails the build
+	Unresolved []ProseClaim // a docs.Prose call that matched no claim, or more than one
+}
+
+// AuditProse holds an inventory of claims to a set of executors and a debt
+// register.
+//
+// It takes slices and a map rather than reading the filesystem, so the
+// shrink-only guards can be proven by mutation against synthetic input, in
+// all three directions: new debt, stale debt, and (by feeding it a
+// zero-length refs slice at the call site) zero claims.
+func AuditProse(refs []ProseRef, claims []ProseClaim, baseline map[string]bool) ProseAudit {
+	audit := ProseAudit{All: refs}
+
+	// Resolve every claim the way Prose would: a unique substring match
+	// within the named document. An executor whose substring now matches
+	// zero or several claims is unresolved rather than silently crediting
+	// the wrong one.
+	executed := map[string]bool{}
+	for _, c := range claims {
+		var matches []ProseRef
+		for _, r := range refs {
+			if r.Doc == c.Doc && strings.Contains(r.Text, c.Substr) {
+				matches = append(matches, r)
+			}
+		}
+		if len(matches) != 1 {
+			audit.Unresolved = append(audit.Unresolved, c)
+			continue
+		}
+		executed[matches[0].Key()] = true
+	}
+
+	stillOwed := map[string]bool{}
+	for _, r := range refs {
+		switch {
+		case r.Exempt != "":
+			audit.Exempt = append(audit.Exempt, r)
+		case executed[r.Key()]:
+			audit.Executed = append(audit.Executed, r)
+		case baseline[r.Key()]:
+			audit.StillOwed = append(audit.StillOwed, r)
+			stillOwed[r.Key()] = true
+		default:
+			audit.NewDebt = append(audit.NewDebt, r)
+		}
+	}
+
+	// A baseline entry that no longer corresponds to a still-owed claim has
+	// been paid off (executed, exempted, or reworded into a different key)
+	// and leaving it listed would let the same claim silently stop being
+	// checked later.
+	for id := range baseline {
+		if !stillOwed[id] {
+			audit.StaleDebt = append(audit.StaleDebt, id)
+		}
+	}
+
+	return audit
+}
+
 // proseBlock is one paragraph or list item, reflowed to a single line, after
 // fenced code, tables, headings, blockquotes and HTML comments have been
 // filtered out.
