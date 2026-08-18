@@ -4,71 +4,91 @@
 **Reviewer:** AI
 **Date:** 2026-08-18
 **Branch:** feature/M27-002-fuzz-input-surfaces
-**Iteration:** 1
+**Iteration:** 2
 
 ## Verdict: FAIL
 
 ## Pre-audit Gate
 
-`./scripts/ci-local.sh --go` was run in full (captured output, ~2100 lines) and
-passed end to end: `go build`, `go test`, `go test -race`, per-package
-coverage, `golangci-lint`, `./smoke/run.sh`, and the new `fuzz corpora
-(M27-002)` step. The `FAIL` lines visible in the smoke output are the
-suite's own expected-failure fixtures (`nonexistent_validate_test.yaml`,
-malformed YAML, etc.), not gate failures. Static audit proceeded.
+`./scripts/ci-local.sh --go` was run twice in this session (once streamed, once
+captured to a log and grepped). Both runs passed end to end: `go build`,
+`go test`, `go test -race`, per-package coverage (all packages >= 80%,
+`internal/variable` 97.6%, `internal/parser` 88.8%, `internal/assertion` 93.9%,
+`internal/cel` 94.7%, `internal/fuzzseed` 87.6%), `golangci-lint` (0 issues),
+`./smoke/run.sh`, and the `fuzz corpora (M27-002)` step, ending
+`=== ci-local PASS ===`. Static audit proceeded.
+
+## Scope of this iteration
+
+Iteration 1 found one High finding: the committed corpus entry
+`{{$randomBase64('1111111111')}1` had a minimizer-truncated `}1` and never
+reached the vulnerable code, so it provided no regression protection. The
+improve phase (commit `cd53c6a`) restored the corpus file's `}}` and added a
+16 MiB output-size assertion to `FuzzInterpolate`, because the target had been
+discarding `Interpolate`'s return value entirely. This iteration independently
+re-verifies that fix, checks whether the other three targets share the same
+"discards its own result" shape, and reconsiders what the recorded 1h46m
+fuzzing campaign actually demonstrated in light of that revelation.
 
 ## Findings
 
 | # | Severity | Category | File | Line | Finding | Recommendation |
 |---|----------|----------|------|------|---------|---------------|
-| 1 | High | Test Quality | `internal/variable/testdata/fuzz/FuzzInterpolate/c5a99887a2d322cc` | 1-3 | The committed crasher artifact does not reproduce the defect it exists to regression-test. Its template is `{{$randomBase64('1111111111')}1` — the fuzz minimizer truncated the trailing `}}` to `}1` while shrinking. Verified directly in this review: `internal/variable/dynamic.go` was temporarily reverted to its pre-fix guard (`n < 1` / `n < 4`, no upper bound) and `go test ./internal/variable/ -run 'FuzzInterpolate/c5a99887a2d322cc' -v` still reported `--- PASS`. A standalone check of `dynPattern.MatchString` on the exact committed string also returns `false`. So the artifact never reaches the `randomBase64` handler at all, on either side of the fix — it is inert. The report itself discloses this ("replays clean today ... because the minimizer truncated a closing `}`"), which is honest, but the underlying gap stands: the fuzz-corpus mechanism this task is built around ("a crasher found once is regression-tested forever without anyone maintaining a list") provides zero protection for this specific defect. The only real regression guard is the hand-written `TestRandomFunctions_reject_lengths_above_the_cap` — exactly the kind of maintained-list dependency the corpus mechanism was supposed to make unnecessary. | Replace (or add alongside) the committed corpus file with a `go test fuzz v1` entry whose template actually triggers the pre-fix defect — e.g. a syntactically valid `{{$randomBase64('1111111111')}}` with a matching second `string(...)` arg for `blob`. The report's own `TestZZReproRandomBase64Large` measurement already confirms that exact shape reproduces (6.4 GB RSS / 7.1s) pre-fix and returns a clean bounded error post-fix, so it is a drop-in replacement, not new investigation. |
-
-## Examined but not treated as findings
-
-**Campaign shortfall (16 chunks / 4 per target / 1h46m vs. the plan's stated
-minimum of 6 chunks/target, 2h48m).** Verified as genuine, not padded:
-recomputed the campaign log's exec-count column by hand and it sums to
-exactly the reported 361,385,417; recomputed wall-clock from the per-row
-`wall=` values and it sums to ~6373s against the reported 6374s. The task's
-own DoD line is "Extended fuzzing run, duration and findings recorded in the
-verification report" — satisfied literally, and the shortfall against the
-plan's self-imposed minimum is disclosed three times (verified.md,
-CHANGELOG.md, commit `a0ecde1`), not hidden or rounded up to look complete.
-The plan's 6-chunk floor was computed from a synthetic single-function probe
-module before any real per-package corpus existed; the actual per-target
-"new interesting" counts (parser 908→374→212→128; jsonpath
-1298→449→379→173; cel 1210→271→143→67; interpolate post-fix 289→68→38) show
-real convergence, which is the substantive signal the chunk-count floor was
-a proxy for. No explanation is given for *why* the run stopped at 4/target
-rather than continuing toward 6, which is a minor transparency gap, but
-given the DoD wording is met and the shortfall is prominently and honestly
-recorded rather than concealed, this is not scored as a review finding.
-
-**The 1 MiB cap's cross-surface consistency.** Traced independently across
-every register the plan named: `internal/variable/dynamic.go` (both
-`randomBase64` and `randomPassword` guards use `MaxRandomBytes`),
-`internal/variable/dynamic_test.go`
-(`TestRandomFunctions_reject_lengths_above_the_cap`, boundary-tested at
-exactly the cap and one over), `docs/MANUAL.md`'s argument-contract table
-(lines 1098-1099, both rows now state `1048576`) and its prose (~line
-1649), and `docs/CLI_SPECIFICATION.md` (lists the function names only, no
-argument contracts to drift). `docs.Prose("MANUAL.md", "reject a length
-above 1048576 (1 MiB)")` was confirmed to match the exact sentence added at
-`docs/MANUAL.md:1649` and only that sentence, and the phrase does not also
-appear in `docs/prose-claim-baseline.txt` (which would indicate stale
-debt). No schema file references either function's argument shape. This
-register is fully consistent — no finding.
+| 1 | High | Test Quality / Documentation Accuracy | `management/plans/M27-002-improved.md` | 11, 38-58 | The committed "RED/GREEN Experiment" transcript does not reproduce. It documents `git checkout d565474~1 -- internal/variable/dynamic.go` followed by `go test ./internal/variable/ -run 'FuzzInterpolate/c5a99887a2d322cc' -v`, claiming a runtime `FAIL` with `Interpolate(...) produced 1481481484 bytes, want <= 16777216`. Running that exact command sequence in this review instead produces a **compile failure**: `internal/variable/dynamic_test.go:2000:60: undefined: MaxRandomBytes` (and three more identical errors), because `d565474~1` (= commit `68f32c2`) is the commit *before* `MaxRandomBytes` was defined, while `dynamic_test.go` at HEAD already references `MaxRandomBytes` in `TestRandomFunctions_reject_lengths_above_the_cap` (added in that same `68f32c2`, confirmed via `git blame`). `go test` compiles the whole package's test files regardless of `-run` filtering, so this is not environment-dependent — the documented command cannot produce the transcript shown. I confirmed the underlying fix *is* real by reverting the bound check a different way (editing the two `if` conditions to drop `\|\| n > MaxRandomBytes` while leaving the constant declared, so the package still compiles): that reproduces the exact claimed output verbatim (`produced 1481481484 bytes, want <= 16777216`, FAIL), and restoring `dynamic.go` returns it to PASS with zero diff against HEAD. So the fix itself is sound and independently verified — the problem is specifically that the committed transcript in `improved.md` is not achievable by the commands it documents, which is the same class of "looks right but doesn't actually reproduce" failure iteration 1 found in the corpus entry itself, now recurring one level up in the audit trail meant to prove that finding was fixed. | Correct the transcript in `management/plans/M27-002-improved.md` to the command sequence that actually reproduces (e.g. the surgical `if`-condition edit, or `git checkout d565474~1 -- internal/variable/dynamic.go internal/variable/dynamic_test.go` reverting both files together), and re-verify by literally running the corrected commands before committing the report. |
+| 2 | Medium | Test Coverage | `management/plans/M27-002-verified.md` | 108-138 | The verification report's claim that the campaign is "meaningful" and its "Zero crashers in the other three targets" framing (line 127) overstates what was actually checked for `FuzzInterpolate`'s post-fix chunks. Chunks 6-8 (rows 6-8 of the campaign log, `FuzzInterpolate (post-fix)`) ran for a combined 142,458,947 execs — 39.4% of the reported 361,385,417-exec total, and roughly 21 of the reported 106 total campaign minutes — recomputed directly from the table's own exec-count column in this review. At the time those chunks ran, `FuzzInterpolate`'s body (verified via `git show cd53c6a~1:internal/variable/fuzz_test.go`) was `_, _ = s.Interpolate(tmpl); _, _ = s.InterpolateMap(...); _, _ = s.InterpolateBody(...)` — every one of those three calls' results and errors was discarded; only `Resolve()`'s sentinel-error check was live. So "zero crashers" in that window is true only in the narrow sense of "no process crash or hang," which is what the task's own stated bar is ("no panic, not no error," per `management/tasks/M27-002.yaml`) — but the report's prose reads as a broader "the campaign was long enough to be meaningful" claim (line 136) that a reader would naturally extend to the specific unbounded-allocation defect class this task's one crasher was about. Post-fix, the only way that class of regression could have been caught during those 142M execs was via an OS-level OOM-kill severe enough to crash the worker (the same mechanism that caught the original bug) — a moderate-scale regression (tens of MB, not GB) would have passed silently through the entire post-fix campaign. Neither `verified.md` nor `improved.md` (written and committed *after* the assertion was added, and specifically about that assertion) notes this caveat. | Add a one-sentence caveat to `management/plans/M27-002-verified.md`'s campaign summary noting that chunks 6-8 predate the 16 MiB output-size assertion and therefore demonstrate crash-freedom, not bounded-output, for that portion of the run. Optionally re-run a short `FuzzInterpolate` chunk now that the assertion exists, to get a campaign result that actually exercises it. |
+| 3 | Low | Test Coverage | `internal/variable/fuzz_test.go` | 153-154 | The iteration-1 fix bounds only the direct `s.Interpolate(tmpl)` call (line 150). `s.InterpolateMap(map[string]string{"k": tmpl})` and `s.InterpolateBody(...)` (lines 153-154) still fully discard their results and errors (`_, _ = ...`), even though the function's own doc comment (lines 105-111) says it "fuzzes `Scope.Resolve`, `Interpolate`, `InterpolateMap` and `InterpolateBody` together." Real-world risk is low — I traced `InterpolateMap`/`InterpolateBody` to `internal/variable/variable.go:521` and confirmed both delegate to the same `s.Interpolate(v)` per value, sharing the single per-request `s.funcCache` (`BeginRequest`/`EndRequest`, `variable.go:296-302,436-438`) that the harness's own `s.Interpolate(tmpl)` call already populated with the identical `tmpl` a few lines earlier — so the specific `$randomBase64`/`$randomPassword` regression this task fixed would already be caught via the direct call before `InterpolateMap`/`InterpolateBody` ever run it again. This is a completeness gap in the fuzz target's own stated scope, not a live protection hole for the defect class currently known, and it does not violate the task's literal "no panic" bar (behavior 2 in `management/tasks/M27-002.yaml`) since both calls are still executed and would still surface a genuine panic. | Either extend the same `maxFuzzInterpolateOutputBytes` check to `InterpolateMap`'s and `InterpolateBody`'s results, or narrow the doc comment to state plainly that only `Interpolate`'s output is size-checked and the other two are exercised for panic-freedom only. |
 
 ## Standards Compliance
 
 | Category | Status | Notes |
 |----------|--------|-------|
-| Error Handling | PASS | `fuzzseed.ErrNoSeeds` used as a sentinel with `errors.Is` in tests; every reader wraps with `%w` and named context (`reading %s: %w`). The one pre-existing double-wrap (`fmt.Errorf("internal: %w", fmt.Errorf("not a directory"))`) was cleaned up in a separate commit (`4869016`). `dynamic.go`'s new upper-bound check reuses the existing `apierrors.Structured` shape and codes. |
-| Input Validation | PASS | `MaxRandomBytes` bounds both functions above as well as below; `strconv.Atoi` failures, arity mismatches, and empty seed sources (`ErrNoSeeds`) are all handled as errors, never panics. `FuzzParseCollection`'s harness correctly separates fuzzed input from real filesystem access (empty `f.TempDir()`, no include resolution). |
-| Naming | PASS | No stuttering (`fuzzseed.Seed`, not `fuzzseed.FuzzseedSeed`). Every exported symbol in `internal/fuzzseed` has a doc comment. `operatorsFromSwitch`'s widening to `testing.TB` is a minimal, well-justified signature change with no behavior change for existing callers. |
-| Code Organization | PASS | `internal/fuzzseed` is a leaf package (no dependency on `internal/parser`, avoiding the import cycle the plan called out as D4's reason for walking `yaml.Node` directly). No circular imports found. `internal/errors/coverage_test.go` correctly registers the new package's blank import. |
-| Correctness | PASS | Verified independently: `gofmt -l` clean on all changed files; `go vet` clean; all four fuzz targets build and run (`FuzzCEL` smoke-run for 5s in this review, no crash, no orphaned worker); `TestScope_self_reference_terminates_with_ErrCircularReference`'s seven cases all pass, including the `default:`-fallback asymmetry case; `TestFuzzParseCollection_matches_ParseFile` parity guard passes. Measured seed counts (168/110/18/119/6) reproduced exactly against the numbers recorded in `fuzzseed_test.go` and `CHANGELOG.md`. |
-| Test Quality | **FAIL** | See Finding #1 — the one committed crasher artifact does not exercise the code path it is meant to regression-test. Everything else in this category is solid: table-driven tests throughout, `t.Run` with descriptive names, a 5s-deadline goroutine pattern for termination assertions, and the `docs.Prose` wiring that ties the doc claim to the code so the two cannot silently drift apart again. |
+| Error Handling | PASS | No changes to production error handling since iteration 1; `cd53c6a` touches only test code and a corpus fixture. |
+| Input Validation | PASS | Unaffected by this iteration's diff. |
+| Naming | PASS | `maxFuzzInterpolateOutputBytes` is descriptive, unexported, well-commented. |
+| Code Organization | PASS | No new imports or package boundary changes. |
+| Correctness | PASS | The production fix (`MaxRandomBytes` in `internal/variable/dynamic.go`) is correct and independently reverified in this review via an equivalent, compiling revert (see Finding #1's evidence). |
+| Test Quality | **FAIL** | See Findings #1-#3. The fuzz-corpus regression guard for the original defect is now real (independently confirmed), but the audit trail documenting that fact does not reproduce as written, the verification report's coverage claims are not fully caveated in light of what was actually asserted during the campaign, and the fix's own scope is narrower than its target function's doc comment claims. |
+
+## Independent Verification Performed This Iteration
+
+1. **Revert experiment, run as literally documented in `improved.md`:**
+   ```
+   $ git checkout d565474~1 -- internal/variable/dynamic.go
+   $ go test ./internal/variable/ -run 'FuzzInterpolate/c5a99887a2d322cc' -v
+   # github.com/weiqigod/curlew/internal/variable [github.com/weiqigod/curlew/internal/variable.test]
+   internal/variable/dynamic_test.go:2000:60: undefined: MaxRandomBytes
+   internal/variable/dynamic_test.go:2001:66: undefined: MaxRandomBytes
+   internal/variable/dynamic_test.go:2004:64: undefined: MaxRandomBytes
+   internal/variable/dynamic_test.go:2005:70: undefined: MaxRandomBytes
+   FAIL	github.com/weiqigod/curlew/internal/variable [build failed]
+   ```
+   Does not match the transcript in `improved.md` (see Finding #1).
+
+2. **Revert experiment, using a compiling variant** (kept `const MaxRandomBytes` declared; removed only `|| n > MaxRandomBytes` from both `if` guards):
+   ```
+   $ go test ./internal/variable/ -run 'FuzzInterpolate/c5a99887a2d322cc' -v
+   fuzz_test.go:151: Interpolate("{{$randomBase64('1111111111')}}") produced 1481481484 bytes, want <= 16777216 -- an unbounded-allocation regression (see maxFuzzInterpolateOutputBytes)
+   --- FAIL: FuzzInterpolate (5.39s)
+       --- FAIL: FuzzInterpolate/c5a99887a2d322cc (5.38s)
+   FAIL
+   ```
+   Matches the substance of the claimed transcript exactly. Restored `internal/variable/dynamic.go` to HEAD afterward (`git checkout HEAD -- internal/variable/dynamic.go`); reran the same subtest:
+   ```
+   $ go test ./internal/variable/ -run 'FuzzInterpolate/c5a99887a2d322cc' -v
+   --- PASS: FuzzInterpolate (0.01s)
+       --- PASS: FuzzInterpolate/c5a99887a2d322cc (0.00s)
+   PASS
+   ```
+   `git status --short` and `diff <(git show HEAD:internal/variable/dynamic.go) internal/variable/dynamic.go` both confirm the working tree is byte-identical to HEAD after restoration. No orphaned fuzz worker processes at any point (`ps -A -o pid,command | grep -E 'fuzzworker|\.test '` empty after every run).
+
+3. **Toothlessness check on the other three targets**, reading each `f.Fuzz` body directly:
+   - `FuzzParseCollection` (`internal/parser/fuzz_test.go:62-74`): every branch of `fuzzParse`'s two return values is checked — `err != nil && col != nil`, `err == nil && col == nil`, and `err == nil && col.Name == ""` are all explicit `t.Fatalf` conditions. Not toothless; also backed by a separate differential test (`TestFuzzParseCollection_matches_ParseFile`) that fails if `fuzzParse` drifts from the real `ParseFile` pipeline.
+   - `FuzzJSONPath` (`internal/assertion/fuzz_test.go:43-67`): `jsonpath.Evaluate`'s error is checked against two declared sentinels; `CheckBody`'s result slice is checked for length parity with the input and for the correct `Type` discriminator on every operator in the live operator matrix (`operatorsFromSwitch`, read from `evalBodyAssertion`'s own switch via `go/ast`). Not toothless — real structural and error-contract invariants, though (like any fuzz target without a reference oracle) it does not verify the *semantic correctness* of `Passed`/`Actual`/`Expected` for arbitrary operator+value+body combinations; that would need an independent oracle per operator, which is a reasonable thing to not have.
+   - `FuzzCEL` (`internal/cel/fuzz_test.go:44-64`): `Compile`'s error is checked to be a `*CelError` matching one of two declared sentinels, plus the prog-vs-error XOR invariant, across both a `BoolType` and untyped compile. Not toothless. The one panic-only call is `CollectTopLevelRefs(src, ev)` (line 63, result discarded) — traced to `internal/cel/refs.go:27`, a pure string-lexer with no error return and its own dedicated unit tests (`internal/cel/refs_test.go`) for correctness; fuzzing it for panic-freedom only is a reasonable, low-risk scope choice given the function's simplicity and separate coverage, not a repeat of the `FuzzInterpolate` defect shape.
+
+   Conclusion: none of the three other targets share the shape of the original defect (a fuzzed call whose result and error were *both* completely discarded on the primary surface). `FuzzCEL`'s secondary `CollectTopLevelRefs` call is the one panic-only surface among the three, and it is adequately justified. See Finding #3 for the one place this pattern still exists, inside `FuzzInterpolate` itself.
+
+4. **Campaign coverage re-derivation** — recomputed from the campaign log table in `management/plans/M27-002-verified.md` directly (not copied from its prose): `FuzzInterpolate` post-fix chunks 6+7+8 = 50,939,807 + 49,060,978 + 42,458,162 = 142,458,947 execs, 39.4% of the reported 361,385,417-exec total; ~1,263s (~21.05 min) of the reported 6,374s (106.2 min) total wall time. Cross-checked against the pre-fix `FuzzInterpolate` body via `git show cd53c6a~1:internal/variable/fuzz_test.go`, confirming all three interpolation calls were unchecked during that window. See Finding #2.
 
 ## Test Coverage
 
@@ -78,34 +98,38 @@ register is fully consistent — no finding.
 - `internal/assertion`: 93.9%
 - `internal/cel`: 94.7%
 
-All above the 80% threshold. (Figures from the full `./scripts/ci-local.sh
---go` coverage step run in this review.)
+All above the 80% threshold (from this session's `./scripts/ci-local.sh --go` run).
 
 ## DoD Verification
 
 | Item | Status | Notes |
 |---|---|---|
-| Fuzz targets for parser, interpolation, JSONPath and CEL | Done | All four exist, build, and were smoke-run in this review |
-| Each seeded from real fixtures already in the repository | Done | `internal/fuzzseed`, counts reproduced independently |
-| Extended fuzzing run, duration and findings recorded | Done | 16 chunks, 1h46m, 361,385,417 execs — arithmetic independently verified |
-| Every crasher fixed and its input committed to testdata/fuzz | **Not met** | Fix is real and correctly applied; the committed input does not reproduce the crash it documents (Finding #1) |
-| Committed corpora run as ordinary tests in the gate | Done | `fuzz corpora (M27-002)` step added to `ci-local.sh`, confirmed running in the pre-audit gate |
-| Circular-reference termination asserted, not assumed | Done | `TestScope_self_reference_terminates_with_ErrCircularReference`, 5s-deadline goroutine pattern |
-| `./scripts/ci-local.sh --go` passes | Done | Full run in this review |
-| CHANGELOG.md updated | Done | Both `Fixed` and `Added` entries, consistent with the code and the verification report |
+| Fuzz targets for parser, interpolation, JSONPath and CEL | Done | All four exist, build, and pass in the gate. |
+| Each seeded from real fixtures already in the repository | Done | Unaffected by this iteration; verified in iteration 1. |
+| Extended fuzzing run, duration and findings recorded | **Partially overstated** | Numbers are accurate and independently re-derived in this review, but the report's characterization of what the post-fix `FuzzInterpolate` chunks demonstrated is broader than what was actually asserted during those chunks (Finding #2). |
+| Every crasher fixed and its input committed to testdata/fuzz | Done, but its own audit trail is broken | The corpus entry now genuinely reproduces (independently re-verified, see above). The `improved.md` report documenting *how* that was verified does not reproduce as written (Finding #1). |
+| Committed corpora run as ordinary tests in the gate | Done | `fuzz corpora (M27-002)` step confirmed running in this session's gate. |
+| Circular-reference termination asserted, not assumed | Done | `TestScope_self_reference_terminates_with_ErrCircularReference`, unaffected by this iteration. |
+| `./scripts/ci-local.sh --go` passes | Done | Ran twice in this session, both green. |
+| CHANGELOG.md updated | Done | Unaffected by this iteration's diff. |
 
 ## Summary
 
-The four fuzz targets, the `fuzzseed` package, the circular-reference
-termination test, and the gate wiring are all well-built: careful design
-decisions (compile-only CEL, operator matrix from the switch's own source of
-truth, a `ParseFile` parity guard against harness drift) are followed
-faithfully in the code, every seed count and campaign number checked in this
-review reproduced exactly, and the campaign's honestly-disclosed shortfall
-against its own planning estimate does not by itself sink the task. The
-review fails on one concrete, verified defect: the single crasher this
-campaign found has a committed reproducer that no longer reproduces
-anything, on either side of the fix, which undercuts the specific DoD item
-("every crasher fixed and its input committed") and the task's core premise
-that a fuzz corpus, once committed, needs no further maintenance to keep
-protecting against a regression.
+The production fix from iteration 1 is real: the committed corpus entry now
+correctly reaches the `randomBase64` handler, and the new 16 MiB output-size
+assertion on `Interpolate` genuinely fails when the bound is disabled and
+passes when it is restored — both independently reconfirmed in this review
+through a compiling variant of the revert experiment. The other three fuzz
+targets (`FuzzParseCollection`, `FuzzJSONPath`, `FuzzCEL`) were checked line
+by line and are not toothless — each asserts real structural and
+error-contract invariants on its primary surface, well beyond "did not
+panic." The review fails on three items in the audit trail rather than the
+underlying fix: the `improved.md` report's own "RED/GREEN Experiment"
+transcript does not reproduce via the commands it documents (Finding #1,
+High); the verification report's campaign narrative does not caveat that
+~39% of `FuzzInterpolate`'s post-fix execs ran with zero output-bound
+assertion, so "meaningful" and "zero crashers" language there is narrower
+than it reads (Finding #2, Medium); and the fix itself only extends the new
+assertion to one of the three functions `FuzzInterpolate`'s own doc comment
+claims to cover together, though the residual risk is low given per-request
+memoization (Finding #3, Low).
