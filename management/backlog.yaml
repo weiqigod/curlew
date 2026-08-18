@@ -2029,7 +2029,7 @@ capabilities:
     milestone: 'M27'
     tasks:
       - id: M27-001
-        status: in_progress
+        status: review
         planned_date: 2026-08-18
         branch: feature/M27-001-prose-register
       - id: M27-002
