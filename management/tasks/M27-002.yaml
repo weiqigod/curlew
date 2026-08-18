@@ -1,6 +1,6 @@
 id: M27-002
 title: "Fuzz the four surfaces that accept input we did not write"
-status: review
+status: done
 priority: 1
 created: 2026-08-14
 phase: "M27: The defects tables cannot find"

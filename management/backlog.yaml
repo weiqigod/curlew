@@ -2035,9 +2035,11 @@ capabilities:
         completed_date: 2026-08-18
         verified_by: ai
       - id: M27-002
-        status: review
+        status: done
         planned_date: 2026-08-18
         branch: feature/M27-002-fuzz-input-surfaces
+        completed_date: 2026-08-18
+        verified_by: ai
       - id: M27-003
         status: backlog
 
