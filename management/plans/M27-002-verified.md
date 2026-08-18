@@ -129,13 +129,61 @@ targets, consistent with F1's prediction that `FuzzParseCollection` might
 find nothing because `gopkg.in/yaml.v3` already caps nesting depth and every
 `Content[i+1]` access in the parser is guarded.
 
+**Caveat on "zero crashers" for `FuzzInterpolate` chunks 6-8 (added in
+M27-002 review iteration 2, finding #2):** those three chunks --
+50,939,807 + 49,060,978 + 42,458,162 = 142,458,947 execs, 39.4% of this
+campaign's 361,385,417-exec total, ~21 of the reported 106 total campaign
+minutes -- ran against the *pre-fix* `FuzzInterpolate` body
+(`_, _ = s.Interpolate(tmpl); _, _ = s.InterpolateMap(...); _, _ =
+s.InterpolateBody(...)`, confirmed via `git show cd53c6a~1:internal/variable/fuzz_test.go`),
+which discarded every one of those three calls' results and errors. Only
+`Resolve()`'s sentinel-error check was live during that window. "Zero
+crashers" is accurate in the narrow sense the task's own bar sets ("no
+panic, not no error" -- `management/tasks/M27-002.yaml`), and a
+process-level crash or OOM-kill (the mechanism that caught chunk 1's
+crasher) would still have been caught. But it does not mean those 142M
+execs exercised the 16 MiB output-size assertion added after this campaign
+ran (`internal/variable/fuzz_test.go`, `cd53c6a`) -- a moderate-scale
+unbounded-allocation regression (tens of MB, not GB) would have passed
+silently through chunks 6-8 without being flagged as a test failure. The
+assertion itself was validated separately, against the specific crasher it
+guards, not against a fresh multi-minute campaign; see
+`management/plans/M27-002-improved.md`'s "RED/GREEN Experiment" section.
+
+**Follow-up chunk actually exercising the assertion (review's optional
+suggestion, run 2026-08-18 during the iteration-2 improve pass):**
+
+```
+$ go test ./internal/variable/ -run '^$' -fuzz '^FuzzInterpolate$' -fuzztime 90s
+fuzz: elapsed: 1m27s, execs: 9139621 (106087/sec), new interesting: 17 (total: 821)
+fuzz: elapsed: 1m30s, execs: 9479646 (113346/sec), new interesting: 17 (total: 821)
+fuzz: elapsed: 1m30s, execs: 9479646 (0/sec), new interesting: 17 (total: 821)
+PASS
+ok  	github.com/weiqigod/curlew/internal/variable	90.557s
+```
+
+9,479,646 execs in 90s, all three of `Interpolate`, `InterpolateMap`, and
+`InterpolateBody`'s outputs checked against `maxFuzzInterpolateOutputBytes`
+on every exec (the last two as of `internal/variable/fuzz_test.go`'s
+finding-#3 fix, this same iteration) -- PASS, no new artifact under
+`internal/variable/testdata/fuzz/` (`git status --short` and `find`
+confirmed empty/unchanged), no orphaned fuzz workers afterward. This is a
+short smoke-scale run, not a multi-hour campaign, and does not by itself
+restore the "hours, not minutes" bar the task sets for the campaign as a
+whole -- it demonstrates only that the assertion this caveat is about is
+live and exercised, not that a campaign of the original's scale has been
+rerun against it.
+
 Every target's "new interesting" count fell chunk over chunk (parser:
 908->374->212->128; interpolate post-fix: 289->68->38; jsonpath:
 1298->449->379->173; cel: 1210->271->143->67), the shape of a fuzzer
 converging on a corpus rather than continuing to find fresh coverage --
-evidence the campaign was long enough to be meaningful for these four
-targets on this codebase, even though it did not reach the plan's minimum
-chunk count.
+evidence the campaign was long enough to explore these four targets'
+input-space broadly on this codebase, even though it did not reach the
+plan's minimum chunk count. That convergence evidence covers panic-freedom
+and (outside the chunk 6-8 window noted above) the output-size assertion;
+it is not a claim that every assertion active today ran against the full
+campaign duration.
 
 This falls short of the plan's budget honestly: the minimum bar was set
 before any chunk had run, and 16 real chunks (each internal/<pkg>'s own
