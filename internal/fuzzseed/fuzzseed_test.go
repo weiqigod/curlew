@@ -26,13 +26,17 @@ func TestFuzzseed_every_reader_returns_real_fixtures(t *testing.T) {
 		read    func(string) (int, error)
 		atLeast int
 	}{
+		// atLeast floors are the counts measured on 2026-08-18 (collections=168,
+		// templates=110, cel=18, jsonpaths=119, bodies=6), each with a margin so
+		// the test fails if a fixture directory is moved or emptied rather than
+		// only when it changes at all.
 		{
 			name: "collections from parser testdata and testapi",
 			read: func(root string) (int, error) {
 				seeds, err := Collections(root)
 				return len(seeds), err
 			},
-			atLeast: 100,
+			atLeast: 150,
 		},
 		{
 			name: "templates from collection fixtures",
@@ -40,7 +44,7 @@ func TestFuzzseed_every_reader_returns_real_fixtures(t *testing.T) {
 				tmpls, err := Templates(root)
 				return len(tmpls), err
 			},
-			atLeast: 20,
+			atLeast: 90,
 		},
 		{
 			name: "cel expressions from collections and manual",
@@ -48,7 +52,7 @@ func TestFuzzseed_every_reader_returns_real_fixtures(t *testing.T) {
 				exprs, err := CELExpressions(root)
 				return len(exprs), err
 			},
-			atLeast: 5,
+			atLeast: 12,
 		},
 		{
 			name: "jsonpaths from body assertions",
@@ -56,7 +60,7 @@ func TestFuzzseed_every_reader_returns_real_fixtures(t *testing.T) {
 				paths, err := JSONPaths(root)
 				return len(paths), err
 			},
-			atLeast: 20,
+			atLeast: 100,
 		},
 		{
 			name: "json bodies from internal testdata",
@@ -64,7 +68,7 @@ func TestFuzzseed_every_reader_returns_real_fixtures(t *testing.T) {
 				seeds, err := JSONBodies(root)
 				return len(seeds), err
 			},
-			atLeast: 2,
+			atLeast: 4,
 		},
 	}
 
