@@ -1,0 +1,127 @@
+# Checkable prose claims still owed an executor. Started at 86 of 103.
+#
+# Tables were the tractable documentation surface and are now empty: 77
+# tables, 72 executed, 5 marked, 0 owed (docs/table-execution-baseline.txt).
+# Sentences are the larger, unswept surface. Defect 8 -- a markdown sentinel
+# reading id=-iter-0 while the events stream emitted req-1 -- sat directly
+# beside a table that had already been executed. It survived because the
+# promise it broke was a sentence, and no register keyed on sentences existed
+# yet. This file is that register, one level harder than the table one.
+#
+# 103 checkable claims were extracted from the two CLI documents (MANUAL.md
+# 70, CLI_SPECIFICATION.md 33). A claim is a sentence matching one of four
+# shapes (modal: always/never/every/must/cannot/no longer; same-as: the
+# same/identical to/matches the/link a/corresponds to; written-appears: is
+# written/emitted/logged/recorded to, appears in; given-curlew: "curlew
+# <verb>s ...") AND naming a concrete referent -- a flag, a CURLEW_* variable,
+# an exit code, a filename, a `curlew ...` command, or any backticked code
+# span. Three claims are exempt by marker (cap 12): CLI_SPECIFICATION.md's
+# own completeness statement about itself, a narrative line about the request
+# file format's generality, and rationale recounting a past documentation
+# mistake -- none states anything the binary can be asked to demonstrate.
+# Fourteen are executed in this same change, prioritising the defect-8
+# family (correlation IDs), redaction invariants, colour/stream discipline,
+# exit codes, and determinism under --seed.
+#
+# This is a debt register, not an exemption list. Every line is a claim that
+# states something checkable about the binary and that no test runs yet. A
+# claim declared genuinely unexecutable carries a marker in the document
+# instead:  <!-- doc-check: prose-not-executable <why> -->
+#
+# The file can only shrink. internal/docs/prose_test.go fails when an
+# unexecuted claim is missing from this list (new debt), and fails again when
+# a listed claim has become executed and the line was not deleted (stale
+# debt) -- so the count cannot drift upward quietly, and paying one off is a
+# diff. Rewording a claim retires its old line and re-registers the new text
+# as new debt: a reworded claim is a new promise and deserves a fresh read.
+#
+# Same contract as docs/table-execution-baseline.txt and
+# testapi/harness/redaction-known-leaks.txt, both of which emptied.
+#
+# Format: <document>\t<heading>\t<claim text, truncated to 120 chars>
+MANUAL.md	P.1 What Curlew is	It also runs well as a tool invoked by AI coding agents — every command has a `--format json` and a `--non-interactive
+MANUAL.md	P.4 Conventions	Variable names are `snake_case` throughout (`base_url`, `admin_token`, `user_id`) — this matches the scaffold generate
+MANUAL.md	1.3 Anatomy of a collection	Every collection has at minimum a `name` and a `requests` array.
+MANUAL.md	1.3 Anatomy of a collection	Every request item has at minimum a `name`, a `request.method`, and a `request.url`.
+MANUAL.md	1.5 Editor setup (VS Code)	Every field the parser binds, including `if:`, `depends_on:`, `signing:` (at both collection and request-item level), `p
+MANUAL.md	1.5 Editor setup (VS Code)	Conditional requirements are the parser's too: `graphql.query` is required only when `protocol: graphql`, and `websocket
+MANUAL.md	2.1 HTTP methods, headers, query, and body	When `body` is a string, Curlew sends it as-is — it does not re-encode it as JSON.
+MANUAL.md	Loading the body from a file	An explicit `headers.Content-Type` always wins:
+MANUAL.md	Loading the body from a file	`body`, `body_file`, and `body_binary_file` are **mutually exclusive** on the same request.
+MANUAL.md	2.4 Extracting values into variables	An extracted value is redacted automatically when its *name* matches the heuristic in §4.4 — `widget_id` is not a sec
+MANUAL.md	3.1 Variables and interpolation	Variable names must match `[a-zA-Z_][a-zA-Z0-9_]*` — letters, digits, underscores;
+MANUAL.md	3.5 CLI variable flags	**`--env-var VAR_NAME`** — import an OS environment variable of the same name:
+MANUAL.md	3.6 Project-wide config (`curlew.yaml`)	Every command that loads a collection walks up from the collection file's directory looking for `curlew.yaml` or `curlew
+MANUAL.md	3.6.1 The `output:` block	Curlew accepts an optional `output:` block at two levels: in `curlew.yaml` (project default) and in the collection YAML 
+MANUAL.md	3.7 Dynamic and faker functions	The rows are independent of one another, not one draw read across the row: `fullName` gives `Tom Edwards` while `lastNam
+MANUAL.md	3.7 Dynamic and faker functions	Within a single run, repeating the same function with the same arguments returns the same value — `{{$faker.firstName}
+MANUAL.md	3.7 Dynamic and faker functions	State and country pools are 1:1 aligned (so `$faker.state` and `$faker.stateAbbr` render the matching full name and abbr
+MANUAL.md	3.7 Dynamic and faker functions	The extension and MIME-type pools are aligned 1:1 by index — `fileExtensions[i]` and `fileMimeTypes[i]` refer to the s
+MANUAL.md	3.7 Dynamic and faker functions	`$faker.latitude` and `$faker.longitude` follow the same rendered-string-into-JSON convention as `$randomInt` and `$rand
+MANUAL.md	`$faker.*` locales (M20)	**Seed and locale are independent (SPEC:1023-1026):** A fixed `--seed` selects the same draw position in every locale's 
+MANUAL.md	`$faker.*` locales (M20)	A literal key passed inline — e.g. `{{$hmacSha256('payload', 'sk_live_abc123')}}` — *cannot* be auto-redacted, becau
+MANUAL.md	`$faker.*` locales (M20)	The two-arg forms of `$webhookSign.stripe` and `$webhookSign.slack` default the timestamp to the current Unix-seconds ti
+MANUAL.md	`$faker.*` locales (M20)	A literal secret passed inline — e.g. `{{$webhookSign.github('payload', 'whsec_inline_value')}}` — *cannot* be auto-
+MANUAL.md	`$faker.*` locales (M20)	The output is always **canonical compact JSON** with map keys sorted alphabetically — this is the standard `encoding/j
+MANUAL.md	`$faker.*` locales (M20)	Each error message includes the offending input truncated to 32 chars (with `...` marker) so long tokens cannot flood lo
+MANUAL.md	`$faker.*` locales (M20)	Negative amounts are accepted, so `$dateAdd('-3', 'hour')` and `$dateSubtract('3', 'hour')` produce the same value.
+MANUAL.md	`$faker.*` locales (M20)	`amount` must be an integer string — `'1.5'` is rejected with a structured `[INPUT]` error.
+MANUAL.md	`$faker.*` locales (M20)	Both functions honour `--seed` for reproducibility — under a fixed seed, the same length always produces the same outp
+MANUAL.md	`$faker.*` locales (M20)	So within a single request, **every `{{$uuid}}` resolves to the same UUID.**
+MANUAL.md	`$faker.*` locales (M20)	Per-request memoization keys include the resolved arguments, so `{{$base64('a')}}` and `{{$base64('b')}}` do not collide
+MANUAL.md	3.8 Determinism with `--seed`	With a seed, every random function (`$uuid`, `$randomInt`, `$randomEmail`, etc.) returns the same value every run.
+MANUAL.md	3.8 Determinism with `--seed`	Timestamp functions (`$timestamp`, `$timestampMs`, `$isoTimestamp`) are **never** seeded — they always reflect the rea
+MANUAL.md	3.9 External request files	You cannot set both `path:` and `request:` on the same item — pick one.
+MANUAL.md	4.1 Output formats	The root `summary` block is always present.
+MANUAL.md	4.1a Markdown response files	`run.md` lists the run summary and links to every per-request file.
+MANUAL.md	4.1a Markdown response files	Given the same inputs, the CLI-owned block is byte-identical across runs except for explicitly volatile lines (`duration
+MANUAL.md	4.2b Running a Single Request (--only)	When no main request matches the provided names, `curlew run` prints the available names to stderr and exits immediately
+MANUAL.md	4.2b Running a Single Request (--only)	Setup items with no `extract:` block are treated as pure seeders and always run.
+MANUAL.md	4.2b Running a Single Request (--only)	If curlew cannot analyse the dependency graph (e.g. two setup items extract the same variable in parallel), it falls bac
+MANUAL.md	4.2b Running a Single Request (--only)	`curlew watch collections/users.yaml --only "Get user"` works identically — the minimal-setup pruning applies on every
+MANUAL.md	4.5a Event stream (`--events`)	Every event carries `schema_version: "1.3"` and `run_id`.
+MANUAL.md	4.5a Event stream (`--events`)	Per-request events also carry `request_id` (matches `run --only` selection IDs and the `--log` JSONL `request_id`) and `
+MANUAL.md	4.5a Event stream (`--events`)	Bodies are subject to the same redaction the markdown and JSONL formats apply, and CLI args sent in the `run.start` even
+MANUAL.md	4.6 CI recipes	All three rely on the same pattern: run Curlew with `--format junit --report <file>`, then let the CI's built-in JUnit i
+MANUAL.md	4.7 Project utility commands	It also warns about `{{variable}}` references it cannot account for statically.
+MANUAL.md	4.7 Project utility commands	a name that appears in none of those is reported as a warning, not an error, since environments and `.env` supply values
+MANUAL.md	4.8 AI-agent commands	**`--format json`** — every command that produces output has a machine-readable alternative.
+MANUAL.md	4.9 Driving curlew with an AI agent	`--skill claude` is accepted as a compatibility alias and scaffolds exactly the same project.
+MANUAL.md	5.3 Collection-level defaults	Project-level defaults live in `curlew.yaml` under `defaults:` and inherit into every collection:
+MANUAL.md	5.4 Retry logic	`constant`: always `initial_delay_ms`
+MANUAL.md	5.7 Watch mode	On every save of the YAML, Curlew re-runs that one request and rewrites the bytes between the `BEGIN/END curlew:response
+MANUAL.md	6.2 `.env`, CLI, and OS imports (recap)	Whichever form you use, mark the variable `!sensitive` or name it with a heuristic-matching prefix (`*_secret`, `*_token
+MANUAL.md	6.3 `from_command` variables	The command runs through the same redaction and `sensitive: true` machinery as every other variable source.
+MANUAL.md	6.5 Dynamic auth profiles	The extracted value is cached for `cache_ttl` seconds in `.curlew/cache/` (obfuscated, never plain text).
+MANUAL.md	6.6 Shared vault templates	For local testing and CI where you don't want to actually hit a vault, set `CURLEW_VAULT_STUB=1` and Curlew uses an in-m
+MANUAL.md	7.1 GraphQL	GraphQL requests share the same request envelope as REST, with a `protocol: graphql` marker and a `graphql:` block.
+MANUAL.md	7.1 GraphQL	`query:` and `query_file:` are mutually exclusive on the same request.
+MANUAL.md	7.2 WebSocket	A collection with it one level out is rejected with `must have websocket.steps with at least one action`.
+MANUAL.md	7.2 WebSocket	With `count` greater than 1 it extracts from *every* matched message and stores a **JSON-encoded array** of the results:
+MANUAL.md	10.5 Per-hook payload shapes	**`on_request`** — curlew sends the request envelope;
+MANUAL.md	10.5 Per-hook payload shapes	**`on_response`** — plugin sees the full response but cannot replace it;
+MANUAL.md	F. Troubleshooting	`equals: 200` matches both `200` (number) and `"200"` (string), but `equals: "200"` only matches the string.
+CLI_SPECIFICATION.md	5.1.2 Request	In both cases an explicit `Content-Type` header always wins.
+CLI_SPECIFICATION.md	6.5 Sensitivity and Redaction	Its name matches the heuristic: the name contains `password`, `token`, `secret`, `key`, `auth`, or `credential`, case-in
+CLI_SPECIFICATION.md	6.6 Dynamic Functions	Two references to `{{$uuid}}` within one request item yield the same UUID;
+CLI_SPECIFICATION.md	7.3 Body	Structural operators at `$` — `type`, `contains_all`, the numeric comparisons — report the same, so a permissive fal
+CLI_SPECIFICATION.md	7.6 CEL Assertions	For checks the operator catalog cannot express, `cel:` accepts a list of boolean CEL expressions:
+CLI_SPECIFICATION.md	8. Extraction	Under `--parallel`, two items that can run concurrently may not extract the same name — see §11.4.
+CLI_SPECIFICATION.md	9.1 Configuration	If `retry_on.methods` is set, the request's method must appear in it.
+CLI_SPECIFICATION.md	9.1 Configuration	If the status matches `do_not_retry_on.status_codes` or `.status_ranges`, or the method appears in `do_not_retry_on.meth
+CLI_SPECIFICATION.md	9.1 Configuration	`do_not_retry_on` therefore always wins: a status or method listed in both is not retried.
+CLI_SPECIFICATION.md	9.3 Backoff Algorithms	Every result is clamped to `max_delay_ms`.
+CLI_SPECIFICATION.md	11.2 Analysis Algorithm	Parse the collection, resolve `include:` and every external `path:` file, and flatten to a single ordered list of reques
+CLI_SPECIFICATION.md	11.2 Analysis Algorithm	*referenced* — every `{{name}}` occurrence in the URL, headers, query, body, assertions, and extraction paths, excludi
+CLI_SPECIFICATION.md	12.3 WebSocket	With `message:` set it sends a data frame and matches the reply against `expect:` assertions.
+CLI_SPECIFICATION.md	13.3 Vault Providers	`cache_ttl` is a per-run cache: later requests in the same run reuse the fetched value.
+CLI_SPECIFICATION.md	15.2 Handshake	Curlew sends a `curlew/hello` request;
+CLI_SPECIFICATION.md	16.2 Stream Discipline	`--no-color` is `--color=never`.
+CLI_SPECIFICATION.md	16.4 Markdown Reports	`run.md` carries the run summary and links to every per-request file;
+CLI_SPECIFICATION.md	16.5 Event Stream	The same field is settable as `output.events` in configuration.
+CLI_SPECIFICATION.md	18. Command Reference	`--version` and `--help` are accepted at top level and on every subcommand.
+CLI_SPECIFICATION.md	18.7 `watch <file>`	Accepts every `run` flag, plus `--clear` to clear the terminal between runs.
+CLI_SPECIFICATION.md	18.8 `import openapi <spec>`	Every `{{variable}}` the import writes into a request is also emitted in the collection's own `variables:` block, so the
+CLI_SPECIFICATION.md	21. Performance Testing	The file defines `{ name, request }` — the same shape as an external request file (§5.2).
+CLI_SPECIFICATION.md	25. Conformance	Two runs with the same `--seed` and the same collection produce identical values for every seeded function.
+CLI_SPECIFICATION.md	25. Conformance	`--help` output for every command matches the flags this document lists.

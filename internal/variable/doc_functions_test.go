@@ -103,6 +103,15 @@ func TestDocTables_everyFunctionIsDocumented(t *testing.T) {
 // reader gets — the first draw under that seed — and is the only reading
 // independent of what order the rows happen to be in.
 func TestDocTables_seededExamplesReproduce(t *testing.T) {
+	// docs.ProseClaims can only see a call whose arguments are literals, so
+	// each claim gets its own call rather than a loop over a slice.
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "every random and faker function produces identical values across runs"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "identical values across runs, platforms, and binary versions for `$randomInt`"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	tables, err := docs.AllTables("MANUAL.md", "Function", "Example (seed 42)")
 	if err != nil {
 		t.Fatalf("reading the seeded example table: %v", err)

@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 // ansiRE matches any CSI-style ANSI escape sequence (ESC [ ...).
@@ -43,6 +45,21 @@ var knownProgressStrings = []string{
 // (not flat method/url at item level), and parse-error exit code is 3 (not 5)
 // since the parser returns CategoryParse errors with exit code 3 in main.go.
 func TestStreamDisciplineMatrix(t *testing.T) {
+	// docs.ProseClaims can only see a call whose arguments are literals, so
+	// each claim gets its own call rather than a loop over a slice.
+	if _, err := docs.Prose("MANUAL.md", "governs ANSI escape sequences"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	if _, err := docs.Prose("MANUAL.md", "cannot put escape codes into a payload a consumer has to parse"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "defaulting to `auto`"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "never construct a terminal printer for stdout"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	binary := buildBinary(t)
 
 	// One shared httptest server answers every fixture URL.

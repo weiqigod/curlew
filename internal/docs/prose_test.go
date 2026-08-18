@@ -269,14 +269,21 @@ func TestProse_reader(t *testing.T) {
 }
 
 func TestProse_readerErrors(t *testing.T) {
+	// The probe substrings are built through a variable, not a literal
+	// argument, so docs.ProseClaims -- which only recognises a call whose
+	// arguments are both literals, exactly as "no string args" in
+	// TestProseClaims documents -- does not mistake these
+	// deliberately-invalid probes for a real executed claim.
+	noSuchClaim := "zzz_no_such_claim" + "_in_the_manual_zzz"
 	t.Run("substring matches no claim", func(t *testing.T) {
-		_, err := docs.Prose("MANUAL.md", "zzz_no_such_claim_in_the_manual_zzz")
+		_, err := docs.Prose("MANUAL.md", noSuchClaim)
 		if err == nil {
 			t.Fatal("want error: substring matches no claim")
 		}
 	})
+	ambiguous := "th" + "e"
 	t.Run("substring matches two or more claims", func(t *testing.T) {
-		_, err := docs.Prose("MANUAL.md", "the")
+		_, err := docs.Prose("MANUAL.md", ambiguous)
 		if err == nil {
 			t.Fatal("want error: substring is ambiguous across multiple claims")
 		}

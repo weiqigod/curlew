@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 // Redaction on the way back.
@@ -126,6 +128,10 @@ func scanArtefacts(t *testing.T, label, root string) {
 // sweep of §6.5. Each format is its own code path, and a secret redacted in the
 // terminal but present in the HTML report has still leaked.
 func TestRedaction_SecretsFromTheServerAreRedactedInEveryFormat(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "replaced with `[REDACTED]` wherever it appears"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	srv := leakServer(t)
 	dir := t.TempDir()
 	collPath := writeCollection(t, dir, "c.yaml", leakCollection(srv.URL))

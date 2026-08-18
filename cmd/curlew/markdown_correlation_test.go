@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 // The markdown sentinel's request_id survives every retention policy.
@@ -28,6 +30,18 @@ import (
 var sentinelID = regexp.MustCompile(`BEGIN curlew:response id=(\S*) slug=(\S*) run=(\S+)`)
 
 func TestMarkdown_correlationIDsSurviveEveryRetentionPolicy(t *testing.T) {
+	// docs.ProseClaims can only see a call whose arguments are literals, so
+	// each claim gets its own call rather than a loop over a slice.
+	if _, err := docs.Prose("MANUAL.md", "correlate the JSONL entry with the same identifiers"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	if _, err := docs.Prose("MANUAL.md", "is the same hex value across"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	if _, err := docs.Prose("MANUAL.md", "fan out from any fragment back to the whole run"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	bin := buildBinary(t)
 
 	for _, policy := range []string{"all", "summary", "failed_only"} {
