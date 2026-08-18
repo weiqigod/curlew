@@ -24,6 +24,15 @@ import (
 // Returns a structured error on arity mismatch or per-function failure.
 type DynFunc func(rng *rand.Rand, args []string) (string, error)
 
+// MaxRandomBytes caps the length a collection may ask $randomBase64 or
+// $randomPassword to produce. Without it, {{$randomBase64('1111111111')}} --
+// ten characters in a header value -- drove peak RSS to 6.4 GB and took 7.1s
+// (measured 2026-08-18: FuzzInterpolate's first campaign chunk killed a fuzz
+// worker mid-minimization while mutating the digits of a seeded
+// {{$randomBase64('32')}} template; see M27-002 verification report). The
+// cap is far above any legitimate secret or padding value.
+const MaxRandomBytes = 1 << 20 // 1 MiB
+
 // Registry holds registered dynamic variable functions.
 type Registry struct {
 	funcs           map[string]DynFunc
@@ -455,12 +464,12 @@ func (r *Registry) register() {
 				Inner:    err,
 			}
 		}
-		if n < 1 {
+		if n < 1 || n > MaxRandomBytes {
 			return "", &apierrors.Structured{
 				Category: apierrors.CategoryInput,
 				Code:     "DYNFN_RANDOMBASE64_BAD_LENGTH",
-				Message:  fmt.Sprintf("byteLength %d is invalid: must be >= 1", n),
-				Hint:     "Pass an integer string >= 1, e.g. {{$randomBase64('32')}}.",
+				Message:  fmt.Sprintf("byteLength %d is invalid: must be between 1 and %d", n, MaxRandomBytes),
+				Hint:     fmt.Sprintf("Pass an integer string between 1 and %d, e.g. {{$randomBase64('32')}}.", MaxRandomBytes),
 			}
 		}
 		b := make([]byte, n)
@@ -487,12 +496,12 @@ func (r *Registry) register() {
 				Inner:    err,
 			}
 		}
-		if n < 4 {
+		if n < 4 || n > MaxRandomBytes {
 			return "", &apierrors.Structured{
 				Category: apierrors.CategoryInput,
 				Code:     "DYNFN_RANDOMPASSWORD_BAD_LENGTH",
-				Message:  fmt.Sprintf("length %d is too short: must be >= 4 to satisfy upper/lower/digit/symbol classes", n),
-				Hint:     "Pass an integer string >= 4, e.g. {{$randomPassword('16')}}.",
+				Message:  fmt.Sprintf("length %d is invalid: must be between 4 and %d to satisfy upper/lower/digit/symbol classes", n, MaxRandomBytes),
+				Hint:     fmt.Sprintf("Pass an integer string between 4 and %d, e.g. {{$randomPassword('16')}}.", MaxRandomBytes),
 			}
 		}
 		return makePassword(rng, n), nil

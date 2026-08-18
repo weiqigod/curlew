@@ -1986,6 +1986,10 @@ func TestRegistry_RandomBase64_arity_errors(t *testing.T) {
 // for a single interpolation (measured 2026-08-18). Ten characters in a
 // header value should not be able to ask for gigabytes.
 func TestRandomFunctions_reject_lengths_above_the_cap(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "reject a length above 1048576 (1 MiB)"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	reg := NewRegistry(nil)
 	tests := []struct {
 		name     string
