@@ -181,6 +181,26 @@ go build -o curlew ./cmd/curlew
 step "backlog integrity (M22-001)"
 go test ./internal/backlog/ -run '^TestBacklog_repository_is_consistent$' -count=1 -v
 
+# M27-002: the committed fuzz corpora, run as ordinary tests.
+#
+# This does not fuzz. `go test` below already executes f.Add seeds and every
+# testdata/fuzz/<Target>/* file, so the corpora are covered either way; this
+# step exists for the reason the backlog-integrity step above does -- so a
+# failure is attributable to a named header, and so the log records how many
+# corpus entries actually ran rather than only that something passed.
+#
+# Extended fuzzing is deliberately not here. A multi-minute fuzz run does not
+# belong in a gate that must stay fast enough to actually be run -- see
+# management/plans/M27-002-verified.md for the 16-chunk, 1h46m campaign that
+# found and fixed one crasher.
+#
+# Measured 2026-08-18: parser 0.895s, variable 0.615s, assertion 0.396s,
+# cel 1.156s (~2.1s combined).
+step "fuzz corpora (M27-002)"
+go test -run '^Fuzz' -count=1 -v \
+  ./internal/parser/ ./internal/variable/ ./internal/assertion/ ./internal/cel/ \
+  | grep -E '^(=== RUN   Fuzz|--- (PASS|FAIL)|ok|FAIL)'
+
 # M7-004: explicit named marker for the stream-discipline matrix so failures
 # show up under a unique header in CI logs (one grep away).
 step "go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate)"
