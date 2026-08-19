@@ -81,8 +81,14 @@ func NewRaw(RawOptions) *RawServer {
 	return s
 }
 
-// Index returns the raw registry as index entries, so /capabilities and the
-// parity test see one endpoint list rather than two.
+// Index returns the raw registry as index entries, so `mudflat index` and the
+// parity test (§16) see one endpoint list rather than two.
+//
+// Those two are the only consumers that merge the registries. Neither GET /
+// nor GET /capabilities does: both report the structured layer alone, so
+// family E is visible from the CLI and from this method but not over HTTP.
+// That is worth knowing before trusting /capabilities' family list as a
+// complete account of what the process serves.
 func (s *RawServer) Index() []IndexEntry {
 	out := make([]IndexEntry, 0, len(s.endpoints))
 	for _, ep := range s.endpoints {
