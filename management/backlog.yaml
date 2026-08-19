@@ -2058,10 +2058,12 @@ capabilities:
         completed_date: 2026-08-19
         verified_by: ai
       - id: M28-002
-        status: review
+        status: done
         planned_date: 2026-08-19
         started_date: 2026-08-19
         review_date: 2026-08-19
+        completed_date: 2026-08-19
+        verified_by: ai
         branch: feature/M28-002-front-door-files-and-quickstart
       - id: M28-003
         status: backlog
