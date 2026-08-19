@@ -166,14 +166,33 @@ curlew ui                            # open the local web UI
 
 ## Repository layout
 
-| Path | What it is |
-|---|---|
-| `cmd/curlew/` | CLI entry point (the product — a single static Go binary) |
-| `internal/` | CLI implementation packages |
-| `ui/` | Svelte single-page app served by `curlew ui` (embedded at build time) |
-| `src/` | C#/.NET backend + web dashboard, kept for reference. The CLI does not talk to it. |
-| `smoke/` | Hermetic end-to-end smoke suite (local fixture server, no public internet) |
-| `docs/` | Manual, specifications, and design history |
+Every top-level directory is accounted for below, and the accounting is enforced: `go test
+./internal/docs/ -run TestReadme_accounts_for_every_top_level_directory` fails if a directory
+is added with no row, or a row survives after its directory is gone.
+
+| Directory | What it is | Relationship to the CLI |
+|---|---|---|
+| `.claude/` | 9 slash commands, 2 skills, `launch.json` | none — workflow only |
+| `.github/` | 8 workflows, all `workflow_dispatch`-gated; `go.yml` delegates to `ci-local.sh --go` | none at build or test time |
+| `cmd/` | `cmd/curlew` (entry point) + `cmd/curlew-agent-harness` (test-only) | **build time — is the binary** |
+| `deploy/` | self-hosted docker-compose for the platform; own proprietary LICENSE | none |
+| `docs/` | manual, both specifications, event-schema versions, the debt registers | test time — `internal/docs` executes the MANUAL/CLI_SPECIFICATION tables and prose |
+| `examples/` | a real Go plugin (`datadog-metrics`), output-block samples | test time — built by `smoke/run.sh`; a seed source for `internal/fuzzseed` |
+| `internal/` | CLI implementation packages | **build time** |
+| `management/` | backlog, tasks, plans, reviews | test time — `internal/backlog` reconciles it as a named gate step |
+| `sample/` | `sample/hello.yaml` | test time — `smoke/run.sh`; `internal/schema` walks it |
+| `schemas/` | canonical JSON Schemas + a Go package that embeds them | **build time — `//go:embed`**; served by `curlew schema` |
+| `scripts/` | `ci-local.sh` (the gate) plus stack/seed/signing helpers | build and gate tooling; `build-ui.sh` produces the embedded UI assets |
+| `site/` | standalone static examples cookbook (SvelteKit, prerendered) | none — `site/README.md` states it is separate from `web/`; no gate builds it |
+| `smoke/` | hermetic smoke suite + fixtures | test time — runs the built binary |
+| `src/` | `ApiTool.Backend` + tests; own proprietary LICENSE | **none — platform, frozen** |
+| `templates/` | split: `templates/skills/` is embedded into the binary; `templates/email/` is MJML for the .NET backend | **partly build time**, partly platform |
+| `testapi/` | Mudflat, the API the CLI is dogfooded against; forbids importing curlew | test time — 6 dogfood gate steps; never linked into the binary |
+| `testdata/` | repository-root fixtures | test fixtures only |
+| `ui/` | the Svelte SPA served by `curlew ui` | **build time, indirectly** — `scripts/build-ui.sh` builds it into the embedded `internal/uiserver/assets/dist` |
+| `web/` | SvelteKit platform dashboard; own proprietary LICENSE; holds the 5 convergence specs | **none — platform, frozen**; the specs seed the backend over HTTP, no `curlew` binary involved |
+
+The `src/` backend and `web/` dashboard stay in this repository, frozen: they build and pass their tests in `./scripts/ci-local.sh --full`, no new feature work is planned, and the `curlew` CLI does not call them. See [docs/TECH_CHOICES.md](docs/TECH_CHOICES.md#repository-shape) for the reasoning behind that decision.
 
 The CLI is entirely local. It has no account, no login, and makes no network calls
 other than the HTTP requests your collections define. Shared vault templates come from a
