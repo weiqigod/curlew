@@ -563,3 +563,24 @@ func TestReadme_accounts_for_every_top_level_directory(t *testing.T) {
 		t.Errorf("README.md's repository-layout table has more than one row for %s/", d)
 	}
 }
+
+// TestPlatformStatus_is_stated_by_every_document_that_must_agree is the
+// task's second observable: whatever is decided about src/ and web/, the
+// gate agrees with it. docs.PlatformStatus is the decision, stated once, and
+// this test proves the three documents that must agree about it all carry it
+// verbatim rather than three independently-worded descriptions that can
+// drift apart.
+func TestPlatformStatus_is_stated_by_every_document_that_must_agree(t *testing.T) {
+	if len(docs.PlatformStatusDocs) < 3 {
+		t.Fatalf("PlatformStatusDocs lists %d documents; the decision binds README.md, TECH_CHOICES.md and SPECIFICATION.md", len(docs.PlatformStatusDocs))
+	}
+	for _, doc := range docs.PlatformStatusDocs {
+		data, err := os.ReadFile(filepath.Join(docs.Root, doc))
+		if err != nil {
+			t.Fatalf("read %s: %v", doc, err)
+		}
+		if !strings.Contains(string(data), docs.PlatformStatus) {
+			t.Errorf("%s does not state the recorded decision about src/ and web/.\nexpected verbatim: %s", doc, docs.PlatformStatus)
+		}
+	}
+}
