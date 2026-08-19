@@ -2041,7 +2041,9 @@ capabilities:
         completed_date: 2026-08-18
         verified_by: ai
       - id: M27-003
-        status: backlog
+        status: planned
+        planned_date: 2026-08-19
+        branch: feature/M27-003-mudflat-phase-4
 
   repo_front_door:
     description: 'A repository a stranger can read and contribute to'
