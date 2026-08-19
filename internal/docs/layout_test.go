@@ -515,3 +515,51 @@ func TestTopLevelDirs(t *testing.T) {
 		}
 	})
 }
+
+// readmeFile is a constant rather than a literal argument on purpose:
+// docs.Claims reads only *ast.BasicLit arguments, so a bare "README.md"
+// followed by column names would register as a documentation-table claim that
+// resolves to nothing. Referenced through an identifier, it cannot.
+const readmeFile = "README.md"
+
+// TestReadme_accounts_for_every_top_level_directory is the task's first
+// observable: a reader of the repository root can tell what every top-level
+// directory is and how it relates to the shipped CLI, and a new directory
+// that is not accounted for fails this test.
+func TestReadme_accounts_for_every_top_level_directory(t *testing.T) {
+	dirs, err := docs.TopLevelDirs(context.Background(), docs.Root)
+	if err != nil {
+		t.Fatalf("listing top-level directories: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(docs.Root, readmeFile))
+	if err != nil {
+		t.Fatalf("read %s: %v", readmeFile, err)
+	}
+	rows, err := docs.LayoutRows(string(data))
+	if err != nil {
+		t.Fatalf("parsing the repository-layout table out of %s: %v", readmeFile, err)
+	}
+
+	// Vacuity guards, in the house style: a broken parse must fail loudly
+	// here rather than reconcile two empty sets and report success.
+	if len(dirs) < 15 {
+		t.Fatalf("found %d top-level directories; measured 19 on this tree — the enumeration is broken, not the repository", len(dirs))
+	}
+	if len(rows) < 15 {
+		t.Fatalf("parsed %d rows; expected one per top-level directory — the parse is broken, not the README", len(rows))
+	}
+
+	audit := docs.AuditLayout(dirs, rows)
+	for _, d := range audit.Unaccounted {
+		t.Errorf("%s/ is a top-level directory but no row of README.md's repository-layout table accounts for it — add a row saying what it is and its relationship to the CLI, or add it to .gitignore", d)
+	}
+	for _, d := range audit.Stale {
+		t.Errorf("README.md's repository-layout table has a row for %s/, which is not a top-level directory of this repository", d)
+	}
+	for _, r := range audit.Unexplained {
+		t.Errorf("%s: names %s/ but its 'Relationship to the CLI' cell states nothing", r, r.Dir)
+	}
+	for _, d := range audit.Duplicate {
+		t.Errorf("README.md's repository-layout table has more than one row for %s/", d)
+	}
+}
