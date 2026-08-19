@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/weiqigod/curlew/security/advisories/new
+    about: Do not file a public issue for a vulnerability -- see SECURITY.md for the private route.

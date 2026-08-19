@@ -1,0 +1,73 @@
+name: Bug report
+description: Something in curlew did not behave the way the documentation says it should.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Before filing, check `curlew --version` and try
+        to reproduce with the smallest collection you can.
+
+        Found a security vulnerability instead? Do not file it here — see
+        [SECURITY.md](https://github.com/weiqigod/curlew/blob/main/SECURITY.md)
+        for the private reporting route.
+
+  - type: input
+    id: version
+    attributes:
+      label: curlew version
+      description: Output of `curlew --version`.
+      placeholder: "curlew 0.1.0-dev"
+    validations:
+      required: true
+
+  - type: textarea
+    id: collection
+    attributes:
+      label: Collection
+      description: >
+        The smallest collection YAML that reproduces the problem. Redact any
+        real secrets before pasting.
+      render: yaml
+    validations:
+      required: true
+
+  - type: dropdown
+    id: exit-code
+    attributes:
+      label: Exit code
+      description: What did curlew exit with? Run `echo $?` right after the command.
+      options:
+        - "0 — every assertion passed"
+        - "1 — assertion failure, or a top-level usage error"
+        - "2 — a safety guard tripped, or a perf/pr-check usage error"
+        - "3 — parse or configuration error"
+        - "4 — execution error (network, connection, TLS)"
+        - "5 — variable resolution error"
+        - "130 — SIGINT during a perf run"
+        - "other / not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: OS, terminal, relevant environment variables, etc. — anything that might not reproduce elsewhere.
+    validations:
+      required: false

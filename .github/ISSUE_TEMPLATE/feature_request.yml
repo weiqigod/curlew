@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose a new capability, or an improvement to an existing one.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: >
+        What are you trying to do that curlew does not support today? A
+        concrete example collection or command is more useful here than an
+        abstract description.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would the ideal fix or feature look like from the CLI's side?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workaround you use today, or other approaches you considered and ruled out.
+    validations:
+      required: false
