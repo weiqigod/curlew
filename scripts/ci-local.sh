@@ -201,6 +201,16 @@ go test -run '^Fuzz' -count=1 -v \
   ./internal/parser/ ./internal/variable/ ./internal/assertion/ ./internal/cel/ \
   | grep -E '^(=== RUN   Fuzz|--- (PASS|FAIL)|ok|FAIL)'
 
+# M28-001: every top-level directory must be accounted for in README.md.
+#
+# Named here for the reason the backlog-integrity step above is: a failure is
+# attributable to a header rather than buried in "go test", and the log records
+# what was actually read. -count=1 for the same reason too -- this test reads
+# README.md and shells out to `git ls-files`, both outside its package, so the
+# gate does not rest on cache heuristics for data Go's test cache does not track.
+step "repository layout (M28-001)"
+go test ./internal/docs/ -run '^TestReadme_accounts_for_every_top_level_directory$' -count=1 -v
+
 # M7-004: explicit named marker for the stream-discipline matrix so failures
 # show up under a unique header in CI logs (one grep away).
 step "go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate)"
