@@ -4,8 +4,10 @@ A deliberately difficult HTTP server, and the dogfood suite that runs curlew
 against it.
 
 Full design: [`docs/TESTAPI_SPECIFICATION.md`](../docs/TESTAPI_SPECIFICATION.md).
-**Phases 1 and 2 are implemented.** Phase 3 is specified but not built; `GET
-/capabilities` reports what is absent and why.
+**Phases 1 through 4 are implemented** (specification §18), with §9.N's
+nine-port TLS matrix deliberately reduced to one listener — §14.3 has the
+measurement. `GET /capabilities` reports the implemented phase and what is
+still absent.
 
 ## Why this exists
 
@@ -53,7 +55,7 @@ HTML report — so a failing request names its own session.
 
 ```
 testapi/
-  cmd/mudflat/           the binary — two listeners, structured and raw
+  cmd/mudflat/           the binary — three listeners: structured, raw, TLS
   mudflat/               the server: sessions, envelope, capture, endpoints,
                          the raw byte layer, signature verification
   collections/           the dogfood suite — these pass
@@ -61,11 +63,11 @@ testapi/
   gaps/                  requests that MUST fail; *.parse-fail.yaml must not parse
   golden/                byte-exact raw transcripts, hand-reviewed against the RFCs
   harness/               assertions no collection can express (see below)
-  environments/          local.yaml, pointing at 127.0.0.1:8080 and :8081
+  environments/          local.yaml, pointing at 127.0.0.1:8080, :8081, :8082
   parity_test.go         §16: every endpoint is exercised, every URL resolves
 ```
 
-## The two listeners
+## The listeners
 
 `mudflat serve` opens the structured layer on `--port` and the **raw adversarial
 layer** on `--port + 1`. They cannot share a server: the raw layer's responses
@@ -75,6 +77,11 @@ written as literal bytes to a socket with no HTTP library involved.
 
 That is also the one place where the language mudflat is written in stops
 mattering (specification §3).
+
+Phase 3 added a third listener on `--port + 2`, serving the structured layer
+over TLS from a CA generated per process (`--no-tls` skips it). curlew has no
+way to trust that CA on this toolchain, so only the gap collection targets it —
+§14.3 has the measurement.
 
 ## The harnesses
 
@@ -187,10 +194,13 @@ both now backed by evidence rather than by absence of evidence.
 
 ## What Phase 3 found
 
-Ten more, **none fixed** — each is an executable reproduction, and five results
-came out affirmative. Write-ups in specification §11C.
+Ten more, **all now fixed** (2026-08-13), and five results came out
+affirmative — plus an eleventh defect found while fixing them. Write-ups in
+specification §11C. Every fix moved its reproduction into a passing collection,
+an inverted expected failure or a unit test rather than deleting it, so a closed
+gap keeps the test that proves it stayed closed.
 
-The ones that would change how you use curlew today:
+The ones that mattered most, as they were found:
 
 1. **A non-JSON GraphQL response aborts the whole run.** A gateway's HTML error
    page discards every result in the collection, reports `"requests": []` beside
@@ -212,6 +222,19 @@ The ones that would change how you use curlew today:
 And the affirmatives: close codes are surfaced, curlew answers protocol pings, a
 genuinely dead peer is detected, a TLS failure is legible and exits 4, and the
 OpenAPI round trip passes 8 of 8 against the server that served the document.
+
+## What Phase 4 found
+
+One defect, **fixed**, and one affirmative result — write-ups in specification
+§11D. `summary.total` counted *declared* requests while `passed`, `failed` and
+`skipped` counted *executed* ones, so a `data_driven` expansion made a run
+report four passes out of a total of two, and exit 0. It is the first finding
+here that is a wrong *number* rather than an error, which is why it took a
+ledger to catch it — and the affirmative comes from the same account: a retried
+request's `attempt_details` matches mudflat's own server-side attempt counter.
+
+Phase 4 added no endpoints. `ledger.sh` reads `/s/{sid}/resources` and the flaky
+family's `attempt` field, both of which already existed.
 
 ## What is deliberately not built
 

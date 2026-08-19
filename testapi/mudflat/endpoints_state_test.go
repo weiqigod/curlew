@@ -488,14 +488,14 @@ func TestCapabilities_ReportsPhaseAndAbsentFamilies(t *testing.T) {
 	if err := json.Unmarshal(body, &doc); err != nil {
 		t.Fatalf("capabilities is not JSON: %v (%q)", err, body)
 	}
-	if doc.Phase != 1 {
-		t.Errorf("phase = %d, want 1", doc.Phase)
+	if doc.Phase != 4 {
+		t.Errorf("phase = %d, want 4", doc.Phase)
 	}
 	if len(doc.Families) == 0 {
 		t.Error("no families reported")
 	}
 	if len(doc.Absent) == 0 {
-		t.Error("absent families not reported; a caller cannot tell a missing family from a broken one")
+		t.Error("absent capabilities not reported; a caller cannot tell a missing capability from a broken one")
 	}
 }
 

@@ -28,9 +28,9 @@ requests:
     assertions:
       status: 200
       body:
-        $.phase: { equals: 1 }
+        $.phase: { equals: 4 }
         $.families: { type: array }
-        # Absent families are reported so a caller can tell a missing family
+        # What is absent is reported so a caller can tell a missing capability
         # from a broken one.
         $.Absent: { exists: true }
 
