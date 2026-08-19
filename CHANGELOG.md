@@ -424,6 +424,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   description asked for: "a narrow extractor that catches real claims beats
   a broad one whose register nobody empties."
 
+### Fixed
+- **README's quickstart printed bytes the binary has never produced, and
+  hard-depended on the public internet with no way to redirect it.** (M28-002)
+  The hero's output block showed `1 passed, 0 failed, 0 skipped — 234ms`;
+  `internal/output/terminal.go`'s real summary omits the `skipped` segment
+  when it is zero and uses no em-dash separator — the binary cannot print
+  those bytes, at any version. Separately, the `## Quickstart` section's
+  `curlew init` scaffolds `base_url: "https://httpbin.org"` with no
+  documented seam to point it elsewhere, so the first commands anyone ran
+  silently required a public host to be up. Both are corrected: the
+  rewritten section names `$BASE_URL` and passes it with `--var` (the
+  highest-precedence variable source), and the output block is the bytes a
+  real run against a local server actually prints, durations aside.
+  `curlew ui` (which blocks forever) moves to prose rather than sitting in
+  an executed command block.
+
+  `cmd/curlew/readme_quickstart_test.go`'s `TestReadme_quickstart_actually_works`
+  makes this an executed claim, not a promise: it extracts the section's
+  command block and expected-output block, runs the commands under `bash` in
+  a temp directory against an in-process [mudflat](docs/TESTAPI_SPECIFICATION.md)
+  server on an ephemeral loopback port, and asserts the output matches
+  byte for byte once elapsed-millisecond figures are normalised on both
+  sides. An extraction that finds no commands, no output block, or an
+  ambiguous number of either is a distinct, attributable error rather than
+  an empty struct — the M22-001 failure shape, one level down — proven by
+  mutation. Wired into `scripts/ci-local.sh` as its own named step with a
+  `-list` vacuity guard.
+
+### Added
+- **The repository had no `CONTRIBUTING.md`, no `SECURITY.md`, and no issue
+  or pull-request templates.** (M28-002) `CLAUDE.md` states a specific and
+  unusual workflow — TDD without exception, feature branches without
+  exception, `./scripts/ci-local.sh` as the sole gate because nothing runs
+  in CI — addressed to the AI assistant that does most of the day-to-day
+  development here, not to a person sending a pull request. None of it was
+  written down anywhere a human contributor would look, and a report of a
+  real vulnerability had nowhere to go but a public issue.
+
+  `CONTRIBUTING.md` states the branch rule, the TDD rule, the task
+  lifecycle, and every mode `./scripts/ci-local.sh`'s `case "$MODE" in`
+  statement actually accepts — derived from the script rather than
+  restated by hand, so the two cannot drift apart unnoticed.
+  `SECURITY.md` names GitHub's private vulnerability-reporting route
+  (`https://github.com/<owner>/<repo>/security/advisories/new`, with
+  `<owner>/<repo>` read out of `go.mod`'s module path rather than
+  hand-typed) rather than the `@users.noreply.github.com` address that
+  accepts no mail. `.github/ISSUE_TEMPLATE/bug_report.yml` and
+  `feature_request.yml` ask for the version, the collection, and the exit
+  code — the three things every diagnosis starts from; `config.yml`
+  disables blank issues and links the security route.
+  `.github/pull_request_template.md` carries `CLAUDE.md`'s quality-gate
+  checklist verbatim, so it is in front of the author rather than
+  something they have to go look up.
+
+  A new `internal/docs/frontdoor.go` makes both documents executed claims:
+  `GateModes`/`GateInvocations`/`AuditGate` hold `CONTRIBUTING.md` to the
+  gate script in both directions (an undocumented mode, or a documented one
+  the script would reject, both fail the build); `AuditFrontDoor` holds a
+  registry of six front-door files to what each must state, reporting
+  missing, empty, and silent (present but omitting a required statement)
+  separately. `TestRepo_front_door_files_are_present`
+  (`internal/docs/frontdoor_test.go`) is the executed observable, wired into
+  `scripts/ci-local.sh` as its own named step with a `-list` vacuity guard.
+
 ## [0.1.0] — 2026-08-16
 
 The first released build. Every prior version of this tool reported

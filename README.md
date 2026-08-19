@@ -17,16 +17,8 @@ requests:
       status: 200
 ```
 
-```bash
-curlew run collections/sample.yaml
-```
-
-```
-Sample Collection
-  ✓ Hello World (234ms)
-
-1 passed, 0 failed, 0 skipped — 234ms
-```
+`curlew init` writes exactly that file. [Quickstart](#quickstart) has the
+commands, the bytes they print, and the test that runs them.
 
 ## Features
 
@@ -146,15 +138,52 @@ Every command block above is executed by
 
 ## Quickstart
 
+`curlew init` points `base_url` at `https://httpbin.org`. Set `BASE_URL` to the
+server you want to test — a public API, or a service on your own machine — and
+pass it with `--var`, the highest-precedence variable source (see
+[CLI_SPECIFICATION §6.2](docs/CLI_SPECIFICATION.md)).
+
 ```bash
 mkdir demo-api && cd demo-api
-curlew init                          # scaffolds curlew.yaml, collections/, environments/
-curlew run collections/sample.yaml   # run one collection
-curlew run "collections/**/*.yaml"   # run everything matching a glob
-curlew ui                            # open the local web UI
+curlew init
+curlew run collections/sample.yaml --var base_url="$BASE_URL"
 ```
 
-`curlew --help` lists all commands. `run`, `exec`, `validate`, and `info` support `--format json` for scripting; `exec` additionally takes `--non-interactive`.
+That prints:
+
+```
+Project initialized successfully!
+
+Created:
+  curlew.yaml
+  .gitignore
+  .env.example
+  environments/dev.yaml
+  collections/sample.yaml
+
+Next steps:
+  curlew run collections/sample.yaml
+Collection: Sample Collection
+  ✓ Hello World  200  12ms
+
+────────────────────────────────
+  1 request(s): 1 passed, 0 failed (12ms)
+```
+
+The `12ms` figures are illustrative — a real run's durations vary and are the
+only thing the test below normalises before comparing.
+
+`curlew run "collections/**/*.yaml"` runs everything matching a glob. `curlew ui`
+starts the local web UI and runs until you stop it, so it is not part of the
+block above. `curlew --help` lists all commands; `run`, `exec`, `validate` and
+`info` support `--format json`, and `exec` additionally takes
+`--non-interactive`.
+
+Every command in the block above is executed by
+`TestReadme_quickstart_actually_works` (`cmd/curlew/readme_quickstart_test.go`)
+against a local [mudflat](docs/TESTAPI_SPECIFICATION.md) server, and the output
+above is what it asserts — durations normalised, everything else byte for
+byte.
 
 ## Documentation
 
@@ -173,7 +202,7 @@ is added with no row, or a row survives after its directory is gone.
 | Directory | What it is | Relationship to the CLI |
 |---|---|---|
 | `.claude/` | 9 slash commands, 2 skills, `launch.json` | none — workflow only |
-| `.github/` | 8 workflows, all `workflow_dispatch`-gated; `go.yml` delegates to `ci-local.sh --go` | none at build or test time |
+| `.github/` | 8 workflows, all `workflow_dispatch`-gated (`go.yml` delegates to `ci-local.sh --go`); issue templates and a PR template | none at build or test time |
 | `cmd/` | `cmd/curlew` (entry point) + `cmd/curlew-agent-harness` (test-only) | **build time — is the binary** |
 | `deploy/` | self-hosted docker-compose for the platform; own proprietary LICENSE | none |
 | `docs/` | manual, both specifications, event-schema versions, the debt registers | test time — `internal/docs` executes the MANUAL/CLI_SPECIFICATION tables and prose |
