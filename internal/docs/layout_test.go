@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -219,6 +220,21 @@ func TestLayoutRows(t *testing.T) {
 	}
 }
 
+// TestLayoutRow_String proves the failure-message format directly: it is
+// what an audit failure prints for every Unaccounted/Stale/Unexplained
+// entry, so a reader must be able to find the row it names without counting
+// lines in README.md.
+func TestLayoutRow_String(t *testing.T) {
+	r := docs.LayoutRow{Line: 42, Dir: "cmd", What: "entry point", Relationship: "build time"}
+	got := r.String()
+	if !strings.Contains(got, "42") {
+		t.Errorf("LayoutRow.String() = %q; want it to name the line (42)", got)
+	}
+	if !strings.Contains(got, "cmd") {
+		t.Errorf("LayoutRow.String() = %q; want it to name the directory (cmd)", got)
+	}
+}
+
 func TestAuditLayout(t *testing.T) {
 	row := func(dir, what, rel string) docs.LayoutRow {
 		return docs.LayoutRow{Dir: dir, What: what, Relationship: rel}
@@ -290,6 +306,15 @@ func TestAuditLayout(t *testing.T) {
 			wantUnexplained: 1,
 		},
 		{
+			name: "MUTATION unexplained: two rows, reported sorted by directory",
+			dirs: []string{"zebra", "alpha"},
+			rows: []docs.LayoutRow{
+				row("zebra", "entry point", ""),
+				row("alpha", "entry point", ""),
+			},
+			wantUnexplained: 2,
+		},
+		{
 			name: "MUTATION duplicate: two rows for the same directory",
 			dirs: []string{"cmd"},
 			rows: []docs.LayoutRow{
@@ -345,6 +370,11 @@ func TestAuditLayout(t *testing.T) {
 			}
 			if len(audit.Unexplained) != tc.wantUnexplained {
 				t.Errorf("Unexplained = %v; want len %d", audit.Unexplained, tc.wantUnexplained)
+			}
+			if !sort.SliceIsSorted(audit.Unexplained, func(i, j int) bool {
+				return audit.Unexplained[i].Dir < audit.Unexplained[j].Dir
+			}) {
+				t.Errorf("Unexplained not sorted by Dir: %v", audit.Unexplained)
 			}
 			if !reflect.DeepEqual(audit.Duplicate, tc.wantDuplicate) {
 				t.Errorf("Duplicate = %v; want %v", audit.Duplicate, tc.wantDuplicate)
