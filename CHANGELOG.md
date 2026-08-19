@@ -7,6 +7,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **A failed `test-stack.sh up` left its containers running for the next run to
+  inherit.** `scripts/ci-local.sh` set the `stack_started` flag *after*
+  `./scripts/test-stack.sh up` returned, so the EXIT trap tore the stack down
+  only on a start that had already succeeded. But `up` runs `docker compose up
+  -d` and only *then* waits for each service to report healthy, which makes a
+  failed start the case that leaves containers running — precisely the one the
+  trap skipped. Found during M28-001 verification. Reproduced with real
+  containers on 2026-08-19: a start failing at the health wait left six
+  (`curlew-backend-1`, `-web-1`, `-minio-1`, `-fake-idp-1`, `-github-mock-1`,
+  `-stripe-mock-1`) up. The flag is now armed before the invocation; the worst
+  case is a redundant `down` on a stack that never started, which is
+  idempotent. New coverage in `cmd/curlew/ci_local_test.go` cuts the real
+  cleanup and stack-start regions out of `ci-local.sh` and executes them
+  against a stub `test-stack.sh`, so a regression in the script fails the test
+  without needing docker; a companion test holds the fix to teardown *only* of
+  a stack this run touched, so `--go` still shells out to nothing.
+
+### Changed
+- **`test-stack.sh` now says which of the two health-wait failures happened.**
+  The 60s window was suspected of being too short and is not: measured
+  2026-08-19, the backend container reaches "Application started" 1.2s after
+  `docker compose up -d` returns, and `docker compose` reports it `Healthy`.
+  What actually fails on macOS is the *host-side* probe — AirPlay Receiver
+  (ControlCenter) binds `:5000` and answers every request `403 (Server:
+  AirTunes/950.7.1)`, so a healthy backend is indistinguishable from one that
+  never started. Raising the default to 180s was tried and reverted: it turned
+  a 65s false failure into a 197s one and fixed nothing. Instead `wait_for_url`
+  now calls `diagnose_url` on timeout, which distinguishes "nothing is
+  listening" (the case where a longer window *is* the fix) from "something else
+  owns this port" and names the culprit. The window becomes
+  `STACK_HEALTH_TIMEOUT` (default 60) for hosts that are genuinely slow. Note
+  that `ci-local.sh --full` cannot pass on a machine with AirPlay Receiver
+  enabled; the backend serves swagger correctly (HTTP 200) from inside the
+  compose network, so the fix is the macOS setting, not the stack.
+
 - **A run could report more passes than it had requests.** `summary.total`
   counted *declared* items (the sum of each phase's `col.*.Items`) while
   `passed`/`failed`/`skipped` counted *executed* results — so a `data_driven`
