@@ -1,6 +1,6 @@
 id: M28-001
 title: "Decide what src/ and web/ are, and make the repository say so"
-status: backlog
+status: planned
 priority: 1
 created: 2026-08-14
 phase: "M28: A repository a stranger can respect"
