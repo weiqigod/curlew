@@ -1095,8 +1095,8 @@ Dynamic functions generate values at request time. Syntax: `{{$functionName}}`.
 | `{{$dateSubtract('amount', 'unit')}}` | 2 strings | Equivalent to `$dateAdd` with a negated amount. | `{{$dateSubtract('30', 'minute')}}` → `2026-04-28T11:30:00Z` |
 | `{{$formatDate('input', 'layout')}}` | 2 strings | Parses `input` as either a Unix-seconds integer string or an RFC3339 string, then formats with `layout` interpreted as a Go reference-time layout. | `{{$formatDate('1713701401', '2006-01-02')}}` → `2024-04-21` |
 | `{{$parseDate('s', 'layout')}}` | 2 strings | Parses `s` against `layout` (Go reference-time), converts to UTC, returns canonical ISO-8601 (`2006-01-02T15:04:05Z`). | `{{$parseDate('21/04/2024 15:10:01', '02/01/2006 15:04:05')}}` → `2024-04-21T15:10:01Z` |
-| `{{$randomPassword('n')}}` | 1 integer string (n >= 4) | An n-character password guaranteed to contain at least one upper, one lower, one digit, and one symbol from `!@#$%^&*()-_=+[]{}<>?,.`. Seed-deterministic when `--seed` is set. | `{{$randomPassword('16')}}` → a 16-char mixed-class string |
-| `{{$randomBase64('byteLength')}}` | 1 integer string (>= 1) | Standard-base64 encoding (RFC 4648 §4) of `byteLength` random bytes. Seed-deterministic when `--seed` is set; otherwise sourced from `crypto/rand`. | `{{$randomBase64('32')}}` → a 44-char base64 string |
+| `{{$randomPassword('n')}}` | 1 integer string (4 <= n <= 1048576) | An n-character password guaranteed to contain at least one upper, one lower, one digit, and one symbol from `!@#$%^&*()-_=+[]{}<>?,.`. Seed-deterministic when `--seed` is set. | `{{$randomPassword('16')}}` → a 16-char mixed-class string |
+| `{{$randomBase64('byteLength')}}` | 1 integer string (1 <= byteLength <= 1048576) | Standard-base64 encoding (RFC 4648 §4) of `byteLength` random bytes. Seed-deterministic when `--seed` is set; otherwise sourced from `crypto/rand`. | `{{$randomBase64('32')}}` → a 44-char base64 string |
 
 **`$faker.*` personal-data functions (M13-002):**
 
@@ -1629,22 +1629,27 @@ before relying on it in production. The valid spelling for ISO date
 is `2006-01-02`.
 
 **Random secrets (`$randomPassword`, `$randomBase64`).** `$randomPassword(n)`
-returns an `n`-character password (`n >= 4`) sampled across four classes —
-ASCII upper, lower, digit, and the symbol set
+returns an `n`-character password (`4 <= n <= 1048576`) sampled across four
+classes — ASCII upper, lower, digit, and the symbol set
 `!@#$%^&*()-_=+[]{}<>?,.` — with at least one character from each class
 guaranteed (the remainder is filled uniformly across all classes, then
 Fisher-Yates shuffled). The symbol set is fixed; configurable symbol sets
 are not yet supported. `$randomBase64(byteLength)` returns the standard-base64
-encoding (RFC 4648 §4) of `byteLength` random bytes; the encoded string
-is roughly `4 × ceil(byteLength / 3)` characters. Both functions honour
-`--seed` for reproducibility — under a fixed seed, the same length always
-produces the same output. Without a seed, both draw from `crypto/rand`.
+encoding (RFC 4648 §4) of `1 <= byteLength <= 1048576` random bytes; the
+encoded string is roughly `4 × ceil(byteLength / 3)` characters. Both
+functions honour `--seed` for reproducibility — under a fixed seed, the same
+length always produces the same output. Without a seed, both draw from
+`crypto/rand`.
 
 `$randomPassword('3')` (or any `n < 4`) returns a structured `[INPUT]`
 error — at least four characters are needed to satisfy the four-class
 guarantee. Non-integer arguments (`{{$randomPassword('xyz')}}`,
 `{{$randomBase64('1.5')}}`) return `[INPUT]` errors quoting the bad
-input. `$randomBase64('0')` and negative byte lengths also error.
+input. `$randomBase64('0')` and negative byte lengths also error. Both
+functions also reject a length above 1048576 (1 MiB) with the same
+structured `[INPUT]` error: fuzzing found that
+`{{$randomBase64('1111111111')}}` — ten characters in a header value —
+drove peak RSS to 6.4 GB and took 7.1s (M27-002).
 
 Within a single request, multiple references to the same function return the same value (per-request memoization):
 

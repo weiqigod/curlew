@@ -30,6 +30,7 @@ import (
 	_ "github.com/weiqigod/curlew/internal/datadriven"
 	_ "github.com/weiqigod/curlew/internal/discovery"
 	_ "github.com/weiqigod/curlew/internal/exitcodes"
+	_ "github.com/weiqigod/curlew/internal/fuzzseed"
 	_ "github.com/weiqigod/curlew/internal/graphql"
 	_ "github.com/weiqigod/curlew/internal/graphql/files"
 	_ "github.com/weiqigod/curlew/internal/httpbody"

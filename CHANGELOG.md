@@ -7,6 +7,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`{{$randomBase64('1111111111')}}` — ten characters in a header value —
+  drove peak RSS to 6.4 GB and took 7.1s.** Found by fuzzing (M27-002):
+  `FuzzInterpolate`'s first extended-campaign chunk killed a fuzz worker
+  mid-minimization while mutating the digits of a seeded
+  `{{$randomBase64('32')}}` template
+  (`internal/variable/testdata/fuzz/FuzzInterpolate/c5a99887a2d322cc`), and a
+  direct measurement of a syntactically valid version of the same mutation
+  confirmed the unbounded allocation. `$randomBase64`'s `byteLength` and
+  `$randomPassword`'s `n` were previously bounded only below (`>= 1` and `>=
+  4`); `MaxRandomBytes` (1 MiB) now bounds both above too, rejected with the
+  same structured `DYNFN_RANDOMBASE64_BAD_LENGTH` /
+  `DYNFN_RANDOMPASSWORD_BAD_LENGTH` codes the existing lower-bound guards
+  already used. `docs/MANUAL.md`'s argument-contract table and prose are
+  updated to state the cap, and the new claim is wired to
+  `docs.Prose("MANUAL.md", ...)` so it fails loudly if the text and the code
+  ever drift apart again.
+
 - **Two of the README's three install paths reported a version that
   identified nothing.** `go install <module>@latest` and `git clone && go
   build` both printed `curlew 0.1.0-dev` regardless of what was actually
@@ -107,6 +124,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (below) rather than silence.
 
 ### Added
+- **The four surfaces that accept input curlew did not write are now
+  fuzzed, not just unit-tested.** (M27-002) Zero fuzz targets existed in this
+  repository before this change, for a tool whose entire job is accepting
+  files and expressions a user wrote. Native Go fuzzing adds
+  `FuzzParseCollection` (`internal/parser`), `FuzzInterpolate`
+  (`internal/variable`), `FuzzJSONPath` (`internal/assertion`) and `FuzzCEL`
+  (`internal/cel`) — one per input surface named in the task: collection
+  YAML, `{{...}}` interpolation, JSONPath assertions, and CEL expressions. A
+  new `internal/fuzzseed` package seeds every target from fixtures already in
+  the repository (parser testdata, the mudflat dogfood suite,
+  `docs/MANUAL.md`'s CEL examples — 168 collections, 110 templates, 18 CEL
+  expressions, 119 JSONPaths, 6 JSON bodies, measured 2026-08-18) rather than
+  empty strings, and errors (`ErrNoSeeds`) rather than silently seeding
+  nothing when a named source set is empty. `FuzzJSONPath` iterates the full
+  operator matrix read out of `evalBodyAssertion`'s own switch via
+  `operatorsFromSwitch` (widened to `testing.TB` so it doubles as the
+  documentation-parity tests' source of truth), rather than fuzzing the
+  operator as an argument. `FuzzParseCollection` is held to `ParseFile`'s
+  real pipeline by a parity test
+  (`TestFuzzParseCollection_matches_ParseFile`) across every non-`include:`
+  testdata fixture, so a validation step added to `ParseFile` cannot silently
+  stop being fuzzed. `FuzzCEL` compiles only, deliberately not evaluating —
+  the CEL environment carries no cost limit, so evaluating fuzzer-authored
+  comprehensions is unbounded work that would produce hang reports rather
+  than defects.
+
+  `TestScope_self_reference_terminates_with_ErrCircularReference` asserts,
+  rather than assumes, the task's termination requirement: seven cases (a
+  direct self-reference, a mutual two-cycle, a three-cycle, a self-reference
+  inside a dynamic-function argument, a 9-variable chain that resolves, a
+  12-variable chain that exceeds `MaxDepth`, and a self-reference behind a
+  `|default:` fallback that is not a cycle at all because `varPattern` cannot
+  match a name followed by `|`) each run on their own goroutine with a 5s
+  deadline, so a regression that turns cycle detection into unbounded
+  recursion fails with a timeout message instead of hanging the test binary.
+
+  An extended campaign — 16 chunks, 4 per target, each a foreground `go test
+  -fuzz -fuzztime 420s -fuzzminimizetime 30s` invocation chained through Go's
+  on-disk fuzz cache, verified orphan-free by `ps` before the next chunk
+  started — ran 1h46m cumulative wall clock and 361M+ execs
+  (`management/plans/M27-002-verified.md`; falls short of the plan's stated
+  minimum of 6 chunks/target, recorded honestly rather than padded to match
+  the budget). It found and fixed one crasher (the `$randomBase64` /
+  `$randomPassword` unbounded allocation, above); the other three targets
+  found none, consistent with `gopkg.in/yaml.v3` already capping YAML nesting
+  depth and every `Content[i+1]` access in the parser already being guarded.
+  `scripts/ci-local.sh` gains a `fuzz corpora (M27-002)` step that runs the
+  committed corpora as ordinary tests (~2.1s combined across the four
+  packages) — the gate keeps the corpora, not the fuzzing.
+
 - **The version resolver is proven by five layers of test, not asserted
   once.** Pure table tests (`TestVersion_falls_back_to_build_info`, 17 rows)
   cover the resolver's contract with no I/O; a `-buildvcs=false` build
