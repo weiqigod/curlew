@@ -21,6 +21,8 @@
 > ingest, the team-vault cache, and the five-tier feature gating throughout —
 > describe the platform as designed through v4.4, not code that exists. The
 > backend's own side of those designs is still live.
+>
+> **Addendum (2026-08-19).** The `src/` backend and `web/` dashboard stay in this repository, frozen: they build and pass their tests in `./scripts/ci-local.sh --full`, no new feature work is planned, and the `curlew` CLI does not call them. See [TECH_CHOICES.md § Repository Shape](TECH_CHOICES.md#repository-shape) for the reasoning.
 
 ### Changelog — v4.4 (2026-05-17)
 

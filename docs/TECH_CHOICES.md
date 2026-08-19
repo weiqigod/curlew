@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document records the technology decisions, tooling conventions, and development process for the API Testing Tool. It sits alongside the [Development Philosophy](./development-philosophy.md) (always-runnable, vertical slices) and the [Specification](./api-testing-tool-specification-v4.md). A new developer should be able to read these three documents and start contributing.
+This document records the technology decisions, tooling conventions, and development process for the API Testing Tool. It sits alongside the [Development Philosophy](./DEVELOPMENT_PHILOSOPHY.md) (always-runnable, vertical slices) and the [Specification](./SPECIFICATION.md). A new developer should be able to read these three documents and start contributing.
 
 The project has two codebases: a CLI tool and a backend service. They share a development process but differ in language and ecosystem.
 
@@ -29,7 +29,9 @@ internal/
     output/           # terminal, JSON, XML, HTML formatters
     auth/             # authentication handlers
     config/           # configuration loading, .env, precedence
-pkg/                  # public library code (if any surfaces)
+schemas/              # canonical JSON Schemas; //go:embed'd, served by `curlew schema`
+templates/            # templates/skills/ is //go:embed'd (curlew init --skill agent)
+ui/                   # Svelte SPA; built into internal/uiserver/assets/dist, //go:embed'd
 testdata/             # sample project, fixtures
 go.mod
 go.sum
@@ -96,17 +98,10 @@ C# on the latest stable .NET release (currently .NET 9). The backend handles aut
 Follow the standard .NET solution layout:
 
 ```
-CurlewBackend.sln
+ApiTool.Backend.sln
 src/
-    CurlewBackend.Api/           # ASP.NET Core web host, controllers/endpoints
-    CurlewBackend.Core/          # domain logic, interfaces, no infrastructure deps
-    CurlewBackend.Infrastructure/ # database, external services, auth providers
-    CurlewBackend.Contracts/     # shared DTOs, API contracts (consumed by CLI too)
-tests/
-    CurlewBackend.Api.Tests/
-    CurlewBackend.Core.Tests/
-    CurlewBackend.Infrastructure.Tests/
-    CurlewBackend.Integration.Tests/  # end-to-end against running server
+    ApiTool.Backend/              # the backend project
+    ApiTool.Backend.Tests/        # unit and integration tests, in-tree
 ```
 
 Clean Architecture layering: Core has zero dependencies on Infrastructure or Api. Dependencies point inward. Infrastructure implements interfaces defined in Core.
@@ -130,6 +125,75 @@ Clean Architecture layering: Core has zero dependencies on Infrastructure or Api
 - **Dependency injection:** Use the built-in DI container. Register services with appropriate lifetimes. Constructor injection only — no service locator pattern.
 - **Configuration:** Use the Options pattern (`IOptions<T>`) for strongly-typed configuration. Secrets via user-secrets in development, environment variables or vault in production.
 - **Error handling:** Use Result types or problem details (RFC 9457) for API error responses. Exceptions for truly exceptional conditions, not control flow.
+
+---
+
+## Repository Shape
+
+**Verdict: keep `src/` and `web/` in this repository, and mark them frozen.**
+
+Measured 2026-08-14: `cmd/` + `internal/` is 463 Go files, 134,144 lines — the
+shipped product. `src/` is 866 C# files, 139,627 lines — larger than the
+entire Go CLI. `web/` adds 186 more files. The shipped CLI does not call any
+of it: the backend strip on 2026-08-03 removed `curlew login`, `curlew
+worker`, distributed execution, report upload, and every `CURLEW_BACKEND_*`
+variable. More than half the repository, by line count, is code the product
+does not use, and it was the first thing a visitor to the repository root
+saw, with no table naming it.
+
+Three options were on the table:
+
+- **A. Excise** — move `src/` and `web/` to their own repository. Rejected as
+  a decision this pipeline may not make unilaterally: `src/LICENSE`,
+  `web/LICENSE` and `deploy/LICENSE` are each proprietary while the
+  repository root is Apache-2.0, so splitting the repository is a licensing
+  action — reconciling three separate license grants and standing up an
+  external repository — not a path move.
+- **C. Archive in place** — move both under an `archive/` or `platform/`
+  directory. Rejected: the decisive evidence is
+  `scripts/ci-local.sh` around its scope-detection block, which already
+  carries a comment recording that a *previous* rename broke the same
+  greps it relies on — matching on `src/Curlew.Backend` there silently
+  skipped the backend and E2E gates for every backend change after the
+  project was renamed to `ApiTool.Backend`. Option C rewrites those same
+  greps, `ApiTool.Backend.sln`, `docker-compose.test.yml`, `.dockerignore`,
+  eight workflows, and every `src/ApiTool.Backend/...` path in an
+  11,000+-line specification. Its failure mode is a gate that reports PASS
+  while quietly testing nothing — precisely the false clear this codebase is
+  organised against.
+- **B. Keep and explain** — chosen. The cheapest option, and the only
+  reversible one: it forecloses neither A nor C, while doing A or C first and
+  finding it wrong costs a second migration. The input that would settle
+  this — is the platform a live product, a paused one, or a finished one? —
+  is exactly the input this pipeline does not have, so the reversible move is
+  the correct one.
+
+PlatformStatus, the sentence that binds this decision across documents:
+
+> The `src/` backend and `web/` dashboard stay in this repository, frozen: they build and pass their tests in `./scripts/ci-local.sh --full`, no new feature work is planned, and the `curlew` CLI does not call them.
+
+"Frozen" rather than "archived" or "maintained" is itself a measured claim, not
+a preference. Against "archived": `./scripts/ci-local.sh --full` still runs
+`dotnet test`, the web gate steps, and five Playwright convergence specs
+against the platform, and `docs/SPECIFICATION.md` still describes it as
+current. Against "maintained": there has been no `src/` change since the
+2026-08-03 backend strip, and no `src/` or `web/` work anywhere in the
+M25–M29 roadmap. Kept green, not developed — that is what "frozen" means
+here.
+
+**This decision was recorded by an automated pipeline, not the project
+owner**, because the task that required it (M28-001) explicitly reserves the
+choice among A/B/C to the owner. B was chosen on the stated grounds above
+because it is the reversible option; A and C remain open. The durable part of
+this task is option-independent: every top-level directory of the repository
+must be named in `README.md` with its relationship to the CLI stated, and a
+new one that is not fails `go test ./internal/docs/ -run
+TestReadme_accounts_for_every_top_level_directory`. If the owner later
+chooses A or C, that guard survives the move and enforces the new shape.
+
+**Revisit when** the project owner states whether the platform is live,
+paused, or being wound down. That answer is what distinguishes B from A or C;
+until it exists, B is the only defensible choice.
 
 ---
 

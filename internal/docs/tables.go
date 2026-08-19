@@ -29,6 +29,13 @@ import (
 // deeper than the last.
 var Dir = findDocsDir()
 
+// Root is the repository root: the directory Dir sits in.
+//
+// Derived from Dir rather than found again, so there is one answer to "where is
+// this repository" and it is anchored on the same file (docs/MANUAL.md). A guard
+// about the repository's shape reads Root; a guard about a document reads Dir.
+var Root = filepath.Dir(Dir)
+
 func findDocsDir() string {
 	dir, err := os.Getwd()
 	if err != nil {
