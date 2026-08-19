@@ -2048,7 +2048,7 @@ capabilities:
     milestone: 'M28'
     tasks:
       - id: M28-001
-        status: planned
+        status: in_progress
         planned_date: 2026-08-19
         branch: feature/M28-001-repository-shape
       - id: M28-002
