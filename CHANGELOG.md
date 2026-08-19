@@ -18,7 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   found during the work), "two listeners" where `serve` opens three since Phase
   3, and an environment described as two ports where `local.yaml` names four
   variables across three. A "What Phase 4 found" section was added, since the
-  file documents each phase's findings and Phase 4's was missing.
+  file documents each phase's findings and Phase 4's was missing. `CLAUDE.md`
+  carried the same claim — "Phases 1, 2 and 3 are implemented", sixteen defects
+  where §11D.1 makes seventeen, and a harness list omitting `ledger.sh` — and is
+  corrected with it, since that is the file loaded into every session's
+  context.
 - **`GET /capabilities` reported mudflat as a Phase 1 server, and named seven
   families as absent that it serves.** The handler in
   `testapi/mudflat/endpoints_meta.go` still carried the literal `Phase: 1` and
