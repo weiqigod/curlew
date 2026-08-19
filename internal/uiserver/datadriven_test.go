@@ -30,11 +30,15 @@ requests:
 		t.Fatalf("exit = %v (%v)", final["exit_status"], final["state"])
 	}
 	summary, _ := final["summary"].(map[string]any)
-	// runner.Summary.Total counts the data-driven group as one planned item
-	// while Passed counts iterations — pre-existing runner semantics the spec
-	// adopts (§4.8 "matching runner.Summary.Total semantics").
-	if summary["total"] != float64(1) || summary["passed"] != float64(3) {
-		t.Errorf("summary = %v, want total 1 / passed 3", summary)
+	// runner.Summary.Total is derived from the results actually reported
+	// (computeSummary), not from the count of declared items, so a
+	// data-driven group of 3 iterations contributes 3 to Total, matching
+	// Passed. Before the fix in docs/TESTAPI_SPECIFICATION.md §11D.1, Total
+	// was derived from declared items instead and read 1 here while Passed
+	// read 3 — the exact "more passes than requests" defect that section
+	// documents.
+	if summary["total"] != float64(3) || summary["passed"] != float64(3) {
+		t.Errorf("summary = %v, want total 3 / passed 3", summary)
 	}
 
 	resp := apiGet(t, ts, "/api/v1/runs/"+runID+"/requests")

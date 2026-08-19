@@ -3361,7 +3361,15 @@ func verdictOnly(ar *assertion.Results) *assertion.Results {
 }
 
 // computeSummary populates s from all results across all phases.
+//
+// Total is derived here, from the same slice as the parts, rather than from
+// the count of declared items. A data_driven request expands one declared
+// item into one result per row, so a Total taken from
+// len(col.Requests.Items) (etc.) disagreed with Passed+Failed+Skipped the
+// moment any request expanded -- and the run still reported success and
+// exited 0. §11D.1 (docs/TESTAPI_SPECIFICATION.md).
 func computeSummary(results []RequestResult, s *Summary) {
+	s.Total = len(results)
 	for _, r := range results {
 		switch {
 		case r.Skipped:
