@@ -124,6 +124,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (below) rather than silence.
 
 ### Added
+- **README.md accounted for six of the repository's nineteen top-level
+  directories; the other thirteen, including three compiled into the shipped
+  binary, went unnamed.** (M28-001) `cmd/` + `internal/` is 463 Go files,
+  134,144 lines; `src/` (the C#/.NET backend) is 866 files, 139,627 lines —
+  larger than the entire Go CLI — and `web/` (the SvelteKit dashboard) adds
+  186 more, yet the old "Repository layout" table conflated `src/` and
+  `web/` into a single row, called `cmd/curlew/` a top-level directory when
+  it is a sub-path of `cmd/`, and never named `.claude/`, `.github/`,
+  `deploy/`, `examples/`, `management/`, `sample/`, `schemas/`, `scripts/`,
+  `site/`, `templates/` or `testapi/` at all. Worse than the C#: `schemas/`,
+  `templates/skills/` and `ui/`'s build output are `//go:embed`ed into the
+  binary, and the old table said so for none of them — a reader could tell
+  `src/` was not in the binary but not that `templates/skills/agent/curlew/`
+  was.
+
+  The table is now 19 rows and 3 columns (`Directory | What it is |
+  Relationship to the CLI`), naming every directory `git ls-files` tracks
+  and, for each, whether it is build time, test time, or unrelated to the
+  shipped binary. A new `internal/docs/layout.go` makes this an executed
+  claim rather than a promise: `LayoutRows` parses the table (columns
+  resolved by name via the package's existing `Column` helper, so
+  reordering cannot silently change what is asserted; a cell naming a
+  sub-path such as `cmd/curlew/` is rejected rather than normalised, which
+  would just as happily accept `cmd/curlew/internal/whatever/`),
+  `TopLevelDirs` shells out to `git ls-files --cached --others
+  --exclude-standard` (deliberately not a plain directory listing --
+  `dist/` is created by this same script's own release step *after* the Go
+  gate runs, so a naive listing passes once and fails on every run after
+  it), and `AuditLayout` holds the two together and fails in both
+  directions: a directory with no row, a row for a directory that no longer
+  exists, a row whose "what it is" or "relationship" cell is empty,
+  whitespace, a dash, an em-dash, or a case-insensitive "n/a"/"tbd"/"?", and
+  a directory named by more than one row. `scripts/ci-local.sh` gains a
+  `repository layout (M28-001)` step running
+  `TestReadme_accounts_for_every_top_level_directory`, so a directory added
+  without a row fails the gate before it is ever committed — demonstrated
+  end-to-end, not just by mutation test: an uncommitted scratch directory
+  made the test fail naming exactly that directory.
+
+  The decision of what `src/` and `web/` *are* — kept and explained, moved
+  out, or archived in place — was the task's one deliberate judgement call,
+  reserved to the project owner and not presumed by the task. Recorded here
+  by the pipeline on stated grounds (`docs/TECH_CHOICES.md`'s new
+  "Repository Shape" section): keep and explain, because it is the only
+  reversible option of the three, while excising to a separate repository
+  turned out to be a licensing action (three separate proprietary LICENSE
+  files: `src/`, `web/`, `deploy/`) and archiving in place would have
+  rewritten the very scope-detection greps that `scripts/ci-local.sh`
+  already carries a scar from breaking once before (a prior rename to
+  `ApiTool.Backend` silently skipped the backend and E2E gates until
+  caught). Status word: **frozen** — evidence, not preference, since
+  `./scripts/ci-local.sh --full` still builds and tests both codebases and
+  `docs/SPECIFICATION.md` still describes the platform as current, but
+  there has been no `src/` change since the 2026-08-03 backend strip and no
+  platform work anywhere in the M25–M29 roadmap. The same sentence stating
+  this is now required verbatim in `README.md`, `docs/TECH_CHOICES.md` and
+  `docs/SPECIFICATION.md`, held together by
+  `TestPlatformStatus_is_stated_by_every_document_that_must_agree` so the
+  three cannot drift into three different descriptions of the same
+  decision.
+
+  Two more corrections `docs/TECH_CHOICES.md` needed to actually agree with
+  the repository, surfaced while adding `schemas/`, `templates/` and `ui/`
+  to its CLI project-structure listing: the backend structure it documented
+  was fictional (`CurlewBackend.sln` /
+  `CurlewBackend.{Api,Core,Infrastructure,Contracts}` — the real names are
+  `ApiTool.Backend.sln` / `src/ApiTool.Backend/` /
+  `src/ApiTool.Backend.Tests/`), and that fictional tree carried the one
+  line left in the repository still asserting a CLI→backend dependency
+  (`# shared DTOs, API contracts (consumed by CLI too)`), now deleted.
+
 - **The four surfaces that accept input curlew did not write are now
   fuzzed, not just unit-tested.** (M27-002) Zero fuzz targets existed in this
   repository before this change, for a tool whose entire job is accepting
