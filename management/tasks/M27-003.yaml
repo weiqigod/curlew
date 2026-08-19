@@ -25,7 +25,9 @@ behaviors:
   - "Given the phase, when it is added to ci-local.sh, then a failure stops the gate rather than printing a warning."
 
 scope: |
-  Phases 1, 2 and 3 are implemented and have found sixteen defects, all fixed.
+  As of this task's writing (2026-08-14), Phases 1, 2 and 3 are implemented and
+  have found sixteen defects, all fixed. Phase 4 is what this task went on to
+  build, and it found a seventeenth -- see specification 11D.1.
   The specification's phases are now exhausted. Two harnesses retired
   themselves by their own promotion instructions, one was inverted from
   "these must be rejected" to "these must import", and
