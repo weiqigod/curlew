@@ -523,6 +523,12 @@ step "dogfood: the OpenAPI round trip"
 step "dogfood: curl agrees with the raw layer"
 ./testapi/harness/crosscheck.sh --raw-url "${MUDFLAT_RAW_URL}"
 
+# Phase 4. Every harness above asks whether a request failed. This one asks
+# whether curlew's own numbers are right — the failure mode that reports
+# success and exits 0.
+step "dogfood: curlew's report agrees with mudflat's ledger"
+./testapi/harness/ledger.sh --url "${MUDFLAT_URL}"
+
 kill "$mudflat_pid" 2>/dev/null || true
 wait "$mudflat_pid" 2>/dev/null || true
 mudflat_pid=""
