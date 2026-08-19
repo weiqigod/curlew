@@ -2041,7 +2041,7 @@ capabilities:
         completed_date: 2026-08-18
         verified_by: ai
       - id: M27-003
-        status: planned
+        status: in_progress
         planned_date: 2026-08-19
         branch: feature/M27-003-mudflat-phase-4
 
