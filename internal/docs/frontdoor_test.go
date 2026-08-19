@@ -270,6 +270,36 @@ func TestAuditGate(t *testing.T) {
 	}
 }
 
+// TestGateMode_String proves the file:line + spelling format String()
+// renders, following the same convention as layout.go's Row and prose.go's
+// ProseRef -- the line a mode's case arm was read from is otherwise never
+// surfaced anywhere.
+func TestGateMode_String(t *testing.T) {
+	tests := []struct {
+		name string
+		mode docs.GateMode
+		want string
+	}{
+		{
+			name: "single alias",
+			mode: docs.GateMode{Line: 12, Aliases: []string{"auto"}},
+			want: docs.GateScript + ":12 auto",
+		},
+		{
+			name: "aliased mode joins with a pipe, canonical first",
+			mode: docs.GateMode{Line: 40, Aliases: []string{"--go", "go"}},
+			want: docs.GateScript + ":40 --go|go",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.mode.String(); got != tt.want {
+				t.Errorf("String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestChecklist(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -461,6 +491,30 @@ func TestAuditFrontDoor(t *testing.T) {
 			}
 			if got.Clean() != tt.want.Clean() {
 				t.Errorf("Clean() = %v, want %v", got.Clean(), tt.want.Clean())
+			}
+		})
+	}
+}
+
+// TestReadFrontDoor_emptyRegistry is the producer TestRepo_front_door_files
+// _are_present's own floor check documents but does not itself return:
+// ErrNoFrontDoorFiles exists to report a registry emptied out from under a
+// caller, and this proves ReadFrontDoor actually returns it in that case
+// rather than the sentinel being dead weight only referenced by its own
+// registration in hints_init.go.
+func TestReadFrontDoor_emptyRegistry(t *testing.T) {
+	tests := []struct {
+		name  string
+		files []docs.FrontDoorFile
+	}{
+		{name: "nil registry", files: nil},
+		{name: "MUTATION empty (non-nil) registry", files: []docs.FrontDoorFile{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := docs.ReadFrontDoor(context.Background(), t.TempDir(), tt.files)
+			if !errors.Is(err, docs.ErrNoFrontDoorFiles) {
+				t.Fatalf("ReadFrontDoor() err = %v, want %v", err, docs.ErrNoFrontDoorFiles)
 			}
 		})
 	}

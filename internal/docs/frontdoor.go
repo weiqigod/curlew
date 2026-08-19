@@ -79,9 +79,11 @@ func (m GateMode) Accepts(word string) bool {
 	return false
 }
 
-// String renders a mode the way its case arm spells it.
+// String renders a mode as scripts/ci-local.sh:LINE and the way its case arm
+// spells it, following the file:line convention every other line-carrying
+// type in this package uses (layout.go's Row, prose.go's ProseRef).
 func (m GateMode) String() string {
-	return strings.Join(m.Aliases, "|")
+	return fmt.Sprintf("%s:%d %s", GateScript, m.Line, strings.Join(m.Aliases, "|"))
 }
 
 // gateCaseHeader is the exact line scripts/ci-local.sh opens its mode
@@ -259,18 +261,13 @@ func (a GateAudit) Clean() bool {
 func AuditGate(modes []GateMode, invoked []string) GateAudit {
 	var audit GateAudit
 
-	invokedSet := make(map[string]bool, len(invoked))
-	for _, w := range invoked {
-		invokedSet[w] = true
-	}
-
 	matched := map[string]bool{}
 	for _, m := range modes {
 		found := false
-		for _, a := range m.Aliases {
-			if invokedSet[a] {
+		for _, w := range invoked {
+			if m.Accepts(w) {
 				found = true
-				matched[a] = true
+				matched[w] = true
 			}
 		}
 		if !found {
@@ -461,6 +458,9 @@ func AuditFrontDoor(files []FrontDoorFile, contents map[string]string) FrontDoor
 func ReadFrontDoor(ctx context.Context, root string, files []FrontDoorFile) (map[string]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, ErrNoFrontDoorFiles
 	}
 
 	out := make(map[string]string, len(files))
