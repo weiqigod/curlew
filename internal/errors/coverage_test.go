@@ -29,6 +29,7 @@ import (
 	_ "github.com/weiqigod/curlew/internal/config"
 	_ "github.com/weiqigod/curlew/internal/datadriven"
 	_ "github.com/weiqigod/curlew/internal/discovery"
+	_ "github.com/weiqigod/curlew/internal/docs"
 	_ "github.com/weiqigod/curlew/internal/exitcodes"
 	_ "github.com/weiqigod/curlew/internal/fuzzseed"
 	_ "github.com/weiqigod/curlew/internal/graphql"
