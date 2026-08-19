@@ -7,6 +7,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`testapi/README.md` still opened by saying Phase 3 "is specified but not
+  built".** Phase 3 landed in `1fccbb9` and Phase 4 in `70a1351`, and the same
+  file already carried a "What Phase 3 found" section describing Phase 3's
+  results — so the file contradicted itself four sections apart. Corrected
+  against `docs/TESTAPI_SPECIFICATION.md` §18: Phases 1 through 4 are
+  implemented, with §9.N's nine-port TLS matrix deliberately reduced to one
+  listener. Three further stale claims went with it — "none fixed" for the ten
+  Phase 3 defects (§11C records all ten fixed on 2026-08-13, plus an eleventh
+  found during the work), "two listeners" where `serve` opens three since Phase
+  3, and an environment described as two ports where `local.yaml` names four
+  variables across three. A "What Phase 4 found" section was added, since the
+  file documents each phase's findings and Phase 4's was missing.
+- **`GET /capabilities` reported mudflat as a Phase 1 server, and named seven
+  families as absent that it serves.** The handler in
+  `testapi/mudflat/endpoints_meta.go` still carried the literal `Phase: 1` and
+  an `Absent` map listing `raw`, `verify`, `barrier`, `tls`, `websocket`,
+  `graphql` and `streaming` — every one of which was built across Phases 2 and
+  3 (families E, G, J, N, L, K, M). The endpoint whose job is to tell a caller
+  which families exist was the last thing in the repository still claiming they
+  do not. It now reports `phase: 4`, and `Absent` names only what is absent by
+  *measurement* rather than by schedule: the eight §9.N TLS postures reduced to
+  one listener (§14.3) and h2c (§11.4). Both pinned assertions moved with it —
+  `testapi/collections/00-smoke.yaml` asserted `$.phase: equals 1` and
+  `endpoints_state_test.go` asserted `doc.Phase != 1`, so the stale value had a
+  passing test and a passing dogfood request holding it in place.
+- **`mudflat serve --help` described Phase 3 as unbuilt**, telling a reader that
+  "TLS postures, WebSocket, GraphQL and streaming are Phase 3" when all four
+  ship. The flag list also omitted `--no-tls` entirely and stopped describing
+  listeners at `--port+1`, though `serve` has opened a TLS listener on
+  `--port+2` since Phase 3.
 - **A failed `test-stack.sh up` left its containers running for the next run to
   inherit.** `scripts/ci-local.sh` set the `stack_started` flag *after*
   `./scripts/test-stack.sh up` returned, so the EXIT trap tore the stack down
