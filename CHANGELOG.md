@@ -7,6 +7,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **A run could report more passes than it had requests.** `summary.total`
+  counted *declared* items (the sum of each phase's `col.*.Items`) while
+  `passed`/`failed`/`skipped` counted *executed* results — so a `data_driven`
+  request, which expands one declared item into one result per row, broke the
+  invariant `total == passed+failed+skipped == len(requests[])` the moment
+  anything expanded. Found designing Mudflat Phase 4 (M27-003): one plain
+  request beside a 3-row `data_driven` request reported `{'total': 2, 'passed':
+  4, 'failed': 0, 'skipped': 0}` against a 4-entry `requests[]`, and exited 0.
+  `docs/MANUAL.md`'s worked JSON example documents the invariant a consumer
+  computing a pass rate relies on. `computeSummary`
+  (`internal/runner/runner.go`) now derives `Total` from the results slice it
+  already summarises, so the invariant holds by construction. New coverage:
+  `internal/runner/summary_invariant_test.go`,
+  `cmd/curlew/ledger_summary_test.go`, and `testapi/collections/25-ledger.yaml`
+  + `testapi/harness/ledger.sh` (wired into `ci-local.sh`), which checks
+  curlew's own report against a read-only query the harness makes directly
+  against mudflat. See `docs/TESTAPI_SPECIFICATION.md` §11D.1.
+
 - **`{{$randomBase64('1111111111')}}` — ten characters in a header value —
   drove peak RSS to 6.4 GB and took 7.1s.** Found by fuzzing (M27-002):
   `FuzzInterpolate`'s first extended-campaign chunk killed a fuzz worker

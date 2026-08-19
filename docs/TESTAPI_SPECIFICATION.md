@@ -2,9 +2,9 @@
 
 ## A Deliberately Difficult HTTP Server for Exercising Curlew
 
-**Version:** 0.3
-**Status:** Phases 1, 2 and 3 implemented (`testapi/`), with §9.N reduced — see §14.3
-**Date:** 2026-08-12
+**Version:** 0.4
+**Status:** Phases 1, 2, 3 and 4 implemented (`testapi/`), with §9.N reduced — see §14.3
+**Date:** 2026-08-19
 **Applies to:** curlew 0.1.0-dev and later
 
 > *A curlew feeds by probing soft ground for what it cannot see. This is the
@@ -1618,9 +1618,10 @@ len(requests)`. A consumer computing a pass rate from this run would get 200%.
 **Fixed.** `computeSummary` now derives `Total` from the slice it summarises
 (`s.Total = len(results)`), so the invariant holds by construction rather than
 by two distant sites agreeing. `internal/runner/runner_test.go`'s
-`TestRun_GraphQL_MalformedBodyOneItem` had asserted this invariant since §11C.1
-(`len(results) != summary.Total`), but only for three plain requests, where
-nothing expands — the guard existed and had a hole in it.
+`TestRun_graphql_malformed_response_body_fails_only_that_request` had asserted
+this invariant since §11C.1 (`len(results) != summary.Total`), but only for
+three plain requests, where nothing expands — the guard existed and had a hole
+in it.
 
 ### What came out affirmative
 
@@ -2043,7 +2044,7 @@ dislikes, and those are exactly what `/ws/fragmented`, `/ws/no-pong` and
 
 Ten more defects surfaced, and five results came out affirmative (§11C).
 
-### Phase 4 — Stateful sequences and the ledger 🚧 in progress
+### Phase 4 — Stateful sequences and the ledger ✅ implemented
 
 Report arithmetic, data-driven expansion, retry accounting, and the server-side
 ledger that checks them. `25-ledger` collection. `ledger.sh` harness.
@@ -2052,12 +2053,12 @@ ledger that checks them. `25-ledger` collection. `ledger.sh` harness.
 what the server saw. A run that says "4 passed" out of a total of 2 fails the
 gate.
 
-**Why this surface is unexercised today.** Phases 1-3 found sixteen defects and
-every one announced itself with an error, a crash or a failed assertion. None of
-them checked whether the *numbers curlew prints* are right. `data_driven`
-appears once in the whole dogfood suite (`20-extraction.yaml`), with no
-retention policy set, and nothing anywhere asserts that `summary.total` equals
-what `requests[]` contains.
+**Why this surface was unexercised before this phase.** Phases 1-3 found sixteen
+defects and every one announced itself with an error, a crash or a failed
+assertion. None of them checked whether the *numbers curlew prints* are right.
+`data_driven` appeared once in the whole dogfood suite (`20-extraction.yaml`
+alone), with no retention policy set, and nothing anywhere asserted that
+`summary.total` equals what `requests[]` contains.
 
 **Deliberately not built:**
 
@@ -2065,16 +2066,24 @@ what `requests[]` contains.
   three-request `--parallel` collection whose dependency graph cannot see a
   server-side dependency. A rendezvous is a proof; a race is a flake, and
   M21-003 already removed one flaky timing test from this repository.
-- **New mudflat endpoints.** The ledger reads `/s/{sid}/concurrency` (unused in
-  the gate step — see above), `/s/{sid}/resources` and the flaky family's
-  `attempt` field, all of which already exist. §16 deletes endpoints nothing
-  needs, and this needed none.
+- **New mudflat endpoints.** The ledger reads `/s/{sid}/resources` (a read-only
+  GET this harness issues directly, independent of curlew) and the flaky
+  family's `attempt` field, both of which already exist. §16 deletes endpoints
+  nothing needs, and this needed none.
 
-**Delivered.** One data-driven collection (`25-ledger.yaml`) exercising both
-oracles — curlew's own report checked against itself, and against mudflat's
-per-session counters — and one harness (`ledger.sh`) wired into `ci-local.sh`
-as a failing gate step. One defect found and fixed (§11D.1); one affirmative
-result (§11D).
+**Delivered.** One stateful collection (`25-ledger.yaml`, one session, a
+data-driven expansion, cursor pagination and a retried request) and one harness
+(`ledger.sh`) wired into `ci-local.sh` as a failing gate step, checking two
+oracles: curlew's own report checked against itself (`summary.total ==
+passed+failed+skipped == len(requests[])`), and against a read-only query the
+harness makes directly against mudflat, independent of anything curlew claims.
+One defect found and fixed (§11D.1); one affirmative result (§11D).
+
+Measured, by hand, against a locally running mudflat: on the clean tree the
+harness reports `ledger PASS: all 4 check(s) agreed` and exits 0; with the
+`computeSummary` fix reverted it reports `LEDGER MISMATCH: summary.total=4 but
+passed(6)+failed(0)+skipped(0)=6` and exits 1 — the exact defect this phase
+exists to catch.
 
 **Phase 1 is where the value concentrates.** It is roughly a quarter of the
 endpoint surface and it closes the dogfooding gap outright; Phases 2 and 3 deepen

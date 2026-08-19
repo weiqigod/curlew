@@ -78,13 +78,15 @@ mattering (specification §3).
 
 ## The harnesses
 
-Each asserts something a collection cannot, and all three run in `ci-local.sh`:
+Each asserts something a collection cannot, and each one runs in `ci-local.sh`:
 
 | Harness | Asserts |
 |---|---|
 | `gaps.sh` | Every request under `gaps/` still fails. An **unexpected pass** fails the harness — that is what makes the directory shrink. |
 | `redaction.sh` | No published secret reached any output artefact. Gates on a baseline of known leaks; a new leak fails, and a *fixed* leak fails too. |
 | `crosscheck.sh` | curl reads the raw layer the way the specification intends — independent evidence that the malformations are real rather than Go being strict. |
+| `openapi.sh` | The served OpenAPI document round-trips: import it, run what comes out, against the server that described it (§9.P). |
+| `ledger.sh` | curlew's own report (`summary.total`, `attempt_details`) agrees with itself and with a read-only query this script makes directly against mudflat — the failure mode that reports success and exits 0 (specification §18 Phase 4). |
 
 ## Two rules that keep this honest
 
