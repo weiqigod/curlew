@@ -1,0 +1,76 @@
+# The report a run produces is data a consumer trusts without reading the code
+# that produced it. §11A-§11C found defects that announced themselves with an
+# error or a crash. This collection is not about whether requests succeed --
+# it is about whether curlew's OWN NUMBERS, at the end, are right.
+#
+# A single session (`{{run}}-ledger`) runs a data-driven expansion, a cursor
+# walk over the results, and a retried request, so mudflat's per-session
+# counters are a complete, independent account of what curlew actually did.
+# testapi/harness/ledger.sh reads this run's --format json output and checks
+# it against that account (specification §18 Phase 4).
+name: The ledger
+description: |
+  Data-driven expansion, cursor pagination and a retried request, all inside
+  one session, so mudflat's own counters can be checked against curlew's
+  report of what it did.
+
+requests:
+  - name: create three resources from one data-driven item
+    request:
+      method: POST
+      url: "{{mud}}/s/{{run}}-ledger/resources"
+      body:
+        name: "{{name}}"
+        kind: "{{kind}}"
+    assertions:
+      status: 201
+    data_driven:
+      source: "./data/bulk.csv"
+      format: csv
+
+  - name: the server's count of the expansion
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-ledger/resources"
+    assertions:
+      status: 200
+      body:
+        # One declared item above expanded into three results. If
+        # summary.total ever regresses to counting declared items instead of
+        # reported ones, this number and summary.total part company --
+        # exactly §11D.1.
+        $.total: { equals: 3 }
+        $.items: { length: 3 }
+    extract:
+      first_seq: "$.items[0].seq"
+
+  - name: cursor pagination proves ordering is load-bearing
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-ledger/resources?limit=1&cursor={{first_seq}}"
+    assertions:
+      status: 200
+      body:
+        $.items: { length: 1 }
+        $.items[0].seq: { equals: 2 }
+
+  - name: a retried request whose attempt count the server also kept
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-ledger/flaky/fail-then-succeed?times=2&status=503"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        # mudflat's own attempt counter. ledger.sh cross-checks this against
+        # curlew's own attempt_details length for the same request -- two
+        # independent code paths (the retry loop's bookkeeping, and a
+        # JSONPath extraction of the raw response) that must agree.
+        $.attempt: { equals: 3 }
+        $.failing: { equals: false }
