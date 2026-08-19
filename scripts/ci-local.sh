@@ -211,6 +211,27 @@ go test -run '^Fuzz' -count=1 -v \
 step "repository layout (M28-001)"
 go test ./internal/docs/ -run '^TestReadme_accounts_for_every_top_level_directory$' -count=1 -v
 
+# M28-002: the community files exist and point at real things.
+#
+# -list guard first, for the reason the release and readme_install steps
+# below carry one: a typo in -run reports "ok ... [no tests to run]" at exit
+# 0 -- exactly the vacuity this task exists to close.
+step "front-door files (M28-002)"
+frontdoor_tests="$(go test -list '^TestRepo_front_door_files_are_present$' ./internal/docs/ | grep -c '^TestRepo_' || true)"
+if [ "$frontdoor_tests" != "1" ]; then
+  echo "expected 1 front-door test in ./internal/docs, found ${frontdoor_tests}." >&2
+  exit 1
+fi
+go test ./internal/docs/ -run '^TestRepo_front_door_files_are_present$' -count=1 -v
+
+step "README quickstart, executed (M28-002)"
+quickstart_tests="$(go test -list '^TestReadme_quickstart_actually_works$' ./cmd/curlew/ | grep -c '^TestReadme_' || true)"
+if [ "$quickstart_tests" != "1" ]; then
+  echo "expected 1 quickstart test in ./cmd/curlew, found ${quickstart_tests}." >&2
+  exit 1
+fi
+go test ./cmd/curlew/ -run '^TestReadme_quickstart_actually_works$' -count=1 -v
+
 # M7-004: explicit named marker for the stream-discipline matrix so failures
 # show up under a unique header in CI logs (one grep away).
 step "go test: TestStreamDisciplineMatrix (M7-004 stream-discipline gate)"
@@ -431,9 +452,9 @@ fi
 # -list guard: a typo in -run or in the build tag would otherwise report
 # "ok ... [no tests to run]" at exit 0 -- the same vacuity the release step
 # above guards against. Anchored alternation rather than '^TestReadme'
-# because help_parity_test.go already defines
-# TestReadme_lists_every_command_the_CLI_advertises (untagged, measured: a
-# bare '^TestReadme' prefix returns 4, this alternation returns 3), which a
+# because help_parity_test.go and readme_quickstart_test.go already define
+# four other TestReadme-prefixed tests (untagged, measured: a bare
+# '^TestReadme' prefix returns 7, this alternation returns 3), which a
 # prefix would also catch.
 readme_tests_re='^TestReadme_(install_commands_execute|documents_a_binary_download|install_blocks_extraction)$'
 readme_tests="$(go test -tags readme_install -list "$readme_tests_re" ./cmd/curlew/ | grep -cE '^TestReadme_' || true)"
