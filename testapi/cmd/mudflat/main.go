@@ -26,17 +26,19 @@ Usage:
 
 Serve flags:
   --port <n>        Structured-layer port (default 8080). The raw adversarial
-                    layer listens on --port+1.
+                    layer listens on --port+1, the TLS layer on --port+2.
+  --no-tls          Skip the TLS listener and its certificate generation.
   --bind-unsafe     Bind 0.0.0.0 instead of 127.0.0.1. Refuses without this
                     flag: mudflat ships fixed credentials and deliberate
                     protocol violations, and does not belong on a network.
 
-Phase 1 implements the session model, the echo envelope, status codes, body
-encodings and content types, deterministic failure injection, and stateful
-resources. Phase 2 adds the raw adversarial layer (a second listener that uses
+Phases 1 through 4 are implemented: the session model, the echo envelope,
+status codes, body encodings and content types, deterministic failure injection
+and stateful resources; the raw adversarial layer (a second listener that uses
 no HTTP library at all), signature verification, the concurrency barrier and
-rate limiting. TLS postures, WebSocket, GraphQL and streaming are Phase 3; GET
-/capabilities reports what is absent and why.
+rate limiting; WebSocket, GraphQL, streaming and one TLS listener; and the
+stateful ledger sequence. GET /capabilities reports the implemented phase and
+what is still absent.
 `
 
 func main() {

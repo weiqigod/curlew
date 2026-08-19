@@ -133,19 +133,20 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, _ *http.Request) {
 		Name:     "mudflat",
 		Version:  Version,
 		Families: families,
-		Phase:    1,
+		Phase:    4,
 		Sessions: sessionsReport{
 			Active:    s.sessions.Len(),
 			Evictions: s.sessions.Evictions(),
 		},
+		// Every family in §9 is served as of Phase 4. What remains absent is
+		// absent by measurement rather than by schedule, so the reasons name
+		// the measurement rather than a phase number.
 		Absent: map[string]string{
-			"raw":       "Phase 2 — adversarial framing (§9.E)",
-			"verify":    "Phase 2 — signature verification (§9.G)",
-			"barrier":   "Phase 2 — concurrency observability (§9.J)",
-			"tls":       "Phase 3 — certificate postures (§9.N)",
-			"websocket": "Phase 3 — §9.L",
-			"graphql":   "Phase 3 — §9.K",
-			"streaming": "Phase 3 — §9.M",
+			"tls-postures": "eight of §9.N's nine reduced to one listener — " +
+				"no client-side route to trusting mudflat's CA exists on this " +
+				"toolchain, so all eight produce one identical error (§14.3, §16)",
+			"h2c": "cleartext HTTP/2 has no ALPN to negotiate with and curlew " +
+				"sends no upgrade, so the listener would be unreachable (§11.4)",
 		},
 	})
 }
