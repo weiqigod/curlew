@@ -557,8 +557,15 @@ mudflat_pid=""
 # --- Test stack (only if an E2E gate will run) ---
 if (( run_e2e )); then
   step "test-stack up"
-  ./scripts/test-stack.sh up
+  # Armed before the invocation, not after it. `test-stack.sh up` runs
+  # `compose up -d` and only then waits for each service to report healthy, so
+  # its likeliest failure — a container that has not come up inside the health
+  # window — is precisely the one that leaves containers running. Setting the
+  # flag afterwards meant that failure was the one case the EXIT trap skipped,
+  # and the next run inherited a half-started stack. Arming first costs at
+  # worst a redundant `down` on a stack that never started, which is idempotent.
   stack_started=1
+  ./scripts/test-stack.sh up
 fi
 
 # --- Backend gate ---
