@@ -16,8 +16,12 @@ package docs_test
 // contract internal/schema/parity_test.go already carries.
 
 import (
+	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/weiqigod/curlew/internal/docs"
@@ -459,5 +463,151 @@ func TestAuditFrontDoor(t *testing.T) {
 				t.Errorf("Clean() = %v, want %v", got.Clean(), tt.want.Clean())
 			}
 		})
+	}
+}
+
+// The tests below are the second layer: they read the repository's own
+// front-door files and hold them to what the first layer's functions compute
+// from the repository's own source of truth. Filenames are declared as
+// consts rather than inline literals so docs.Claims (internal/docs/claims.go)
+// -- which treats a "*.md" string literal followed by further string
+// literals in a _test.go file as a documentation-table claim -- does not
+// mistake a plain file-read for a claim on a table this file does not read.
+// internal/docs/layout_test.go:553 established the pattern (const readmeFile).
+const (
+	contributingFile = "CONTRIBUTING.md"
+	securityFile     = "SECURITY.md"
+	claudeMDFile     = "CLAUDE.md"
+	goModFile        = "go.mod"
+	prTemplateFile   = ".github/pull_request_template.md"
+)
+
+// readRepoFileOrFatal reads a repository-root-relative path or fails the
+// test, mirroring cmd/curlew/readme_install_test.go's
+// readmeReadFileOrFatal for the same reason: every one of these tests wants
+// the same "fail loudly, not silently" behaviour on a missing file.
+func readRepoFileOrFatal(t *testing.T, relPath string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(docs.Root, relPath))
+	if err != nil {
+		t.Fatalf("read %s: %v", relPath, err)
+	}
+	return string(data)
+}
+
+// TestRepo_front_door_files_are_present is the observable: the community
+// files exist and point at real things. A registry emptied out from under
+// this test would otherwise let it pass vacuously, so the floor below is
+// independent of AuditFrontDoor finding anything to report.
+func TestRepo_front_door_files_are_present(t *testing.T) {
+	if len(docs.FrontDoor) < 6 {
+		t.Fatalf("docs.FrontDoor has %d entries; want at least 6 -- the registry was emptied out from under this test", len(docs.FrontDoor))
+	}
+
+	contents, err := docs.ReadFrontDoor(context.Background(), docs.Root, docs.FrontDoor)
+	if err != nil {
+		t.Fatalf("ReadFrontDoor: %v", err)
+	}
+
+	audit := docs.AuditFrontDoor(docs.FrontDoor, contents)
+	if audit.Clean() {
+		return
+	}
+	for _, f := range audit.Missing {
+		t.Errorf("missing %s: %s", f.Path, f.Why)
+	}
+	for _, f := range audit.Empty {
+		t.Errorf("%s exists but is empty: %s", f.Path, f.Why)
+	}
+	for path, missing := range audit.Silent {
+		t.Errorf("%s exists but does not state: %v (%s)", path, missing, path)
+	}
+}
+
+// TestContributing_names_the_gate_that_ci_local_runs holds CONTRIBUTING.md to
+// scripts/ci-local.sh in both directions (D4a), and checks docs.GateTools
+// appears in both files (D4b) so the document and the script cannot drift
+// apart without this failing for one of them.
+func TestContributing_names_the_gate_that_ci_local_runs(t *testing.T) {
+	gate := readRepoFileOrFatal(t, docs.GateScript)
+	modes, err := docs.GateModes(gate)
+	if err != nil {
+		t.Fatalf("GateModes(%s): %v", docs.GateScript, err)
+	}
+
+	contributing := readRepoFileOrFatal(t, contributingFile)
+	invoked, err := docs.GateInvocations(contributing)
+	if err != nil {
+		t.Fatalf("GateInvocations(%s): %v", contributingFile, err)
+	}
+
+	audit := docs.AuditGate(modes, invoked)
+	if !audit.Clean() {
+		if len(audit.Undocumented) > 0 {
+			t.Errorf("%s accepts mode(s) %v that %s never names", docs.GateScript, audit.Undocumented, contributingFile)
+		}
+		if len(audit.Unknown) > 0 {
+			t.Errorf("%s names mode(s) %v that %s would reject", contributingFile, audit.Unknown, docs.GateScript)
+		}
+	}
+
+	for _, tool := range docs.GateTools {
+		if !strings.Contains(gate, tool) {
+			t.Errorf("%s no longer runs %q -- update docs.GateTools", docs.GateScript, tool)
+		}
+		if !strings.Contains(contributing, tool) {
+			t.Errorf("%s does not mention %q, one of the tools the gate runs", contributingFile, tool)
+		}
+	}
+}
+
+// TestSecurity_names_a_reporting_route_that_exists holds SECURITY.md to the
+// private GitHub advisory route derived from go.mod (F9), and to the exact
+// public-issue rule, and forbids the noreply address that accepts no mail.
+func TestSecurity_names_a_reporting_route_that_exists(t *testing.T) {
+	ownerRepo, err := docs.ModuleOwnerRepo(readRepoFileOrFatal(t, goModFile))
+	if err != nil {
+		t.Fatalf("ModuleOwnerRepo(%s): %v", goModFile, err)
+	}
+
+	security := readRepoFileOrFatal(t, securityFile)
+
+	wantURL := "https://github.com/" + ownerRepo + docs.SecurityAdvisoryPath
+	if !strings.Contains(security, wantURL) {
+		t.Errorf("%s does not name the private advisory route %q", securityFile, wantURL)
+	}
+	if !strings.Contains(security, docs.SecurityPublicIssueRule) {
+		t.Errorf("%s does not state the public-issue rule verbatim:\n%s", securityFile, docs.SecurityPublicIssueRule)
+	}
+
+	const noreply = "@users.noreply.github.com"
+	if strings.Contains(security, noreply) {
+		t.Errorf("%s names a noreply address (%s), which accepts no mail", securityFile, noreply)
+	}
+}
+
+// TestPullRequestTemplate_carries_the_quality_gate_checklist checks the
+// forward direction only (the template may add PR-specific lines beyond
+// CLAUDE.md's checklist): every item CLAUDE.md states under each of
+// docs.QualityGateHeadings must appear in the PR template.
+func TestPullRequestTemplate_carries_the_quality_gate_checklist(t *testing.T) {
+	claude := readRepoFileOrFatal(t, claudeMDFile)
+	template := readRepoFileOrFatal(t, prTemplateFile)
+
+	total := 0
+	for _, h := range docs.QualityGateHeadings {
+		items, err := docs.Checklist(claude, h)
+		if err != nil {
+			t.Fatalf("Checklist(%s, %q): %v", claudeMDFile, h, err)
+		}
+		total += len(items)
+		for _, item := range items {
+			if !strings.Contains(template, item) {
+				t.Errorf("%s is missing checklist item %q from %s heading %q", prTemplateFile, item, claudeMDFile, h)
+			}
+		}
+	}
+	if total == 0 {
+		t.Fatalf("parsed zero checklist items from %s -- the parse is broken, not the template", claudeMDFile)
 	}
 }
