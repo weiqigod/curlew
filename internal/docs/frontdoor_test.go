@@ -304,8 +304,8 @@ Before task completion:
 			want:    []string{"On feature branch (not main)"},
 		},
 		{
-			name: "a checklist inside a fenced block is not a checklist",
-			src: "```\nBefore any commit:\n- [ ] On feature branch (not main)\n```\n",
+			name:    "a checklist inside a fenced block is not a checklist",
+			src:     "```\nBefore any commit:\n- [ ] On feature branch (not main)\n```\n",
 			heading: "Before any commit:",
 			err:     docs.ErrNoChecklist,
 		},
