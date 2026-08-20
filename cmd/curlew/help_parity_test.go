@@ -32,6 +32,12 @@ import (
 // that users are not meant to discover the flag.
 var helpFlagExceptions = map[string]string{}
 
+// runSynopsisExceptions lists flags deliberately absent from the run parse-
+// error synopsis (main.go's runUsageSynopsis). Keep this empty unless there
+// is a stated reason: an entry here is a promise that users are not meant to
+// see the flag at the moment they mistype one.
+var runSynopsisExceptions = map[string]string{}
+
 // allHelpText concatenates every help surface the CLI can print. A flag is
 // "documented" if it appears in any of them — subcommand flags belong in their
 // subcommand's help, not in the top-level block.
@@ -65,12 +71,18 @@ func allHelpText(t *testing.T) string {
 	return all.String()
 }
 
-// acceptedFlags walks every non-test source file in this package and collects
-// the string literals used as `case` values in switch statements — i.e. the
-// exact set of arguments the CLI accepts. Reading the parsers rather than a
-// hand-maintained list is the point: a hand-maintained list drifts the same
-// way the help text did.
-func acceptedFlags(t *testing.T) []string {
+// walkFlagLiterals visits every string literal in this package's non-test
+// sources that a parser compares an argument against — a `case "--flag":`
+// value or an `==` operand — and calls record with the unquoted value.
+// Flags are accepted two ways: a `case "--flag":` in a switch, and an
+// `if a == "--flag"` outside one. Reading only the case clauses missed the
+// second kind entirely — `--clear` on `curlew watch` was accepted by the
+// binary and invisible to this test.
+//
+// When funcName is non-empty the walk is confined to that function's body,
+// and the walk fails if no function of that name exists in the package: a
+// renamed parser must fail loudly rather than enumerate nothing.
+func walkFlagLiterals(t *testing.T, funcName string, record func(val string)) {
 	t.Helper()
 
 	entries, err := os.ReadDir(".")
@@ -78,8 +90,41 @@ func acceptedFlags(t *testing.T) []string {
 		t.Fatalf("read package dir: %v", err)
 	}
 
-	seen := map[string]bool{}
 	fset := token.NewFileSet()
+	found := funcName == ""
+
+	recordLit := func(lit *ast.BasicLit) {
+		if lit.Kind != token.STRING {
+			return
+		}
+		val, err := strconv.Unquote(lit.Value)
+		if err != nil {
+			return
+		}
+		record(val)
+	}
+	visit := func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.CaseClause:
+			for _, expr := range node.List {
+				if lit, ok := expr.(*ast.BasicLit); ok {
+					recordLit(lit)
+				}
+			}
+		case *ast.BinaryExpr:
+			// `a == "--flag"` or `"--flag" == a`.
+			if node.Op != token.EQL {
+				return true
+			}
+			if lit, ok := node.X.(*ast.BasicLit); ok {
+				recordLit(lit)
+			}
+			if lit, ok := node.Y.(*ast.BasicLit); ok {
+				recordLit(lit)
+			}
+		}
+		return true
+	}
 
 	for _, e := range entries {
 		name := e.Name()
@@ -90,45 +135,39 @@ func acceptedFlags(t *testing.T) []string {
 		if err != nil {
 			t.Fatalf("parse %s: %v", name, err)
 		}
-		// Flags are accepted two ways: a `case "--flag":` in a switch, and an
-		// `if a == "--flag"` outside one. Reading only the case clauses missed
-		// the second kind entirely — `--clear` on `curlew watch` was accepted
-		// by the binary and invisible to this test.
-		record := func(lit *ast.BasicLit) {
-			if lit.Kind != token.STRING {
-				return
-			}
-			val, err := strconv.Unquote(lit.Value)
-			if err != nil {
-				return
-			}
-			if strings.HasPrefix(val, "--") && len(val) > 2 {
-				seen[val] = true
-			}
+		if funcName == "" {
+			ast.Inspect(file, visit)
+			continue
 		}
-		ast.Inspect(file, func(n ast.Node) bool {
-			switch node := n.(type) {
-			case *ast.CaseClause:
-				for _, expr := range node.List {
-					if lit, ok := expr.(*ast.BasicLit); ok {
-						record(lit)
-					}
-				}
-			case *ast.BinaryExpr:
-				// `a == "--flag"` or `"--flag" == a`.
-				if node.Op != token.EQL {
-					return true
-				}
-				if lit, ok := node.X.(*ast.BasicLit); ok {
-					record(lit)
-				}
-				if lit, ok := node.Y.(*ast.BasicLit); ok {
-					record(lit)
-				}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Name.Name != funcName || fn.Body == nil {
+				continue
 			}
-			return true
-		})
+			found = true
+			ast.Inspect(fn.Body, visit)
+		}
 	}
+
+	if !found {
+		t.Fatalf("no function named %s found in this package — the walk target was renamed", funcName)
+	}
+}
+
+// acceptedFlags returns every long flag any parser in this package accepts.
+// Reading the parsers rather than a hand-maintained list is the point: a
+// hand-maintained list drifts the same way the help text did.
+//
+// Signature preserved: doc_prose_test.go depends on it.
+func acceptedFlags(t *testing.T) []string {
+	t.Helper()
+
+	seen := map[string]bool{}
+	walkFlagLiterals(t, "", func(val string) {
+		if strings.HasPrefix(val, "--") && len(val) > 2 {
+			seen[val] = true
+		}
+	})
 
 	if len(seen) == 0 {
 		t.Fatal("found no accepted flags — the AST walk is broken, not the CLI")
@@ -142,21 +181,123 @@ func acceptedFlags(t *testing.T) []string {
 	return flags
 }
 
-func TestHelp_documents_every_accepted_flag(t *testing.T) {
-	help := allHelpText(t)
+// acceptedArgTokensIn returns every flag-shaped token, long or short, that
+// the named parser function accepts, sorted. Widening beyond acceptedFlags's
+// `--`-only filter to include short flags like -v/-vv/-q costs nothing here
+// — all three are already listed wherever they need to be — and is strictly
+// stronger: a short flag added without a synopsis entry now fails too.
+//
+// t.Fatals if fewer than 10 tokens come back: the floor guard that keeps a
+// broken walk from reporting a vacuous, all-green pass (the same pattern as
+// this repo's len(supportedLocales) != 15 / len(commands) < 5 checks).
+func acceptedArgTokensIn(t *testing.T, funcName string) []string {
+	t.Helper()
 
-	for _, flag := range acceptedFlags(t) {
-		if reason, exempt := helpFlagExceptions[flag]; exempt {
-			t.Logf("%s deliberately undocumented: %s", flag, reason)
-			continue
+	seen := map[string]bool{}
+	walkFlagLiterals(t, funcName, func(val string) {
+		if len(val) > 1 && strings.HasPrefix(val, "-") {
+			seen[val] = true
 		}
-		// Match the flag followed by a word boundary so that "--env" does not
-		// count itself as documented by a line describing "--env-var".
-		if !mentionsFlag(help, flag) {
-			t.Errorf("%s is accepted by an argument parser but appears in no help output —\n"+
-				"add a line to the relevant print*HelpTo, or record an exception in helpFlagExceptions", flag)
-		}
+	})
+
+	if len(seen) < 10 {
+		t.Fatalf("found only %d flag-shaped tokens in %s — the walk is broken, not the CLI", len(seen), funcName)
 	}
+
+	flags := make([]string, 0, len(seen))
+	for f := range seen {
+		flags = append(flags, f)
+	}
+	sort.Strings(flags)
+	return flags
+}
+
+// flagSurface is one place the CLI tells a user which flags exist. A third
+// surface joins the check by adding a value here and asserting it in a new
+// entry-point test — the watch synopsis (main.go's watchCmdOut) is the known
+// next candidate; see docs/PRODUCT_ROADMAP.md.
+type flagSurface struct {
+	name    string                    // for failure messages
+	text    func(t *testing.T) string // the surface as a user sees it
+	flags   func(t *testing.T) []string
+	exempt  map[string]string // deliberately absent, with a reason
+	fixHint string            // what to edit when a flag is missing
+}
+
+// helpSurface is every print*HelpTo writer, checked against every flag any
+// parser in the package accepts.
+var helpSurface = flagSurface{
+	name:    "help",
+	text:    allHelpText,
+	flags:   acceptedFlags,
+	exempt:  helpFlagExceptions,
+	fixHint: "add a line to the relevant print*HelpTo, or record an exception in helpFlagExceptions",
+}
+
+// runSynopsisSurface is the one-line synopsis `curlew run` prints on a parse
+// error, checked against the flags parseRunArgs itself accepts.
+var runSynopsisSurface = flagSurface{
+	name: "run usage synopsis",
+	text: runParseErrorStderr,
+	flags: func(t *testing.T) []string {
+		return acceptedArgTokensIn(t, "parseRunArgs")
+	},
+	exempt:  runSynopsisExceptions,
+	fixHint: "add the flag to runUsageSynopsis in cmd/curlew/main.go, or record an exception in runSynopsisExceptions",
+}
+
+// runParseErrorStderr returns the first line curlew writes to stderr when the
+// run parser rejects an argument — the synopsis a user sees at the exact
+// moment they mistyped a flag. Drives the real dispatcher (runWithWriters,
+// production code) rather than reading the const directly, so the test
+// asserts what a user actually sees. The parse-error branch returns before
+// any file I/O, events emitter, or telemetry defer runs, so this call has no
+// side effects.
+func runParseErrorStderr(t *testing.T) string {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	runWithWriters([]string{"run", "--definitely-not-a-flag"}, &stdout, &stderr)
+	line, _, _ := strings.Cut(stderr.String(), "\n")
+	if !strings.HasPrefix(line, "Usage: curlew run") {
+		t.Fatalf("first stderr line is not the run synopsis; got %q", line)
+	}
+	return line
+}
+
+// assertSurfaceDocumentsFlags checks that every flag surface s is
+// responsible for appears in its text as its own token. One sub-test per
+// flag, so a single missing flag names itself in `go test -run` output
+// instead of disappearing into one combined failure.
+func assertSurfaceDocumentsFlags(t *testing.T, s flagSurface) {
+	t.Helper()
+	text := s.text(t)
+
+	for _, flag := range s.flags(t) {
+		t.Run(flag, func(t *testing.T) {
+			if reason, exempt := s.exempt[flag]; exempt {
+				t.Logf("%s deliberately undocumented in %s: %s", flag, s.name, reason)
+				return
+			}
+			// Match the flag followed by a word boundary so that "--env" does
+			// not count itself as documented by a line describing "--env-var".
+			if !mentionsFlag(text, flag) {
+				t.Errorf("%s is accepted but appears in no %s output —\n%s", flag, s.name, s.fixHint)
+			}
+		})
+	}
+}
+
+func TestHelp_documents_every_accepted_flag(t *testing.T) {
+	assertSurfaceDocumentsFlags(t, helpSurface)
+}
+
+// TestUsage_synopsis_lists_every_accepted_flag guards the second surface a
+// user sees at the exact moment they mistype a run flag: the one-line
+// synopsis printed on a parse error. TestHelp_documents_every_accepted_flag
+// only ever covered curlew --help; nothing caught the synopsis itself
+// falling behind parseRunArgs.
+func TestUsage_synopsis_lists_every_accepted_flag(t *testing.T) {
+	assertSurfaceDocumentsFlags(t, runSynopsisSurface)
 }
 
 // mentionsFlag reports whether help documents flag as its own token, rather
