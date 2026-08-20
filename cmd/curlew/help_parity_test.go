@@ -215,7 +215,8 @@ func acceptedArgTokensIn(t *testing.T, funcName string) []string {
 // flagSurface is one place the CLI tells a user which flags exist. A third
 // surface joins the check by adding a value here and asserting it in a new
 // entry-point test — the watch synopsis (main.go's watchCmdOut) is the known
-// next candidate; see docs/PRODUCT_ROADMAP.md.
+// next candidate, omitting twelve flags parseRunArgs accepts; see the run
+// usage synopsis entry in CHANGELOG.md for why it was left out of scope.
 type flagSurface struct {
 	name    string                    // for failure messages
 	text    func(t *testing.T) string // the surface as a user sees it
