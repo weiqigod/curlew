@@ -2450,14 +2450,20 @@ func TestRegistry_FakerSSN_NoRuntimeSet_NoPanic(t *testing.T) {
 	}
 }
 
-func TestRegistry_FakerPersonal_LocaleDeferred(t *testing.T) {
-	// Behavior 13 (deferred): the --locale CLI flag does not exist in
-	// M13. Once a future locale-support milestone introduces the flag
-	// along with a recognise-but-warn-and-ignore policy, this test
-	// should assert that en-US is still used and the warning fires.
-	// Until then we keep this stub so the contract is visible.
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
-}
+// The seven *_LocaleDeferred stubs that used to sit in this file (one per
+// $faker.* family) skipped unconditionally on "--locale is deferred from
+// M13". M20-001 shipped --locale, so the reason expired. Their intent now
+// lives in:
+//   - locale-aware families: locale_matrix_test.go, locale_pools_test.go,
+//     doc_locale_test.go
+//   - locale-neutral families: locale_neutrality_test.go
+//
+// The "recognise-but-warn-and-ignore" policy this file's personal-family
+// stub described was never built: an unsupported --locale aborts with
+// ERR_LOCALE_UNKNOWN (locale.go's resolveLocaleData / ValidateLocale,
+// docs/MANUAL.md:1355), and the warn-and-fall-back path (dynamic.go's
+// WithLocaleWarning) is unreachable while all 15 supported locales ship
+// pools.
 
 // --- M13-003: $faker location-data family ---
 
@@ -2672,12 +2678,6 @@ func TestRegistry_FakerLocation_AddressShape(t *testing.T) {
 	}
 }
 
-// TestRegistry_FakerLocation_LocaleDeferred is a contract stub for the deferred
-// --locale behavior (M13 Open Decision #1).
-func TestRegistry_FakerLocation_LocaleDeferred(t *testing.T) {
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
-}
-
 // ─── M13-004: $faker.* company-data functions ────────────────────────────────
 
 // TestFakerCompany_PoolsNonEmpty proves all seven shipped pools are non-empty
@@ -2837,12 +2837,6 @@ func companyPoolContains(pool []string, s string) bool {
 		}
 	}
 	return false
-}
-
-// TestRegistry_FakerCompany_LocaleDeferred is a contract stub for the deferred
-// --locale behavior (M13 Open Decision #1).
-func TestRegistry_FakerCompany_LocaleDeferred(t *testing.T) {
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
 }
 
 // ─── M13-005: $faker.* internet-data pools ───────────────────────────────────
@@ -3229,12 +3223,6 @@ func TestRegistry_FakerInternet_RandomColorVsFakerColor(t *testing.T) {
 		t.Errorf("Available() must include both randomColor and faker.color; got randomColor=%v faker.color=%v",
 			sawRC, sawFC)
 	}
-}
-
-// TestRegistry_FakerInternet_LocaleDeferred is a contract stub for the
-// deferred --locale behavior (M13 Open Decision #1).
-func TestRegistry_FakerInternet_LocaleDeferred(t *testing.T) {
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
 }
 
 // ─── M13-006: $faker.* content-data pool tests ───────────────────────────────
@@ -3715,12 +3703,6 @@ func TestRegistry_FakerContent_TextLength(t *testing.T) {
 	}
 }
 
-// TestRegistry_FakerContent_LocaleDeferred is a contract stub for the
-// deferred --locale behavior (M13 Open Decision #1). Behavior 13.
-func TestRegistry_FakerContent_LocaleDeferred(t *testing.T) {
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
-}
-
 // ─── M13-007: $faker.* financial-data registration tests ───────────────────
 
 // TestRegistry_FakerFinancial — table-driven validation of all 8
@@ -4044,12 +4026,6 @@ func TestRegistry_FakerFinancial_Unseeded(t *testing.T) {
 			t.Errorf("two unseeded creditCard draws collided twice: %q", v1)
 		}
 	}
-}
-
-// TestRegistry_FakerFinancial_LocaleDeferred is a contract stub for
-// the deferred --locale behavior. Behavior 12.
-func TestRegistry_FakerFinancial_LocaleDeferred(t *testing.T) {
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
 }
 
 // ─── M13-007: $faker.* financial-data pool & helpers ────────────────────────
@@ -4470,12 +4446,6 @@ func TestRegistry_FakerFile_NotSensitive(t *testing.T) {
 			t.Errorf("%s must NOT be auto-sensitive (per SPECIFICATION.md:849-857)", fn)
 		}
 	}
-}
-
-// TestRegistry_FakerFile_LocaleDeferred is a contract stub for the
-// deferred --locale behavior (M13 Open Decision #1). Behavior 10.
-func TestRegistry_FakerFile_LocaleDeferred(t *testing.T) {
-	t.Skip("--locale flag is deferred from M13 entirely (see M13 Open Decision #1, M13-001 plan).")
 }
 
 // ─── M13-008: $faker.* file-data pool tests ─────────────────────────────────

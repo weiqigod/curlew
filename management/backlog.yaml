@@ -2066,7 +2066,11 @@ capabilities:
         verified_by: ai
         branch: feature/M28-002-front-door-files-and-quickstart
       - id: M28-003
-        status: backlog
+        status: done
+        planned_date: 2026-08-20
+        completed_date: 2026-08-20
+        verified_by: ai
+        branch: feature/M28-003-usage-synopsis-and-expired-stubs
 
   ci_reenablement:
     description: 'Something other than the author verifies a push'
