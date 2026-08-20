@@ -7,6 +7,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The `curlew run` usage synopsis omitted four flags, not the three
+  originally reported.** The one-line synopsis printed on a run parse error —
+  the text a user sees at the exact moment they mistype a flag — listed
+  sixteen flags and was missing `--allow-sensitive`, `--events`, `--locale`,
+  and `--quiet`. The task that opened this fix named only the first three;
+  `--quiet` (`case "-q", "--quiet":` in `parseRunArgs`) is genuinely accepted
+  and was genuinely absent too, found by deriving the synopsis's expected
+  flag set mechanically from the parser rather than trusting the task text.
+  All four flags work today and are documented in `curlew --help`. M23-001's
+  `TestHelp_documents_every_accepted_flag` covers `--help` but never covered
+  this second surface, so nothing caught the drift. Extended rather than
+  duplicated: the AST walk both tests share is now `walkFlagLiterals`, with
+  `TestUsage_synopsis_lists_every_accepted_flag` as the new entry point,
+  mutation-verified by adding a throwaway flag to `parseRunArgs` and
+  confirming both parity tests name it, then reverting. A third surface —
+  `curlew watch`'s own inline synopsis, which omits twelve flags — was found
+  and is deliberately left alone; the task scoped other help surfaces out.
+- **Seven tests skipped unconditionally on a reason that expired four
+  milestones ago.** `internal/variable/dynamic_test.go` carried one
+  `t.Skip("--locale flag is deferred from M13 entirely...")` stub per
+  `$faker.*` family. M20-001 shipped `--locale`; the skip reason stopped
+  being true and nothing noticed, because a permanently-skipped test shows as
+  present in the suite while proving nothing. Six were replaced by
+  `internal/variable/locale_neutrality_test.go`, which tests the per-family
+  locale-*neutrality* `docs/MANUAL.md` promises in five separate passages —
+  location, company, internet, content, financial, file — that nothing
+  previously checked; the personal-data stub was deleted outright as covered
+  five times over by existing locale tests. The
+  "recognise-but-warn-and-ignore" `--locale` policy the stubs' comments
+  anticipated was never built: the shipped policy is recognise-or-reject via
+  a structured `ERR_LOCALE_UNKNOWN`, and the warn-and-fall-back code path
+  exists but is unreachable while all 15 supported locales ship pools.
 - **`testapi/README.md` still opened by saying Phase 3 "is specified but not
   built".** Phase 3 landed in `1fccbb9` and Phase 4 in `70a1351`, and the same
   file already carried a "What Phase 3 found" section describing Phase 3's
