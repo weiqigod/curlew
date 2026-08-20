@@ -490,6 +490,17 @@ func redactedCLIArgs(args []string) []string {
 	return out
 }
 
+// runUsageSynopsis is the one-line synopsis printed on a run parse error: the
+// text a user sees at the exact moment they mistyped a flag. It must list every
+// flag parseRunArgs accepts, aliases included. Adding a case to parseRunArgs
+// without adding it here fails TestUsage_synopsis_lists_every_accepted_flag.
+//
+// Deliberately not an entry in usageSynopses: that map's contract is that each
+// value mirrors the first Usage line of a corresponding print*HelpTo, and run
+// has no print*HelpTo — its options live in the "Run Options:" section of the
+// top-level help.
+const runUsageSynopsis = "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--report <file>] [--only \"<name>\"] [--show-dependencies] [--dry-run] [--parallel] [--confirm-large-dataset] [--color <when>] [--no-color] [-v] [-vv] [-q]"
+
 // runCmdInner is the shared implementation for runCmd and watch mode.
 // stdout and stderr are the writers used for all output produced by this
 // invocation. Passing os.Stdout / os.Stderr preserves CLI behaviour; passing
@@ -503,7 +514,7 @@ func redactedCLIArgs(args []string) []string {
 func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary) {
 	flags, parseErr := parseRunArgs(args)
 	if parseErr != nil {
-		_, _ = fmt.Fprintln(stderr, "Usage: curlew run <collection-file> [--env <name>] [--env-var VAR ...] [--var key=value ...] [--seed <number>] [--format <type>] [--report <file>] [--only \"<name>\"] [--show-dependencies] [--dry-run] [--parallel] [--confirm-large-dataset] [--color <when>] [--no-color] [-v] [-vv] [-q]")
+		_, _ = fmt.Fprintln(stderr, runUsageSynopsis)
 		errOut := newStderrPrinterTo(stderr, flags.color)
 		errOut.StructuredError(parseErr)
 		return 1, nil
