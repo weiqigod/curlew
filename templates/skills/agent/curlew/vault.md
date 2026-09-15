@@ -1,85 +1,60 @@
-# curlew — Vault and secret providers reference
+# curlew — Vault reference
 
-Load this file when the user asks about secret management, 1Password, Bitwarden,
-vault providers, or secret redaction.
+Use a `secrets:` block in `curlew.yaml`, with `provider`, provider settings, and a
+`keys:` mapping. Registered providers are `aws-secrets-manager`, `azure-key-vault`,
+`hashicorp-vault`, `gcp-secret-manager`, and `1password`; their CLIs must be installed
+and authenticated. Discover configured names with `curlew vault list`.
+Do not use the obsolete `vault.provider`/`vault://` shape or assume Bitwarden is a
+built-in provider. For a command-backed secret, a variable can use `from_command`
+and `sensitive: true`; inspect the command before executing it.
 
-## Secret providers
-
-Curlew integrates with secret managers so credentials never appear in
-collection YAML. Configure providers in `curlew.yaml`:
+Provider configuration example (requires your own account and item):
 
 ```yaml
-vault:
+# curlew.yaml fragment; not part of the local example below
+secrets:
   provider: 1password
-  account: my.1password.com
+  keys:
+    api_key: "op://Employee/demo-api/api-key#credential"
+  cache_ttl: 300
 ```
 
-Then reference vault items with the `vault://` scheme:
+Use `{{api_key}}` in a request for this project-level configuration.
+The `{{secrets.name}}` syntax belongs to shared team templates, which require
+the corresponding team configuration and selected environment. Vault-resolved values are sensitive.
+Keep redaction enabled and review artifacts before sharing; arbitrary response
+content may still contain secrets. Provider access is not tested by a local fixture.
+The complete collection below demonstrates sensitivity using a public dummy value.
 
+## Run the example
+
+Start Mudflat using the repository's `site/README.md` setup. Save the complete
+collection below as `example.yaml` in a scratch directory. `MUDFLAT_URL` defaults
+to that setup's local port; override it if your fixture uses another port.
+
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export RUN_ID="agent-$(date +%s)-$$"
+curlew validate example.yaml --format json
+curlew run example.yaml --var mud="$MUDFLAT_URL" --var run="$RUN_ID" --format json
+```
+
+## Complete collection
+
+<!-- agent-source: examples/agent/vault.yaml -->
 ```yaml
+name: Local secret redaction
 variables:
-  api_key: "vault://Personal/API Key/credential"
+  demo_token:
+    value: local-example-token
+    sensitive: true
+requests:
+- name: Echo a sensitive header
+  request:
+    method: GET
+    url: '{{mud}}/echo'
+    headers:
+      Authorization: Bearer {{demo_token}}
+  assertions:
+    status: 200
 ```
-
-Curlew resolves the vault reference at run time and substitutes the secret
-value into `{{api_key}}` throughout the collection.
-
-## Supported providers
-
-### 1Password
-
-```yaml
-vault:
-  provider: 1password
-  account: my.1password.com       # optional if op CLI has a default account
-```
-
-Requires the `op` CLI to be installed and authenticated. The reference format
-is `vault://<vault-name>/<item-title>/<field-name>`.
-
-### Bitwarden
-
-```yaml
-vault:
-  provider: bitwarden
-```
-
-Requires the `bw` CLI to be installed and unlocked (`bw unlock`). The
-reference format is `vault://<collection-or-folder>/<item-name>/<field-name>`.
-
-### Custom provider
-
-```yaml
-vault:
-  provider: custom
-  command: ["./scripts/get-secret.sh"]
-```
-
-Curlew calls the command with the vault path as the first argument and expects
-the secret on stdout. Use this for HashiCorp Vault, AWS Secrets Manager,
-Azure Key Vault, or any other secret store.
-
-## Redaction contract
-
-Any value resolved from a vault provider is added to the sensitive-value set.
-Curlew redacts sensitive values in:
-
-- All output formats (terminal, markdown, JSON, TAP, JUnit, HTML)
-- The NDJSON event stream
-- Log lines and error messages
-
-Redacted values appear as `[REDACTED]`. The original bytes never appear in any
-artifact.
-
-If you extract a vault-resolved secret into a variable with `extract:`, the
-extracted value inherits the redaction flag and is also redacted.
-
-## Notes
-
-- Vault lookups add latency. Curlew caches resolved secrets for the lifetime
-  of a single run to avoid repeated round-trips.
-- If a vault reference cannot be resolved (missing item, auth failure), the
-  run exits with code 3 (configuration error) and stderr names the unresolved
-  reference.
-- For OS environment secrets (not vault), use `env_import:` — see
-  `variables.md`.

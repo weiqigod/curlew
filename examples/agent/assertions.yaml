@@ -1,0 +1,37 @@
+name: Assertion example
+requests:
+- name: status any-of form
+  request:
+    method: GET
+    url: '{{mud}}/status/418'
+  assertions:
+    status:
+    - 200
+    - 418
+    - 503
+    body:
+      $.status:
+        equals: 418
+      $.status_text:
+        equals: I'm a teapot
+- name: bodiless 204 carries nothing
+  request:
+    method: GET
+    url: '{{mud}}/status/204'
+  assertions:
+    status: 204
+- name: integers beyond float64 survive intact
+  request:
+    method: GET
+    url: '{{mud}}/json/bignum'
+  assertions:
+    status: 200
+    body:
+      $.beyond_float64:
+        equals: 9007199254740993
+      $.negative:
+        less_than: 0
+      $.very_large:
+        greater_than: 1000000
+    cel:
+    - response.body.beyond_float64 == 9007199254740993

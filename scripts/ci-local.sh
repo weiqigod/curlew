@@ -165,6 +165,9 @@ goreleaser_cmd() {
 go_pkgs() { go list ./... | grep -v '/node_modules/'; }
 
 # --- Go gate (always) ---
+step "build embedded UI assets"
+./scripts/build-ui.sh
+
 step "go build"
 go build -o curlew ./cmd/curlew
 
@@ -367,6 +370,9 @@ fi
 release_bin="$(find dist -type f -name curlew)"
 release_version="$("$release_bin" --version)"
 echo "${release_bin}: ${release_version}"
+
+step "release: embedded UI assets and collection discovery"
+python3 ./scripts/check-ui-artifact.py "$release_bin"
 
 # "curlew 0.1.0-dev" is cmd/curlew/version.go's defaultVersion, hardcoded
 # here rather than derived from the source file -- shelling out to parse Go

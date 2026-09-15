@@ -1,44 +1,25 @@
 import { getAllExamples } from '$lib/content';
 import { highlight } from '$lib/server/highlight';
 
-const HERO = `name: Checkout flow
+const HERO = `name: Local echo
 requests:
-  - name: Log in
-    required: true
+  - name: Echo a message
     request:
       method: POST
-      url: "{{base_url}}/auth/login"
+      url: "{{mud}}/echo"
       body:
-        email: "{{user_email}}"
-        password: "{{user_password}}"   # redacted in every output
+        message: "hello"
     assertions:
-      status: 200
-    extract:
-      token: "$.access_token"            # feed it into the next request
+      status: 200`;
 
-  - name: Place order
-    request:
-      method: POST
-      url: "{{base_url}}/orders"
-      headers:
-        Authorization: "Bearer {{token}}"
-      body:
-        idempotency_key: "{{$uuid}}"     # generated per run
-        customer: "{{$faker.fullName}}"
-        items:
-          - { sku: "WIDGET-1", qty: 2 }
-    assertions:
-      status: 201
-      body:
-        "$.status": { equals: "confirmed" }
-      cel:
-        - "response.body.items.all(i, i.qty > 0)"`;
+const INSTALL = `# In an authenticated checkout; Go 1.24+ and Node.js 22+
+./scripts/build-ui.sh
+go build -o curlew ./cmd/curlew
 
-const INSTALL = `# Install — a single static binary, Go 1.24+
-go install github.com/weiqigod/curlew/cmd/curlew@latest
-
-# Run your first collection
-curlew run collections/checkout.yaml --env staging`;
+# Start a project, then open the local browser UI
+./curlew init demo-api
+cd demo-api
+../curlew ui`;
 
 export const load = async () => {
 	const examples = getAllExamples();

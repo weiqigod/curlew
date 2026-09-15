@@ -1,107 +1,69 @@
 # curlew — Assertions reference
 
-Load this file when the user asks about assertion operators, how to assert
-status codes, headers, response bodies, JSONPath, or timing.
+Use an `assertions:` **map**. `status` accepts an integer or list of integers.
+`headers` accepts `equals`, `exists`, and `matches`. Body operators target JSONPath
+expressions; they are not raw-body substring checks. Timing uses
+`timing: {max_duration_ms: 5000}`. Put CEL expressions in a `cel:` list alongside
+operator assertions in the same map; see `expressions.md`.
 
-For CEL expressions (`assertions: - cel: <expr>`), see `expressions.md`.
+Body operators: `equals`, `exists`, `not_exists`, `type`, `contains`, `contains_all`,
+`matches`, `greater_than`, `less_than`, `greater_than_or_equal`,
+`less_than_or_equal`, `length`, `approximately`, `in_range`.
+Use `curlew schema` for the accepted keys. A failed assertion exits with code 1; invalid
+YAML/configuration exits with code 3. Read the linked report's `### Assertions` section.
 
-## Assertion block shape
+## Run the example
 
-Assertions live under the `assertions:` key of each request. You can use the
-map form (shorthand for single-value operators) or the list form:
+Start Mudflat using the repository's `site/README.md` setup. Save the complete
+collection below as `example.yaml` in a scratch directory. `MUDFLAT_URL` defaults
+to that setup's local port; override it if your fixture uses another port.
 
-```yaml
-assertions:
-  status: 200
-  headers:
-    Content-Type: "application/json"
-  body:
-    $.user.id:
-      exists: true
-      equals: 42
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export RUN_ID="agent-$(date +%s)-$$"
+curlew validate example.yaml --format json
+curlew run example.yaml --var mud="$MUDFLAT_URL" --var run="$RUN_ID" --format json
 ```
 
-## Status assertions
+## Complete collection
 
+<!-- agent-source: examples/agent/assertions.yaml -->
 ```yaml
-assertions:
-  status: 200          # exact match
-  status:
-    in: [200, 201]     # any of the listed codes
+name: Assertion example
+requests:
+- name: status any-of form
+  request:
+    method: GET
+    url: '{{mud}}/status/418'
+  assertions:
+    status:
+    - 200
+    - 418
+    - 503
+    body:
+      $.status:
+        equals: 418
+      $.status_text:
+        equals: I'm a teapot
+- name: bodiless 204 carries nothing
+  request:
+    method: GET
+    url: '{{mud}}/status/204'
+  assertions:
+    status: 204
+- name: integers beyond float64 survive intact
+  request:
+    method: GET
+    url: '{{mud}}/json/bignum'
+  assertions:
+    status: 200
+    body:
+      $.beyond_float64:
+        equals: 9007199254740993
+      $.negative:
+        less_than: 0
+      $.very_large:
+        greater_than: 1000000
+    cel:
+    - response.body.beyond_float64 == 9007199254740993
 ```
-
-## Header assertions
-
-```yaml
-assertions:
-  headers:
-    Content-Type: "application/json"          # substring match
-    X-Request-Id:
-      exists: true                            # header must be present
-    Cache-Control:
-      equals: "no-store"                      # exact match
-```
-
-## Body assertions
-
-### JSONPath operators
-
-Use `$.path` syntax to select a value in the JSON response body:
-
-| Operator | Meaning | Example |
-|---|---|---|
-| `exists: true/false` | Field presence | `$.data: {exists: true}` |
-| `equals: <value>` | Exact equality | `$.status: {equals: "active"}` |
-| `contains: <str>` | Substring or array contains | `$.message: {contains: "OK"}` |
-| `matches: <regex>` | Regex match | `$.email: {matches: ".*@example\\.com"}` |
-| `greater_than: <n>` | Numeric > | `$.count: {greater_than: 0}` |
-| `less_than: <n>` | Numeric < | `$.latency_ms: {less_than: 500}` |
-| `length: <n>` | Array or string length | `$.items: {length: 3}` |
-| `type: <t>` | JSON type (`string`, `number`, `boolean`, `array`, `object`, `null`) | `$.id: {type: "number"}` |
-
-```yaml
-assertions:
-  body:
-    $.user.email:
-      exists: true
-      matches: ".*@acme\\.com"
-    $.items:
-      length: 3
-    $.total:
-      greater_than: 0
-```
-
-### Raw body assertions
-
-```yaml
-assertions:
-  body:
-    raw:
-      contains: "pong"
-      equals: "pong\n"
-```
-
-## Timing assertions
-
-```yaml
-assertions:
-  timing:
-    less_than: 500ms     # total round-trip under 500 ms
-```
-
-## Failure model
-
-- `assertions:` with any failing operator → exit code 1.
-- The per-request markdown file (`responses/<slug>.md`) shows operator,
-  expected value, and actual value for every assertion.
-- For CEL expressions as assertions, see `expressions.md`.
-
-## Decision table: operator vs CEL
-
-| Use case | Use |
-|---|---|
-| Status code, header, JSONPath field | Operator assertion |
-| Arithmetic, cross-field logic, regex patterns, response-time-dependent logic | `assertions: - cel: <expr>` |
-
-Operator assertions are checked before CEL expressions. They cannot be mixed
-in the same `assertions:` map; use the list form when combining.

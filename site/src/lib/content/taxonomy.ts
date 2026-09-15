@@ -110,26 +110,14 @@ export const FEATURES: FeatureTag[] = [
 	{
 		id: 'reporting',
 		label: 'Reporting & PR checks',
-		blurb: 'Upload results to the dashboard and post a GitHub / GitLab check on the PR.',
+		blurb: 'Write local reports and derive a pass/fail verdict for your CI system.',
 		badge: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-	},
-	{
-		id: 'distributed',
-		label: 'Distributed',
-		blurb: 'Fan a run out across coordinated workers.',
-		badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
 	},
 	{
 		id: 'perf',
 		label: 'Load & performance',
 		blurb: 'Drive sustained load and capture latency percentiles.',
 		badge: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-	},
-	{
-		id: 'compliance',
-		label: 'Compliance',
-		blurb: 'Telemetry consent, encryption-at-rest, GDPR data rights, and audit-log export.',
-		badge: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/70 dark:text-zinc-300'
 	},
 	{
 		id: 'openapi',
@@ -157,8 +145,8 @@ export const GROUPS: GroupInfo[] = [
 	},
 	{
 		id: 'automation',
-		label: 'CI, automation & the enterprise',
-		blurb: 'Wire tests into pipelines, scale them out, and satisfy governance requirements.'
+		label: 'CI and local automation',
+		blurb: 'Write reports, inspect results, and run bounded local load tests.'
 	}
 ];
 

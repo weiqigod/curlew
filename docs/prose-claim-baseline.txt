@@ -39,7 +39,6 @@
 # testapi/harness/redaction-known-leaks.txt, both of which emptied.
 #
 # Format: <document>\t<heading>\t<claim text, truncated to 120 chars>
-MANUAL.md	P.1 What Curlew is	It also runs well as a tool invoked by AI coding agents — every command has a `--format json` and a `--non-interactive
 MANUAL.md	P.4 Conventions	Variable names are `snake_case` throughout (`base_url`, `admin_token`, `user_id`) — this matches the scaffold generate
 MANUAL.md	1.3 Anatomy of a collection	Every collection has at minimum a `name` and a `requests` array.
 MANUAL.md	1.3 Anatomy of a collection	Every request item has at minimum a `name`, a `request.method`, and a `request.url`.
@@ -74,18 +73,14 @@ MANUAL.md	3.8 Determinism with `--seed`	Timestamp functions (`$timestamp`, `$tim
 MANUAL.md	3.9 External request files	You cannot set both `path:` and `request:` on the same item — pick one.
 MANUAL.md	4.1 Output formats	The root `summary` block is always present.
 MANUAL.md	4.1a Markdown response files	`run.md` lists the run summary and links to every per-request file.
-MANUAL.md	4.1a Markdown response files	Given the same inputs, the CLI-owned block is byte-identical across runs except for explicitly volatile lines (`duration
 MANUAL.md	4.2b Running a Single Request (--only)	When no main request matches the provided names, `curlew run` prints the available names to stderr and exits immediately
 MANUAL.md	4.2b Running a Single Request (--only)	Setup items with no `extract:` block are treated as pure seeders and always run.
 MANUAL.md	4.2b Running a Single Request (--only)	If curlew cannot analyse the dependency graph (e.g. two setup items extract the same variable in parallel), it falls bac
 MANUAL.md	4.2b Running a Single Request (--only)	`curlew watch collections/users.yaml --only "Get user"` works identically — the minimal-setup pruning applies on every
-MANUAL.md	4.5a Event stream (`--events`)	Every event carries `schema_version: "1.3"` and `run_id`.
-MANUAL.md	4.5a Event stream (`--events`)	Per-request events also carry `request_id` (matches `run --only` selection IDs and the `--log` JSONL `request_id`) and `
 MANUAL.md	4.5a Event stream (`--events`)	Bodies are subject to the same redaction the markdown and JSONL formats apply, and CLI args sent in the `run.start` even
 MANUAL.md	4.6 CI recipes	All three rely on the same pattern: run Curlew with `--format junit --report <file>`, then let the CI's built-in JUnit i
 MANUAL.md	4.7 Project utility commands	It also warns about `{{variable}}` references it cannot account for statically.
 MANUAL.md	4.7 Project utility commands	a name that appears in none of those is reported as a warning, not an error, since environments and `.env` supply values
-MANUAL.md	4.8 AI-agent commands	**`--format json`** — every command that produces output has a machine-readable alternative.
 MANUAL.md	4.9 Driving curlew with an AI agent	`--skill claude` is accepted as a compatibility alias and scaffolds exactly the same project.
 MANUAL.md	5.3 Collection-level defaults	Project-level defaults live in `curlew.yaml` under `defaults:` and inherit into every collection:
 MANUAL.md	5.4 Retry logic	`constant`: always `initial_delay_ms`
@@ -119,7 +114,6 @@ CLI_SPECIFICATION.md	15.2 Handshake	Curlew sends a `curlew/hello` request;
 CLI_SPECIFICATION.md	16.2 Stream Discipline	`--no-color` is `--color=never`.
 CLI_SPECIFICATION.md	16.4 Markdown Reports	`run.md` carries the run summary and links to every per-request file;
 CLI_SPECIFICATION.md	16.5 Event Stream	The same field is settable as `output.events` in configuration.
-CLI_SPECIFICATION.md	18. Command Reference	`--version` and `--help` are accepted at top level and on every subcommand.
 CLI_SPECIFICATION.md	18.7 `watch <file>`	Accepts every `run` flag, plus `--clear` to clear the terminal between runs.
 CLI_SPECIFICATION.md	18.8 `import openapi <spec>`	Every `{{variable}}` the import writes into a request is also emitted in the collection's own `variables:` block, so the
 CLI_SPECIFICATION.md	21. Performance Testing	The file defines `{ name, request }` — the same shape as an external request file (§5.2).

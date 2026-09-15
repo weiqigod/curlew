@@ -2078,3 +2078,15 @@ capabilities:
     tasks:
       - id: M29-001
         status: backlog
+
+  local_product_usability:
+    description: 'Executable documentation, complete local builds, and agent onboarding'
+    milestone: 'M30'
+    tasks:
+      - id: M30-001
+        status: done
+        planned_date: 2026-09-15
+        started_date: 2026-09-15
+        completed_date: 2026-09-15
+        verified_by: ai
+        branch: work/M30-001-agent-docs-and-examples

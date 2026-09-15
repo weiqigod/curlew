@@ -1,0 +1,13 @@
+name: Deterministic payload
+requests:
+  - name: Echo generated name
+    request:
+      method: POST
+      url: "{{mud}}/echo"
+      body:
+        name: "{{$faker.fullName}}"
+        email: "{{$faker.email}}"
+    assertions:
+      status: 200
+      body:
+        $.request.body_len: { greater_than: 0 }

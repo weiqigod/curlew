@@ -1,95 +1,194 @@
 ---
-title: Retry & backoff for flaky APIs
-intent: Survive transient 5xx, 429 throttling, and dropped connections with exponential backoff, jitter, and Retry-After — without retrying the things you mustn't.
+title: Retry and backoff
+intent: Recover from deterministic transient responses and verify attempt counts.
 group: resilience
-features: [retry, rate-limit]
-command: curlew run collections/resilient.yaml
+features:
+- retry
+command: curlew run testapi/collections/30-retry.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 60
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+Mudflat keeps attempt state under the run namespace. The collection asserts how many attempts occurred instead of trusting an illustrative timing trace. Use a fresh RUN_ID on each execution.
 
-Networks and rate limiters fail in predictable, retryable ways. Curlew's retry logic
-targets exactly those — transient 5xx, 429 throttling, connection resets, timeouts —
-while letting you fence off the requests that must *never* be retried. Pair it with a
-collection-wide rate limit and your suite stops being flaky.
+## Prerequisites
 
-## The collection
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
-```yaml
-# collections/resilient.yaml
-name: Resilient calls
-rate_limit_rps: 10                  # token bucket across the whole collection
-
-requests:
-  - name: Fetch report
-    request:
-      method: GET
-      url: "{{base_url}}/reports/{{report_id}}"
-    retry:
-      enabled: true
-      max_attempts: 5               # 1 initial + 4 retries
-      initial_delay_ms: 500
-      max_delay_ms: 30000
-      backoff_strategy: exponential # exponential | linear | constant
-      jitter: true
-      jitter_factor: 0.2            # spread retries to avoid thundering herds
-      respect_retry_after: true     # honor the server's Retry-After header
-      retry_on:
-        status_codes: [429, 502, 503, 504]
-        status_ranges: ["5xx"]
-        network_errors: true        # connection refused, DNS failure, reset
-        timeouts: true
-      do_not_retry_on:
-        status_codes: [401, 403]    # config errors — retrying won't help
-    assertions:
-      status: 200
-      timing:
-        max_duration_ms: 10000
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
-
-## The delay sequence
-
-With `exponential`, `initial_delay_ms: 500`, capped at `30000`:
-
-| Retry | Delay (no jitter) |
-|---|---|
-| 1 | 500 ms |
-| 2 | 1000 ms |
-| 3 | 2000 ms |
-| 4 | 4000 ms |
-
-Jitter at `0.2` multiplies each delay by `1 + 0.2 × random(-1, 1)`, so retry 3 lands
-anywhere in `[1600, 2400]` ms. When the server sends `Retry-After`, that value wins
-(up to a 30s cap).
 
 ## Run it
 
 ```bash
-curlew run collections/resilient.yaml --var report_id=R-2026-001
+curlew run testapi/collections/30-retry.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 ```
 
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: testapi/collections/30-retry.yaml -->
+```yaml
+# Retry, against failures that are deterministic rather than hoped-for.
+#
+# Attempt counters live on the server and key on (session, endpoint, query), so
+# "fails twice then succeeds" means exactly that, every run.
+name: Retry against deterministic failures
+description: |
+  Exercises retry triggers, backoff strategies, network-error classification and
+  Retry-After handling. Delays are kept small so the suite stays fast; the
+  behaviour under test is which attempt succeeds, not how long it waited.
+
+requests:
+  - name: recovers after two 503s
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=2&status=503"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        # Attempt 3 is the first success. A retry that fired the wrong number of
+        # times lands on a different number here, which is a far sharper signal
+        # than a pass or fail alone.
+        $.attempt: { equals: 3 }
+        $.failing: { equals: false }
+
+  - name: status range shorthand triggers a retry
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=1&status=502"
+    retry:
+      enabled: true
+      max_attempts: 3
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_ranges: ["5xx"]
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 2 }
+
+  - name: exponential backoff reaches the success attempt
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=3&status=503&tag=exp"
+    retry:
+      enabled: true
+      max_attempts: 5
+      initial_delay_ms: 5
+      max_delay_ms: 50
+      backoff_strategy: exponential
+      jitter: true
+      jitter_factor: 0.2
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 4 }
+
+  - name: recovery followed by another failure
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-on?attempts=1,2&status=503"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_codes: [503]
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 3 }
+
+  - name: do_not_retry_on wins over retry_on
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=5&status=503&tag=excluded"
+    retry:
+      enabled: true
+      max_attempts: 4
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        status_ranges: ["5xx"]
+      do_not_retry_on:
+        status_codes: [503]
+    assertions:
+      # 503 appears in both lists. The specification says exclusion always wins,
+      # so this must fail on the first attempt without retrying.
+      status: 503
+      body:
+        $.attempt: { equals: 1 }
+
+  - name: a network reset is retried
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-retry/flaky/reset-then-succeed?times=1"
+    retry:
+      enabled: true
+      max_attempts: 3
+      initial_delay_ms: 10
+      backoff_strategy: constant
+      retry_on:
+        network_errors: true
+    assertions:
+      status: 200
+      body:
+        $.attempt: { equals: 2 }
+
+  - name: retry-after in delta-seconds
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/seconds?n=1"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { equals: "1" }
+      body:
+        $.retry_after: { equals: "1" }
+
+  - name: retry-after as an HTTP-date
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/date?ms=1000"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { matches: "GMT$" }
+
+  - name: an oversized retry-after is still just a header
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/huge"
+    assertions:
+      # Retry is off here on purpose. With retry enabled and no clamp this waits
+      # an hour, which is what the Phase 2 gap harness will assert.
+      status: 429
+      headers:
+        Retry-After: { equals: "3600" }
+
+  - name: a malformed retry-after is passed through
+    request:
+      method: GET
+      url: "{{mud}}/retry-after/malformed"
+    assertions:
+      status: 429
+      headers:
+        Retry-After: { equals: "soon" }
 ```
-Collection: Resilient calls
-  ✓ Fetch report  200  1844ms
-
-────────────────────────────────
-  1 request(s): 1 passed, 0 failed (1844ms)
-```
-
-<Callout type="output">
-	Representative output — the request needed two retries (503 → 503 → 200), absorbed
-	silently before the assertions ran. Add <code>-v</code> to see each attempt and its
-	computed backoff delay.
-</Callout>
-
-<Callout type="warn">
-	<code>POST</code> and <code>PATCH</code> aren't idempotent — retrying one that
-	already succeeded server-side can create duplicates. Curlew warns when you enable
-	retry for non-idempotent methods. Restrict it with <code>retry_on.methods</code>,
-	add the verb to <code>do_not_retry_on.methods</code>, or send an idempotency key
-	(as the <a href="/examples/checkout-flow">checkout flow</a> does).
-</Callout>

@@ -1,5 +1,9 @@
 # API Error Codes
 
+> **Platform scope.** This document concerns the retained .NET backend and dashboard.
+> The local Curlew CLI does not call that backend. See [the documentation map](README.md).
+
+
 This document is the stable reference for machine-readable error codes returned by the Curlew Backend.
 All error responses use RFC 7807 problem-details format (`Content-Type: application/problem+json`).
 

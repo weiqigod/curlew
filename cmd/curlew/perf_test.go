@@ -430,7 +430,7 @@ func TestPerfCmd_EventsFlagRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("parsePerfArgs --events: want error, got nil")
 	}
-	const wantMsg = "--events is supported only on run; use --format jsonl for streaming samples"
+	const wantMsg = "--events is supported only on run; use curlew run --events <file> to record run events"
 	if !strings.Contains(err.Error(), wantMsg) {
 		t.Errorf("error = %q; want containing %q", err.Error(), wantMsg)
 	}

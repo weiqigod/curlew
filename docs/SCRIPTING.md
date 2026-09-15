@@ -1,5 +1,11 @@
 # The JS-Scripting Question
 
+> **Historical analysis.** This records an earlier design or investigation and may
+> describe removed features, licensing, or already-completed work. It is not a
+> current operating guide. Use [MANUAL.md](MANUAL.md), [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md),
+> and the [documentation map](README.md) for current behavior.
+
+
 A deep look at the largest single design opinion in Curlew: the absence of in-tool JavaScript. The assessment in `ASSESSMENT.md` treats this as the most consequential bet in the spec; this document examines it more carefully, separates the things the assessment lumped together, audits what scripting is actually used for in real test suites, and lays out a ladder of design options that aren't full JS.
 
 The conclusion is that "no scripting" is the right call, but the framing needs work — both internally (the spec doesn't actually argue for it) and externally (the substitutes aren't yet shipped). There is a clean middle path the assessment doesn't engage with.

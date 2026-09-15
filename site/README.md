@@ -1,64 +1,71 @@
-# Curlew — Examples Cookbook (site)
+# Curlew local examples cookbook
 
-A standalone, fully-static showcase site for Curlew: a filterable gallery of
-sophisticated, end-to-end example scenarios that combine many CLI features at once
-(auth chaining, data-driven, parallel waves, GraphQL/WebSocket, signing, vaults, CI,
-distributed/perf, compliance).
+The cookbook contains fourteen complete examples for the current local CLI.
+Every scenario uses the repository's Mudflat fixture API, public fixture
+credentials where needed, and checked-in data/query files. No cloud account is
+required. The site is separate from the retained platform dashboard in `web/`.
 
-This is **separate** from `../web` (the authenticated team dashboard).
+## Run an example
 
-## Stack
-
-- SvelteKit 2 + Svelte 4 + Vite 5 (matches `../web`)
-- `@sveltejs/adapter-static` — pure prerendered SSG output
-- mdsvex — scenario bodies authored as Markdown (`.svx`)
-- Shiki — build-time syntax highlighting (zero highlighter JS shipped to the client)
-- Tailwind CSS 3 + `@tailwindcss/typography`
-
-No runtime dependencies — everything is build-time.
-
-## Develop
+Use an authenticated checkout. Build the complete app with Go 1.24+ and Node.js 22+:
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173 (or: npm run dev -- --port 4321)
-npm run build      # prerenders to build/  (strict: fails on any dead link / bad frontmatter)
-npm run preview    # serve the built output on :4173
-npm run check      # svelte-check
-npm run lint       # eslint
+./scripts/build-ui.sh
+go build -o curlew ./cmd/curlew
+go build -o mudflat ./testapi/cmd/mudflat
+export PATH="$PWD:$PATH"
+./mudflat serve --port 18080
 ```
 
-## Add a new example
+Keep that terminal running. In another terminal at the repository root, add the
+checkout to PATH again and choose a scenario's **Prerequisites** and **Run it**
+blocks. The defaults use `http://127.0.0.1:18080` and `ws://127.0.0.1:18080`.
+A fresh RUN_ID isolates state between runs. Stop Mudflat with Ctrl+C when done.
 
-Drop one file in `src/content/examples/<slug>.svx`. It is auto-discovered,
-indexed, routed, and prerendered — no wiring needed.
+For example:
 
-```markdown
----
-title: My scenario
-intent: One-sentence "what this proves" hook.
-group: core            # core | resilience | security | automation  (see src/lib/content/taxonomy.ts)
-features: [auth, cel]  # ids from taxonomy.ts — validated at build time
-command: curlew run collections/mine.yaml
-order: 25              # global sort order
-runnable: false        # true if the captured output is from a real run
----
-
-Prose, then fenced ```yaml / ```bash / ```json code blocks (auto-highlighted,
-with copy buttons). Use <Callout type="note|tip|warn|output"> for asides
-(`import Callout from '$lib/components/Callout.svelte'` at the top).
-
-Escape literal `{{...}}` inside <Callout>/<code> tags as `{'{{...}}'}` — they're
-parsed as Svelte mustaches there (Markdown backtick spans are auto-escaped).
+```bash
+export PATH="$PWD:$PATH"
+export MUDFLAT_URL=http://127.0.0.1:18080
+export RUN_ID="cookbook-$(date +%s)-$$"
+curlew run testapi/collections/20-extraction.yaml \
+  --var mud="$MUDFLAT_URL" --var run="$RUN_ID"
 ```
 
-Feature tags and groups are defined once in
-[`src/lib/content/taxonomy.ts`](src/lib/content/taxonomy.ts) — badges and filters
-derive from it. Adding a feature there makes it available everywhere.
+Keep the entire checkout: GraphQL fragments and CSV data are companion files,
+not optional downloads. The load-testing example sends only a short bounded
+probe to the local fixture. Provider-specific recipes in the manual require real
+provider configuration; these local examples do not claim to verify it.
 
-## Output captured vs representative
+## Browse and build the site
 
-Examples that target free public endpoints (e.g. `httpbin.org`) are marked
-`runnable: true` and show output captured from a real `curlew` run. Scenarios that
-need a private API, paid provider, or backend show output modeled on the real tool's
-documented format, labelled with a `<Callout type="output">`.
+From `site/`:
+
+```bash
+npm ci
+npm run dev
+```
+
+The dev server prints its URL. For a static build and checks:
+
+```bash
+npm run check
+npm run lint
+npm run build
+```
+
+## Keep examples executable
+
+Each `.svx` page declares its complete source with a `cookbook-source` marker and
+shows that file verbatim in a YAML block. `TestCookbookRecipes` compares the bytes,
+executes every page's Prerequisites and Run it blocks in a temporary checkout
+against an ephemeral Mudflat server, and fails if any page is missing its recipe.
+Run it with:
+
+```bash
+go test ./cmd/curlew -run '^TestCookbookRecipes$' -count=1 -v
+```
+
+The normal Go gate runs this test. Timings and fabricated terminal output are not
+published as evidence. The “Local example” badge means the scenario has runnable
+local fixtures; it does not mean a public website or cloud integration was tested.

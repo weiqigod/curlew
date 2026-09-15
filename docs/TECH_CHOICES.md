@@ -55,9 +55,14 @@ go.sum
 
 ### Distribution
 
+The complete binary embeds the Svelte UI: run `./scripts/build-ui.sh` before
+`go build`. GoReleaser’s release hooks and the local gate do this from a clean
+checkout. Node.js 22+ is a build dependency only. A plain Go-only installation
+provides the CLI and a build-required UI page.
+
 **Release artifacts:** goreleaser builds six archives (linux/darwin/windows ×
 amd64/arm64) from a tag, each carrying LICENSE, NOTICE, README.md, CHANGELOG.md
-and the two manuals. See `.goreleaser.yaml`.
+and the current user, agent and UI guides. See `.goreleaser.yaml`.
 
 **Package managers: no, not yet.** Homebrew is the one macOS users would ask
 for, and goreleaser can publish a tap from a small `brews:` block, so the

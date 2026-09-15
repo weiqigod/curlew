@@ -5,15 +5,18 @@ non-zero exit, or which artifact to read for a given code.
 
 ## Exit code table
 
-| Code | Symbolic name | Meaning | Primary artifact |
-|---|---|---|---|
-| 0 | — | All assertions passed (or dry run with no failures) | `responses/run.md` |
-| 1 | `ERR_ASSERTION` | One or more assertions failed | `responses/<slug>.md` (`## Assertions` section) |
-| 2 | `ERR_GUARD_RAIL` | Request count exceeded `MaxRequests` safety cap | `.curlew/run.ndjson` (`run.end` event, `exit_code: 2`) |
-| 3 | `ERR_CONFIG` | Configuration error before any HTTP fired | stderr |
-| 4 | `ERR_RUNTIME` | Non-assertion runtime error (network, TLS, DNS) | `.curlew/run.ndjson` (`request.end` with `error.category: network`) |
-| 5 | `ERR_VARIABLE` | Undefined or circular variable reference | `.curlew/run.ndjson` (`run.error` event names the variable) |
-| 130 | — | SIGINT during a `curlew perf` run | stdout (partial summary) |
+These are collection-run meanings unless a command is named. For other commands,
+read its help and stderr (for example, ui uses 5 for a missing project).
+
+| Code | Meaning | Primary artifact |
+|---|---|---|
+| 0 | All assertions passed (or dry run with no failures) | `responses/run.md` |
+| 1 | One or more assertions failed, or CLI usage error | stderr first; `responses/<slug>.md` (`### Assertions` section) |
+| 2 | Safety guard; also usage/input error for perf or pr-check | `.curlew/run.ndjson` (`run.end` event, `exit_code: 2`) |
+| 3 | Configuration error before any HTTP fired | stderr |
+| 4 | Non-assertion runtime error (network, TLS, DNS) | `.curlew/run.ndjson` (`request.end` with `error.category: network`) |
+| 5 | Undefined or circular variable reference | `.curlew/run.ndjson` (`run.error` event names the variable) |
+| 130 | SIGINT during a `curlew perf` run | stdout (partial summary) |
 
 ## CEL-specific codes (surfaced by `curlew validate`)
 
@@ -29,7 +32,7 @@ early.
 ## How to read the right artifact
 
 1. **Exit 0** — read `responses/run.md` to confirm and summarise.
-2. **Exit 1** — open `responses/run.md` for the summary; then open each
+2. **Exit 1** — check stderr for an unknown option or missing argument first. If the collection actually ran, open `responses/run.md` for the summary; then open each
    failing `responses/<slug>.md` for operator + expected + actual.
 3. **Exit 2** — read `.curlew/run.ndjson`; filter `kind: "run.end"` for the
    guard-rail event and `kind: "request.end"` with `outcome: "skipped"`.

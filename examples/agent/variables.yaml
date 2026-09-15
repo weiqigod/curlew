@@ -1,0 +1,43 @@
+name: Extraction example
+requests:
+- name: create a resource
+  request:
+    method: POST
+    url: '{{mud}}/s/{{run}}-chain/resources'
+    body:
+      name: first
+      kind: widget
+  assertions:
+    status: 201
+    headers:
+      Location:
+        matches: /resources/res_
+      ETag:
+        matches: ^"[0-9a-f]{32}"$
+    body:
+      $.id:
+        matches: ^res_.+_1$
+      $.seq:
+        equals: 1
+      $.body.name:
+        equals: first
+  extract:
+    first_id: $.id
+    first_etag: $.etag
+- name: fetch it by the extracted id
+  request:
+    method: GET
+    url: '{{mud}}/s/{{run}}-chain/resources/{{first_id}}'
+  assertions:
+    status: 200
+    body:
+      $.body.name:
+        equals: first
+      $.body.kind:
+        equals: widget
+      $.seq:
+        equals: 1
+      $.id:
+        equals: '{{first_id}}'
+      $.etag:
+        equals: '{{first_etag}}'

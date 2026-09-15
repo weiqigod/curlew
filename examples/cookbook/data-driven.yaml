@@ -1,0 +1,15 @@
+name: Data-driven echo
+requests:
+  - name: Echo row
+    data_driven:
+      source: data.csv
+    request:
+      method: POST
+      url: "{{mud}}/echo"
+      body:
+        name: "{{name}}"
+        role: "{{role}}"
+    assertions:
+      status: 200
+      body:
+        $.request.body_len: { greater_than: 0 }

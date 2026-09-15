@@ -1,0 +1,51 @@
+name: Locally verified signatures
+variables:
+  aws_access_key: AKIAMUDFLATTEST0000
+  aws_secret_key: wJalrMudflatEXAMPLEKEY/K7MDENG/bPxRfi
+  oauth_consumer_key: mud_consumer_0001
+  oauth_consumer_secret: mud_consumer_secret_0001
+  oauth_token_secret: mud_token_secret_0001
+requests:
+- name: aws sigv4 signature is accepted
+  request:
+    method: GET
+    url: '{{mud}}/verify/sigv4'
+  signing:
+    type: aws-sigv4
+    params:
+      region: us-east-1
+      service: execute-api
+      access_key: '{{aws_access_key}}'
+      secret_key: '{{aws_secret_key}}'
+  assertions:
+    status: 200
+    body:
+      $.ok:
+        equals: true
+      $.algorithm:
+        equals: AWS4-HMAC-SHA256
+      $.checks:
+        type: array
+    cel:
+    - response.body.checks.all(c, c.ok)
+- name: oauth 1.0a signature is accepted
+  request:
+    method: POST
+    url: '{{mud}}/verify/oauth1'
+  signing:
+    type: oauth1
+    params:
+      consumer_key: '{{oauth_consumer_key}}'
+      consumer_secret: '{{oauth_consumer_secret}}'
+      token_secret: '{{oauth_token_secret}}'
+      nonce: fixednonce
+      timestamp: '1700000000'
+  assertions:
+    status: 200
+    body:
+      $.ok:
+        equals: true
+      $.algorithm:
+        contains: OAuth
+      $.base_string:
+        contains: oauth_consumer_key

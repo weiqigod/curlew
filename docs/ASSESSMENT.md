@@ -1,5 +1,11 @@
 # Assessment: Curlew Among Its Peers
 
+> **Historical analysis.** This records an earlier design or investigation and may
+> describe removed features, licensing, or already-completed work. It is not a
+> current operating guide. Use [MANUAL.md](MANUAL.md), [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md),
+> and the [documentation map](README.md) for current behavior.
+
+
 A read of the specification, manual, development philosophy, and tech-choices documents, placed against the existing tools in this category. The goal is to name where Curlew is genuinely opinionated, where it follows the field, and where the strongest design bets sit — including the most consequential one, the no-scripting stance.
 
 ---

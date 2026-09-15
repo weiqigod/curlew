@@ -1,111 +1,95 @@
 ---
-title: Parallel execution by dependency waves
-intent: Declare what depends on what; Curlew topologically sorts your requests into concurrent waves and proves the plan before running it.
+title: Parallel execution
+intent: Prove four requests really overlap using a server-side rendezvous.
 group: core
-features: [parallel, chaining, setup-teardown]
-command: curlew run collections/order-graph.yaml --parallel
+features:
+- parallel
+command: curlew run testapi/collections/parallel/60-barrier.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID" --parallel
 order: 30
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+The barrier releases only after all four clients arrive. Run with `--parallel`: sequential execution cannot satisfy this fixture. For a dependency plan, use `--show-dependencies --dry-run`; it does not resolve future extraction values.
 
-When requests are independent, running them one after another just wastes wall-clock.
-You don't hand-write a thread pool, though — you declare dependencies with
-`depends_on`, and Curlew computes the execution **waves** with a topological sort.
-Independent requests in the same wave run concurrently; extracted variables flow
-forward to the next wave.
+## Prerequisites
 
-## The collection
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
-`Create user` and `Create product` don't depend on each other, so they belong in the
-same wave. `Place order` needs both, so it waits.
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
+```
 
+## Run it
+
+```bash
+curlew run testapi/collections/parallel/60-barrier.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID" --parallel
+```
+
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: testapi/collections/parallel/60-barrier.yaml -->
 ```yaml
-# collections/order-graph.yaml
-name: Order graph
+# Proof that --parallel is parallel.
+#
+# THIS COLLECTION REQUIRES --parallel. Run serially it fails, and that is the
+# design: the barrier releases only when four requests are in flight at once, so
+# a serial run blocks alone until the deadline and reports how many arrived.
+#
+# The alternative — comparing wall-clock durations between a serial and a
+# parallel run — is what this repository already had to delete as flaky
+# (M21-003). A rendezvous is a positive proof; a stopwatch is an inference.
+#
+#   curlew run 'testapi/collections/parallel/*.yaml' --env local --parallel
+name: Parallelism, proven by rendezvous
+description: |
+  Four independent requests. Dependency analysis puts them in one wave, so
+  --parallel runs them concurrently and the barrier releases. Without the flag
+  they run in file order and the first one waits alone.
+
 requests:
-  - name: Create user
+  - name: worker one reaches the barrier
     request:
-      method: POST
-      url: "{{base_url}}/users"
-      body: { name: "{{$faker.fullName}}" }
-    extract:
-      user_id: "$.id"
-
-  - name: Create product
-    request:
-      method: POST
-      url: "{{base_url}}/products"
-      body: { name: "Widget", price: 19.99 }
-    extract:
-      product_id: "$.id"
-
-  - name: Place order
-    depends_on: [Create user, Create product]
-    request:
-      method: POST
-      url: "{{base_url}}/orders"
-      body:
-        user_id: "{{user_id}}"
-        product_id: "{{product_id}}"
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
     assertions:
-      status: 201
+      status: 200
+      body:
+        $.expected: { equals: 4 }
+        $.arrived: { equals: 4 }
+        $.released: { equals: true }
+
+  - name: worker two reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.released: { equals: true }
+
+  - name: worker three reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.released: { equals: true }
+
+  - name: worker four reaches the barrier
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-barrier/barrier/4?timeout_ms=15000"
+    assertions:
+      status: 200
+      body:
+        $.released: { equals: true }
+        # Every arrival index between 1 and 4 is taken exactly once across the
+        # four responses; each request only sees its own.
+        $.arrival_index: { greater_than_or_equal: 1 }
 ```
-
-## Preview the plan — without sending a single request
-
-`--show-dependencies` prints the computed waves; combine it with `--dry-run` to
-resolve every variable and preview URLs and bodies with zero network traffic. A
-cycle (A→B→A) is rejected at parse time with a clear error.
-
-```bash
-curlew run collections/order-graph.yaml --show-dependencies --dry-run
-```
-
-```
-  Wave 1: [Create user, Create product] → 2 concurrent
-  Wave 2: [Place order] → 1 sequential
-
-Total waves: 2
-Maximum parallelism: 2 requests per wave
-Expected speedup: 1.5x
-```
-
-## Run it for real
-
-```bash
-curlew run collections/order-graph.yaml --parallel
-```
-
-```
-Collection: Order graph
-
-Wave 1 (2 concurrent):
-  ✓ Create user  201  88ms
-  ✓ Create product  201  91ms
-
-Wave 2 (1 concurrent):
-  ✓ Place order  201  102ms
-
-────────────────────────────────
-  3 request(s): 3 passed, 0 failed (193ms)
-  Waves: 2, Max parallelism: 2
-  Speedup: 1.7x
-```
-
-<Callout type="tip">
-	This is Curlew's real parallel output, captured from a run — the
-	<code>Speedup</code> line corresponds to
-	<code>.parallel_execution.speedup_factor</code> in <code>--format json</code>.
-	Waves are computed from data flow: <code>Place order</code> uses values extracted by
-	the first two requests, so it lands in wave 2.
-</Callout>
-
-<Callout type="note">
-	Parallelism is opt-in: without <code>--parallel</code>, the collection runs
-	sequentially regardless of <code>depends_on</code>. The dependency graph is always
-	respected — the flag only decides whether independent requests overlap.
-</Callout>

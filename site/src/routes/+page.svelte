@@ -16,7 +16,7 @@
 		},
 		{
 			title: 'Assertions that scale',
-			body: 'Thirteen body operators, JSONPath, and a Google-CEL escape hatch for cross-field invariants — all type-checked before a single request fires.'
+			body: 'Thirteen body operators, JSONPath, and a Google-CEL escape hatch for cross-field invariants — with validation diagnostics and runtime checks.'
 		},
 		{
 			title: 'Beyond REST',
@@ -28,7 +28,7 @@
 		},
 		{
 			title: 'Built for the pipeline',
-			body: 'JUnit / TAP output, a precise exit-code contract, dashboard upload, PR checks, distributed workers, and compliance tooling.'
+			body: 'JUnit / TAP output, local JSON results, Markdown reports, structured events, and a pass/fail verdict for CI.'
 		}
 	];
 </script>
@@ -96,7 +96,7 @@
 
 <!-- Highlights -->
 <section class="mx-auto max-w-6xl px-5 py-16">
-	<h2 class="text-2xl font-bold tracking-tight text-[var(--text)]">Why this isn't just curl in a loop</h2>
+	<h2 class="text-2xl font-bold tracking-tight text-[var(--text)]">Test workflows you can run locally</h2>
 	<p class="mt-2 max-w-2xl text-[var(--text-soft)]">
 		Every capability below is demonstrated end-to-end in the examples — combined the way you'd
 		actually use them, not one feature at a time.

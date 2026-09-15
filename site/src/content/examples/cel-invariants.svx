@@ -1,97 +1,255 @@
 ---
-title: CEL invariants & conditional requests
-intent: Reach past the operator catalogue with Google CEL — assert cross-field aggregates over a list, and run a request only when the data warrants it.
+title: Assertions and CEL invariants
+intent: Check response values, operators and cross-field expressions against a local fixture.
 group: core
-features: [cel, chaining]
-command: curlew run collections/catalog.yaml
+features:
+- cel
+command: curlew run testapi/collections/10-assertions.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 50
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+CEL assertions use `response`; conditional requests use `previous`, `vars` and `env`. The complete fixture below exercises known response shapes. Validation checks expression structure before execution; runtime field types still matter.
 
-Most checks are a single field against a literal — that's what the operator
-catalogue is for. But some truths span a whole response: *every* item is in stock,
-the page count *matches* the array length, totals *add up*. For those, Curlew
-embeds **Google's CEL**. It appears in exactly two places — `assertions.cel` (a list
-of boolean expressions) and `if:` (conditional execution) — and it's type-checked at
-`validate` time, so a broken expression fails before any HTTP request fires.
+## Prerequisites
 
-## The collection
-
-```yaml
-# collections/catalog.yaml
-name: Catalog invariants
-requests:
-  - name: List products
-    request:
-      method: GET
-      url: "{{base_url}}/products?page=1"
-    assertions:
-      status: 200
-      cel:
-        # the array length equals the advertised page size
-        - "response.body.items.size() == response.body.page_size"
-        # every product is sellable
-        - "response.body.items.all(p, p.price > 0)"
-        - "response.body.items.all(p, p.in_stock || p.backorderable)"
-        # at least one item is featured
-        - "response.body.items.exists(p, p.featured)"
-
-  - name: Fetch next page
-    if: "previous.body.has_more"        # only runs when page 1 says there's more
-    request:
-      method: GET
-      url: "{{base_url}}/products?page=2"
-    assertions:
-      status: 200
-      cel:
-        - "response.body.items.all(p, p.price > 0)"
-```
-
-Every expression evaluates against four bindings: `response` (this request),
-`previous` (the prior request — that's how `Fetch next page` reads page 1's
-`has_more`), `vars`, and `env`.
-
-## Validate before you run
-
-CEL is parse- and type-checked offline. A typo never reaches the network:
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
 ```bash
-curlew validate collections/catalog.yaml
-```
-
-```
-collections/catalog.yaml: line 9: assertions[0].cel:
-  ERR_CEL_TYPE: got int, expected bool (source: response.body.page_size)
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
 
 ## Run it
 
 ```bash
-curlew run collections/catalog.yaml
+curlew run testapi/collections/10-assertions.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 ```
 
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: testapi/collections/10-assertions.yaml -->
+```yaml
+# Every assertion operator, against response shapes chosen to break naive
+# implementations.
+#
+# The bignum and dupkeys requests are the ones worth reading: both produce
+# valid JSON that a careless parser silently changes.
+name: Assertions against difficult bodies
+description: |
+  Exercises the 13 body operators, the 3 header operators, status, timing and
+  CEL, against a server that emits genuinely awkward documents.
+
+variables:
+  expected_variant: "vendor"
+
+requests:
+  - name: status any-of form
+    request:
+      method: GET
+      url: "{{mud}}/status/418"
+    assertions:
+      status: [200, 418, 503]
+      body:
+        $.status: { equals: 418 }
+        $.status_text: { equals: "I'm a teapot" }
+
+  - name: bodiless 204 carries nothing
+    request:
+      method: GET
+      url: "{{mud}}/status/204"
+    assertions:
+      status: 204
+
+  - name: integers beyond float64 survive intact
+    request:
+      method: GET
+      url: "{{mud}}/json/bignum"
+    assertions:
+      status: 200
+      body:
+        # 9007199254740993 is not representable as a float64: a round trip
+        # through one yields ...92. An equals that passes against the wrong
+        # number is worse than one that fails.
+        $.beyond_float64: { equals: 9007199254740993 }
+        $.negative: { less_than: 0 }
+        $.very_large: { greater_than: 1000000 }
+      cel:
+        - "response.body.beyond_float64 == 9007199254740993"
+
+  - name: duplicate keys resolve consistently
+    request:
+      method: GET
+      url: "{{mud}}/json/dupkeys"
+    assertions:
+      status: 200
+      body:
+        $.a: { exists: true }
+        $.b: { type: string }
+
+  - name: deep nesting is addressable
+    request:
+      method: GET
+      url: "{{mud}}/json/deep"
+    assertions:
+      status: 200
+      body:
+        $.a.a.a.a.a.a.a.a.a.a: { exists: true }
+
+  - name: top-level array
+    request:
+      method: GET
+      url: "{{mud}}/json/toplevel-array"
+    assertions:
+      status: 200
+      body:
+        $: { type: array, length: 4 }
+        $[0]: { equals: 1 }
+        $[3].nested: { equals: true }
+
+  - name: top-level null
+    request:
+      method: GET
+      url: "{{mud}}/json/toplevel-null"
+    assertions:
+      status: 200
+
+  - name: empty object
+    request:
+      method: GET
+      url: "{{mud}}/json/empty"
+    assertions:
+      status: 200
+      body:
+        $: { length: 0 }
+
+  - name: unicode escapes stay escaped on the wire
+    request:
+      method: GET
+      url: "{{mud}}/json/unicode-escapes"
+    assertions:
+      status: 200
+      body:
+        $.latin: { type: string }
+        $.surrogate_pair: { exists: true }
+
+  - name: bare NaN is not valid JSON
+    request:
+      method: GET
+      url: "{{mud}}/json/nan"
+    assertions:
+      # No body assertions: the point of this endpoint is that the body cannot
+      # be parsed. Asserting only the status proves the response still arrives.
+      status: 200
+
+  - name: header operators
+    request:
+      method: GET
+      url: "{{mud}}/content-type/vendor"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/vnd.api+json" }
+        Content-Length: { matches: "^[0-9]+$" }
+        # exists: false asserts ABSENCE. It used to behave identically to
+        # exists: true, so "this response must not carry X" was unexpressible.
+        X-Definitely-Not-Sent: { exists: false }
+        Set-Cookie: { exists: false }
+      body:
+        # A body parser keyed on an exact application/json match would skip a
+        # vendor type and report path-not-found instead of failing loudly.
+        # The expected value comes from a collection variable: assertion values
+        # interpolate, which they did not until the first dogfood run found it.
+        $.variant: { equals: "{{expected_variant}}" }
+
+  - name: charset-qualified json is still json
+    request:
+      method: GET
+      url: "{{mud}}/content-type/json-charset"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/json; charset=utf-8" }
+      body:
+        $.ok: { equals: true }
+
+  - name: numeric comparison operators
+    request:
+      method: GET
+      url: "{{mud}}/ndjson/7"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/x-ndjson" }
+
+  - name: gzip is decoded transparently
+    request:
+      method: GET
+      url: "{{mud}}/encoding/gzip"
+    assertions:
+      status: 200
+      body:
+        $.encoding: { equals: "gzip" }
+
+  - name: identity needs no decoding
+    request:
+      method: GET
+      url: "{{mud}}/encoding/identity"
+    assertions:
+      status: 200
+      body:
+        $.encoding: { equals: "identity" }
+
+  - name: non-utf8 body arrives intact
+    request:
+      method: GET
+      url: "{{mud}}/charset/iso-8859-1"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "text/plain; charset=iso-8859-1" }
+
+  - name: binary body
+    request:
+      method: GET
+      url: "{{mud}}/bytes/256?seed=42"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/octet-stream" }
+        Content-Length: { equals: "256" }
+
+  - name: timing assertion against a known lower bound
+    request:
+      method: GET
+      url: "{{mud}}/echo/delay/50"
+    assertions:
+      status: 200
+      timing:
+        max_duration_ms: 5000
+
+  - name: echo with an explicit status
+    request:
+      method: GET
+      url: "{{mud}}/echo/status/201"
+    assertions:
+      status: 201
+      body:
+        $.server.endpoint: { equals: "/echo/status/{code}" }
+
+  - name: a body path can be asserted absent two ways
+    request:
+      method: GET
+      url: "{{mud}}/json/empty"
+    assertions:
+      status: 200
+      body:
+        # not_exists and exists:false are two spellings of one intent, and they
+        # disagreed until exists:false was honoured on the body path too.
+        $.nothing_here: { not_exists: true }
+        $.also_missing: { exists: false }
 ```
-Collection: Catalog invariants
-  ✓ List products  200  94ms
-  ✓ Fetch next page  200  88ms
-
-────────────────────────────────
-  2 request(s): 2 passed, 0 failed (182ms)
-```
-
-<Callout type="output">
-	Representative output — the collection targets a catalog API. The
-	<code>ERR_CEL_TYPE</code> diagnostic matches Curlew's documented validation
-	error format.
-</Callout>
-
-<Callout type="note">
-	Time functions like <code>now()</code> are blocked inside CEL to keep tests
-	deterministic. When an expression needs "now", set <code>vars.now</code>
-	explicitly. If you find yourself repeating the same expression across many
-	collections, that logic belongs in a plugin, not inline.
-</Callout>

@@ -14,7 +14,16 @@
 - **C# .NET backend** + web dashboard — retained in `src/` and `web/`, but the CLI no
   longer talks to them.
 
-**Current Status (2026-08-20):** 242 of 244 tasks are done. M1–M27 are complete; **two tasks remain open — M28-003 (the usage synopsis and seven expired test stubs) and M29-001 (CI runs on push again) — see `docs/PRODUCT_ROADMAP.md`.** M1–M24 made the CLI correct; M25–M29 make it obtainable and honest about itself, and most of that is now done: `v0.1.0` is tagged and released (2026-08-16), goreleaser runs as five `ci-local.sh` gate steps including one that checks the built artifact reports its injected version, the agent skill's licensing drift is fixed and *guarded* by `cmd/curlew/skill_hygiene_test.go`, and the four fuzz targets exist (`FuzzParseCollection`, `FuzzInterpolate`, `FuzzJSONPath`, `FuzzCEL`) with their corpora running as a gate step. Note that `--version` still reports `0.1.0-dev` from a plain `go build`, which is correct — the version is injected by ldflags at release time. **The two real gaps left: nothing runs in CI** (all eight workflows are `workflow_dispatch`-only, so `ci-local.sh` is the entire gate — M29-001), **and `src/` is 139,533 lines of C# the shipped CLI does not call**, larger than the entire Go CLI. Run `go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v` for the live task state. M22 (`backlog_integrity`) added `internal/backlog`, which reconciles `management/backlog.yaml` against `management/tasks/*.yaml` and errors rather than returning an empty success on any structural surprise; use it (`go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v`) instead of hand-rolling a traversal, because a task entry is either a bare id or a mapping carrying its own status, and every ad-hoc walk of that file so far has silently reported zero tasks as a clean backlog. It also caught three task files that were not parseable YAML. M21 (`post_strip_drift`) closed the drift the strips left behind: M21-001 (the published JSON Schemas omitted nine parser fields under `additionalProperties: false`, so editors flagged valid collections; plus a `$id` pointing at the wrong org), M21-002 (four `docs/MANUAL.md` surfaces still describing the removed backend, plus a table of contents that had drifted badly), M21-003 (a flaky test comparing wall-clock speedup across two separate runs), and M21-004 (tier annotations left in the published schemas and in `docs/DEVELOPMENT_PHILOSOPHY.md`). The schemas are now held to the parser by a reflection parity test in `internal/schema/parity_test.go`, so that class of drift fails the build rather than reaching a user's editor. Two earlier passes stripped the CLI down:
+**Current Status (2026-09-15):** M1–M28 are complete. M29-001 (CI auto-triggers)
+remains open pending a billing decision. M30-001 is the documentation and agent
+usability task; see its task file for current status and verification evidence.
+`v0.1.0` is published; main includes subsequent fixes. The CLI is local and
+ungated. `src/` and `web/` are retained, frozen platform code, not CLI dependencies.
+Use `go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v`
+for live task counts. Older assessments and plans are historical; start with
+`docs/README.md`, `docs/AGENT_GUIDE.md`, and the current CLI specification.
+
+The following removals define the current CLI boundary:
 
 1. The five-tier licensing/feature-gating system was removed — every CLI feature is unconditional, and there is no `curlew license` command.
 2. All backend and login functionality was removed (2026-08-03). Gone: `curlew login`, `curlew worker`, distributed execution (`--workers`), report upload (`--report-upload`), and every `CURLEW_BACKEND_*` / `CURLEW_COORDINATOR_URL` variable. `pr-check` is now a local results-file gate, `telemetry` writes to a local NDJSON file, and shared vault templates load only from `CURLEW_TEAM_CONFIG`.
@@ -23,7 +32,7 @@
 
 ## Key Documentation
 
-- **docs/PRODUCT_ROADMAP.md** — **The open work: M25–M29, from green build to shipped tool.** Read this before starting anything new. Not to be confused with `ROADMAP.md` at the repository root, which hardens the *workflow* rather than the product.
+- **docs/PRODUCT_ROADMAP.md** — **Current product status and the original M25–M29 plan.** Read the current-status header, then the live backlog before starting anything new. Not to be confused with `ROADMAP.md` at the repository root, which hardens the *workflow* rather than the product.
 - **docs/CLI_SPECIFICATION.md** — The CLI's specification: contracts, invariants, formats, exit codes (v1)
 - **docs/TESTAPI_SPECIFICATION.md** — Mudflat, the dedicated test API for dogfooding the CLI against a server curlew did not write. **Phases 1 through 4 are implemented in `testapi/`** and run as `ci-local.sh` gate steps (dogfood suite, --parallel rendezvous, and the gaps/redaction/openapi/crosscheck/ledger harnesses). Dogfooding has found **seventeen defects — all fixed**: five from Phases 1–2 (§11A, §11B), ten from Phase 3 (§11C.1–10) plus an eleventh found while fixing them (§11C.11) — those sixteen closed by 2026-08-13 — and one from Phase 4 (§11D.1, closed 2026-08-19), which is the first that was a wrong *number* rather than an error and so shipped inside a run that reported success and exited 0. Every reproduction was *moved*, not deleted — into a passing collection, into `expected-failures.yaml` inverted so it still fails but for the right reason, or into a unit test — so a closed gap keeps the test that proves it stayed closed. Two harnesses were retired by their own promotion instructions (`timing.sh`, and the `*.run-abort.yaml` category in `gaps.sh`); `openapi.sh` was inverted from "these must be rejected" to "these must import". `testapi/harness/redaction-known-leaks.txt` is empty, which means every output surface is enforced rather than baselined. §9.N (the nine-port TLS matrix) is deliberately reduced to one listener — §14.3 has the measurement showing no client-side route to trusting mudflat's CA exists on this toolchain
 - **docs/MANUAL.md** — The CLI's user-facing reference (how to use it)
@@ -111,7 +120,7 @@ Task lifecycle: `/plan` → `/execute` → `/review` → `/improve` (if needed) 
 ### Task ID Conventions
 
 Task IDs use the form `M<N>-NNN`, where `N` is the milestone number. The project
-spans milestones **M1 through M20** (all complete). The table below illustrates the
+spans milestones **M1 through M30**; inspect the backlog for live status. The table below illustrates the
 journey-stage decomposition with M1's six stages as the worked example:
 
 | Milestone | Journey Stage | Description |
@@ -181,6 +190,7 @@ Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 ## Build Commands
 
 ```bash
+./scripts/build-ui.sh          # Build embedded UI (Node.js 22+)
 go build ./cmd/curlew          # Build binary
 go test ./...                   # Run all tests
 go test -coverprofile=coverage.out ./...  # Tests with coverage

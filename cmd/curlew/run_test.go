@@ -1681,7 +1681,7 @@ func TestRun_LocalePrecedence_FlagBeatsCollection(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := runCmdInnerWithErr([]string{col, "--locale", "de-DE", "--seed", "42", "-v", "--dry-run"}, &stdout, &stderr)
+	code := runCmdInnerWithErr([]string{col, "--locale", "de-DE", "--seed", "42", "-v"}, &stdout, &stderr)
 	combined := stdout.String() + stderr.String()
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d; stderr: %s", code, combined)
@@ -1715,7 +1715,7 @@ func TestRun_LocalePrecedence_FlagBeatsProjectConfig(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := runCmdInnerWithErr([]string{col, "--locale", "de-DE", "--seed", "42", "-v", "--dry-run"}, &stdout, &stderr)
+	code := runCmdInnerWithErr([]string{col, "--locale", "de-DE", "--seed", "42", "-v"}, &stdout, &stderr)
 	combined := stdout.String() + stderr.String()
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d; combined: %s", code, combined)

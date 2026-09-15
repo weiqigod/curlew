@@ -1,5 +1,11 @@
 # Spec-vs-Implementation Review
 
+> **Historical analysis.** This records an earlier design or investigation and may
+> describe removed features, licensing, or already-completed work. It is not a
+> current operating guide. Use [MANUAL.md](MANUAL.md), [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md),
+> and the [documentation map](README.md) for current behavior.
+
+
 A line-by-line audit of `docs/SPECIFICATION.md` against the current codebase, intended as the input for the next round of milestones and tasks. Where `docs/ASSESSMENT.md` characterised the project from the outside, this document looks inward — what is built, what is half-built, what is named in the spec but not yet present.
 
 The principal surprise of this audit, and the correction the prior assessment owes its readers: **the backend exists and works**. The C# ASP.NET Core 8 service in `src/ApiTool.Backend/`, the SvelteKit dashboard in `web/`, the 19 EF Core migrations, the SAML and OIDC handlers, the RBAC system, the audit logging, and the on-prem deployment bundle are all real and functional. The prior framing of Curlew as primarily-CLI is wrong; what's missing is concentrated, not pervasive.

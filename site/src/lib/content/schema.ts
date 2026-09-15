@@ -16,7 +16,7 @@ export interface ExampleMeta {
 	command: string;
 	/** Sort order within a group. */
 	order: number;
-	/** True when the captured output came from a real run against a free public endpoint. */
+	/** True when the example has a complete local fixture executed by the cookbook test. */
 	runnable?: boolean;
 }
 

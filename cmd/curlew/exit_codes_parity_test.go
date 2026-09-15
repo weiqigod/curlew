@@ -301,6 +301,7 @@ func TestExitCodes_skillProseNamesOnlyReachableCodes(t *testing.T) {
 // than in a commit message. A map[string]string rather than a []string: an
 // entry without a reason does not compile.
 var docsWithoutExitCodeContract = map[string]string{
+	"history/UI_SPECIFICATION-v1-design.md": "archived original UI design; current exit codes are checked in UI_SPECIFICATION.md",
 	"SPECIFICATION.md": "platform spec — its own scope note (2026-08-04) states it " +
 		"describes the src/ backend and web/ dashboard as designed through v4.4, " +
 		"including the five-tier feature gating throughout, not code that exists",

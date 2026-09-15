@@ -33,6 +33,13 @@ jobs:
           # a shallow clone would silently produce wrong release notes.
           fetch-depth: 0
 
+      - name: Set up Node.js for the embedded UI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

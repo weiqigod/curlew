@@ -1,95 +1,84 @@
-# curlew — Request signing reference
+# curlew — Signing reference
 
-Load this file when the user asks about AWS SigV4 signing, OAuth 1.0a,
-HMAC signing, or dynamic signing functions.
+Place `signing:` beside `request:`. It contains `type` and a nested `params`
+map. Built-in types are `aws-sigv4` and `oauth1`.
 
-## Signing block
+SigV4 parameters: `region`, `service`, `access_key`, `secret_key`, optional
+`session_token`. OAuth parameters: `consumer_key`, `consumer_secret`, optional
+`token`, `token_secret`, `method`, `realm`; HMAC-SHA1 is the default and HMAC-SHA256
+is supported. There is no `signing_fn` YAML key.
 
-Add `signing:` to a request to apply a request-signing scheme before the
-HTTP call is sent:
+For real services, obtain credentials through `--env-var`, sensitive variables,
+or the `secrets:` project configuration. The values below are published Mudflat
+fixture credentials, not an AWS or OAuth account. The local server recomputes both
+signatures; this proves signing compatibility with that fixture, not account access.
 
+## Run the example
+
+Start Mudflat using the repository's `site/README.md` setup. Save the complete
+collection below as `example.yaml` in a scratch directory. `MUDFLAT_URL` defaults
+to that setup's local port; override it if your fixture uses another port.
+
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export RUN_ID="agent-$(date +%s)-$$"
+curlew validate example.yaml --format json
+curlew run example.yaml --var mud="$MUDFLAT_URL" --var run="$RUN_ID" --format json
+```
+
+## Complete collection
+
+<!-- agent-source: examples/agent/signing.yaml -->
 ```yaml
+name: Locally verified signatures
+variables:
+  aws_access_key: AKIAMUDFLATTEST0000
+  aws_secret_key: wJalrMudflatEXAMPLEKEY/K7MDENG/bPxRfi
+  oauth_consumer_key: mud_consumer_0001
+  oauth_consumer_secret: mud_consumer_secret_0001
+  oauth_token_secret: mud_token_secret_0001
 requests:
-  - name: List S3 objects
-    request:
-      method: GET
-      url: "https://s3.amazonaws.com/{{bucket}}/"
-    signing:
-      type: aws-sigv4
+- name: aws sigv4 signature is accepted
+  request:
+    method: GET
+    url: '{{mud}}/verify/sigv4'
+  signing:
+    type: aws-sigv4
+    params:
       region: us-east-1
-      service: s3
-      access_key: "{{AWS_ACCESS_KEY_ID}}"
-      secret_key: "{{AWS_SECRET_ACCESS_KEY}}"
+      service: execute-api
+      access_key: '{{aws_access_key}}'
+      secret_key: '{{aws_secret_key}}'
+  assertions:
+    status: 200
+    body:
+      $.ok:
+        equals: true
+      $.algorithm:
+        equals: AWS4-HMAC-SHA256
+      $.checks:
+        type: array
+    cel:
+    - response.body.checks.all(c, c.ok)
+- name: oauth 1.0a signature is accepted
+  request:
+    method: POST
+    url: '{{mud}}/verify/oauth1'
+  signing:
+    type: oauth1
+    params:
+      consumer_key: '{{oauth_consumer_key}}'
+      consumer_secret: '{{oauth_consumer_secret}}'
+      token_secret: '{{oauth_token_secret}}'
+      nonce: fixednonce
+      timestamp: '1700000000'
+  assertions:
+    status: 200
+    body:
+      $.ok:
+        equals: true
+      $.algorithm:
+        contains: OAuth
+      $.base_string:
+        contains: oauth_consumer_key
 ```
-
-## Supported signers
-
-### `aws-sigv4` — AWS Signature Version 4
-
-Signs requests for any AWS service. Required fields:
-
-| Field | Meaning |
-|---|---|
-| `region` | AWS region (e.g. `us-east-1`) |
-| `service` | AWS service name (e.g. `s3`, `execute-api`, `sts`) |
-| `access_key` | AWS access key ID (use a variable or vault reference) |
-| `secret_key` | AWS secret access key (use a variable or vault reference) |
-| `session_token` | Optional session token for temporary credentials |
-
-```yaml
-signing:
-  type: aws-sigv4
-  region: eu-west-1
-  service: execute-api
-  access_key: "{{AWS_ACCESS_KEY_ID}}"
-  secret_key: "{{AWS_SECRET_ACCESS_KEY}}"
-  session_token: "{{AWS_SESSION_TOKEN}}"
-```
-
-### `oauth1` — OAuth 1.0a
-
-Signs requests using the OAuth 1.0a HMAC-SHA1 scheme. Required fields:
-
-| Field | Meaning |
-|---|---|
-| `consumer_key` | OAuth consumer key |
-| `consumer_secret` | OAuth consumer secret |
-| `token` | OAuth access token |
-| `token_secret` | OAuth access token secret |
-
-```yaml
-signing:
-  type: oauth1
-  consumer_key: "{{OAUTH_CONSUMER_KEY}}"
-  consumer_secret: "{{OAUTH_CONSUMER_SECRET}}"
-  token: "{{OAUTH_TOKEN}}"
-  token_secret: "{{OAUTH_TOKEN_SECRET}}"
-```
-
-## Dynamic signing functions
-
-When the signing parameters depend on runtime values (e.g. a timestamp
-embedded in a signature), use `signing_fn:` to call a registered dynamic
-function:
-
-```yaml
-signing:
-  type: custom
-  signing_fn: "my_hmac_fn"
-  params:
-    key: "{{SIGNING_KEY}}"
-    algorithm: sha256
-```
-
-Dynamic functions are registered as plugins. See the plugin documentation
-(`docs/MANUAL.md` §10) for the plugin API.
-
-## Notes
-
-- All signing secrets (access keys, consumer secrets, token secrets) should
-  come from `env_import:` or a vault provider — never hardcode them in YAML.
-- AWS SigV4 signs the `Authorization` header, the `x-amz-date` header, and
-  optionally a `x-amz-security-token` header. Curlew sets these automatically.
-- OAuth 1.0a signs the `Authorization: OAuth ...` header. The nonce and
-  timestamp are generated fresh per request.
-- Signing happens after variable interpolation but before the HTTP call.

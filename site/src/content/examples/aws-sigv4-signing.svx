@@ -1,87 +1,150 @@
 ---
-title: AWS SigV4 with vault-backed credentials
-intent: Sign requests with AWS Signature V4 using credentials pulled from a vault — never a literal in the file — and watch them get redacted everywhere.
+title: AWS SigV4 signing locally
+intent: Verify signatures using public fixture credentials and a local verifier.
 group: security
-features: [signing, vault, redaction]
-command: curlew run collections/s3.yaml
+features:
+- signing
+command: curlew run testapi/collections/50-signing.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 90
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+The credentials below are published test values accepted only by Mudflat. The fixture verifies AWS SigV4 and OAuth1 signatures. It never calls AWS and does not prove authorization to your AWS account. For real credentials use the manual’s authentication and redaction recipes.
 
-Curlew has built-in request signers — no plugin binary required. The `signing:`
-block applies between variable templating and dispatch, so you sign requests to AWS
-services with **Signature V4** using credentials that come from a vault, not from the
-YAML. Because those credentials are vault-resolved, they're redacted in every output.
+## Prerequisites
 
-## Credentials from a vault
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
-```yaml
-# curlew.yaml
-secrets:
-  provider: aws-secrets-manager
-  region: us-east-1
-  keys:
-    aws_key: "prod/aws#access_key_id"        # #field extracts one key from the secret
-    aws_secret: "prod/aws#secret_access_key"
-  cache_ttl: 300
-  refresh_on_failure: true
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
-
-Curlew shells out to the provider's authenticated CLI (`aws` here) — it doesn't
-embed SDKs. The `#field` suffix pulls a single field out of a structured secret.
-
-## Sign the request
-
-```yaml
-# collections/s3.yaml
-name: S3 access
-requests:
-  - name: List bucket
-    request:
-      method: GET
-      url: "https://s3.us-east-1.amazonaws.com/my-bucket?list-type=2"
-    signing:
-      type: aws-sigv4
-      params:
-        region: us-east-1
-        service: s3
-        access_key: "{{aws_key}}"
-        secret_key: "{{aws_secret}}"   # vault-resolved → auto-redacted
-    assertions:
-      status: 200
-      headers:
-        Content-Type:
-          matches: "^application/xml"
-```
-
-STS-issued temporary credentials work too — add `session_token: "{{aws_session}}"`.
 
 ## Run it
 
 ```bash
-curlew run collections/s3.yaml
+curlew run testapi/collections/50-signing.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 ```
 
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: testapi/collections/50-signing.yaml -->
+```yaml
+# Request signing, verified by a server that recomputes the signature.
+#
+# Until this collection existed, internal/signer had emitted AWS SigV4 and
+# OAuth 1.0a signatures for its whole life without a single one being checked
+# by anything. Not a suspected defect — an absence of evidence.
+#
+# mudflat's verifier is written from the AWS documentation and RFC 5849 rather
+# than from internal/signer, and its SigV4 side is pinned against AWS's own
+# published get-vanilla test vector. So a failure here is a statement about
+# curlew, not a coin toss between two unverified implementations.
+name: Request signing, verified
+description: |
+  Signs requests with both registered schemes and asserts the server accepts
+  them. On failure the response carries the canonical request, the string to
+  sign and the base string, because a bare signature mismatch is not actionable.
+
+variables:
+  # Appendix B of the specification. Published and non-secret by design.
+  aws_access_key: "AKIAMUDFLATTEST0000"
+  aws_secret_key: "wJalrMudflatEXAMPLEKEY/K7MDENG/bPxRfi"
+  oauth_consumer_key: "mud_consumer_0001"
+  oauth_consumer_secret: "mud_consumer_secret_0001"
+  oauth_token_secret: "mud_token_secret_0001"
+
+requests:
+  - name: aws sigv4 signature is accepted
+    request:
+      method: GET
+      url: "{{mud}}/verify/sigv4"
+    signing:
+      type: aws-sigv4
+      params:
+        region: us-east-1
+        service: execute-api
+        access_key: "{{aws_access_key}}"
+        secret_key: "{{aws_secret_key}}"
+    assertions:
+      status: 200
+      body:
+        $.ok: { equals: true }
+        $.algorithm: { equals: "AWS4-HMAC-SHA256" }
+        # Every stage of the ladder, not just the final comparison.
+        $.checks: { type: array }
+      cel:
+        - "response.body.checks.all(c, c.ok)"
+
+  - name: sigv4 over a request with a query string
+    request:
+      method: GET
+      url: "{{mud}}/verify/sigv4?b=2&a=1&c=hello%20world"
+    signing:
+      type: aws-sigv4
+      params:
+        region: us-east-1
+        service: execute-api
+        access_key: "{{aws_access_key}}"
+        secret_key: "{{aws_secret_key}}"
+    assertions:
+      status: 200
+      body:
+        # Canonical query ordering and %20-not-plus encoding are the two places
+        # a SigV4 implementation most often diverges.
+        $.ok: { equals: true }
+
+  - name: sigv4 over a request with a body
+    request:
+      method: POST
+      url: "{{mud}}/verify/sigv4"
+      body:
+        payload: "the signature covers the body hash"
+    signing:
+      type: aws-sigv4
+      params:
+        region: us-east-1
+        service: execute-api
+        access_key: "{{aws_access_key}}"
+        secret_key: "{{aws_secret_key}}"
+    assertions:
+      status: 200
+      body:
+        $.ok: { equals: true }
+
+  - name: an unsigned request is rejected with a usable message
+    request:
+      method: GET
+      url: "{{mud}}/verify/sigv4"
+    assertions:
+      status: 401
+      body:
+        $.ok: { equals: false }
+        $.stage: { equals: "authorization_header" }
+        $.hint: { contains: "aws-sigv4" }
+
+  - name: oauth 1.0a signature is accepted
+    request:
+      method: POST
+      url: "{{mud}}/verify/oauth1"
+    signing:
+      type: oauth1
+      params:
+        consumer_key: "{{oauth_consumer_key}}"
+        consumer_secret: "{{oauth_consumer_secret}}"
+        token_secret: "{{oauth_token_secret}}"
+        nonce: "fixednonce"
+        timestamp: "1700000000"
+    assertions:
+      status: 200
+      body:
+        $.ok: { equals: true }
+        $.algorithm: { contains: "OAuth" }
+        # Returned on success as well as failure: parameter normalisation is
+        # invisible from outside, and seeing it is the only way to debug it.
+        $.base_string: { contains: "oauth_consumer_key" }
 ```
-Collection: S3 access
-  ✓ List bucket  200  208ms
-
-────────────────────────────────
-  1 request(s): 1 passed, 0 failed (208ms)
-```
-
-<Callout type="output">
-	Representative output — signing against your own AWS account. For local runs without
-	hitting a real vault, set <code>CURLEW_VAULT_STUB=1</code> to use an in-memory stub.
-</Callout>
-
-<Callout type="warn">
-	Always reference credentials as <code>{'{{vars}}'}</code>, never as literal strings.
-	A literal <code>secret_key</code> has no source variable to trace back to, so
-	Curlew can't add it to the redaction set — and it could leak into output. The
-	vault-backed approach above is redacted by construction.
-</Callout>

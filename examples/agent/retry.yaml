@@ -1,0 +1,21 @@
+name: Retry example
+requests:
+- name: recovers after two 503s
+  request:
+    method: GET
+    url: '{{mud}}/s/{{run}}-retry/flaky/fail-then-succeed?times=2&status=503'
+  retry:
+    enabled: true
+    max_attempts: 4
+    initial_delay_ms: 10
+    backoff_strategy: constant
+    retry_on:
+      status_codes:
+      - 503
+  assertions:
+    status: 200
+    body:
+      $.attempt:
+        equals: 3
+      $.failing:
+        equals: false

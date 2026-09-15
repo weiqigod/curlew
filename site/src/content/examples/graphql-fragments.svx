@@ -1,113 +1,225 @@
 ---
-title: GraphQL with fragments & error modes
-intent: Test GraphQL as a first-class protocol — external queries, reusable fragments, typed variables, and explicit handling of partial errors.
+title: GraphQL and fragments
+intent: Execute queries and fragment files against a local GraphQL fixture.
 group: resilience
-features: [graphql, cel]
-command: curlew run collections/graphql.yaml
+features:
+- graphql
+command: curlew run testapi/collections/90-graphql.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 70
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+The repository includes the referenced query and fragment files under `testapi/collections/graphql/`. Clone the complete repository; copying only the YAML loses these dependencies. The fixture checks response handling, not conformance of your own GraphQL service.
 
-GraphQL shares Curlew's request envelope — you just add `protocol: graphql` and a
-`graphql:` block. Queries can live in their own `.graphql` files, fragments are
-composed and topologically ordered for you, and because a GraphQL server can return
-`200 OK` with an `errors` array, you choose explicitly how partial failures are
-treated.
+## Prerequisites
 
-## The query and fragments
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
-```graphql
-# graphql/list-users.graphql
-query ListUsers($limit: Int!) {
-  users(first: $limit) {
-    ...UserFields
-    ...Timestamps
-  }
-}
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
-
-```graphql
-# graphql/fragments/user-fields.graphql
-fragment UserFields on User {
-  id
-  name
-  email
-}
-```
-
-```graphql
-# graphql/fragments/timestamps.graphql
-fragment Timestamps on Node {
-  createdAt
-  updatedAt
-}
-```
-
-## The collection
-
-```yaml
-# collections/graphql.yaml
-name: GraphQL API
-requests:
-  - name: List users
-    request:
-      protocol: graphql
-      url: "{{base_url}}/graphql"
-      graphql:
-        query_file: "graphql/list-users.graphql"
-        fragments:
-          - "graphql/fragments/user-fields.graphql"
-          - "graphql/fragments/timestamps.graphql"
-        variables:
-          limit: 10
-        error_handling: fail        # fail | warn | ignore
-    assertions:
-      status: 200
-      body:
-        "$.data.users":
-          type: "array"
-        "$.errors":
-          not_exists: true
-      cel:
-        - "response.body.data.users.size() <= 10"
-        - "response.body.data.users.all(u, u.email != '')"
-```
-
-The method is set to `POST` and `Content-Type: application/json` automatically; the
-body becomes `{"query": "...", "variables": {...}}` with the fragments concatenated
-ahead of the query.
-
-## Choosing how errors are treated
-
-A GraphQL response has four shapes, and `error_handling` decides each verdict:
-
-| Outcome | `data` / `errors` | `fail` | `warn` | `ignore` |
-|---|---|---|---|---|
-| success | data, no errors | pass | pass | pass |
-| partial | data **and** errors | fail | warn | pass |
-| full failure | no data, errors | fail | warn | pass |
-| empty | neither | pass | pass | pass |
 
 ## Run it
 
 ```bash
-curlew run collections/graphql.yaml
+curlew run testapi/collections/90-graphql.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 ```
 
-```
-Collection: GraphQL API
-  ✓ List users  200  134ms
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
 
-────────────────────────────────
-  1 request(s): 1 passed, 0 failed (134ms)
-```
+## Complete collection
 
-<Callout type="output">
-	Representative output — point <code>url</code> at any GraphQL endpoint to run it for
-	real. Circular fragment references and duplicate fragment names are rejected at
-	parse time.
-</Callout>
+<!-- cookbook-source: testapi/collections/90-graphql.yaml -->
+```yaml
+# GraphQL against a server that reflects what it received.
+#
+# The partial-success case is why this family exists. A GraphQL server answers
+# HTTP 200 with `data` and `errors` both populated, and a client that reads the
+# status code and stops has passed a test that failed. `error_handling:`
+# decides, and until this collection existed nothing had put the case in front
+# of it.
+#
+# The rest proves curlew's `graphql:` block put on the wire what it claimed to.
+# Fragment concatenation and `query_file` loading happen entirely inside curlew;
+# the assembled query text is the only evidence either happened, and the server
+# is the only place that text can be observed. mudflat returns it under
+# `$.data.echo`.
+name: GraphQL
+description: |
+  Queries, variables, external query files, fragment concatenation, and the
+  three error_handling modes against partial success and full failure.
+
+requests:
+  - name: an inline query resolves
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql"
+      graphql:
+        query: |
+          query ListUsers($limit: Int!) {
+            users(first: $limit) {
+              id
+              name
+            }
+          }
+        variables:
+          limit: 2
+    assertions:
+      status: 200
+      body:
+        $.data.users: { length: 2 }
+        $.data.users[0].id: { equals: "usr_1" }
+        $.errors: { not_exists: true }
+        # The operation name was never sent explicitly: the server read it out
+        # of the query text, which proves the text arrived intact.
+        $.data.echo.operation_name: { equals: "ListUsers" }
+        # A variable that arrived as the string "2" would leave the resolver
+        # unbounded and `users` at length 5. Length 2 above is that assertion's
+        # other half.
+        $.data.echo.variables.limit: { equals: 2 }
+
+  - name: a query file with two fragments arrives concatenated
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql"
+      graphql:
+        query_file: "graphql/list-users.graphql"
+        fragments:
+          - "graphql/user-fields.graphql"
+          - "graphql/contact.graphql"
+        variables:
+          limit: 3
+    assertions:
+      status: 200
+      body:
+        $.data.users: { length: 3 }
+        # Both fragment definitions reached the server, in order. Without this
+        # the concatenation is untestable from outside curlew.
+        $.data.echo.fragment_names: { length: 2 }
+        $.data.echo.fragment_names[0]: { equals: "UserFields" }
+        $.data.echo.fragment_names[1]: { equals: "Contact" }
+        $.data.echo.query: { contains: "fragment UserFields on User" }
+        $.data.echo.operation_name: { equals: "ListUsers" }
+
+  - name: a mutation is a POST like any other
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql"
+      graphql:
+        query: |
+          mutation CreateUser($name: String!) {
+            createUser(name: $name) { id }
+          }
+        variables:
+          name: "Ada"
+    assertions:
+      status: 200
+      body:
+        $.data.echo.operation_name: { equals: "CreateUser" }
+        $.data.echo.variables.name: { equals: "Ada" }
+
+  - name: partial success is ignored when told to ignore it
+    description: |
+      HTTP 200, data resolved, one field failed. All three at once — the trap.
+      `ignore` is the only mode that lets this request pass, so a regression
+      that stopped distinguishing the modes would fail here rather than
+      silently pass everywhere.
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/partial"
+      graphql:
+        query: "query ListUsers { users { id email } }"
+        error_handling: ignore
+    assertions:
+      status: 200
+      body:
+        # Both halves present. This is what "partial" means.
+        $.data.users: { type: array }
+        $.errors: { length: 1 }
+        $.errors[0].message: { contains: "upstream directory timed out" }
+        $.errors[0].path: { length: 3 }
+        $.errors[0].extensions.code: { equals: "UPSTREAM_TIMEOUT" }
+
+  - name: partial success under warn passes with a warning
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/partial"
+      graphql:
+        query: "query ListUsers { users { id email } }"
+        error_handling: warn
+    assertions:
+      status: 200
+      body:
+        $.errors: { length: 1 }
+
+  - name: a full failure is ignored when told to ignore it
+    description: |
+      200 with `data: null` and errors present — the full-failure row of
+      docs/MANUAL.md §7.1's matrix, which documents it as passing under
+      `ignore` exactly as partial-success does.
+
+      This was §11C.2. internal/runner handled OutcomeFullFailure before the
+      mode was read, under a comment claiming "per spec" that
+      CLI_SPECIFICATION §12.2 did not support, so /graphql/errors failed
+      identically under fail, warn AND ignore and the setting was inert for
+      half the cases it documents.
+
+      `ignore` suppresses GraphQL-level error checking only — the assertions
+      below still run, and they are what makes this a test rather than a
+      request that passes by not being looked at.
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/errors"
+      graphql:
+        query: "query ListUsers { users { id } }"
+        error_handling: ignore
+    assertions:
+      status: 200
+      body:
+        $.errors: { length: 1 }
+        $.errors[0].extensions.code: { equals: "GRAPHQL_VALIDATION_FAILED" }
+        $.errors[0].message: { contains: "was not provided" }
+
+  - name: a full failure under warn passes with a warning
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/errors"
+      graphql:
+        query: "query ListUsers { users { id } }"
+        error_handling: warn
+    assertions:
+      status: 200
+      body:
+        $.errors: { length: 1 }
+
+  - name: introspection answers with a schema
+    request:
+      protocol: graphql
+      url: "{{mud}}/graphql/introspection"
+      graphql:
+        query: |
+          query IntrospectionQuery {
+            __schema {
+              queryType { name }
+              types { kind name }
+            }
+          }
+    assertions:
+      status: 200
+      body:
+        $.data.__schema.queryType.name: { equals: "Query" }
+        $.data.__schema.mutationType.name: { equals: "Mutation" }
+        $.data.__schema.types: { length: 5 }
+        $.data.__schema.types[0].name: { equals: "Query" }
+        $.data.__schema.types[1].fields: { length: 3 }
+
+  # /graphql/http-error — a 500 whose body is HTML rather than a GraphQL
+  # document — is NOT here, because it fails, and rightly: you asked for
+  # GraphQL and got HTML. It no longer takes the rest of the run with it
+  # (§11C.1), so it now sits among the other entries in
+  # testapi/gaps/expected-failures.yaml rather than needing a harness category
+  # of its own.
+```
