@@ -1,5 +1,11 @@
 # M14 (Revenue Plumbing) — Pre-Backlog Investigation
 
+> **Historical analysis.** This records an earlier design or investigation and may
+> describe removed features, licensing, or already-completed work. It is not a
+> current operating guide. Use [MANUAL.md](MANUAL.md), [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md),
+> and the [documentation map](README.md) for current behavior.
+
+
 Investigation date: 2026-05-03
 Scope: ground REVIEW.md's M14 framing in the current code, surface design questions before `/backlog M14` is run.
 Sources audited: `docs/REVIEW.md`, `docs/SPECIFICATION.md`, `internal/license/`, `cmd/curlew/license.go`, `src/ApiTool.Backend/Subscriptions/`, `src/ApiTool.Backend/Notifications/`, `.claude/skills/backlog/milestone-mapping.md`, `management/backlog.yaml`.

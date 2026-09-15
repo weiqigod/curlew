@@ -6,7 +6,7 @@
 # it is what keeps the binary genuinely static and the "download and run"
 # promise true on every target.
 #
-# Local checks (no publishing, no network side effects):
+# Local checks (no publishing; dependency hooks may access the network):
 #   goreleaser check
 #   goreleaser build --snapshot --clean --single-target
 #
@@ -25,6 +25,7 @@ before:
     # Deliberately `download`, not `tidy` — a release must not be able to
     # rewrite go.mod as a side effect of being built.
     - go mod download
+    - bash ./scripts/build-ui.sh
 
 builds:
   - id: curlew
@@ -72,6 +73,9 @@ archives:
       - CHANGELOG.md
       - docs/MANUAL.md
       - docs/CLI_SPECIFICATION.md
+      - docs/AGENT_GUIDE.md
+      - docs/UI_SPECIFICATION.md
+      - docs/README.md
 
 checksum:
   name_template: checksums.txt

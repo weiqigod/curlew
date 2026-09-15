@@ -1,0 +1,22 @@
+name: CEL example
+variables:
+  minimum: 199
+requests:
+- name: First response
+  request:
+    method: GET
+    url: '{{mud}}/status/200'
+  assertions:
+    status: 200
+- name: Conditional response
+  if: previous.status == 200
+  request:
+    method: GET
+    url: '{{mud}}/status/201'
+  assertions:
+    status:
+    - 200
+    - 201
+    cel:
+    - response.status == 201
+    - response.body.status > int(vars.minimum)

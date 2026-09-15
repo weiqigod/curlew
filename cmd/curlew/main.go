@@ -59,6 +59,18 @@ func runWithWriters(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	// Help is handled before config loading or any command side effects.
+	if len(args) == 2 && (args[1] == "--help" || args[1] == "-h") && printCommandHelp(args[0], stdout) {
+		return 0
+	}
+	if len(args) == 3 && (args[2] == "--help" || args[2] == "-h") {
+		if (args[0] == "import" && args[1] == "openapi") ||
+			((args[0] == "vault" || args[0] == "plugins") && args[1] == "list") {
+			printCommandHelp(args[0], stdout)
+			return 0
+		}
+	}
+
 	switch args[0] {
 	case "--version":
 		_, _ = fmt.Fprintf(stdout, "curlew %s\n", resolvedVersion)
@@ -530,7 +542,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	color := flags.color
 	verbosity := flags.verbosity
 	allowSensitive := flags.allowSensitive
-	showDeps := flags.showDeps
+	showDeps := flags.showDeps || flags.dryRun
 	dryRun := flags.dryRun
 	runParallel := flags.parallel
 	confirmLargeDS := flags.confirmLargeDataset
@@ -1018,7 +1030,6 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		}
 		return 0, nil
 	}
-	_ = dryRun // --dry-run without --show-dependencies is a no-op for now
 
 	ctx := context.Background()
 
@@ -3397,49 +3408,8 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  plugins list    Discover plugins and print registered capabilities")
 	_, _ = fmt.Fprintln(w, "  telemetry       Record anonymous usage events to a local file (opt-in)")
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Exec Options:")
-	_, _ = fmt.Fprintln(w, "  --stdin             Read request JSON from stdin")
-	_, _ = fmt.Fprintln(w, "  -X, --method <M>    HTTP method (default: GET)")
-	_, _ = fmt.Fprintln(w, "  --dry-run           Show request details without executing")
-	_, _ = fmt.Fprintln(w, "  --log <file>        Append structured JSONL log entry to file")
-	_, _ = fmt.Fprintln(w, "  --non-interactive   Suppress interactive prompts on errors")
-	_, _ = fmt.Fprintln(w, "  --format <type>     Output format: terminal (default), json")
-	_, _ = fmt.Fprintln(w, "  --var key=value     Set a variable (repeatable)")
-	_, _ = fmt.Fprintln(w, "  --env-var VAR       Import OS environment variable (repeatable)")
-	_, _ = fmt.Fprintln(w, "  --seed <number>     Seed for deterministic random variable functions (e.g. $faker.*)")
-	_, _ = fmt.Fprintln(w, "  --locale <code>     Faker locale for $faker.* functions (default en-US; e.g. de-DE)")
-	_, _ = fmt.Fprintln(w, "  --color <when>      auto (default) | always | never")
-	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (same as --color=never)")
-	_, _ = fmt.Fprintln(w, "  -v / -vv / -q       Verbosity control")
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Run Options:")
-	_, _ = fmt.Fprintln(w, "  --env <name>        Load environment file (from environments/<name>.yaml)")
-	_, _ = fmt.Fprintln(w, "                      Also selects shared vault template environment")
-	_, _ = fmt.Fprintln(w, "  --env-var VAR_NAME  Import OS environment variable (repeatable)")
-	_, _ = fmt.Fprintln(w, "  --env-var VAR=$OS   Import and rename OS environment variable")
-	_, _ = fmt.Fprintln(w, "  --var key=value     Set a variable (overrides all other sources, repeatable)")
-	_, _ = fmt.Fprintln(w, "  --seed <number>     Seed for deterministic random variable functions")
-	_, _ = fmt.Fprintln(w, "  --locale <code>     Faker locale for $faker.* functions (default en-US; e.g. de-DE)")
-	_, _ = fmt.Fprintln(w, "                      Supported: en-US, en-GB, de-DE, fr-FR, es-ES, it-IT, pt-BR,")
-	_, _ = fmt.Fprintln(w, "                                 ja-JP, zh-CN, ko-KR, nl-NL, pl-PL, ru-RU, sv-SE, tr-TR")
-	_, _ = fmt.Fprintln(w, "  --format <type>     Output format: terminal (default), json, tap, junit, html, markdown")
-	_, _ = fmt.Fprintln(w, "  --report <file>     Write report to file (required for --format html, optional for --format junit)")
-	_, _ = fmt.Fprintln(w, "                      --format markdown requires --report <dir>")
-	_, _ = fmt.Fprintln(w, "  --events <file>     Write an NDJSON event stream for the run (schema v1.6)")
-	_, _ = fmt.Fprintln(w, "                      One JSON object per line; see docs/EVENTS_SCHEMA_v1.6.md")
-	_, _ = fmt.Fprintln(w, "  --color <when>      auto (default) | always | never. always forces colour on a pipe")
-	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (same as --color=never; auto also respects NO_COLOR)")
-	_, _ = fmt.Fprintln(w, "  -v                  Verbose: show request/response headers")
-	_, _ = fmt.Fprintln(w, "  -vv                 Very verbose: full HTTP request/response dump")
-	_, _ = fmt.Fprintln(w, "  -q, --quiet         Quiet: summary line only")
-	_, _ = fmt.Fprintln(w, "  --allow-sensitive   Show sensitive values in plain text (default: redact to [REDACTED])")
-	_, _ = fmt.Fprintln(w, "  --parallel          Execute independent requests concurrently")
-	_, _ = fmt.Fprintln(w, "  --confirm-large-dataset  Confirm execution of data files with >10,000 rows")
-	_, _ = fmt.Fprintln(w, "  --show-dependencies Show dependency graph (DOT format) without executing")
-	_, _ = fmt.Fprintln(w, "  --dry-run           With --show-dependencies: show execution waves")
-	_, _ = fmt.Fprintln(w, "  --only \"<name>\"     Run only the named main request; repeatable for a union (e.g. --only \"Get user\" --only \"Update user\")")
-	_, _ = fmt.Fprintln(w, "                      Setup and teardown still run in full. Fails with exit 3 when no match is found.")
-	_, _ = fmt.Fprintln(w)
+	printExecOptionsTo(w)
+	printRunOptionsTo(w)
 	_, _ = fmt.Fprintln(w, "Request Item Fields (in collection YAML):")
 	_, _ = fmt.Fprintln(w, "  if: <CEL bool>      Skip this request unless the CEL expression evaluates to true.")
 	_, _ = fmt.Fprintln(w, "                      Evaluated before templating; references vars.<name>, env.<name>,")
@@ -3454,7 +3424,7 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  --duration <d>      Total run duration (e.g. 30s, 2m)")
 	_, _ = fmt.Fprintln(w, "  --ramp-up <d>       Linearly ramp VU count from 1 to --vus over this window")
 	_, _ = fmt.Fprintln(w, "  --rps <n>           Target throughput in requests/sec (0 = unbounded)")
-	_, _ = fmt.Fprintln(w, "  --output <dest>     Output destination (stdout|json|html). Only 'stdout' supported currently.")
+	_, _ = fmt.Fprintln(w, "  --output <dest>     Output destination: stdout, report.json, or report.html (extension selects format).")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Glob Discovery:")
 	_, _ = fmt.Fprintln(w, "  Patterns support *, ?, [abc], and ** (multi-segment wildcard)")
@@ -3612,7 +3582,7 @@ func parsePrCheckArgs(args []string) (cfg prcheck.Config, showHelp bool, err err
 		case "--dry-run":
 			cfg.DryRun = true
 		case "--events":
-			return cfg, false, fmt.Errorf("--events is supported only on run; use --format jsonl for streaming samples")
+			return cfg, false, fmt.Errorf("--events is supported only on run; use curlew run --events <file> to record run events")
 		default:
 			return cfg, false, fmt.Errorf("unknown flag: %s", args[i])
 		}
@@ -3686,4 +3656,53 @@ func showDepsOtherPhaseNames(col *parser.Collection) map[string]bool {
 		}
 	}
 	return out
+}
+
+func printExecOptionsTo(w io.Writer) {
+	_, _ = fmt.Fprintln(w, "Exec Options:")
+	_, _ = fmt.Fprintln(w, "  --stdin             Read request JSON from stdin")
+	_, _ = fmt.Fprintln(w, "  -X, --method <M>    HTTP method (default: GET)")
+	_, _ = fmt.Fprintln(w, "  --dry-run           Show request details without executing")
+	_, _ = fmt.Fprintln(w, "  --log <file>        Append structured JSONL log entry to file")
+	_, _ = fmt.Fprintln(w, "  --non-interactive   Suppress interactive prompts on errors")
+	_, _ = fmt.Fprintln(w, "  --format <type>     Output format: terminal (default), json")
+	_, _ = fmt.Fprintln(w, "  --var key=value     Set a variable (repeatable)")
+	_, _ = fmt.Fprintln(w, "  --env-var VAR       Import OS environment variable (repeatable)")
+	_, _ = fmt.Fprintln(w, "  --seed <number>     Seed for deterministic random variable functions (e.g. $faker.*)")
+	_, _ = fmt.Fprintln(w, "  --locale <code>     Faker locale for $faker.* functions (default en-US; e.g. de-DE)")
+	_, _ = fmt.Fprintln(w, "  --color <when>      auto (default) | always | never")
+	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (same as --color=never)")
+	_, _ = fmt.Fprintln(w, "  -v / -vv / -q       Verbosity control")
+	_, _ = fmt.Fprintln(w)
+}
+
+func printRunOptionsTo(w io.Writer) {
+	_, _ = fmt.Fprintln(w, "Run Options:")
+	_, _ = fmt.Fprintln(w, "  --env <name>        Load environment file (from environments/<name>.yaml)")
+	_, _ = fmt.Fprintln(w, "                      Also selects shared vault template environment")
+	_, _ = fmt.Fprintln(w, "  --env-var VAR_NAME  Import OS environment variable (repeatable)")
+	_, _ = fmt.Fprintln(w, "  --env-var VAR=$OS   Import and rename OS environment variable")
+	_, _ = fmt.Fprintln(w, "  --var key=value     Set a variable (overrides all other sources, repeatable)")
+	_, _ = fmt.Fprintln(w, "  --seed <number>     Seed for deterministic random variable functions")
+	_, _ = fmt.Fprintln(w, "  --locale <code>     Faker locale for $faker.* functions (default en-US; e.g. de-DE)")
+	_, _ = fmt.Fprintln(w, "                      Supported: en-US, en-GB, de-DE, fr-FR, es-ES, it-IT, pt-BR,")
+	_, _ = fmt.Fprintln(w, "                                 ja-JP, zh-CN, ko-KR, nl-NL, pl-PL, ru-RU, sv-SE, tr-TR")
+	_, _ = fmt.Fprintln(w, "  --format <type>     Output format: terminal (default), json, tap, junit, html, markdown")
+	_, _ = fmt.Fprintln(w, "  --report <file>     Write report to file (required for --format html, optional for --format junit)")
+	_, _ = fmt.Fprintln(w, "                      --format markdown requires --report <dir>")
+	_, _ = fmt.Fprintln(w, "  --events <file>     Write an NDJSON event stream for the run (schema v1.6)")
+	_, _ = fmt.Fprintln(w, "                      One JSON object per line; see docs/EVENTS_SCHEMA_v1.6.md")
+	_, _ = fmt.Fprintln(w, "  --color <when>      auto (default) | always | never. always forces colour on a pipe")
+	_, _ = fmt.Fprintln(w, "  --no-color          Disable colored output (same as --color=never; auto also respects NO_COLOR)")
+	_, _ = fmt.Fprintln(w, "  -v                  Verbose: show request/response headers")
+	_, _ = fmt.Fprintln(w, "  -vv                 Very verbose: full HTTP request/response dump")
+	_, _ = fmt.Fprintln(w, "  -q, --quiet         Quiet: summary line only")
+	_, _ = fmt.Fprintln(w, "  --allow-sensitive   Show sensitive values in plain text (default: redact to [REDACTED])")
+	_, _ = fmt.Fprintln(w, "  --parallel          Execute independent requests concurrently")
+	_, _ = fmt.Fprintln(w, "  --confirm-large-dataset  Confirm execution of data files with >10,000 rows")
+	_, _ = fmt.Fprintln(w, "  --show-dependencies Show dependency graph (DOT format) without executing")
+	_, _ = fmt.Fprintln(w, "  --dry-run           Show execution waves without sending requests")
+	_, _ = fmt.Fprintln(w, "  --only \"<name>\"     Run only the named main request; repeatable for a union (e.g. --only \"Get user\" --only \"Update user\")")
+	_, _ = fmt.Fprintln(w, "                      Setup and teardown still run in full. Fails with exit 3 when no match is found.")
+	_, _ = fmt.Fprintln(w)
 }

@@ -1,103 +1,321 @@
 ---
-title: Scripted WebSocket order stream
-intent: Drive a real-time subscription as a sequence of steps — subscribe, expect N events, extract a value, then close cleanly — with heartbeats and reconnect.
+title: WebSocket conversations
+intent: Send, match, extract and close using a local WebSocket server.
 group: resilience
-features: [websocket, chaining]
-command: curlew run collections/orders-ws.yaml
+features:
+- websocket
+- chaining
+command: curlew run testapi/collections/91-websocket.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 80
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+Place `websocket:` inside `request:`. With `expect.count` greater than one, extraction yields a JSON-encoded array of matched values, not just the last value. The fixture below also checks fragmented messages and connection behavior.
 
-WebSocket testing isn't a single request/response — it's a conversation. Curlew
-models it as an ordered list of steps: `send` a message, `expect` one or more
-replies (with JSONPath assertions and extraction), `wait`, and `close`. Heartbeats
-and transparent reconnect keep long-lived subscriptions alive.
+## Prerequisites
 
-## The collection
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
-```yaml
-# collections/orders-ws.yaml
-name: Order updates
-requests:
-  - name: Subscribe to orders
-    request:
-      protocol: websocket
-      url: "wss://{{ws_host}}/stream"
-      headers:
-        Authorization: "Bearer {{auth_token}}"
-    websocket:
-      heartbeat:
-        enabled: true
-        interval_ms: 30000
-        message: { type: "ping" }
-      reconnect:
-        enabled: true
-        max_attempts: 3
-        initial_delay_ms: 1000
-      steps:
-        - action: send
-          message:
-            type: "subscribe"
-            channel: "orders"
-
-        - action: expect
-          timeout_ms: 5000
-          message:
-            "$.type":
-              equals: "subscribed"
-
-        - action: expect
-          timeout_ms: 10000
-          count: 3                  # wait for 3 matching messages
-          message:
-            "$.event":
-              equals: "order_placed"
-          extract:
-            last_order_id: "$.order_id"
-
-        - action: wait
-          duration_ms: 500
-
-        - action: close
-          code: 1000                # normal closure
-          reason: "done"
-    assertions:
-      status: 200
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
-
-The `expect` step with `count: 3` blocks until three messages match (or the timeout
-trips), and `extract` captures a value from the last match — `last_order_id` is then
-available to any request that runs afterwards.
 
 ## Run it
 
 ```bash
-curlew run collections/orders-ws.yaml --var ws_host=stream.example.com
+curlew run testapi/collections/91-websocket.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 ```
 
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: testapi/collections/91-websocket.yaml -->
+```yaml
+# WebSocket against a server that writes its own frames.
+#
+# mudflat's WebSocket layer is written from RFC 6455 rather than taken from
+# gorilla, which is what curlew's client uses. A mudflat built on gorilla would
+# agree with curlew by construction about masking, fragmentation, control frames
+# and close codes — every bug in the shared reading invisible, which is the
+# closed-loop problem of specification §3 wearing a different hat.
+#
+# Note where the block goes: `websocket:` is INSIDE `request:`. docs/MANUAL.md
+# §7.2 puts it a level higher, and a collection written from that example is
+# rejected with "must have websocket.steps with at least one action".
+name: WebSocket
+description: |
+  Send, expect, count, extract, wait and close against nine endpoints, plus
+  subprotocol negotiation, a delayed handshake, and message reassembly across
+  continuation frames.
+
+requests:
+  - name: send and echo, three times over one connection
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/echo"
+      websocket:
+        steps:
+          - action: send
+            message:
+              hello: "mudflat"
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type: { equals: "echo" }
+              $.seq: { equals: 1 }
+              $.binary: { equals: false }
+          - action: send
+            message_raw: "a raw string, not JSON"
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.seq: { equals: 2 }
+              $.text: { equals: "a raw string, not JSON" }
+          - action: close
+            code: 1000
+            reason: "done"
+
+  - name: three unsolicited messages, counted
+    description: |
+      The server sends without being asked. Sequence numbers are the reason the
+      envelope carries one: `count: 3` satisfied by a single message matching
+      three times would show three identical numbers here.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/push?n=3&ms=5"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 5000
+            count: 3
+            message:
+              $.type: { equals: "push" }
+            extract:
+              push_seqs: "$.seq"
+
+  - name: a counted extraction yields a JSON array, not the last value
+    description: |
+      The undocumented half of `count:`. With count > 1 each extracted name
+      becomes a JSON-encoded array of the per-message values — here
+      ["1","2","3"] — rather than the value from the final message.
+
+      Neither docs/MANUAL.md nor docs/CLI_SPECIFICATION.md says so, and the
+      manual's own example names the variable `last_order_id`, which implies
+      exactly the opposite. A collection author following it gets an array
+      where they expected an id, and finds out when the next request sends
+      `["ord_1","ord_2","ord_3"]` to a URL.
+
+      This request is here to state the real contract in a form that fails if
+      it ever changes.
+    request:
+      method: GET
+      url: "{{mud}}/echo?seqs={{push_seqs}}"
+    assertions:
+      status: 200
+      body:
+        # The array reaches the wire verbatim: an interpolated value is not
+        # percent-encoded on its way into a query string.
+        $.request.target: { contains: '["1","2","3"]' }
+
+  - name: one message split across three continuation frames
+    description: |
+      Each fragment is invalid JSON on its own, so a client that mistook a
+      frame for a message would fail to parse rather than quietly assert
+      against a third of the document.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/fragmented"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type: { equals: "fragmented" }
+              $.text: { equals: "three frames, one message" }
+
+  - name: a subprotocol is negotiated from the offered list
+    description: |
+      Server preference wins: mudflat.v2 is first server-side and second in the
+      client's list. That the header arrives at all is the other half — the
+      dialer takes headers from the request, and this is where they either
+      survive the upgrade or do not.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/subprotocol"
+      headers:
+        Sec-WebSocket-Protocol: "mudflat.v1, mudflat.v2"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type: { equals: "negotiated" }
+              $.subprotocol: { equals: "mudflat.v2" }
+
+  - name: a handshake delayed by 300ms still completes
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/slow-accept?ms=300"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type: { equals: "late" }
+              $.text: { contains: "300ms" }
+
+  - name: a close code other than 1000 arrives before the close
+    description: |
+      The close code itself is surfaced — "websocket: close 4000: mudflat
+      closing with 4000" — which is the §9.L outcome that came out
+      affirmative. It cannot be asserted from a collection, because a step
+      that reads past the close is an error rather than an assertion, so the
+      pre-close message is what this request pins.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/close/4000"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 5000
+            message:
+              $.type: { equals: "closing" }
+              $.text: { contains: "4000" }
+
+  - name: a heartbeat survives while a step is reading
+    description: |
+      The A half of an A/B pair. Here an expect step reads continuously, the
+      pongs are dispatched, and the heartbeat holds for five intervals. A
+      passed even while §11C.5 was open, which is what made the finding
+      attributable to dispatch rather than to the server.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/push?n=5&ms=150"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 100
+        steps:
+          - action: expect
+            timeout_ms: 8000
+            count: 5
+            message:
+              $.type: { equals: "push" }
+
+  - name: a heartbeat survives while a step is idle
+    description: |
+      The B half, and the one that matters: a heartbeat exists to hold an IDLE
+      connection open. This was §11C.5, and it lived in
+      testapi/gaps/expected-failures.yaml because it failed at the first
+      interval —
+
+        step 1 (wait): websocket heartbeat timeout after 100ms
+
+      — against /ws/echo, which answers every ping (pinned server-side by
+      TestWS_EchoAnswersAClientPing, without which this would not be
+      attributable). The feature was inverted: it failed precisely when idle,
+      and reported a server that answered correctly as dead.
+
+      gorilla dispatches control frames only from inside ReadMessage, and a
+      `wait` step slept on a timer. The pong landed on the socket and the
+      handler never ran. Reads now go through a single pump that stays inside
+      ReadMessage for the life of the connection, so pongs are dispatched
+      whether or not a step is reading.
+
+      Four intervals of idling, then a round trip to prove the connection is
+      still usable afterwards — a heartbeat that survived by killing the
+      connection would not be a fix.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/echo"
+      websocket:
+        heartbeat:
+          enabled: true
+          interval_ms: 100
+        steps:
+          - action: wait
+            duration_ms: 400
+          - action: send
+            message: { after: "an idle period" }
+          - action: expect
+            timeout_ms: 3000
+            message:
+              $.type: { equals: "echo" }
+
+  - name: a message arriving during a wait is not lost
+    description: |
+      A wait reads now rather than sleeping, so it necessarily consumes frames
+      that arrive while it runs. They go to the same buffer an expect step
+      searches first, which is what keeps the change from silently dropping
+      messages.
+
+      /ws/push sends three messages 50ms apart. The wait covers all of them,
+      and the expect that follows must still find all three — from the buffer,
+      with nothing left on the wire.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/push?n=3&ms=50"
+      websocket:
+        steps:
+          - action: wait
+            duration_ms: 400
+          - action: expect
+            timeout_ms: 1000
+            count: 3
+            message:
+              $.type: { equals: "push" }
+
+  - name: curlew answers a protocol ping
+    description: |
+      The client half of the heartbeat contract, and the only place it is
+      observable. mudflat sends two protocol pings, waits for the pongs, and
+      reports the count in a data message — a collection can assert on a
+      message and cannot assert on a close reason.
+
+      pongs: 2 means curlew replied to both. A client that never pongs would
+      report 0 here without anything else in the run changing, which is what
+      makes the /ws/no-pong side of the pair attributable.
+    request:
+      protocol: websocket
+      url: "{{ws}}/ws/ping?n=2&ms=50"
+      websocket:
+        steps:
+          - action: expect
+            timeout_ms: 8000
+            message:
+              $.type: { equals: "ping-report" }
+              $.pings: { equals: 2 }
+              $.pongs: { equals: 2 }
+
+  - name: an upgrade rejected for an unsupported subprotocol
+    description: |
+      The negative control for negotiation. The dial fails, so this asserts on
+      the HTTP response rather than on a WebSocket: mudflat answers 400 with a
+      body naming what it does speak.
+    request:
+      method: GET
+      url: "{{mud}}/ws/subprotocol"
+      headers:
+        Connection: "Upgrade"
+        Upgrade: "websocket"
+        Sec-WebSocket-Version: "13"
+        Sec-WebSocket-Key: "dGhlIHNhbXBsZSBub25jZQ=="
+        Sec-WebSocket-Protocol: "something.else"
+    assertions:
+      status: 400
+      body:
+        $.detail: { contains: "mudflat.v2" }
+
+  - name: a request that is not an upgrade at all
+    request:
+      method: GET
+      url: "{{mud}}/ws/echo"
+    assertions:
+      status: 400
+      body:
+        $.detail: { contains: "RFC 6455" }
 ```
-Collection: Order updates
-  ✓ Subscribe to orders  2148ms
-      → subscribe (orders)
-      ✓ expect type == "subscribed" (42ms)
-      ✓ expect 3× event == "order_placed" (1.6s)
-      → close 1000 "done"
-
-────────────────────────────────
-  1 request(s): 1 passed, 0 failed (2151ms)
-```
-
-<Callout type="output">
-	Representative step trace — the timing of incoming events depends on the server.
-</Callout>
-
-<Callout type="note">
-	Other step shapes: <code>message_raw</code> sends a literal string,
-	<code>message_template</code> sends a file with <code>{'{{vars}}'}</code> interpolated,
-	and <code>any_of</code> lets one <code>expect</code> accept several alternative
-	message shapes.
-</Callout>

@@ -50,18 +50,27 @@ you say a change is done:
 ./scripts/ci-local.sh --check-signing-keys   # SaaS lint: fail on any NULL kms_key_id
 ```
 
+The Go gate needs Go 1.24+, Node.js 22+ / npm, Python 3, Git, authenticated
+GitHub CLI access to this private repository, golangci-lint and GoReleaser v2.
+The frontend build is part of the binary build; release users do not need Node.
+
 The Go gate (always run, whichever mode you pick) directly runs:
 
+- `./scripts/build-ui.sh` — install locked UI dependencies and build embedded assets
 - `go build` — the binary must build cleanly
 - `go test` — every package's tests
 - `go test -race` — the same tests under the race detector
 - `golangci-lint` — lint, including `gofumpt` formatting
 - `./smoke/run.sh` — the hermetic smoke suite against the built binary
+- Documentation, agent and cookbook recipes against local fixtures
+- Release snapshots/archives, embedded UI smoke check and README installation tests
+- Mudflat dogfood suites and the independent ledger cross-check
 
 If your change touches `src/` (the .NET backend), `web/` (the dashboard), or
-the Docker test stack, `auto` mode detects that from `git diff` and pulls in
-the matching gate automatically — you do not need to pass `--full` yourself
-unless you want to force everything.
+the Docker test stack, `auto` mode detects committed branch changes relative to
+main and pulls in the matching gate. It does not detect uncommitted edits.
+For UI changes, also run `cd ui && npm run test:e2e`. For the cookbook site,
+run `npm ci`, `npm run check`, `npm run lint` and `npm run build` under `site/`.
 
 ## Task lifecycle
 

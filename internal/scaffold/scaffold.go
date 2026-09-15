@@ -105,6 +105,9 @@ func Init(opts Options) error {
 	}
 
 	if opts.SkillName != "" {
+		if err := os.MkdirAll(filepath.Join(dir, ".curlew"), 0o750); err != nil {
+			return fmt.Errorf("creating agent events directory: %w", err)
+		}
 		if err := installSkill(dir, opts.SkillName, opts.CurlewVersion); err != nil {
 			return err
 		}

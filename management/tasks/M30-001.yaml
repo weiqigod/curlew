@@ -1,0 +1,30 @@
+id: M30-001
+title: "Executable documentation and a dependable agent entry point"
+status: done
+priority: 1
+created: 2026-09-15
+phase: "M30: Local product usability"
+dependencies: []
+observable: |
+  curlew run --help
+  curlew exec --help
+  curlew init --skill agent
+  ./scripts/ci-local.sh --go
+behaviors:
+  - Standalone dry runs plan without sending setup, main or teardown requests.
+  - Help discovery never executes a request or requires a project.
+  - Documented agent commands execute against a local fixture and expose useful failure artifacts.
+  - Cookbook examples use executable local fixtures with explicit prerequisites.
+  - Release builds include working UI assets from a clean checkout.
+scope: |
+  Refresh current CLI, UI, agent, installation, and cookbook documentation.
+  Separate retained historical and platform documents from current CLI guidance.
+  Fix agent-facing help and dry-run discovery; regression-test documentation examples.
+  Serialize Mudflat WebSocket frames after the cookbook exposed heartbeat interleaving.
+  Keep CI billing settings unchanged. No MCP server or native desktop wrapper.
+definition_of_done:
+  - Documentation and example checks pass against current code
+  - Go local gate and affected frontend checks pass
+  - Review and verification evidence recorded
+  - CHANGELOG.md updated
+complexity: high

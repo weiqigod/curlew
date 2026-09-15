@@ -1,89 +1,156 @@
 ---
-title: CI pipeline with PR checks
-intent: Run the suite in GitHub Actions or GitLab, emit JUnit for the test reporter, then upload results and post a check straight onto the pull request.
+title: Local results and CI verdicts
+intent: Write machine-readable results and turn them into a local pass/fail verdict.
 group: automation
-features: [ci, reporting, redaction]
-command: curlew run 'collections/**/*.yaml' --format junit --report results.xml
+features:
+- ci
+- reporting
+command: curlew run testapi/collections/00-smoke.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 120
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+The CI runner can archive the JSON, JUnit or HTML artifact. Curlew does not upload it or post a pull-request check itself. Your CI system reports the process status. Private-repository installation requires authenticated GitHub access.
 
-Tests that pass on your laptop need to gate every pull request. Curlew speaks the
-CI native tongues — JUnit and TAP — exits with a precise code your pipeline can
-branch on, and uploads the run and posts a status check back onto the
-PR.
+## Prerequisites
 
-## GitHub Actions
-
-```yaml
-# .github/workflows/api-tests.yml
-name: API tests
-on: [push, pull_request]
-jobs:
-  curlew:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-      - run: go install github.com/weiqigod/curlew/cmd/curlew@latest
-      - name: Run API tests
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
-        run: |
-          curlew run 'collections/**/*.yaml' \
-            --env staging \
-            --env-var API_KEY \
-            --format junit \
-            --report test-results.xml
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results.xml
-```
-
-GitLab is the same pattern — `--format junit --report test-results.xml`, then let the
-`artifacts.reports.junit` integration render it.
-
-## Exit codes you can branch on
-
-| Code | Meaning |
-|---|---|
-| `0` | All assertions passed |
-| `1` | Assertion failure (tests ran, some checks didn't pass) |
-| `2` | Usage error or safety guard (e.g. large dataset without confirmation) |
-| `3` | Parse / config error — tests never started; treat as a pipeline bug, not a regression |
-| `5` | Variable resolution error |
-
-That `1` vs `3` split matters: a `3` means your YAML is broken, not your API.
-
-## Post a check on the PR
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
 ```bash
-export CURLEW_BACKEND_URL=https://api.apitool.dev
-export CURLEW_BACKEND_TOKEN=$CURLEW_TOKEN
-
-curlew run 'collections/**/*.yaml' \
-  --env staging \
-  --format junit --report test-results.xml \
-  --report-upload \
-  --org acme \
-  --pr "$PR_NUMBER" --repo acme/demo-api \
-  --git-sha "$GITHUB_SHA"
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
 
-```
-Uploaded result res_abc123; check-run posted; status=success
+## Run it
+
+```bash
+curlew run testapi/collections/00-smoke.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID" --format json > results.json
+curlew pr-check --results results.json --summary verdict.json
 ```
 
-<Callout type="output">
-	Representative output — uploading requires a backend and token. The check-run
-	state mirrors the run outcome (<code>success</code> / <code>failure</code>), and any
-	sensitive variable stays <code>[REDACTED]</code> in the uploaded report.
-</Callout>
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: testapi/collections/00-smoke.yaml -->
+```yaml
+# The server is up, describes itself, and round-trips a request.
+#
+# If this collection fails, nothing else in the suite is worth reading.
+name: Mudflat smoke
+description: |
+  Proves mudflat is running and that curlew can reach it. Every later
+  collection assumes this one passes.
+
+requests:
+  - name: index lists endpoints
+    request:
+      method: GET
+      url: "{{mud}}/"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/json" }
+      body:
+        $.name: { equals: "mudflat" }
+        $.endpoints: { type: array }
+      cel:
+        - "response.body.endpoints.size() > 20"
+
+  - name: capabilities reports the phase and what is absent
+    request:
+      method: GET
+      url: "{{mud}}/capabilities"
+    assertions:
+      status: 200
+      body:
+        $.phase: { equals: 4 }
+        $.families: { type: array }
+        # What is absent is reported so a caller can tell a missing capability
+        # from a broken one.
+        $.Absent: { exists: true }
+
+  - name: echo round-trips a request
+    request:
+      method: POST
+      url: "{{mud}}/echo"
+      headers:
+        X-Dogfood: "smoke"
+      query:
+        k: "v"
+      body:
+        hello: "mudflat"
+    assertions:
+      status: 200
+      body:
+        $.request.method: { equals: "POST" }
+        $.server.name: { equals: "mudflat" }
+        $.request.body_len: { greater_than: 0 }
+        # The envelope reports headers as ordered pairs, so a header curlew
+        # claims to send either appears here or it was never sent.
+        $.request.header_names_in_order: { contains: "X-Dogfood" }
+        $.request.query: { length: 1 }
+
+  - name: echo reports the session from the path
+    request:
+      method: GET
+      url: "{{mud}}/s/{{run}}-smoke/echo"
+    assertions:
+      status: 200
+      body:
+        $.server.session: { exists: true }
+        $.connection.id: { exists: true }
+
+  - name: anything accepts any path depth
+    request:
+      method: GET
+      url: "{{mud}}/anything/deeply/nested/path/segments"
+    assertions:
+      status: 200
+      body:
+        $.request.target: { contains: "deeply/nested" }
+
+  - name: empty body is distinguishable from a missing one
+    request:
+      method: GET
+      url: "{{mud}}/empty"
+    assertions:
+      status: 200
+
+  - name: session reset is idempotent
+    request:
+      method: DELETE
+      url: "{{mud}}/s/{{run}}-smoke"
+    assertions:
+      status: 204
+
+  - name: unknown path is a clean 404
+    request:
+      method: GET
+      url: "{{mud}}/no-such-endpoint-exists"
+    assertions:
+      status: 404
+
+  - name: the OpenAPI document is served
+    description: |
+      The §9.P round trip runs in testapi/harness/openapi.sh — importing a
+      document and running the result is a command, not a response, so no
+      collection can express it. What a collection can check is that the
+      document is here and is the version-controlled one.
+    request:
+      method: GET
+      url: "{{mud}}/openapi.json"
+    assertions:
+      status: 200
+      headers:
+        Content-Type: { equals: "application/json" }
+      body:
+        $.openapi: { equals: "3.1.0" }
+        $.info.title: { equals: "Mudflat" }
+        # Hand-written, not generated from the handlers: a generated document
+        # would make the round trip a tautology.
+        $.info.description: { contains: "HAND-WRITTEN" }
+        $.paths./echo.get.operationId: { equals: "echoGet" }
+```

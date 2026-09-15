@@ -1,76 +1,140 @@
 ---
-title: Governance — telemetry, scheduling & data rights
-intent: Run consent-based telemetry, pull scheduled monitoring jobs, and satisfy audit, encryption, and GDPR obligations — the enterprise plumbing.
+title: Local output and redaction
+intent: Inspect local artifacts and verify that sensitive values stay redacted.
 group: automation
-features: [compliance, redaction]
-command: curlew telemetry status
+features:
+- redaction
+- reporting
+command: curlew run testapi/collections/70-redaction.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 order: 140
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+The CLI has no telemetry upload, scheduler or platform data-rights service. Telemetry is opt-in local storage. This collection exercises redaction through response bodies, extracted values and outgoing requests; it does not claim regulatory compliance.
 
-The last mile of a serious tool is governance: knowing what's collected, scheduling
-unattended runs, and being able to answer "show me everything you hold about this
-user." Curlew treats these as first-class.
+## Prerequisites
 
-## Telemetry is opt-in and inspectable
-
-No telemetry is sent until you turn it on, and you can see, reset, export, or delete
-your data at any time.
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
 ```bash
-curlew telemetry status          # what's collected, and your anonymous install id
-curlew telemetry enable          # opt in (GDPR Art. 6(1)(a) consent)
-curlew telemetry disable         # opt back out
-curlew telemetry reset-id        # rotate the anonymous install id
-curlew telemetry export          # dump everything held about this install
-curlew telemetry delete-request  # request deletion of your telemetry
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
 
-```
-telemetry: disabled (no install_id; opt-in required)
-```
-
-When enabled, only coarse run events (`run.completed`, `run.error`) are sent under
-a rotatable anonymous id — never request bodies, secrets, or personal data.
-
-## Scheduled monitoring runs
-
-A self-hosted worker can poll the backend for scheduled collections and run them on
-your own infrastructure — synthetic monitoring without shipping your secrets to a
-SaaS runner.
+## Run it
 
 ```bash
-curlew worker --schedule-pull \
-  --backend https://api.apitool.dev \
-  --poll-interval 30s
+curlew run testapi/collections/70-redaction.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID"
 ```
 
-Results post back to the dashboard, where flakiness and latency trends accumulate
-over time.
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
 
-## Encryption, audit & data rights
+## Complete collection
 
-These are enforced by the backend and surfaced through the dashboard and CLI:
+<!-- cookbook-source: testapi/collections/70-redaction.yaml -->
+```yaml
+# Secrets, extracted where curlew will print them.
+#
+# This collection only fetches. The assertion that matters is on curlew's own
+# output — a secret redacted in the terminal but present in the HTML report has
+# still leaked — and that assertion lives in testapi/harness/redaction.sh, which
+# runs this same file in every format and greps the artefacts.
+#
+# CLI_SPECIFICATION §6.5 lists eight surfaces: terminal, JSON, TAP, JUnit, HTML,
+# Markdown, event streams and JSONL logs. Each is a separate code path.
+name: Redaction bait
+description: |
+  Extracts realistic secrets from the /leak/* family by both routes to
+  sensitivity — the §6.5 name heuristic and an explicit `sensitive: true` — then
+  sends them back in a later request so they appear on the way out as well as on
+  the way in.
 
-- **Encryption at rest (v2)** — shared team vaults and `schedules.env_vars` are
-  envelope-encrypted with a KMS-wrapped data key. Secret values never sit in the
-  database as plaintext.
-- **Audit log export** — every privileged action is recorded and exportable as JSONL
-  or CSV, with a per-org retention window.
-- **GDPR data-subject rights** — a per-user export bundle on request, and deletion
-  within 30 days with downstream anonymization.
+requests:
+  - name: extract a bearer token
+    request:
+      method: GET
+      url: "{{mud}}/leak/token"
+    assertions:
+      status: 200
+      body:
+        $.access_token: { type: string }
+        $.token_type: { equals: "Bearer" }
+    extract:
+      # Both names contain "token", so the §6.5 heuristic marks them sensitive
+      # with no declaration. leaked_key below takes the other route.
+      leaked_token: "$.access_token"
+      leaked_refresh_token: "$.refresh_token"
 
-<Callout type="note">
-	The redaction contract from the <a href="/examples/vault-secrets">secrets example</a>
-	is part of the same story: secrets are masked in CLI output <em>and</em> never
-	persisted in clear text server-side.
-</Callout>
+  - name: extract a key from six levels down
+    request:
+      method: GET
+      url: "{{mud}}/leak/nested"
+    assertions:
+      status: 200
+      body:
+        $.account.profile.integrations.provider.credentials.api_key: { type: string }
+    extract:
+      # The object form of CLI_SPECIFICATION §8. It is the only way to declare
+      # sensitivity explicitly, and until it was implemented a value was
+      # sensitive only if its name happened to match the heuristic — where the
+      # name is whatever the API under test calls the field.
+      leaked_key:
+        path: "$.account.profile.integrations.provider.credentials.api_key"
+        sensitive: true
 
-<Callout type="output">
-	Representative output — the governance features above depend on a backend
-	deployment. Telemetry itself is local to the CLI and ships disabled by default.
-</Callout>
+  - name: a secret arriving in a response header
+    request:
+      method: GET
+      url: "{{mud}}/leak/set-cookie"
+    assertions:
+      status: 200
+      headers:
+        Set-Cookie: { matches: "HttpOnly" }
+
+  - name: a value matching no name heuristic
+    request:
+      method: GET
+      url: "{{mud}}/leak/pan"
+    assertions:
+      status: 200
+      body:
+        $.card.brand: { equals: "visa" }
+        $.card.number: { type: string }
+    extract:
+      # "card_number" contains none of password, token, secret, key, auth or
+      # credential. Nothing about the name says secret; the declaration is the
+      # only thing that can, which is exactly the case the object form exists
+      # for.
+      card_number:
+        path: "$.card.number"
+        sensitive: true
+
+  - name: a secret carried only in a URL
+    request:
+      method: GET
+      url: "{{mud}}/leak/in-url"
+    assertions:
+      # curlew follows redirects and offers no way not to (§11.2), so this
+      # lands on /echo with the token as a query parameter. That is the
+      # interesting outcome anyway: the secret is now in a request URL, which
+      # every output surface records, and no body ever carried it.
+      status: 200
+      body:
+        $.request.target: { contains: "access_token=" }
+
+  - name: send the extracted token back
+    request:
+      method: GET
+      url: "{{mud}}/leak/header-echo?ref={{card_number}}"
+      headers:
+        Authorization: "Bearer {{leaked_token}}"
+        X-Api-Key: "{{leaked_key}}"
+    assertions:
+      status: 200
+      body:
+        # The echoed values are interpolated from sensitive variables, so
+        # propagation (§6.5 rule 5) should keep them sensitive on the way back.
+        $.authorization: { type: string }
+```

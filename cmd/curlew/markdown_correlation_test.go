@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,10 +18,9 @@ import (
 // The markdown sentinel's request_id survives every retention policy.
 //
 // §4.1a promises three correlation IDs linking each markdown file back to its
-// events-stream and JSONL counterparts, and the manual's cross-format section
+// events-stream counterparts, and the manual's cross-format section
 // says `request_id` and `request_slug` "link a specific event line to a
-// specific markdown file … so an agent can fan out from any fragment back to
-// the whole run".
+// specific markdown file".
 //
 // Under store_results: summary or failed_only the sentinel came out as
 // `id=-iter-0`. The events stream still emitted req-1 and req-2, so the break
@@ -32,14 +32,19 @@ var sentinelID = regexp.MustCompile(`BEGIN curlew:response id=(\S*) slug=(\S*) r
 func TestMarkdown_correlationIDsSurviveEveryRetentionPolicy(t *testing.T) {
 	// docs.ProseClaims can only see a call whose arguments are literals, so
 	// each claim gets its own call rather than a loop over a slice.
-	if _, err := docs.Prose("MANUAL.md", "correlate the JSONL entry with the same identifiers"); err != nil {
-		t.Fatalf("documented claim: %v", err)
-	}
+
 	if _, err := docs.Prose("MANUAL.md", "is the same hex value across"); err != nil {
 		t.Fatalf("documented claim: %v", err)
 	}
-	if _, err := docs.Prose("MANUAL.md", "fan out from any fragment back to the whole run"); err != nil {
+	if _, err := docs.Prose("MANUAL.md", "link a specific event line"); err != nil {
 		t.Fatalf("documented claim: %v", err)
+	}
+
+	if _, err := docs.Prose("MANUAL.md", "Every event carries"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "link each file to its event-stream counterpart"); err != nil {
+		t.Fatal(err)
 	}
 
 	bin := buildBinary(t)
@@ -76,11 +81,15 @@ func TestMarkdown_correlationIDsSurviveEveryRetentionPolicy(t *testing.T) {
 			}
 
 			eventIDs := requestIDsFromEvents(t, events)
+			eventData, err := os.ReadFile(events)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if len(eventIDs) == 0 {
 				t.Fatal("the events stream carried no request ids; there is no correlation to check")
 			}
 
-			for _, name := range []string{"iter-0.md", "iter-1.md"} {
+			for iteration, name := range []string{"iter-0.md", "iter-1.md"} {
 				data, err := os.ReadFile(filepath.Join(report, "each", name))
 				if err != nil {
 					t.Fatalf("reading %s: %v", name, err)
@@ -90,6 +99,30 @@ func TestMarkdown_correlationIDsSurviveEveryRetentionPolicy(t *testing.T) {
 					t.Fatalf("%s has no sentinel:\n%s", name, data)
 				}
 				id, slug, runID := m[1], m[2], m[3]
+				eventRequestID := strings.TrimSuffix(id, fmt.Sprintf("-iter-%d", iteration))
+				expectedSlug := fmt.Sprintf("%s-%d-2", slug, iteration+1)
+				matched := false
+				for _, line := range strings.Split(strings.TrimSpace(string(eventData)), "\n") {
+					var event struct {
+						SchemaVersion string `json:"schema_version"`
+						Kind          string `json:"kind"`
+						RunID         string `json:"run_id"`
+						RequestID     string `json:"request_id"`
+						Slug          string `json:"request_slug"`
+					}
+					if err := json.Unmarshal([]byte(line), &event); err != nil {
+						t.Fatal(err)
+					}
+					if event.SchemaVersion != "1.6" || event.RunID != runID {
+						t.Errorf("event version/run ID mismatch: %s", line)
+					}
+					if event.Kind == "request.end" && event.RequestID == eventRequestID && event.Slug == expectedSlug {
+						matched = true
+					}
+				}
+				if !matched {
+					t.Errorf("%s has no event with matching run/request/slug: %s\n%s", name, m[0], eventData)
+				}
 
 				if id == "" || strings.HasPrefix(id, "-") {
 					t.Errorf("store_results: %s left %s with sentinel id %q; the events stream for the "+

@@ -1,104 +1,78 @@
 # curlew — Variables reference
 
-Load this file when the user asks about variable interpolation, environment
-files, variable precedence, or extracting values from responses.
+Interpolate strings using `{{name}}`. Use collection/project/request `variables:`
+blocks, `environments/<name>.yaml` selected with `--env`, or CLI overrides.
+`--var name=value` has highest priority; `--env-var NAME` imports a process variable
+(and `--env-var 'name=$OS_NAME'` renames one). There is no `env_import:` YAML key.
 
-## Variable syntax
+The precedence order, low to high, is dynamic functions, project variables,
+environment file, `.env`, command-backed variables, vault secrets, collection
+variables, request variables, `--env-var`, `--var`. Extracted values are propagated
+as execution proceeds; avoid reusing a name for unrelated meanings.
 
-Wrap a variable name in double braces: `{{name}}`. Curlew interpolates every
-string value in a collection before the HTTP request is sent.
+Use `extract: {name: "$.path"}` to capture JSON into later requests. Extraction is
+JSONPath-only. XML XPath extraction is not supported. `validate` checks collection
+structure but cannot prove that future response fields or dynamic values exist.
+Undefined/circular runtime variables exit with code 5; inspect stderr and current events.
 
-```yaml
-requests:
-  - name: Get user
-    request:
-      method: GET
-      url: "{{base_url}}/users/{{user_id}}"
-```
+## Run the example
 
-## Variable types
-
-| Type | Where defined | Example |
-|---|---|---|
-| **Literal** | `curlew.yaml` `variables:` block | `base_url: "https://api.example.com"` |
-| **Environment** | `environments/<name>.yaml` `variables:` block | per-env overrides |
-| **OS env import** | `env_import:` list in collection or root config | `env_import: [API_KEY]` |
-| **CLI override** | `--var name=value` flag | ephemeral, highest priority |
-| **Extract** | `extract:` on a request | captured from a previous response |
-
-## Precedence ladder (highest wins)
-
-1. `--var` CLI override
-2. OS env import (`env_import:`)
-3. Active environment (`environments/<name>.yaml`)
-4. Root project (`curlew.yaml` `variables:`)
-5. Collection-level `variables:` block
-6. Literal fallback defaults
-
-## Environments
-
-Select an environment with `--env <name>`. Curlew loads
-`environments/<name>.yaml` and merges its `variables:` block onto the root
-layer.
-
-```yaml
-# environments/staging.yaml
-variables:
-  base_url: "https://staging.api.example.com"
-  timeout_ms: 5000
-```
+Start Mudflat using the repository's `site/README.md` setup. Save the complete
+collection below as `example.yaml` in a scratch directory. `MUDFLAT_URL` defaults
+to that setup's local port; override it if your fixture uses another port.
 
 ```bash
-curlew run collections/users.yaml --env staging
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export RUN_ID="agent-$(date +%s)-$$"
+curlew validate example.yaml --format json
+curlew run example.yaml --var mud="$MUDFLAT_URL" --var run="$RUN_ID" --format json
 ```
 
-## OS env import
+## Complete collection
 
-Pull secrets from the OS environment without committing them:
-
+<!-- agent-source: examples/agent/variables.yaml -->
 ```yaml
-# curlew.yaml
-env_import:
-  - API_KEY
-  - DB_PASSWORD
-```
-
-At runtime, Curlew reads `$API_KEY` and `$DB_PASSWORD` from the process
-environment and makes them available as `{{API_KEY}}` and `{{DB_PASSWORD}}`.
-Store real values in `.env` (git-ignored); put placeholders in `.env.example`
-(committed).
-
-## Extracting from responses
-
-Capture a value from one response and use it in the next request:
-
-```yaml
+name: Extraction example
 requests:
-  - name: Login
-    request:
-      method: POST
-      url: "{{base_url}}/auth/login"
-      body:
-        username: alice
-        password: "{{PASSWORD}}"
-    extract:
-      token: "$.access_token"   # JSONPath
-
-  - name: Get profile
-    request:
-      method: GET
-      url: "{{base_url}}/me"
-      headers:
-        Authorization: "Bearer {{token}}"
+- name: create a resource
+  request:
+    method: POST
+    url: '{{mud}}/s/{{run}}-chain/resources'
+    body:
+      name: first
+      kind: widget
+  assertions:
+    status: 201
+    headers:
+      Location:
+        matches: /resources/res_
+      ETag:
+        matches: ^"[0-9a-f]{32}"$
+    body:
+      $.id:
+        matches: ^res_.+_1$
+      $.seq:
+        equals: 1
+      $.body.name:
+        equals: first
+  extract:
+    first_id: $.id
+    first_etag: $.etag
+- name: fetch it by the extracted id
+  request:
+    method: GET
+    url: '{{mud}}/s/{{run}}-chain/resources/{{first_id}}'
+  assertions:
+    status: 200
+    body:
+      $.body.name:
+        equals: first
+      $.body.kind:
+        equals: widget
+      $.seq:
+        equals: 1
+      $.id:
+        equals: '{{first_id}}'
+      $.etag:
+        equals: '{{first_etag}}'
 ```
-
-`extract:` values use JSONPath (`$.<path>`) for JSON responses and XPath for
-XML. Extracted variables are available to all subsequent requests in the same
-run.
-
-## Notes
-
-- Undefined variables cause exit code 5. Run `curlew validate` to catch them
-  before hitting the network.
-- Circular references (`a: "{{b}}"`, `b: "{{a}}"`) are also exit code 5.
-- For CEL expressions that reference variables at runtime, see `expressions.md`.

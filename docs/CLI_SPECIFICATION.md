@@ -5,7 +5,7 @@
 <!-- doc-check: prose-not-executable the document's own completeness claim about itself, not a claim about the binary's behaviour -->
 
 **Version:** 1.0
-**Date:** 2026-08-04
+**Date:** 2026-09-15
 **Status:** Describes the CLI as shipped. Every behaviour in this document is implemented in `cmd/curlew` and `internal/`.
 **Scope:** The `curlew` binary only. The `src/` .NET backend and `web/` dashboard are specified separately in [SPECIFICATION.md](SPECIFICATION.md) and are not part of this document.
 
@@ -704,8 +704,8 @@ a credential does not make the rest of it safe to print. The *expected* string i
 left readable: it is the collection author's own text, and hiding it would leave
 a failure no one can act on.
 
-`--allow-sensitive` disables redaction for a single run. It exists for local
-debugging. The local UI (§20) does not accept it under any circumstances.
+`--allow-sensitive` disables the normal redaction pass for a single run.
+Markdown remains redacted; the local UI (§20) does not accept the flag.
 
 ### 6.6 Dynamic Functions
 
@@ -1633,8 +1633,8 @@ responses/
 ├── hello-world.md         one file per main request
 └── create-user/           data-driven requests get a directory
     ├── index.md           iteration manifest
-    ├── iter-1.md
-    └── iter-2.md
+    ├── iter-0.md
+    └── iter-1.md
 ```
 
 `run.md` carries the run summary and links to every per-request file; parallel
@@ -1646,7 +1646,12 @@ and a free region outside it. Content outside the sentinels survives every
 re-run, so notes written by a human or an agent are not overwritten.
 
 Three correlation IDs — `run_id`, `request_id`, `request_slug` — link each file
-to its event-stream and JSONL counterparts.
+to its event-stream counterpart from the same collection run.
+For data-driven reports, remove the `-iter-<zero-based index>` suffix from
+the sentinel ID before comparing it to the event request ID; the group index
+uses a `-index` suffix on the first request ID. Match run ID and this normalised
+request ID. Event slugs include the row name (`each-1-2`); Markdown uses the
+group slug (`each/iter-0.md`).
 
 ### 16.5 Event Stream
 
@@ -1656,7 +1661,8 @@ progressive consumption by a supervising process. The same field is settable as
 
 ### 16.6 JSONL Logging
 
-`--log <file>` appends one JSON object per request. Redaction applies.
+`curlew exec --log <file>` appends one JSON object per one-shot request.
+Redaction applies. `run` does not accept `--log`; use `--events` for collection runs.
 
 ---
 
@@ -1689,11 +1695,17 @@ matched collections.
 
 ## 18. Command Reference
 
+`curlew <command> --help` (or `-h`) prints help without loading a project or
+executing a request. Nested `import openapi`, `vault list`, and `plugins list`
+also accept help. AI integration uses this CLI and its local artifacts; no MCP
+server is provided. See [AGENT_GUIDE.md](AGENT_GUIDE.md).
+
 ```
 curlew <command> [arguments]
 ```
 
-`--version` and `--help` are accepted at top level and on every subcommand.
+`--version` is a top-level flag. `--help` is accepted at top level and,
+by itself after the command name, on every subcommand.
 
 ### 18.1 `run <file|pattern>`
 
@@ -1713,7 +1725,7 @@ Execute a collection, or every collection matching a glob (§4.3).
 | `--parallel` | Execute the requests phase in waves (§11) |
 | `--only "<name>"` | Restrict the requests phase to the named item. Repeatable, union |
 | `--show-dependencies` | Print the dependency graph in DOT format without executing |
-| `--dry-run` | With `--show-dependencies`, print wave assignment instead |
+| `--dry-run` | Print text wave assignment without sending requests; also works alone |
 | `--confirm-large-dataset` | Permit a data file over 10,000 rows |
 | `--allow-sensitive` | Disable redaction for this run |
 | `--color <when>` | `auto` (default), `always`, or `never`. `always` forces colour on a non-TTY |

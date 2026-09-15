@@ -83,6 +83,9 @@ var releaseRequiredFileCases = []struct{ caseName, path, why string }{
 	{"CHANGELOG.md", "CHANGELOG.md", "declared in .goreleaser.yaml archives[0].files"},
 	{"docs/MANUAL.md", "docs/MANUAL.md", "declared in .goreleaser.yaml archives[0].files"},
 	{"docs/CLI_SPECIFICATION.md", "docs/CLI_SPECIFICATION.md", "declared in .goreleaser.yaml archives[0].files"},
+	{"docs/AGENT_GUIDE.md", "docs/AGENT_GUIDE.md", "release users need the agent entry point"},
+	{"docs/UI_SPECIFICATION.md", "docs/UI_SPECIFICATION.md", "release users need the current UI contract"},
+	{"docs/README.md", "docs/README.md", "release users need the documentation map"},
 }
 
 // releaseSemverRE is the shape a release version must have. Note

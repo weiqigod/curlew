@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -59,8 +60,9 @@ type wsFrame struct {
 
 // wsConn is a hijacked connection carrying WebSocket frames.
 type wsConn struct {
-	conn net.Conn
-	br   *bufio.Reader
+	conn    net.Conn
+	br      *bufio.Reader
+	writeMu sync.Mutex // serialize complete frames, including control-pump replies
 
 	// Subprotocol is what the handshake negotiated, empty when none.
 	Subprotocol string
@@ -258,6 +260,8 @@ func (c *wsConn) ReadFrame() (wsFrame, error) {
 // WriteFrame emits one frame. Server-to-client frames are never masked
 // (RFC 6455 §5.1), so no mask bit is set here at all.
 func (c *wsConn) WriteFrame(opcode byte, fin bool, payload []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	var head []byte
 	first := opcode
 	if fin {

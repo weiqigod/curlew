@@ -15,7 +15,7 @@
 				class="inline-flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
 			>
 				<span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-				Live output
+				Local example
 			</span>
 		{/if}
 	</div>

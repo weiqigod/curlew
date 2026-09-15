@@ -1,0 +1,14 @@
+name: Local secret redaction
+variables:
+  demo_token:
+    value: local-example-token
+    sensitive: true
+requests:
+- name: Echo a sensitive header
+  request:
+    method: GET
+    url: '{{mud}}/echo'
+    headers:
+      Authorization: Bearer {{demo_token}}
+  assertions:
+    status: 200

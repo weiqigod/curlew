@@ -7,6 +7,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Standalone dry runs no longer send real requests.** `run --dry-run` now
+  prints dependency waves even without `--show-dependencies`, including glob
+  and parallel invocations. It is a plan, not a runtime variable-resolution check.
+- **Mudflat WebSocket frames stay intact during heartbeats.** The cookbook
+  exposed concurrent writes interleaving a pushed message's header and payload
+  with a pong. The fixture now serializes complete frames; a yielding-connection
+  regression test reproduces the old corruption without a timing threshold.
+- **Agent onboarding and command discovery.** Every top-level command now
+  supports standalone `--help` / `-h` before configuration or request execution.
+  `init --skill agent` creates its configured event directory. Unsupported
+  `--events` errors point to a valid collection-run command.
+- **Executable agent documentation.** Refreshed the manual, CLI/UI references,
+  installation instructions and generated skill. Replaced invalid skill syntax
+  and stale cookbook scenarios with seven agent examples and fourteen local
+  cookbook recipes, executed in regression tests. Clarified JSON stdout,
+  command-specific flags/exit codes, data-driven report IDs and the CLI's
+  shell-based integration (no MCP server). Historical platform plans are marked
+  with their scope and the original UI design is retained in the history folder.
+- **Complete UI packaging.** Local CI and release hooks build the frontend before
+  compiling the executable. The release gate checks embedded JavaScript/CSS and
+  authenticated discovery from a fresh project; clean CLI-only builds show an
+  actionable frontend-build placeholder.
 - **The `curlew run` usage synopsis omitted four flags, not the three
   originally reported.** The one-line synopsis printed on a run parse error —
   the text a user sees at the exact moment they mistype a flag — listed

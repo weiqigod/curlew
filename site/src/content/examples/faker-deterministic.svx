@@ -1,79 +1,50 @@
 ---
 title: Deterministic fake data
-intent: Generate realistic request payloads with faker and UUIDs — reproducibly with a seed, and with sensitive fields redacted automatically.
+intent: Send seeded fake names and emails to a local echo endpoint.
 group: core
-features: [faker, redaction]
-command: curlew run collections/signup.yaml --seed 42
+features:
+- faker
+command: curlew run examples/cookbook/faker.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID" --seed 42
 order: 40
 runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+The seed controls generated values. It does not make network timings, run IDs or wall-clock timestamps reproducible. Inspect the request body in a verbose report to compare generated values.
 
-Hard-coded test data goes stale and collides. Curlew ships a catalogue of dynamic
-functions — UUIDs, timestamps, and a full **faker** suite — that you drop straight
-into request bodies with `{{$...}}`. Pass `--seed` and the same "random" values come
-back every run, so failures are reproducible. Fields that look like secrets are
-redacted everywhere automatically.
+## Prerequisites
 
-## The collection
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
-This one posts to `httpbin.org/anything`, which echoes your payload back — so you can
-run it yourself and see exactly what Curlew sent.
-
-```yaml
-# collections/signup.yaml
-name: Signup payload
-requests:
-  - name: Generate a signup
-    request:
-      method: POST
-      url: "https://httpbin.org/anything"
-      body:
-        id: "{{$uuid}}"
-        name: "{{$faker.fullName}}"
-        email: "{{$faker.email}}"
-        phone: "{{$faker.phone}}"
-        city: "{{$faker.city}}"
-        ssn: "{{$faker.ssn}}"          # auto-sensitive → [REDACTED] in every output
-    assertions:
-      status: 200
-      body:
-        "$.json.id":
-          matches: "^[0-9a-f-]{36}$"
-        "$.json.name":
-          exists: true
-        "$.json.email":
-          matches: "@example\\.com$"
+```bash
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
 
 ## Run it
 
 ```bash
-curlew run collections/signup.yaml --seed 42
+curlew run examples/cookbook/faker.yaml --var mud="$MUDFLAT_URL" --var ws="$MUDFLAT_WS_URL" --var run="$RUN_ID" --seed 42
 ```
 
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
+
+## Complete collection
+
+<!-- cookbook-source: examples/cookbook/faker.yaml -->
+```yaml
+name: Deterministic payload
+requests:
+  - name: Echo generated name
+    request:
+      method: POST
+      url: "{{mud}}/echo"
+      body:
+        name: "{{$faker.fullName}}"
+        email: "{{$faker.email}}"
+    assertions:
+      status: 200
+      body:
+        $.request.body_len: { greater_than: 0 }
 ```
-Collection: Signup payload
-  ✓ Generate a signup  200  1972ms
-
-────────────────────────────────
-  1 request(s): 1 passed, 0 failed (1973ms)
-```
-
-<Callout type="tip">
-	Drop the <code>--seed</code> and every value is fresh per run; keep it and the run
-	is byte-for-byte reproducible. <code>{'{{$faker.ssn}}'}</code> is recognised as
-	sensitive, so even though it's sent to the server it shows as
-	<code>[REDACTED]</code> in terminal, JSON, and log output.
-</Callout>
-
-## Beyond the basics
-
-The catalogue is large — `{{$faker.firstName}}`, `{{$faker.address}}`,
-`{{$faker.company}}`, `{{$randomInt}}`, `{{$timestamp}}`, `{{$randomPassword('16')}}`
-and many more — and every value participates in the same redaction machinery as any
-other variable. See the [Faker & redaction examples](/examples#feature=faker) for the
-full set in action.

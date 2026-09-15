@@ -1,80 +1,42 @@
 ---
-title: Distributed execution & load testing
-intent: Shard a huge suite across coordinated workers, then turn a single request into a sustained load test — with the safety rails on.
+title: Local load testing
+intent: Run a short, rate-limited load probe against the local fixture.
 group: automation
-features: [distributed, perf]
-command: curlew run 'collections/**/*.yaml' --workers 10 --coordinator-url $URL
+features:
+- perf
+command: curlew perf perf-local.yaml --vus 1 --duration 1s --rps 5 --output perf-results.json
 order: 130
-runnable: false
+runnable: true
 ---
 
-<script>
-	import Callout from '$lib/components/Callout.svelte';
-</script>
+Distributed workers are not part of the CLI. This example uses one process, one virtual user, a one-second duration and a small request rate. The perf command accepts a single request file and can write JSON or HTML reports; it does not accept run’s variable flags. Run load tests only against a server you are authorized to exercise.
 
-When a suite gets big enough that one process is the bottleneck, Curlew shards the
-main phase across a fleet of workers. And when you need to know how an endpoint holds
-up under pressure, the `perf` command turns one request file into a load test.
+## Prerequisites
 
-## Distributed runs
-
-The coordinator hands shards of the main phase to workers; setup and teardown still
-run exactly once, locally. Extracted setup variables propagate to every worker.
+Use the complete repository checkout and start Mudflat as described in the [cookbook setup](https://github.com/weiqigod/curlew/blob/main/site/README.md). Run these commands from the repository root with `curlew` on PATH.
 
 ```bash
-export CURLEW_COORDINATOR_URL=https://coordinator.example.com
-export CURLEW_BACKEND_TOKEN=<bearer>
-
-curlew run 'collections/**/*.yaml' \
-  --workers 10 \
-  --org acme
+export MUDFLAT_URL="${MUDFLAT_URL:-http://127.0.0.1:18080}"
+export MUDFLAT_WS_URL="${MUDFLAT_WS_URL:-ws://127.0.0.1:18080}"
+export RUN_ID="cookbook-$(date +%s)-$$"
 ```
 
-On each worker host:
+## Run it
 
 ```bash
-curlew worker --job <job-id>
+printf 'name: Local performance probe\nrequest:\n  method: GET\n  url: "%s/echo"\n' "$MUDFLAT_URL" > perf-local.yaml
+curlew perf perf-local.yaml --vus 1 --duration 1s --rps 5 --output perf-results.json
 ```
 
-`--workers 1` falls back to plain local execution — a clean way to gate on pipeline
-capacity. Unauthorized workers exit with code `10`.
+A successful execution exits 0. Read assertion outcomes as well as the exit code.
+No example output or timing numbers are fabricated here.
 
-## Load testing a hot path
+## Complete collection
 
-```bash
-curlew perf requests/hot-path.yaml \
-  --vus 50 \
-  --duration 2m \
-  --ramp-up 30s \
-  --rps 500 \
-  --output report.html
+<!-- cookbook-source: examples/cookbook/perf.yaml -->
+```yaml
+name: Local performance probe
+request:
+  method: GET
+  url: "http://127.0.0.1:18080/echo"
 ```
-
-| Flag | Meaning |
-|---|---|
-| `--vus <n>` | Virtual users (concurrent workers) |
-| `--duration <d>` | Total run duration (`30s`, `2m`, `1h`) |
-| `--ramp-up <d>` | Linearly ramp 1→N VUs over this window |
-| `--rps <n>` | Target requests/sec (`0` = let the VUs sprint) |
-| `--output` | Destination — `stdout`, or a `.json` / `.html` report |
-
-```
-curlew perf — hot-path.yaml
-  VUs: 50  duration: 2m  target: 500 rps
-
-  requests   58,420      errors  0 (0.00%)
-  throughput 487.1 rps
-  latency    p50 38ms   p95 102ms   p99 184ms   max 421ms
-
-Ctrl+C writes the partial summary and exits 130.
-```
-
-<Callout type="output">
-	Representative metrics — actual numbers depend on the target.
-</Callout>
-
-<Callout type="warn">
-	Load testing generates real traffic and can run up a real bill. Only point
-	<code>perf</code> at endpoints you own or are explicitly authorized to test —
-	never a third party's production API.
-</Callout>

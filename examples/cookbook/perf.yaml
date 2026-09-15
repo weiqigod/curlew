@@ -1,0 +1,4 @@
+name: Local performance probe
+request:
+  method: GET
+  url: "http://127.0.0.1:18080/echo"

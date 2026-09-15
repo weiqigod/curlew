@@ -219,7 +219,7 @@ func parsePerfArgs(args []string) (perfFlags, bool, error) {
 			}
 			f.output = args[i]
 		case "--events":
-			return f, false, fmt.Errorf("--events is supported only on run; use --format jsonl for streaming samples")
+			return f, false, fmt.Errorf("--events is supported only on run; use curlew run --events <file> to record run events")
 		default:
 			if len(args[i]) > 0 && args[i][0] == '-' {
 				return f, false, fmt.Errorf("unknown flag: %s", args[i])

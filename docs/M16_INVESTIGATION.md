@@ -1,5 +1,11 @@
 # M16 (Workflow Completion) — Pre-Backlog Investigation
 
+> **Historical analysis.** This records an earlier design or investigation and may
+> describe removed features, licensing, or already-completed work. It is not a
+> current operating guide. Use [MANUAL.md](MANUAL.md), [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md),
+> and the [documentation map](README.md) for current behavior.
+
+
 Investigation date: 2026-05-07
 Design pass landed: 2026-05-07 — see `docs/SPECIFICATION.md` v4.3 Changelog and "Decisions Resolved (v4.3, all M16 themes)" subsection. The cross-cutting questions identified below (A–I) are closed by v4.3 entries `v3-1` through `v3-15`; this document remains as the audit-trail and pre-work record. **`/backlog M16` is now unblocked.**
 

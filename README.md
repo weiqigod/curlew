@@ -47,7 +47,7 @@ commands, the bytes they print, and the test that runs them.
 - **Auth profiles** — dynamic login → extract → cache, referenced by name from any request.
 - **Request signing** — AWS SigV4 and OAuth 1.0.
 - **Vault providers** — HashiCorp Vault, AWS, Azure, GCP and 1Password, with local caching. `curlew vault list` shows configured profiles.
-- **Redaction on by default** — values marked sensitive print as `[REDACTED]` in every format, including reports and logs. `--allow-sensitive` opts back in.
+- **Redaction on by default** — values marked sensitive print as `[REDACTED]` in every format, including reports and logs. `--allow-sensitive` opts back in for supported run outputs; Markdown remains redacted.
 
 **Scale**
 - **Data-driven testing** — run a request once per CSV or JSON row, sequentially or in parallel.
@@ -55,7 +55,7 @@ commands, the bytes they print, and the test that runs them.
 - **Load testing** — `curlew perf` with `--vus`, `--duration`, `--ramp-up` and `--rps`.
 
 **Output**
-- **Formats** — colored terminal, `json`, `tap`, `junit`, `html`, and `markdown` artifacts (`--format`, with `--report` for file/directory targets).
+- **Formats** — colored terminal, `json`, `tap`, `junit`, `html`, and `markdown` artifacts (`--format`; `--report` targets Markdown, HTML and JUnit, while JSON/TAP use stdout).
 - **Event stream** — `--events <file>` writes one NDJSON object per line against a versioned schema, for CI systems and agents that want structured progress rather than parsed text.
 - **Selection** — `--only "<name>"` runs just the named requests (repeatable); setup and teardown still run in full.
 - **Verbosity** — `-v`, `-vv`, `-q`, and `NO_COLOR` support.
@@ -69,7 +69,8 @@ commands, the bytes they print, and the test that runs them.
 - **CI gate** — `curlew pr-check` turns a results file into a pass/fail exit code with a summary.
 - **Agent-friendly** — `curlew exec` for one-shot requests (`--stdin`, `--dry-run`, `--log`, `--non-interactive`), and `curlew init --skill agent` scaffolds an Agent Skill at `.claude/skills/curlew/` — a project skill directory read by both Claude Code and GitHub Copilot.
 
-Everything is available unconditionally — this repository contains no feature gating.
+Local CLI features are available without account or tier gating. The retained
+platform directories have a separate scope; see the [documentation map](docs/README.md).
 
 ## Commands
 
@@ -121,15 +122,23 @@ either way. Built from an untagged commit, every path reports `0.1.0-dev`.
 
 ### Install from source (requires Go 1.24+)
 
+This installs the CLI only: `go install` does not build frontend assets. For the
+browser UI, download a release or use the complete checkout build below.
+
 ```bash
 GOPRIVATE='github.com/weiqigod/*' go install github.com/weiqigod/curlew/cmd/curlew@latest
 ```
 
 ### Clone and build
 
+The complete app requires Go 1.24+ and Node.js 22+ at build time. Build the frontend
+first so the executable includes its JavaScript and CSS. No Node.js is needed to
+run the finished binary.
+
 ```bash
 git clone https://github.com/weiqigod/curlew
 cd curlew
+./scripts/build-ui.sh
 go build ./cmd/curlew
 ```
 
@@ -185,8 +194,24 @@ against a local [mudflat](docs/TESTAPI_SPECIFICATION.md) server, and the output
 above is what it asserts — durations normalised, everything else byte for
 byte.
 
+## Use with an AI agent
+
+The current source includes help, dry-run and skill-reference fixes added after
+v0.1.0. Build this checkout to use them until the next release.
+
+Curlew integrates through shell commands, files, JSON results and NDJSON events.
+**There is no MCP server.** The JSON-RPC plugin API extends request processing; it
+is not an MCP connection.
+
+In a new project, run `curlew init --skill agent`. This installs an agent playbook
+and configures Markdown reports plus structured events. Start with the
+[agent guide](docs/AGENT_GUIDE.md) for discovery, validation, execution and failure
+handling. Use `curlew <command> --help` to inspect one command without executing it.
+
 ## Documentation
 
+- **[docs/README.md](docs/README.md)** — documentation map: current CLI guides, platform material, and historical decisions.
+- **[docs/AGENT_GUIDE.md](docs/AGENT_GUIDE.md)** — agent setup and tested command recipes.
 - **[docs/MANUAL.md](docs/MANUAL.md)** — the complete tutorial-style manual, from your first request to parallel, data-driven suites. Start here.
 - **[docs/CLI_SPECIFICATION.md](docs/CLI_SPECIFICATION.md)** — what the CLI must do: contracts, file formats, precedence, exit codes, conformance.
 - **[docs/UI_SPECIFICATION.md](docs/UI_SPECIFICATION.md)** — the local web UI.
@@ -231,7 +256,8 @@ local file (`CURLEW_TEAM_CONFIG`), `pr-check` reads a local results file, and `t
 ## Development
 
 ```bash
-go build ./cmd/curlew          # build
+./scripts/build-ui.sh          # build embedded browser assets
+go build ./cmd/curlew          # build executable
 go test ./...                   # unit + integration tests
 golangci-lint run               # lint
 ./smoke/run.sh                  # hermetic smoke suite

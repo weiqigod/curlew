@@ -1,5 +1,11 @@
 # M18 (Compliance and Launch Readiness) — Pre-Backlog Investigation
 
+> **Historical analysis.** This records an earlier design or investigation and may
+> describe removed features, licensing, or already-completed work. It is not a
+> current operating guide. Use [MANUAL.md](MANUAL.md), [CLI_SPECIFICATION.md](CLI_SPECIFICATION.md),
+> and the [documentation map](README.md) for current behavior.
+
+
 Investigation date: 2026-05-17 (skeleton + first verification pass)
 Design pass landed: **TBD** — see `docs/SPECIFICATION.md` vX.Y Changelog and "Decisions Resolved (vX.Y, all M18 themes)" subsection (to be added).
 

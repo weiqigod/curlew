@@ -6,9 +6,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../ui"
 
-if [ ! -d node_modules ]; then
-  npm ci
-fi
+npm ci
 npm run build
 
 echo "curlew ui assets built into internal/uiserver/assets/dist"

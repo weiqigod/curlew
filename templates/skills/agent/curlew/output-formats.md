@@ -9,9 +9,9 @@ the NDJSON event stream, or `output:` block configuration.
 |---|---|---|
 | `terminal` | Local iteration, human reading | stdout only |
 | `markdown` | Agent-driven runs, per-request context | `responses/run.md` + per-request `.md` |
-| `json` | Scripting, `jq` pipelines | stdout JSON or `report:` file |
-| `tap` | Legacy CI systems expecting TAP | stdout TAP or `report:` file |
-| `junit` | JUnit-compatible CI (Jenkins, Azure Pipelines) | `report:` XML file |
+| `json` | Scripting, `jq` pipelines | stdout JSON (redirect to save) |
+| `tap` | Legacy CI systems expecting TAP | stdout TAP (redirect to save) |
+| `junit` | JUnit-compatible CI (Jenkins, Azure Pipelines) | stdout XML or `report:` XML file |
 | `html` | Shareable standalone report | `report:` HTML file |
 
 For agent-driven runs, use `markdown`. The per-request `.md` files are the
@@ -37,9 +37,9 @@ output:
 | Field | Meaning | Default |
 |---|---|---|
 | `format` | One of the formats above | `terminal` |
-| `report` | File or directory for the primary artifact | — (stdout) |
+| `report` | Markdown directory, HTML file or optional JUnit file | Required for Markdown/HTML |
 | `events` | Path for the NDJSON event stream | — (disabled) |
-| `verbosity` | `silent` / `normal` / `verbose` | `normal` |
+| `verbosity` | `quiet` / `normal` / `verbose` / `debug` | `normal` |
 
 ## Markdown output
 
@@ -66,13 +66,13 @@ Enable with `events: .curlew/run.ndjson`. One JSON object per line:
 | `run.end` | After the last request; carries `exit_code` |
 
 Use the event stream for `jq` pipelines, timing analysis, and programmatic
-error extraction. Do not parse stdout — it is human-formatted.
+error extraction. With the default Markdown configuration, use artifacts instead of parsing terminal text. With JSON selected, parse the JSON artifact or stdout as configured.
 
 ## Per-format notes
 
-**JSON** — stdout carries clean JSON when `report:` is omitted. Use
-`stdout: clean` (implicit) and pipe to `jq`. With `report: results.json` the
-summary JSON lands in the file; stdout shows progress on stderr.
+**JSON** — stdout carries clean JSON. Save it with `--format json > results.json`.
+The `report:` setting does not redirect JSON; it applies to Markdown, HTML and
+JUnit. Keep stderr separate from stdout when parsing JSON.
 
 **TAP** — line-oriented; compatible with `tap-parser`, `prove`, and most CI
 TAP consumers.

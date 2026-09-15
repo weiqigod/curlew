@@ -11,11 +11,11 @@ Nothing to fix. Read `responses/run.md` and summarise the run for the user.
 
 ---
 
-### Exit 1 — assertion failed
+### Exit 1 — assertion failure or usage error
 
-1. Open `responses/run.md`. Find the failing request(s) in the summary table.
+1. Read stderr first. An unknown option or missing argument is a usage error: fix the invocation and do not use stale reports. If the run executed, open `responses/run.md` and match its run ID before reading failures.
 2. Open `responses/<slug>.md` for each failing request.
-3. Read the `## Assertions` section: it shows operator, expected, and actual
+3. Read the `### Assertions` section: it shows operator, expected, and actual
    for every checked assertion.
 4. Tell the user which assertion failed, what value was expected, and what the
    API returned.
@@ -32,8 +32,9 @@ Nothing to fix. Read `responses/run.md` and summarise the run for the user.
 2. Filter `kind: "request.end"` with `outcome: "skipped"` to see which
    requests did not fire.
 3. Tell the user the collection exceeded the request safety cap. Suggest
-   splitting the collection into smaller files or raising `MaxRequests` if
-   the guard rail is intentionally conservative.
+   splitting the collection into smaller files. For a dataset over 10,000
+   rows, inspect its size and intended target before choosing
+   `--confirm-large-dataset`. There is no CLI `MaxRequests` setting.
 
 ---
 

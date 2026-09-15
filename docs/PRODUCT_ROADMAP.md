@@ -1,5 +1,19 @@
 # Product Roadmap — from green build to shipped tool
 
+## Current status — 2026-09-15
+
+M1–M28 are complete. The published release is v0.1.0; main includes later fixes.
+M29-001 remains open pending the owner's CI billing decision. M30-001 tracks the
+current documentation, executable cookbook, agent help and complete-build work.
+Run `go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v`
+for the authoritative task state.
+
+The original roadmap below is retained as the August 14 planning snapshot;
+its "today" statements are historical, not current release status.
+
+---
+
+
 **Written:** 2026-08-14 · **Milestones:** M25–M29 · **Status of M1–M24:** complete
 
 This is the roadmap for the *product*. `ROADMAP.md` at the repository root is a

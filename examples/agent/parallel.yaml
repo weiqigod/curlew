@@ -1,0 +1,23 @@
+name: Dependency waves
+requests:
+- name: First
+  request:
+    method: GET
+    url: '{{mud}}/echo'
+  assertions:
+    status: 200
+- name: Second
+  request:
+    method: GET
+    url: '{{mud}}/echo'
+  assertions:
+    status: 200
+- name: After both
+  depends_on:
+  - First
+  - Second
+  request:
+    method: GET
+    url: '{{mud}}/echo'
+  assertions:
+    status: 200

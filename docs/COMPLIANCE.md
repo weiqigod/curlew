@@ -1,5 +1,9 @@
 # Compliance
 
+> **Platform scope.** This document concerns the retained .NET backend and dashboard.
+> The local Curlew CLI does not call that backend. See [the documentation map](README.md).
+
+
 Curlew's compliance artefacts. Each document below is a load-bearing input for the
 SOC 2 Type II / ISO 27001 audit work tracked in M18 `compliance_artifacts` (v4-14).
 The audit engagement itself is out of scope per v4-14; M18 produces the evidence
