@@ -8,16 +8,18 @@ Windows work, not a claim of completed native Windows testing.
 | Area | Evidence / status |
 |---|---|
 | Windows amd64 and arm64 executables and ZIP archives | Cross-built and archive/checksum checks passed in the local gate. This does not prove native execution. |
-| Basic CLI and embedded browser UI | Expected to work after the build below; native Windows smoke verification remains open. |
+| Basic CLI and embedded browser UI | Native amd64 build and version/help passed. Full browser UI smoke verification remains open. |
 | Agent skill installation | Codex, Claude Code and Copilot destinations implemented; native Windows filesystem/discovery verification remains open. |
-| Command-backed variables (`from_command`) | Known portability gap: the executor hardcodes `/bin/sh -c`. Not supported on ordinary native Windows yet. |
-| CLI-backed vault providers | Share that executor and need a Windows-safe invocation/quoting strategy and native tests. |
+| Command-backed variables (`from_command`) | Native amd64 PowerShell/output/cancellation tests pass; Linux regression tests also pass. Full repository gate remains open. |
+| CLI-backed vault providers | Native `.exe` and compatible `.cmd` stubs pass for all five providers; real CLI loopback and redaction cases pass. Batch limits below apply. |
 | Documentation and verification scripts | Most recipes and `scripts/ci-local.sh` use Bash. The PowerShell build below avoids Bash, but the full development gate is not yet a native Windows gate. |
 
 Open work is tracked in [M30-004: command/vault portability](../management/tasks/M30-004.yaml)
 and [M30-005: native Windows verification](../management/tasks/M30-005.yaml).
-Neither task is complete. WSL success does not count as native Windows evidence;
-installing Git Bash alone is not a demonstrated fix for the hardcoded `/bin/sh` path.
+Neither task is complete. WSL success does not count as native Windows evidence.
+The command implementation does not require Git Bash. See the
+[M30-004 verification record](../management/plans/M30-004-verified.md) for actual
+checks and remaining blockers; packaged-app and arm64 checks are still open.
 
 ## Prerequisites
 
@@ -34,8 +36,9 @@ installation and agent usability improvements; an older release may lack them.
 ## Clone and build in PowerShell
 
 These commands are derived from `scripts/build-ui.sh` and `ui/vite.config.ts`.
-They still need execution on a native Windows host under M30-005. The explicit
-exit checks prevent a failed frontend build from looking like a complete app.
+The UI build and native amd64 build/startup were exercised on this host; a clean
+clone and packaged-app smoke test remain under M30-005. The explicit exit checks
+prevent a failed frontend build from looking like a complete app.
 
 ```powershell
 git clone https://github.com/weiqigod/curlew
@@ -128,7 +131,7 @@ is **not verified**, not PASS. Report any failure with the command and diagnosti
    Check environment selection, JSON/Markdown/events, Unicode and spaced paths,
    watch restart/shutdown, and child-process cleanup. Use the [manual](MANUAL.md)
    for syntax; a Bash recipe must be translated or explicitly marked unverified.
-6. **Shell/vault features:** after M30-004 is implemented, test command-backed
+6. **Shell/vault features:** repeat the M30-004 native tests for command-backed
    variables and provider CLI stubs on Windows, including quotes, spaces, output
    encoding, CRLF, errors and timeouts. Do not test real cloud accounts merely
    to verify portability.
@@ -141,12 +144,41 @@ verification report, with a per-platform/per-feature PASS, FAIL or NOT RUN matri
 
 ## Remaining engineering work
 
-- **M30-004:** replace the POSIX-only command execution assumption, define the
-  Windows shell/quoting contract, verify CLI-backed vault invocation, and retain
-  timeout, error and secret-redaction behavior. A shell-name substitution alone
-  is insufficient evidence that provider commands are quoted correctly.
+- **M30-004:** complete the authoritative full gate; resolve
+   any remaining review findings. Native scoped success is not final task completion.
 - **M30-005:** run the checklist on real Windows, resolve findings, add a repeatable
   Windows smoke command, and update these instructions from observed results.
   Separate the lightweight app smoke test from development tests needing Bash or
   other tools. Automatic hosted CI remains subject to the separate M29-001 billing
   decision; local Windows verification can proceed independently.
+
+## Windows command contract
+
+- `from_command` uses system Windows PowerShell (not whichever `pwsh` is on PATH),
+   with no profile, non-interactive encoded scripts, and UTF-8 output. Use `&` for
+   a quoted executable path; existing Bash commands need platform-specific syntax.
+- Native failures and script errors fail variable resolution with exit 5. Public
+   errors omit script text, arguments, credentials, and raw stderr. A successful
+   script can handle an earlier native error; this is not a shell-wide `set -e`.
+- Commands/provider calls are capped at 30 seconds or an earlier caller deadline.
+   Windows children start suspended, join a kill-on-close Job Object, then resume.
+   Remaining descendants are terminated on completion/cancellation; commands must
+   not rely on detached background work surviving.
+- stdout/stderr must be UTF-8. Trailing LF/CRLF is stripped, but spaces, internal
+   newlines, and a standalone CR are not. Other encodings fail rather than silently
+   changing a secret.
+- Vault `.exe` calls receive literal argv and child-only environment overrides.
+   `.cmd`/`.bat` support direct `%*` forwarders with delayed expansion disabled,
+   including spaces, Unicode, `%`, `!`, `&`, `|`, `^`, `<`, and `>`.
+- Batch arguments containing double quotes or ASCII controls other than tab are
+   rejected before execution. Invocation plus transport overhead and each environment
+   entry must fit 8000 UTF-16 units. Wrappers using `CALL` or enabling delayed
+   expansion are unsupported. Use a native executable or compatible wrapper;
+   arbitrary vendor wrapper versions have not been verified.
+
+Native test commands (loopback/stubs only):
+
+```powershell
+go test ./internal/variable/ ./internal/vault/ -count=1 -cover -timeout=600s
+if ($LASTEXITCODE -ne 0) { throw "Command/vault verification failed" }
+```

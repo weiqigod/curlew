@@ -3023,17 +3023,43 @@ variables:
 
 Semantics:
 
-- The command runs via `/bin/sh -c`, so shell features work (pipes, subshells, `&&`).
-- Trailing newline is stripped from stdout.
-- Non-zero exit terminates the run and includes stderr in the error.
+- POSIX commands run via `/bin/sh -c` (pipes, subshells, `&&`). Windows commands
+  run in system Windows PowerShell with no profile and non-interactive input;
+  Bash syntax is not translated.
+- Both output streams must be UTF-8. PowerShell is configured accordingly;
+  external programs must also emit UTF-8. Trailing LF is stripped on POSIX;
+  trailing LF/CRLF sequences are stripped on Windows. Spaces and interior line
+  endings are preserved.
+- Each command has a 30-second cap, or an earlier caller deadline. Descendants
+  are terminated when the command finishes or is cancelled. POSIX containment
+  covers the process group, not children that deliberately leave it.
+- Non-zero exit terminates the run with exit 5. Diagnostics include the failure
+  kind/exit code, but omit command text and captured output to protect secrets.
 - `sensitive: true` redacts the value in all output.
 - `cache: N` — memoize for N seconds within the run scope.
 
 The command runs through the same redaction and `sensitive: true` machinery as every other variable source.
 
+For a quoted Windows executable path, use PowerShell's call operator:
+
+```yaml
+variables:
+  session_token:
+    from_command: '& "C:\Tools With Spaces\token-helper.exe" --issue'
+    sensitive: true
+```
+
 ### 6.4 Vault providers
 
 For each supported vault, Curlew expects the provider's CLI to be installed and authenticated. Curlew does not embed SDKs; it shells out.
+
+Providers use structured program arguments; HashiCorp credentials are passed in
+the child environment without changing the parent. The same UTF-8 and 30-second
+limits apply. On Windows, native `.exe` files support literal argument quoting.
+Batch wrappers must forward `%*` directly with delayed expansion disabled.
+Embedded double quotes, controls other than tab, and oversized batch invocations
+are rejected before launch. `CALL` reparsing and delayed-expansion wrappers are
+unsupported. See [Windows command details](WINDOWS.md#windows-command-contract).
 
 **AWS Secrets Manager:**
 

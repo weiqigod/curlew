@@ -14,6 +14,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Native Windows command and vault execution.** Command variables use explicit
+  PowerShell/UTF-8 semantics; vault providers use structured arguments and child
+  environments. Process containment and timeouts prevent lingering descendants,
+  diagnostics omit secret-bearing output, and resolved values are registered
+  before body/event redaction. Compatible Windows batch wrappers are supported
+  with documented quoting/length limits. Windows and Linux scoped tests pass;
+  the full repository gate remains open (M30-004).
 - **Remaining local examples.** Output-format and plugin walkthroughs now use
   a shared loopback fixture, preserve the working directory, and include exact
   executable commands. The invalid-format example uses an unsupported value;
