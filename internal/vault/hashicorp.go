@@ -137,7 +137,7 @@ func (p *HashiCorpProvider) approleLogin(ctx context.Context) (string, error) {
 		} `json:"auth"`
 	}
 	if err := json.Unmarshal([]byte(out), &resp); err != nil {
-		return "", fmt.Errorf("hashicorp vault: failed to parse approle login response: %w", err)
+		return "", p.responseError("failed to parse approle login response", err)
 	}
 	if resp.Auth.ClientToken == "" {
 		return "", fmt.Errorf("%w: approle login returned empty token", ErrProviderAuth)
@@ -168,12 +168,19 @@ func (p *HashiCorpProvider) classifyError(err error, path string) error {
 	return fmt.Errorf("hashicorp vault: %w", err)
 }
 
+func (p *HashiCorpProvider) responseError(operation string, err error) error {
+	if p.execute == nil {
+		return fmt.Errorf("hashicorp vault: %s", operation)
+	}
+	return fmt.Errorf("hashicorp vault: %s: %w", operation, err)
+}
+
 // extractSecretData parses the vault kv get JSON output and returns
 // the .data.data contents as compact JSON.
 func (p *HashiCorpProvider) extractSecretData(jsonOutput string) (string, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(jsonOutput), &raw); err != nil {
-		return "", fmt.Errorf("hashicorp vault: failed to parse response: %w", err)
+		return "", p.responseError("failed to parse response", err)
 	}
 
 	dataField, ok := raw["data"]
@@ -183,7 +190,7 @@ func (p *HashiCorpProvider) extractSecretData(jsonOutput string) (string, error)
 
 	var inner map[string]json.RawMessage
 	if err := json.Unmarshal(dataField, &inner); err != nil {
-		return "", fmt.Errorf("hashicorp vault: failed to parse data field: %w", err)
+		return "", p.responseError("failed to parse data field", err)
 	}
 
 	secretData, ok := inner["data"]
@@ -194,11 +201,11 @@ func (p *HashiCorpProvider) extractSecretData(jsonOutput string) (string, error)
 	// Re-serialize as compact JSON.
 	var parsed interface{}
 	if err := json.Unmarshal(secretData, &parsed); err != nil {
-		return "", fmt.Errorf("hashicorp vault: failed to parse secret data: %w", err)
+		return "", p.responseError("failed to parse secret data", err)
 	}
 	compact, err := json.Marshal(parsed)
 	if err != nil {
-		return "", fmt.Errorf("hashicorp vault: failed to serialize secret data: %w", err)
+		return "", p.responseError("failed to serialize secret data", err)
 	}
 	return string(compact), nil
 }
