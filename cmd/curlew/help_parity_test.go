@@ -50,6 +50,7 @@ func allHelpText(t *testing.T) string {
 	}{
 		{"top-level", printHelpTo},
 		{"init", printInitHelpTo},
+		{"skill", printSkillHelpTo},
 		{"vault", printVaultHelpTo},
 		{"pr-check", printPrCheckHelpTo},
 		{"perf", printPerfHelpTo},

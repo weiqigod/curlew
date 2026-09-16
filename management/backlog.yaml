@@ -2097,3 +2097,10 @@ capabilities:
         completed_date: 2026-09-16
         verified_by: ai
         branch: work/M30-002-local-examples
+      - id: M30-003
+        status: done
+        planned_date: 2026-09-16
+        started_date: 2026-09-16
+        branch: work/M30-003-agent-skill-installation
+        completed_date: 2026-09-16
+        verified_by: ai

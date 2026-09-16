@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Portable agent skill installation.** `skill install` and `skill update` target
+  Codex, Claude Code or Copilot projects without changing configuration. Hash-based
+  updates preserve team edits and refuse conflicts before writes. The skill now
+  includes a tested collection-authoring workflow and local behavioral evaluation
+  scenarios with an explicit reviewer rubric (M30-003).
+
 ### Fixed
 - **Remaining local examples.** Output-format and plugin walkthroughs now use
   a shared loopback fixture, preserve the working directory, and include exact

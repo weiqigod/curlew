@@ -38,7 +38,7 @@ current executable recipes. Do not restore a removed feature from an old plan.
 ## What “examples work” means
 
 The README quickstart, agent guide recipes, seven skill topic examples and
-fourteen cookbook commands execute against
+the skill authoring workflow, and fourteen cookbook commands execute against
 local fixtures. The Go gate also runs documentation table/prose checks, schema
 parity, protocol dogfood tests and the smoke suite. Cookbook YAML is compared
 byte-for-byte with its executable source. Site build, type checks and lint check
@@ -49,3 +49,7 @@ workflow templates and provider-specific recipes. These need the surrounding
 files or services named in their section; they are not all standalone shell
 scripts. Do not run a live cloud command just to validate a documentation example.
 Historical and platform documents retain their own scope above.
+
+Agent skill installation and updates have real CLI and filesystem tests.
+[Behavioral evaluation tasks](../testdata/skill-evals/README.md) provide local
+fixtures and a separate rubric for assessing actual agent decisions.

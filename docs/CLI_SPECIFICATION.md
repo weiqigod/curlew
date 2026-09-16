@@ -1766,6 +1766,26 @@ Scaffold a project: `curlew.yaml`, `.gitignore`, `.env.example`,
 | `--output <format>` | Scaffold an `output:` block for `terminal`, `json`, `tap`, `junit`, `html`, or `markdown` |
 | `--skill <name>` | Scaffold an Agent Skill at `.claude/skills/curlew/SKILL.md`. One of `agent` (canonical) or `claude` (compatibility alias); both scaffold the identical payload. Implies `--output markdown`, appends `events: .curlew/run.ndjson`, and adds `.curlew/` to `.gitignore` |
 
+### 18.4.1 `skill <install|update>`
+
+Usage: `curlew skill <install|update> --agent <codex|claude|copilot> [dir]`.
+The project directory defaults to the current directory. The explicit agent selects
+`.agents/skills/curlew`, `.claude/skills/curlew`, or `.github/skills/curlew` respectively.
+All targets receive the same embedded skill with the executable version substituted.
+
+`install` adds missing files and adopts identical ones. `update` requires an
+existing SKILL.md and can replace files whose current SHA-256 matches the prior
+`.curlew-skill.json` manifest. Unknown files are preserved. Differing unmanaged or
+locally edited files cause a conflict before writes. Symlinks and unexpected file
+types inside the agent destination are rejected. Neither command modifies project
+configuration. The manifest is versioned (schema 1) and committed with the skill.
+Files are individually replaced; the manifest is written last. This is not a
+transaction across filesystem I/O failures or concurrent external modification.
+
+Exit codes: 0 success, 1 invalid command syntax, 3 installation/update error
+(including unknown agent, manifest, path, conflict or filesystem errors). Top-level
+and nested help need neither a project nor filesystem mutation.
+
 ### 18.5 `info`
 
 Print project metadata: root, collections, environments. `--format json` for
