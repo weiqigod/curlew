@@ -568,6 +568,14 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 	}
 	emptySummary.RunID = runID
 
+	runtimeSensitive := vars.RuntimeSensitive
+	if runtimeSensitive == nil {
+		runtimeSensitive = variable.NewSensitiveSet()
+	}
+	vars.RuntimeSensitive = runtimeSensitive
+	emptySummary.RuntimeSensitive = runtimeSensitive
+	runtimeSensitive.Merge(col.Variables.Sensitive)
+
 	scope, sharedSecretsResolved, err := buildScope(ctx, col, vars)
 	if err != nil {
 		return nil, emptySummary, err
@@ -578,10 +586,6 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 	// credential-bearing argument (e.g. the key of $hmacSha256) resolves from
 	// a sensitive source. The set is exposed on the summary so cmd/curlew can
 	// merge it into the post-run redaction set.
-	runtimeSensitive := vars.RuntimeSensitive
-	if runtimeSensitive == nil {
-		runtimeSensitive = variable.NewSensitiveSet()
-	}
 	scope = scope.WithRuntimeSensitive(runtimeSensitive)
 
 	// Build the shared global limiter and wrap exec so every HTTP dispatch
@@ -1171,6 +1175,10 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 				cache.Set(name, val, cmd.Cache)
 			}
 			merged[name] = val
+			if vars.RuntimeSensitive != nil && (vars.RuntimeSensitive.IsSensitive(name) || variable.IsSensitiveName(name)) {
+				vars.RuntimeSensitive.Add(name)
+				vars.RuntimeSensitive.AddValue(val)
+			}
 		}
 	}
 
@@ -1183,6 +1191,10 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 		}
 		for k, v := range result.Variables {
 			merged[k] = v
+			if vars.RuntimeSensitive != nil {
+				vars.RuntimeSensitive.Add(k)
+				vars.RuntimeSensitive.AddValue(v)
+			}
 		}
 	}
 
@@ -1266,6 +1278,12 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 			}
 
 			scope = scope.WithSecrets(resolved)
+			for name, value := range resolved {
+				if vars.RuntimeSensitive != nil {
+					vars.RuntimeSensitive.Add("secrets." + name)
+					vars.RuntimeSensitive.AddValue(value)
+				}
+			}
 			sharedSecretsResolved = resolver.Count()
 		}
 	}
