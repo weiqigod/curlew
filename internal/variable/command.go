@@ -97,6 +97,11 @@ func ExecuteCommand(ctx context.Context, command string) (string, error) {
 	return executeCapturedCommand(ctx, cmd)
 }
 
+// ExecuteProgram runs a program with structured arguments and child environment overrides.
+func ExecuteProgram(ctx context.Context, program string, args, env []string) (string, error) {
+	return "", &commandFailure{reason: "structured process invocation is not implemented"}
+}
+
 func executeCapturedCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
 	cmd.WaitDelay = time.Second
 	var stdout, stderr bytes.Buffer
