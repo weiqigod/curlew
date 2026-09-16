@@ -5,13 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
 )
 
-// ErrCommandFailed indicates a from_command execution returned a non-zero exit code.
+// ErrCommandFailed indicates command validation, execution, or output validation failed.
 var ErrCommandFailed = errors.New("from_command execution failed")
 
 // CommandCache stores command output values with expiration.
@@ -89,7 +91,10 @@ func CommandDiagnostic(err error) string {
 
 // ExecuteCommand runs a platform shell script and returns UTF-8 stdout with
 // trailing newlines trimmed. Failure messages omit scripts and captured output.
+// Execution is capped at 30 seconds, or the caller's earlier deadline.
 func ExecuteCommand(ctx context.Context, command string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return "", &commandFailure{cause: err, reason: err.Error()}
 	}
@@ -98,8 +103,71 @@ func ExecuteCommand(ctx context.Context, command string) (string, error) {
 }
 
 // ExecuteProgram runs a program with structured arguments and child environment overrides.
+// Overrides inherit the parent environment; later values win (case-insensitively on Windows).
+// Execution is capped at 30 seconds, or the caller's earlier deadline. Output must be UTF-8.
+// Windows batch files use cmd.exe for native %* forwarding: quotes and CR/LF in arguments
+// are unsupported, and the invocation and each environment entry are limited to 8000 UTF-16 units.
 func ExecuteProgram(ctx context.Context, program string, args, env []string) (string, error) {
-	return "", &commandFailure{reason: "structured process invocation is not implemented"}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return "", &commandFailure{cause: err, reason: err.Error()}
+	}
+	if program == "" || !validProgramString(program) {
+		return "", &commandFailure{reason: "invalid program name"}
+	}
+	for _, arg := range args {
+		if !validProgramString(arg) {
+			return "", &commandFailure{reason: "invalid program argument"}
+		}
+	}
+	for _, entry := range env {
+		name, _, found := strings.Cut(entry, "=")
+		if !found || name == "" || !validProgramString(entry) {
+			return "", &commandFailure{reason: "invalid program environment override"}
+		}
+	}
+	cmd, err := programCommand(ctx, program, args, mergeProgramEnvironment(os.Environ(), env))
+	if err != nil {
+		return "", &commandFailure{cause: err, reason: "program could not be prepared: " + programPreparationReason(err)}
+	}
+	return executeCapturedCommand(ctx, cmd)
+}
+
+func validProgramString(value string) bool {
+	return utf8.ValidString(value) && !strings.ContainsRune(value, 0)
+}
+
+func programPreparationReason(err error) string {
+	var failure *commandFailure
+	if errors.As(err, &failure) {
+		return failure.reason
+	}
+	return "executable lookup failed"
+}
+
+func mergeProgramEnvironment(inherited, overrides []string) []string {
+	merged := make([]string, 0, len(inherited)+len(overrides))
+	positions := make(map[string]int, len(inherited)+len(overrides))
+	for _, entries := range [][]string{inherited, overrides} {
+		for _, entry := range entries {
+			separator := strings.IndexByte(entry, '=')
+			if separator == 0 {
+				separator = strings.IndexByte(entry[1:], '=') + 1
+			}
+			if separator < 1 {
+				continue
+			}
+			key := programEnvironmentKey(entry[:separator])
+			if position, found := positions[key]; found {
+				merged[position] = entry
+			} else {
+				positions[key] = len(merged)
+				merged = append(merged, entry)
+			}
+		}
+	}
+	return merged
 }
 
 func executeCapturedCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
