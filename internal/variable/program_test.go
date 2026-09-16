@@ -235,6 +235,18 @@ func TestExecuteProgramDefaultTimeout(t *testing.T) {
 	}
 }
 
+func TestExecuteCommandDefaultTimeout(t *testing.T) {
+	program := buildProgramHelper(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	started := time.Now()
+	_, err := ExecuteCommand(ctx, helperShellCommand(program, "wait"))
+	elapsed := time.Since(started)
+	if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, ErrCommandFailed) || elapsed < 29*time.Second || elapsed > 45*time.Second || ctx.Err() != nil {
+		t.Fatalf("shell timeout: error = %v, elapsed = %v, parent = %v", err, elapsed, ctx.Err())
+	}
+}
+
 func TestCommandDiagnostic(t *testing.T) {
 	for _, err := range []error{nil, errors.New("private-error"), ErrCommandFailed} {
 		if got := CommandDiagnostic(err); got != "" {
