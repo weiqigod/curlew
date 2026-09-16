@@ -2090,3 +2090,10 @@ capabilities:
         completed_date: 2026-09-15
         verified_by: ai
         branch: work/M30-001-agent-docs-and-examples
+      - id: M30-002
+        status: done
+        planned_date: 2026-09-16
+        started_date: 2026-09-16
+        completed_date: 2026-09-16
+        verified_by: ai
+        branch: work/M30-002-local-examples

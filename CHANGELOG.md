@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **Remaining local examples.** Output-format and plugin walkthroughs now use
+  a shared loopback fixture, preserve the working directory, and include exact
+  executable commands. The invalid-format example uses an unsupported value;
+  regression tests verify JSON inheritance, its exit/error contract, and actual
+  plugin metric delivery. Added an index for every examples directory.
 - **Standalone dry runs no longer send real requests.** `run --dry-run` now
   prints dependency waves even without `--show-dependencies`, including glob
   and parallel invocations. It is a plan, not a runtime variable-resolution check.

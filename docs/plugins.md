@@ -293,25 +293,14 @@ longer than that will be truncated and treated as a protocol error.
 
 ## Full example: datadog-metrics
 
-`examples/plugins/datadog-metrics/` is a production-shaped plugin that submits
-`curlew.request.duration` gauge metrics to Datadog on every `on_response` hook.
+The [datadog-metrics walkthrough](../examples/plugins/datadog-metrics/README.md)
+builds the plugin from the repository root and runs a shipped collection against
+a Python loopback fixture. Both the API request and metric submission stay local;
+no Datadog account is required. The walkthrough includes prerequisites, exact
+commands, tests and optional real-provider configuration.
 
-```bash
-# Build
-cd examples/plugins/datadog-metrics && go build -o /tmp/curlew-dd-plugin .
-
-# Test (no Datadog account needed — runs against httptest.Server)
-cd examples/plugins/datadog-metrics && go test ./...
-
-# Run
-DD_API_URL=http://127.0.0.1:8888 \
-CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
-DATADOG_API_KEY=test-key \
-  ./curlew run testdata/plugins/one-request.yaml
-```
-
-See [examples/plugins/datadog-metrics/README.md](../examples/plugins/datadog-metrics/README.md)
-for the full build/run/test recipe and Datadog metric shape.
+The executable documentation regression checks the submitted metric payload as
+well as the CLI result. The mock does not verify Datadog's production contract.
 
 ## Packaging tips
 
