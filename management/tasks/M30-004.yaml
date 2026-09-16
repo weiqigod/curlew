@@ -1,0 +1,34 @@
+id: M30-004
+title: "Run command-backed variables and vault providers on native Windows"
+status: backlog
+priority: 1
+created: 2026-09-16
+phase: "M30: Local product usability"
+dependencies: [M30-003]
+observable: |
+  On a native Windows host, run a collection containing a command-backed variable
+  and collections using local stub provider CLIs, without /bin/sh or WSL.
+  Values, exit diagnostics, timeout handling and redaction match the documented
+  platform contract. Repeat relevant regression tests on a POSIX host.
+behaviors:
+  - Native Windows resolves command-backed variables without a hardcoded POSIX shell.
+  - Shell selection and platform-specific command syntax are explicit and documented.
+  - Quoted executable paths, spaces, Unicode, arguments and shell metacharacters preserve their intended meaning.
+  - CLI-backed vault providers invoke local Windows stubs correctly without contacting real services.
+  - Output normalization handles Windows line endings and a documented encoding without corrupting secret values.
+  - Nonzero exit, missing executable, timeout and cancellation retain useful diagnostics and do not leave child processes running.
+  - Existing POSIX command behavior and secret-redaction guarantees remain covered by regression tests.
+scope: |
+  Known gap: internal/variable/command.go ExecuteCommand invokes /bin/sh -c.
+  Vault providers share this executor and build command strings that also need a
+  quoting review. Define an explicit Windows execution contract before implementation;
+  do not assume replacing the shell executable makes POSIX command strings portable.
+  Add platform-specific tests and local provider stubs. No live cloud calls, paid
+  services, WSL-only workaround or automatic CI trigger changes.
+definition_of_done:
+  - Failing regression cases are demonstrated before the portability implementation
+  - Native Windows command and provider-stub tests pass with retained host/toolchain evidence
+  - POSIX regressions and the applicable authoritative local gate pass
+  - Timeout, cancellation, line ending, encoding, quoting and redaction cases are covered
+  - docs/WINDOWS.md and command/vault documentation describe the implemented contract
+complexity: medium

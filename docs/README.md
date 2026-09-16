@@ -6,6 +6,7 @@ and fixtures are in the [source repository](https://github.com/weiqigod/curlew).
 ## Current local product
 
 - [User manual](MANUAL.md): installation, YAML authoring, browser walkthrough and reference.
+- [Windows setup and readiness](WINDOWS.md): PowerShell build, known gaps and native verification checklist.
 - [Agent guide](AGENT_GUIDE.md): shell integration, structured results and failure handling.
 - [CLI specification](CLI_SPECIFICATION.md): command and file-format contracts.
 - [UI specification](UI_SPECIFICATION.md): current browser/server contract.

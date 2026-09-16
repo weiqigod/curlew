@@ -2104,3 +2104,7 @@ capabilities:
         branch: work/M30-003-agent-skill-installation
         completed_date: 2026-09-16
         verified_by: ai
+      - id: M30-004
+        status: backlog
+      - id: M30-005
+        status: backlog

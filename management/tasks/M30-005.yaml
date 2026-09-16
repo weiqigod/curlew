@@ -1,0 +1,39 @@
+id: M30-005
+title: "Verify and document native Windows installation and local use"
+status: backlog
+priority: 1
+created: 2026-09-16
+phase: "M30: Local product usability"
+dependencies: [M30-004]
+observable: |
+  On a clean native Windows machine, follow docs/WINDOWS.md from authenticated
+  clone to curlew.exe, execute a collection against a loopback fixture, and use
+  the complete embedded browser UI. Repeat core checks from an extracted Windows
+  release archive and retain a per-feature/per-architecture evidence matrix.
+behaviors:
+  - The documented PowerShell build creates a runnable executable with actual embedded JavaScript and CSS.
+  - The built and packaged app runs outside the checkout without Node, Go, Docker or a backend at runtime.
+  - Local HTTP execution, validation, environment selection, output files and expected failures work on Windows.
+  - UI discovery, collection execution, history, browser launch and shutdown work natively.
+  - Skill install and update preserve local edits on Windows and available agent hosts discover their installed skills.
+  - Spaced and Unicode paths, watch lifecycle and process cancellation have native evidence.
+  - Supported architectures and unavailable agent hosts are reported separately; cross-build or WSL results are not native passes.
+scope: |
+  Execute and refine docs/WINDOWS.md on native Windows, then fix observed failures.
+  Add a repeatable PowerShell smoke entry point with loopback-only fixtures and
+  explicit exit checking. Document any additional dependencies of developer tests
+  separately from normal app use. Basic smoke investigation can start before
+  M30-004 completes, but full Windows readiness depends on its shell/vault fixes.
+  Store commit, OS/architecture, shell and tool versions, commands, outputs and
+  PASS/FAIL/NOT RUN results. Native amd64 and arm64 claims each require matching-host
+  evidence; mark unsupported or untested scope explicitly if a host is unavailable.
+  No live provider calls or paid hosted CI. M29-001 independently controls CI billing.
+definition_of_done:
+  - Clean-host clone/build and extracted-ZIP smoke checks have recorded native Windows results
+  - Core CLI, browser UI and skill filesystem behavior pass the checklist
+  - Actual agent discovery results are recorded for each tested host; unavailable hosts remain explicit
+  - M30-004 shell and provider-stub tests pass on Windows
+  - Repeatable Windows smoke command and native execution evidence are checked in
+  - Remaining platform or architecture limits are explicit in docs/WINDOWS.md
+  - Applicable existing local verification gates remain green
+complexity: medium
