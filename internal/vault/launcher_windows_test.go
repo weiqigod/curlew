@@ -34,7 +34,7 @@ const windowsAzureLauncher = `@IF EXIST "%~dp0\..\python.exe" (
 // retains the version probe and delayed-expansion transition (lines 38/109/142),
 // and preserves the final forwarding and exit lines (158/161/162), without CALL.
 // Python discovery and unrelated SDK initialization are intentionally omitted.
-// https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-585.0.0-windows-x86_64.zip
+// https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-585.0.0-windows-x86_64-bundled-python.zip
 // Archive SHA256: 42ab5eb7ccc4c217f96afcc17f427f177b58af5334854e358d2b909115c2fd79
 const windowsGcloudLauncher = `@echo off
 SETLOCAL EnableDelayedExpansion
@@ -172,11 +172,17 @@ func TestWindowsProviderLaunchers(t *testing.T) {
 				"", "spaces here", "O'Brien", "\u00e5\u96ea\U0001f642", "tab\there", "  spaced  ",
 				`C:\path with spaces\`, `\\`, `double"quote`, `"`, `"quoted words"`,
 				`a""b`, `\"`, `trailing\"`, `a"&b|c^d<e>f`, "\u96ea\"\u00e5",
+				`two\\"&|^<>()end`, `three\\\"&|^<>()end`, `"quoted"\`, `"quoted"\\`, `"^"`, `^"^`,
 				"%FOO%", "!FOO!", `"%FOO%"`, `"!FOO!"`, "%PATH%", "%1", "%*", "%%",
 				"%CURLEW_BATCH_INVOCATION_0%", "&", "|", "^", "<", ">", "()", "=", "/?",
 				"a&b|c^d<e>f", `" & echo injected>"` + marker + `" & rem "`,
 				`" | echo injected>"` + marker + `" & rem "`,
 				`" & (echo injected)>"` + marker + `" & rem "`, "",
+			}
+			for character := byte(1); character < 32; character++ {
+				if character != '\r' && character != '\n' {
+					arguments = append(arguments, "before"+string(character)+"after")
+				}
 			}
 			t.Cleanup(func() {
 				if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {

@@ -38,6 +38,7 @@ func TestWindowsProgramEnvironment(t *testing.T) {
 
 func TestWindowsProgramBatch(t *testing.T) {
 	program := buildProgramHelper(t)
+	t.Chdir(t.TempDir())
 	t.Setenv("CURLEW_TEST_NATIVE", program)
 	for _, extension := range []string{".cmd", ".bat", ".CMD"} {
 		t.Run(extension, func(t *testing.T) {
@@ -50,8 +51,28 @@ func TestWindowsProgramBatch(t *testing.T) {
 				assertProgramArgs(t, wrapper, args, []string{"FOO=must-not-expand", "curlew_batch_invocation_0=user-value"})
 			})
 			t.Run("quoted_arguments", func(t *testing.T) {
-				args := []string{`double"quote`, `"`, `"quoted words"`, `a"&b|c^d<e>f`, `\"`, `trailing\"`, `"%FOO%"`, `"!FOO!"`, `a""b`, "\u96ea\"\u00e5"}
+				args := []string{`double"quote`, `"`, `"quoted words"`, `a"&b|c^d<e>f`, `\"`, `trailing\"`, `"%FOO%"`, `"!FOO!"`, `a""b`, "\u96ea\"\u00e5", `two\\"&|^<>()end`, `three\\\"&|^<>()end`, `"quoted"\`, `"quoted"\\`, `"^"`, `^"^`}
+				for _, argument := range args {
+					t.Run(argument, func(t *testing.T) {
+						output, err := ExecuteProgram(context.Background(), wrapper, []string{"argv", argument}, []string{"FOO=must-not-expand"})
+						if err != nil {
+							t.Fatalf("output=%q error=%v diagnostic=%q", output, err, CommandDiagnostic(err))
+						}
+						var actual []string
+						if err := json.Unmarshal([]byte(output), &actual); err != nil || len(actual) != 1 || actual[0] != argument {
+							t.Fatalf("argv=%q want=%q decode=%v", actual, argument, err)
+						}
+					})
+				}
 				assertProgramArgs(t, wrapper, args, []string{"FOO=must-not-expand"})
+			})
+			t.Run("quoted_metacharacters_are_not_commands", func(t *testing.T) {
+				marker := filepath.Join(t.TempDir(), "injected.txt")
+				args := []string{`"& echo injected > "` + marker + `" & rem "`, `"| echo injected > "` + marker + `" & rem "`, `"<"` + marker + `"`, `"%FOO%!FOO!^&|<>()"`}
+				assertProgramArgs(t, wrapper, args, []string{"FOO=must-not-expand"})
+				if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("argument executed as a command: %v", err)
+				}
 			})
 			t.Run("safe_exit_42", func(t *testing.T) {
 				output, err := ExecuteProgram(context.Background(), wrapper, []string{"exit42"}, nil)
@@ -60,9 +81,37 @@ func TestWindowsProgramBatch(t *testing.T) {
 					t.Fatalf("wrapper failure lost exit or stderr: %v, diagnostic %q", err, CommandDiagnostic(err))
 				}
 			})
+			t.Run("child_transport_collision", func(t *testing.T) {
+				t.Setenv("Curlew_Batch_Invocation_0", "inherited-zero")
+				output, err := ExecuteProgram(context.Background(), wrapper, []string{"env"}, []string{"CURLEW_BATCH_INVOCATION_1=child-one", "curlew_batch_invocation_0=child-zero"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				var entries []string
+				if err := json.Unmarshal([]byte(output), &entries); err != nil {
+					t.Fatal(err)
+				}
+				values := make(map[string]string)
+				for _, entry := range entries {
+					name, value, _ := strings.Cut(entry, "=")
+					values[strings.ToUpper(name)] = value
+				}
+				if values["CURLEW_BATCH_INVOCATION_0"] != "child-zero" || values["CURLEW_BATCH_INVOCATION_1"] != "child-one" || os.Getenv("Curlew_Batch_Invocation_0") != "inherited-zero" {
+					t.Fatal("batch transport overwrote a caller environment value")
+				}
+			})
+			t.Run("control_arguments", func(t *testing.T) {
+				var args []string
+				for character := byte(1); character < 32; character++ {
+					if character != '\r' && character != '\n' {
+						args = append(args, "before"+string(character)+"after")
+					}
+				}
+				assertProgramArgs(t, wrapper, args, nil)
+			})
 			t.Run("unsupported_before_launch", func(t *testing.T) {
 				marker := filepath.Join(t.TempDir(), "started")
-				for _, arg := range []string{"line\nbreak", "line\rbreak", "nul\x00byte", "ctrl\x1az", "escape\x1b", "vertical\vtab", "form\ffeed", "back\bspace", strings.Repeat("a", 8100), strings.Repeat("\U0001f642", 4100)} {
+				for _, arg := range []string{"line\nbreak", "line\rbreak", "nul\x00byte", strings.Repeat("a", 8100), strings.Repeat("\U0001f642", 4100)} {
 					output, err := ExecuteProgram(context.Background(), wrapper, []string{"touch", marker, arg}, nil)
 					assertSafeProgramFailure(t, output, err, wrapper, "private-injection", arg)
 					if !strings.Contains(err.Error(), "unsupported") && !strings.Contains(err.Error(), "invalid") {

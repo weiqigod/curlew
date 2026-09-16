@@ -210,9 +210,7 @@ func TestProviderNativeCommands(t *testing.T) {
 						t.Fatal(err)
 					}
 					paths := []string{"secret path '\u96ea &|<>^()%PATH%!\ttrailing\\", "second secret"}
-					if !batch {
-						paths[0] += ` "quoted"`
-					}
+					paths[0] += ` "quoted"`
 					if providerCase.name == "op" {
 						paths[1] = "op://vault/item \u96ea/field"
 					}
@@ -261,13 +259,6 @@ func TestProviderNativeCommands(t *testing.T) {
 					}
 					if os.Getenv("VAULT_ADDR") != "parent-address" || os.Getenv("VAULT_TOKEN") != "parent-token" {
 						t.Fatal("parent environment mutated")
-					}
-					if batch {
-						_, err := provider.Fetch(context.Background(), `private-path-"unsupported"`)
-						requireProviderSafeError(t, err, "private-path-")
-						if got := len(readProviderInvocations(t, capture)); got != len(wantArgs) {
-							t.Errorf("unsupported batch quote launched process: %d", got)
-						}
 					}
 				})
 			}
