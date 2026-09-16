@@ -1,10 +1,13 @@
 package vault_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +19,7 @@ import (
 
 	"github.com/weiqigod/curlew/internal/variable"
 	"github.com/weiqigod/curlew/internal/vault"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -187,6 +191,9 @@ func requireProviderSafeError(t *testing.T, err error, sensitive ...string) {
 
 func TestProviderNativeCommands(t *testing.T) {
 	binary := buildProviderProgram(t, "../../testdata/providerstub")
+	t.Run("real-binary", func(t *testing.T) {
+		testProviderRealBinary(t, binary)
+	})
 	for _, batch := range []bool{false, true} {
 		mode := "executable"
 		if batch {
@@ -380,5 +387,154 @@ func TestProviderNativeCommands(t *testing.T) {
 				}
 			})
 		})
+	}
+}
+
+func testProviderRealBinary(t *testing.T, stubBinary string) {
+	cli := buildProviderProgram(t, "../../cmd/curlew")
+	for _, providerName := range []string{"project-hashicorp", "team-aws", "team-azure"} {
+		t.Run(providerName, func(t *testing.T) {
+			setupProviderStub(t, stubBinary, false)
+			project := t.TempDir()
+			t.Setenv("CURLEW_CONFIG_DIR", filepath.Join(project, "user-config"))
+			t.Setenv("CURLEW_TEAM_CONFIG", "")
+			t.Setenv("CURLEW_VAULT_STUB", "")
+			stdout, stderr, err := runProviderCLI(t, cli, project, "init")
+			if err != nil {
+				t.Fatalf("init: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
+			}
+			secretRef := "{{vault_value}}"
+			args := []string{"run", "native.yaml", "--format", "json", "-vv", "--events", "events.jsonl"}
+			projectConfig := map[string]any{"project_name": "native-provider-test"}
+			if providerName == "project-hashicorp" {
+				projectConfig["secrets"] = map[string]any{
+					"provider": vault.ProviderHashiCorp,
+					"address":  stubAddress,
+					"auth":     map[string]any{"method": "token", "token": stubToken},
+					"keys":     map[string]string{"vault_value": "secret path '\u96ea#secret"},
+				}
+			} else {
+				secretRef = "{{secrets.vault_value}}"
+				providerConfig := map[string]any{"keys": map[string]string{"vault_value": "secret path '\u96ea"}}
+				if providerName == "team-aws" {
+					providerConfig["provider"], providerConfig["region"] = vault.ProviderAWS, "region '\u96ea"
+				} else {
+					providerConfig["provider"], providerConfig["vault_name"] = vault.ProviderAzure, "vault '\u96ea"
+				}
+				teamFile := filepath.Join(project, "team.yaml")
+				writeProviderYAML(t, teamFile, map[string]any{"team_secrets": map[string]any{"vault_configs": map[string]any{"fixture": providerConfig}}})
+				t.Setenv("CURLEW_TEAM_CONFIG", teamFile)
+				args = append(args, "--env", "fixture")
+			}
+			writeProviderYAML(t, filepath.Join(project, "curlew.yaml"), projectConfig)
+			commandSecret := "fake-command-value-\u96ea & only-local"
+			command := "printf '%s' '" + commandSecret + "'"
+			if runtime.GOOS == "windows" {
+				command = "Write-Output '" + commandSecret + "'"
+			}
+			received := make(chan map[string]string, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				var body map[string]string
+				if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+					t.Errorf("decode loopback body: %v", err)
+					response.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				select {
+				case received <- body:
+				default:
+					t.Error("unexpected extra loopback request")
+				}
+				response.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(response).Encode(body)
+			}))
+			defer server.Close()
+			body, err := json.Marshal(map[string]string{"command": "{{command_value}}", "vault": secretRef})
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeProviderYAML(t, filepath.Join(project, "native.yaml"), map[string]any{
+				"name":      "native providers",
+				"variables": map[string]any{"command_value": map[string]any{"from_command": command, "sensitive": true}},
+				"requests": []any{map[string]any{
+					"name":       "loopback exact values",
+					"request":    map[string]any{"method": "POST", "url": server.URL, "body": string(body)},
+					"assertions": map[string]any{"status": 200},
+				}},
+			})
+			stdout, stderr, err = runProviderCLI(t, cli, project, args...)
+			if err != nil {
+				t.Fatalf("run: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
+			}
+			select {
+			case actual := <-received:
+				want := map[string]string{"command": commandSecret, "vault": stubSecret}
+				if !reflect.DeepEqual(actual, want) {
+					t.Errorf("received %#v, want %#v", actual, want)
+				}
+			default:
+				t.Fatal("CLI did not reach loopback server")
+			}
+			events, err := os.ReadFile(filepath.Join(project, "events.jsonl"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for name, data := range map[string]string{"stdout": stdout, "stderr": stderr, "events": string(events)} {
+				for _, sensitive := range []string{commandSecret, stubSecret, stubToken} {
+					encoded, err := json.Marshal(sensitive)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if strings.Contains(data, sensitive) || strings.Contains(data, string(encoded[1:len(encoded)-1])) {
+						t.Errorf("%s leaked %q: %s", name, sensitive, data)
+					}
+				}
+			}
+			if !json.Valid([]byte(stdout)) {
+				t.Errorf("stdout is not JSON: %s", stdout)
+			}
+			decoder := json.NewDecoder(bytes.NewReader(events))
+			foundRequest := false
+			for {
+				var event map[string]any
+				err := decoder.Decode(&event)
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if event["kind"] == "request.end" {
+					foundRequest = true
+				}
+			}
+			if !foundRequest {
+				t.Fatal("missing request.end event")
+			}
+		})
+	}
+}
+
+func runProviderCLI(t *testing.T, binary, directory string, args ...string) (string, string, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	command := exec.CommandContext(ctx, binary, args...)
+	command.Dir = directory
+	command.WaitDelay = time.Second
+	var stdout, stderr bytes.Buffer
+	command.Stdout, command.Stderr = &stdout, &stderr
+	err := command.Run()
+	return stdout.String(), stderr.String(), err
+}
+
+func writeProviderYAML(t *testing.T, path string, value any) {
+	t.Helper()
+	data, err := yaml.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
 	}
 }
