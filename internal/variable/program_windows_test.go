@@ -49,6 +49,10 @@ func TestWindowsProgramBatch(t *testing.T) {
 				args := []string{"spaces here", "O'Brien", "\u00e5\u96ea\U0001f642", `C:\trailing\`, "", "%FOO%", "!FOO!", "&", "|", "^", "<", ">", "a&b|c^d<e>f", "%PATH%", "%1", "%*", "%%", "()", "  spaced  ", "=", "/?", `\\`, "tab\there", "%CURLEW_BATCH_INVOCATION_0%", ""}
 				assertProgramArgs(t, wrapper, args, []string{"FOO=must-not-expand", "curlew_batch_invocation_0=user-value"})
 			})
+			t.Run("quoted_arguments", func(t *testing.T) {
+				args := []string{`double"quote`, `"`, `"quoted words"`, `a"&b|c^d<e>f`, `\"`, `trailing\"`, `"%FOO%"`, `"!FOO!"`, `a""b`, "\u96ea\"\u00e5"}
+				assertProgramArgs(t, wrapper, args, []string{"FOO=must-not-expand"})
+			})
 			t.Run("safe_exit_42", func(t *testing.T) {
 				output, err := ExecuteProgram(context.Background(), wrapper, []string{"exit42"}, nil)
 				assertSafeProgramFailure(t, output, err, wrapper, "private-stderr")
@@ -58,7 +62,7 @@ func TestWindowsProgramBatch(t *testing.T) {
 			})
 			t.Run("unsupported_before_launch", func(t *testing.T) {
 				marker := filepath.Join(t.TempDir(), "started")
-				for _, arg := range []string{`double"quote`, `"& echo private-injection`, "line\nbreak", "line\rbreak", "nul\x00byte", "ctrl\x1az", "escape\x1b", "vertical\vtab", "form\ffeed", "back\bspace", strings.Repeat("a", 8100), strings.Repeat("\U0001f642", 4100)} {
+				for _, arg := range []string{"line\nbreak", "line\rbreak", "nul\x00byte", "ctrl\x1az", "escape\x1b", "vertical\vtab", "form\ffeed", "back\bspace", strings.Repeat("a", 8100), strings.Repeat("\U0001f642", 4100)} {
 					output, err := ExecuteProgram(context.Background(), wrapper, []string{"touch", marker, arg}, nil)
 					assertSafeProgramFailure(t, output, err, wrapper, "private-injection", arg)
 					if !strings.Contains(err.Error(), "unsupported") && !strings.Contains(err.Error(), "invalid") {
