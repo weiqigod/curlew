@@ -44,10 +44,9 @@ func programCommand(ctx context.Context, program string, args, env []string) (*e
 	invocation := "\"" + resolved + "\""
 	for _, arg := range args {
 		if unsupportedBatchArgument(arg) {
-			return nil, &commandFailure{reason: "unsupported batch argument: double quote or control character other than tab"}
+			return nil, &commandFailure{reason: "unsupported batch argument: NUL, CR or LF"}
 		}
-		trailingSlashes := len(arg) - len(strings.TrimRight(arg, "\\"))
-		invocation += " \"" + arg + strings.Repeat("\\", trailingSlashes) + "\""
+		invocation += " " + quoteBatchArgument(arg)
 	}
 	keys := make(map[string]bool, len(env))
 	for _, entry := range env {
@@ -72,9 +71,30 @@ func programCommand(ctx context.Context, program string, args, env []string) (*e
 }
 
 func unsupportedBatchArgument(value string) bool {
-	return strings.IndexFunc(value, func(character rune) bool {
-		return character == '"' || (character < 32 && character != '\t')
-	}) >= 0
+	return strings.ContainsAny(value, "\x00\r\n")
+}
+
+func quoteBatchArgument(value string) string {
+	var encoded strings.Builder
+	encoded.WriteByte('"')
+	backslashes := 0
+	for _, character := range value {
+		if character == '\\' {
+			backslashes++
+			continue
+		}
+		if character == '"' {
+			encoded.WriteString(strings.Repeat("\\", backslashes*2))
+			encoded.WriteString("\"\\^^^\"\"")
+		} else {
+			encoded.WriteString(strings.Repeat("\\", backslashes))
+			encoded.WriteRune(character)
+		}
+		backslashes = 0
+	}
+	encoded.WriteString(strings.Repeat("\\", backslashes*2))
+	encoded.WriteByte('"')
+	return encoded.String()
 }
 
 func programEnvironmentKey(name string) string {
