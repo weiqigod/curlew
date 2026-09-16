@@ -329,7 +329,7 @@ type VarSources struct {
 	CLI                 map[string]string       // --var variables (precedence 10)
 	Seed                *int64                  // nil = real randomness; non-nil = deterministic seed
 	Secrets             *vault.SecretsConfig    // vault provider config from curlew.yaml (nil = no vault)
-	VaultExecutor       vault.CommandExecutor   // nil = use variable.ExecuteCommand
+	VaultExecutor       vault.CommandExecutor   // nil = use structured provider execution
 	AuthProfiles        []auth.Profile          // from curlew.yaml auth_profiles: block
 	ProjectRoot         string                  // directory containing curlew.yaml (for resolving relative paths)
 	AuthExecuteFunc     auth.ExecuteFunc        // nil = use RunForExtraction; non-nil = use directly (for tests)
@@ -1177,9 +1177,6 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 	// Resolve vault secrets (precedence 6)
 	if vars.Secrets != nil {
 		vaultExec := vars.VaultExecutor
-		if vaultExec == nil {
-			vaultExec = variable.ExecuteCommand
-		}
 		result, err := vault.Resolve(ctx, vars.Secrets, vaultExec)
 		if err != nil {
 			return nil, 0, err
@@ -1355,9 +1352,6 @@ func stubTeamProviderFactory() func(*teamtemplate.ResolvedEnv) (vault.Provider, 
 // realTeamProviderFactory returns a provider factory that dispatches on
 // env.Provider and constructs the appropriate real vault provider.
 func realTeamProviderFactory(exec vault.CommandExecutor) func(*teamtemplate.ResolvedEnv) (vault.Provider, error) {
-	if exec == nil {
-		exec = variable.ExecuteCommand
-	}
 	return func(env *teamtemplate.ResolvedEnv) (vault.Provider, error) {
 		switch env.Provider {
 		case vault.ProviderAWS:
