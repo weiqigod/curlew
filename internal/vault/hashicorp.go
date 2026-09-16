@@ -64,7 +64,8 @@ func (p *HashiCorpProvider) Fetch(ctx context.Context, path string) (string, err
 		"VAULT_ADDR=%s VAULT_TOKEN=%s vault kv get -format=json %s",
 		shellQuote(p.address), shellQuote(p.token), shellQuote(path),
 	)
-	out, err := p.execute(ctx, cmd)
+	out, err := executeProvider(ctx, p.execute, cmd, "vault", []string{"kv", "get", "-format=json", path},
+		[]string{"VAULT_ADDR=" + p.address, "VAULT_TOKEN=" + p.token})
 	if err != nil {
 		return "", p.classifyError(err, path)
 	}
@@ -94,7 +95,8 @@ func (p *HashiCorpProvider) ValidateConfig() error {
 		"VAULT_ADDR=%s VAULT_TOKEN=%s vault token lookup -format=json",
 		shellQuote(p.address), shellQuote(p.token),
 	)
-	_, err := p.execute(context.Background(), cmd)
+	_, err := executeProvider(context.Background(), p.execute, cmd, "vault", []string{"token", "lookup", "-format=json"},
+		[]string{"VAULT_ADDR=" + p.address, "VAULT_TOKEN=" + p.token})
 	if err != nil {
 		return p.classifyError(err, "")
 	}
@@ -122,7 +124,9 @@ func (p *HashiCorpProvider) approleLogin(ctx context.Context) (string, error) {
 		"VAULT_ADDR=%s vault write -format=json auth/approle/login role_id=%s secret_id=%s",
 		shellQuote(p.address), shellQuote(p.auth.RoleID), shellQuote(p.auth.SecretID),
 	)
-	out, err := p.execute(ctx, cmd)
+	out, err := executeProvider(ctx, p.execute, cmd, "vault", []string{
+		"write", "-format=json", "auth/approle/login", "role_id=" + p.auth.RoleID, "secret_id=" + p.auth.SecretID,
+	}, []string{"VAULT_ADDR=" + p.address})
 	if err != nil {
 		return "", p.classifyError(err, "")
 	}
@@ -143,7 +147,7 @@ func (p *HashiCorpProvider) approleLogin(ctx context.Context) (string, error) {
 
 // classifyError inspects the error message for known HashiCorp error patterns.
 func (p *HashiCorpProvider) classifyError(err error, path string) error {
-	msg := err.Error()
+	msg := providerDiagnostic(err)
 
 	for _, pattern := range hashicorpNetworkErrorPatterns {
 		if strings.Contains(msg, pattern) {
@@ -152,12 +156,12 @@ func (p *HashiCorpProvider) classifyError(err error, path string) error {
 	}
 
 	if strings.Contains(msg, "No value found") || strings.Contains(msg, "secret not found") {
-		return fmt.Errorf("%w: %s", ErrSecretNotFound, path)
+		return classifiedProviderError(err, ErrSecretNotFound, path, "")
 	}
 
 	for _, pattern := range hashicorpAuthErrorPatterns {
 		if strings.Contains(msg, pattern) {
-			return fmt.Errorf("%w: %s. %s", ErrProviderAuth, msg, hashicorpAuthHint)
+			return classifiedProviderError(err, ErrProviderAuth, err.Error(), ". "+hashicorpAuthHint)
 		}
 	}
 
