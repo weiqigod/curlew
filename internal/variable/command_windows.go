@@ -38,13 +38,13 @@ func programCommand(ctx context.Context, program string, args, env []string) (*e
 		cmd.Env = env
 		return cmd, nil
 	}
-	if strings.ContainsAny(resolved, "\"\r\n") {
+	if unsupportedBatchArgument(resolved) {
 		return nil, &commandFailure{reason: "unsupported batch program name"}
 	}
 	invocation := "\"" + resolved + "\""
 	for _, arg := range args {
-		if strings.ContainsAny(arg, "\"\r\n") {
-			return nil, &commandFailure{reason: "unsupported batch argument: double quote or CR/LF"}
+		if unsupportedBatchArgument(arg) {
+			return nil, &commandFailure{reason: "unsupported batch argument: double quote or control character other than tab"}
 		}
 		trailingSlashes := len(arg) - len(strings.TrimRight(arg, "\\"))
 		invocation += " \"" + arg + strings.Repeat("\\", trailingSlashes) + "\""
@@ -69,6 +69,12 @@ func programCommand(ctx context.Context, program string, args, env []string) (*e
 	cmd.Env = append(env, transport+"="+invocation)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: "\"" + shell + "\" /d /v:off /s /c \"%" + transport + "%\""}
 	return cmd, nil
+}
+
+func unsupportedBatchArgument(value string) bool {
+	return strings.IndexFunc(value, func(character rune) bool {
+		return character == '"' || (character < 32 && character != '\t')
+	}) >= 0
 }
 
 func programEnvironmentKey(name string) string {

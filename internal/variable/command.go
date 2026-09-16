@@ -105,8 +105,10 @@ func ExecuteCommand(ctx context.Context, command string) (string, error) {
 // ExecuteProgram runs a program with structured arguments and child environment overrides.
 // Overrides inherit the parent environment; later values win (case-insensitively on Windows).
 // Execution is capped at 30 seconds, or the caller's earlier deadline. Output must be UTF-8.
-// Windows batch files use cmd.exe for native %* forwarding: quotes and CR/LF in arguments
-// are unsupported, and the invocation and each environment entry are limited to 8000 UTF-16 units.
+// Windows batch files use cmd.exe for native %* forwarding: double quotes and ASCII
+// controls other than tab are unsupported. The invocation (including transport overhead)
+// and each environment entry are limited to 8000 UTF-16 units. Wrappers that reparse
+// arguments with CALL or enable delayed expansion are not supported.
 func ExecuteProgram(ctx context.Context, program string, args, env []string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
