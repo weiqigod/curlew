@@ -124,7 +124,7 @@ func TestRunContainedCommand_tree(t *testing.T) {
 				t.Fatal("contained command exceeded bounded completion")
 			}
 			if finish == "parent_exit" {
-				if runErr != nil && !errors.Is(runErr, exec.ErrWaitDelay) {
+				if runErr != nil {
 					t.Errorf("normal parent exit: %v; stderr=%q", runErr, stderr.String())
 				}
 				if stdout.String() != "parent finished\n" {
