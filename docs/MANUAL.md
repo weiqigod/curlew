@@ -3056,10 +3056,19 @@ For each supported vault, Curlew expects the provider's CLI to be installed and 
 Providers use structured program arguments; HashiCorp credentials are passed in
 the child environment without changing the parent. The same UTF-8 and 30-second
 limits apply. On Windows, native `.exe` files support literal argument quoting.
-Batch wrappers must forward `%*` directly with delayed expansion disabled.
-Embedded double quotes, controls other than tab, and oversized batch invocations
-are rejected before launch. `CALL` reparsing and delayed-expansion wrappers are
-unsupported. See [Windows command details](WINDOWS.md#windows-command-contract).
+
+Windows `.cmd` and `.bat` provider launchers always preserve quoted arguments and
+shell metacharacters without executing them as commands. Native tests cover Azure CLI
+2.90.0 MSI/ZIP forwarding and Google Cloud CLI 585.0.0 forwarding, including
+Google's delayed-expansion bootstrap, using local modules and a real Python
+interpreter. No provider account is used for those tests.
+
+Batch arguments cannot contain NUL, CR, or LF: NUL terminates Windows command
+strings, and CR/LF terminate batch command lines. Encoded batch invocations and
+environment entries are capped at 8000 UTF-16 units to stay below CMD's line
+limit. These checks prevent truncation. Custom scripts retain their own semantics:
+a script that explicitly expands an argument a second time can change its value.
+See [Windows command details](WINDOWS.md#windows-command-contract).
 
 **AWS Secrets Manager:**
 

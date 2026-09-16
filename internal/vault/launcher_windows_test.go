@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/weiqigod/curlew/internal/docs"
 	"github.com/weiqigod/curlew/internal/variable"
 	"github.com/weiqigod/curlew/internal/vault"
 )
@@ -101,13 +102,13 @@ func windowsLauncherInterpreter(t *testing.T) string {
 
 func writeWindowsLauncherFixture(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if strings.EqualFold(filepath.Ext(path), ".cmd") {
 		content = strings.ReplaceAll(content, "\n", "\r\n")
 	}
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -155,6 +156,9 @@ func setupWindowsLauncher(t *testing.T, interpreter, installer string) (program,
 }
 
 func TestWindowsProviderLaunchers(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "provider launchers always preserve quoted arguments"); err != nil {
+		t.Fatal(err)
+	}
 	interpreter := windowsLauncherInterpreter(t)
 	t.Chdir(t.TempDir())
 	for _, launcher := range []struct {

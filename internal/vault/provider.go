@@ -35,7 +35,7 @@ type Provider interface {
 // Injected for testability (avoids real CLI calls in tests).
 type CommandExecutor func(ctx context.Context, command string) (string, error)
 
-func executeProvider(ctx context.Context, legacy CommandExecutor, command string, program string, args, env []string) (string, error) {
+func executeProvider(ctx context.Context, legacy CommandExecutor, command, program string, args, env []string) (string, error) {
 	if legacy != nil {
 		return legacy(ctx, command)
 	}

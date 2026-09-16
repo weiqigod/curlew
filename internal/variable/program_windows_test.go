@@ -43,7 +43,7 @@ func TestWindowsProgramBatch(t *testing.T) {
 	for _, extension := range []string{".cmd", ".bat", ".CMD"} {
 		t.Run(extension, func(t *testing.T) {
 			wrapper := filepath.Join(t.TempDir(), "forward O'\u00e5 %FOO% !FOO! &^()"+extension)
-			if err := os.WriteFile(wrapper, []byte("@\"%CURLEW_TEST_NATIVE%\" %*\r\n"), 0600); err != nil {
+			if err := os.WriteFile(wrapper, []byte("@\"%CURLEW_TEST_NATIVE%\" %*\r\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			t.Run("exact_argv", func(t *testing.T) {

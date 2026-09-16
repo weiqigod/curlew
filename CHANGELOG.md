@@ -18,8 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   PowerShell/UTF-8 semantics; vault providers use structured arguments and child
   environments. Process containment and timeouts prevent lingering descendants,
   diagnostics omit secret-bearing output, and resolved values are registered
-  before body/event redaction. Compatible Windows batch wrappers are supported
-  with documented quoting/length limits. Windows and Linux scoped tests pass;
+  before body/event redaction. Windows batch launchers preserve embedded quotes,
+  backslashes and metacharacters, verified with Azure MSI/ZIP and Google Cloud
+  forwarding patterns and real Python argument parsing. Actual Windows Ctrl+C
+  tests verify CLI cancellation and child termination. Windows and Linux scoped tests pass;
   the full repository gate remains open (M30-004).
 - **Remaining local examples.** Output-format and plugin walkthroughs now use
   a shared loopback fixture, preserve the working directory, and include exact

@@ -9,7 +9,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,6 +194,26 @@ func TestRunContainedCommand_cancelled_before_start(t *testing.T) {
 	}
 }
 
+func TestRunContainedCommand_start_failure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, filepath.Join(t.TempDir(), "missing-command.exe"))
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := runContainedCommand(cmd); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("start error=%v, want file-not-found cause", err)
+	}
+	if cmd.Process != nil || stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatal("failed setup launched a process or emitted output")
+	}
+}
+
+func TestResumeContainedProcess_missing_thread(t *testing.T) {
+	if err := resumeContainedProcess(^uint32(0)); err == nil || !strings.Contains(err.Error(), "suspended command thread not found") {
+		t.Fatalf("missing-thread error=%v", err)
+	}
+}
+
 func TestContainedProcessHelper(t *testing.T) {
 	if os.Getenv("CURLEW_CONTAINED_PROCESS_HELPER") != "1" {
 		return
@@ -211,7 +233,7 @@ func TestContainedProcessHelper(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer connection.Close()
+	defer func() { _ = connection.Close() }()
 	if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
 		t.Fatal(err)
 	}

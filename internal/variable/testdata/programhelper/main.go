@@ -27,13 +27,13 @@ func main() {
 		_, _ = os.Stderr.Write([]byte{0xff})
 	case "wait":
 		if len(os.Args) > 2 {
-			if err := os.WriteFile(os.Args[2], []byte("ready"), 0600); err != nil {
+			if err := os.WriteFile(os.Args[2], []byte("ready"), 0o600); err != nil {
 				os.Exit(2)
 			}
 		}
 		time.Sleep(time.Minute)
 	case "touch":
-		if err := os.WriteFile(os.Args[2], []byte("launched"), 0600); err != nil {
+		if err := os.WriteFile(os.Args[2], []byte("launched"), 0o600); err != nil {
 			os.Exit(2)
 		}
 	default:

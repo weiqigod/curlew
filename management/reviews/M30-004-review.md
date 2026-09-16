@@ -40,7 +40,24 @@ A separately labelled read-only source audit was used during implementation, not
 as a substitute for this gate. It found a POSIX output-drain ordering issue and a
 platform-newline fixture issue. Both were repaired and exercised on Linux; native
 Windows affected suites also pass. A real CLI interrupt regression was added and
-fixed with RED/GREEN evidence. Known batch/fault-injection limits remain explicit.
+fixed with RED/GREEN evidence. The resumed work now passes embedded batch quotes
+and metacharacters through all five provider stubs, Azure MSI/ZIP and Google
+launcher forwarding patterns with real Python. Actual native Windows console
+Ctrl+C cleanup passed twice. The initial batch quote limitation is resolved.
+
+An additional unmodified Go gate ran on an isolated LF Linux checkout at 2829eaa
+with all major tools supplied and Cgo enabled. It reached full tests; variable
+and vault packages passed. It failed on one M30-004 prose-inventory claim (now
+fixed and verified), a pre-existing telemetry test requiring live example.com,
+and a proxy-induced DNS classification failure (focused rerun passed). Race,
+coverage, lint and later gate stages were not reached. No full gate PASS is
+claimed; see verification for commands and the retained-log location.
+
+The repository-pinned linter subsequently passed for complete changed command,
+vault and console-helper files using a compatible temporary Go 1.26.8 toolchain.
+New lint findings were fixed and focused native integration tests rerun. This is
+not a whole-repository lint or authoritative gate PASS; untouched formatting and
+the gate failures above remain separately recorded.
 
 See the [verification report](../plans/M30-004-verified.md) for scoped results and
 coverage. M30-004 remains `in_progress`; no passing workflow review, /verify, PR,

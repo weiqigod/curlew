@@ -168,13 +168,17 @@ verification report, with a per-platform/per-feature PASS, FAIL or NOT RUN matri
    newlines, and a standalone CR are not. Other encodings fail rather than silently
    changing a secret.
 - Vault `.exe` calls receive literal argv and child-only environment overrides.
-   `.cmd`/`.bat` support direct `%*` forwarders with delayed expansion disabled,
-   including spaces, Unicode, `%`, `!`, `&`, `|`, `^`, `<`, and `>`.
-- Batch arguments containing double quotes or ASCII controls other than tab are
-   rejected before execution. Invocation plus transport overhead and each environment
-   entry must fit 8000 UTF-16 units. Wrappers using `CALL` or enabling delayed
-   expansion are unsupported. Use a native executable or compatible wrapper;
-   arbitrary vendor wrapper versions have not been verified.
+   `.cmd`/`.bat` calls preserve double quotes, backslashes, spaces, Unicode, `%`,
+   `!`, `&`, `|`, `^`, `<`, and `>` as literal arguments. Native tests exercise
+   Azure CLI 2.90.0 MSI/ZIP forwarding and Google Cloud CLI 585.0.0 forwarding
+   with real Python, including Google's enable/disable delayed-expansion sequence.
+- Batch line terminators CR/LF and OS string terminator NUL are rejected before
+   execution. Encoded invocations and each environment entry must fit 8000 UTF-16
+   units below CMD's line limit. Custom scripts run with their own semantics;
+   explicit additional expansion inside script code can change argument values.
+- Windows launcher compatibility tests require Python 3 with the standard-library
+   venv module. They create offline temporary modules, not cloud SDK installations,
+   and use no provider accounts. The CLI does not otherwise require Python.
 
 Native test commands (loopback/stubs only):
 

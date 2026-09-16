@@ -8,7 +8,9 @@ Verdict: **BLOCKED / NOT COMPLETE**. Task remains `in_progress`.
 Native command execution and all five CLI-backed vault providers are implemented
 and pass scoped Windows and Linux tests. The established workflow cannot reach
 review PASS or done: the authoritative gate fails in pre-existing Windows CLI
-tests, required lint/race tooling is absent, and batch support has explicit limits.
+tests. A separate fully equipped Linux gate attempt reached full tests and found
+one task documentation error (now fixed) plus live-network test dependencies.
+The initial missing batch-quote support has been implemented and verified below.
 No push, PR, or task completion was performed.
 
 ## Environment
@@ -85,7 +87,7 @@ and runs a collection containing a sensitive command value plus a vault value.
 | Requirement | Status |
 | --- | --- |
 | Native command shell and explicit syntax | PASS: system PowerShell on Windows, /bin/sh on POSIX |
-| Quotes/spaces/Unicode/metacharacters | PASS for native executables and documented batch subset; arbitrary batch quoting NOT COMPLETE |
+| Quotes/spaces/Unicode/metacharacters | PASS for native and batch provider launchers, including embedded quotes, backslashes, literal expansion syntax and injection-shaped arguments |
 | Output encoding and CRLF | PASS: UTF-8 validation, platform newline rules, spaces and standalone CR retained |
 | Nonzero/missing/cancel/deadline | PASS: typed causes and safe public diagnostics; 30-second cap |
 | Descendant cleanup | PASS on Windows and Linux tests; POSIX children deliberately leaving the group are outside containment |
@@ -99,11 +101,90 @@ and runs a collection containing a sensitive command value plus a vault value.
 
 1. [ ] Resolve the pre-existing native Windows gate prerequisites under M30-005
    or establish an explicitly approved equivalent; do not silently skip them.
-2. [ ] Resolve or explicitly accept the task's batch compatibility limits: embedded
-   double quotes/controls, CALL reparsing, delayed expansion, and length limits.
+2. [x] Implement missing batch quote/control handling and verify supported provider
+  launcher patterns, including delayed-expansion bootstrap and real Python argv.
 3. [ ] Run the full gate, race, and linter; repeat the official review/verify cycle.
-4. [ ] Add fault-injection evidence for Windows job/thread setup errors and actual
-   Windows console Ctrl+C delivery; existing tests prove context cancellation.
+4. [x] Verify actual Windows console Ctrl+C delivery and child cleanup; startup
+  failure and missing-thread tests also pass. Exhaustive API fault injection is
+  additional hardening, not claimed as performed.
 
 Task completion and release readiness are not inferred from scoped coverage.
 See [pre-audit result](../reviews/M30-004-review.md).
+
+## Resumed Windows Verification
+
+The quote-rejection RED commit is `36a3bd5`; `2829eaa` fixes encoding across both
+CMD parsing passes. Provider quote-rejection assertions were replaced with exact
+argv and exact secret-value assertions. No requirement was removed from the task.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Final complete native variable/vault suites after batch and console changes | PASS | variable 551.573s, 95.9%; vault 379.089s, 97.8%; combined command exit 0 |
+| Batch .cmd/.bat/.CMD and all provider integration cases | PASS | variable 263.812s; vault 336.938s |
+| Expanded quote/backslash/collision matrix | PASS | variable 125.404s |
+| Azure MSI/ZIP and Google launcher patterns with real Python | PASS | vault 22.402s; subsequent linked-doc run 37.643s |
+| Real Windows isolated Ctrl+C | PASS twice | 21.45s and 19.79s; CLI exit 5, context canceled, all four processes exited before fallback cleanup |
+| Failed process start and missing primary-thread error | PASS | 6.895s, no process/output from failed start |
+| Go vet on affected packages | PASS | Exit 0 |
+| Prose inventory gate previously failing at MANUAL batch contract | PASS after repair | 1.237s; contract linked to actual launcher tests |
+| Complete UI plus native CLI build/startup after quote fix | PASS | Vite build followed by go build; curlew 0.1.0-dev |
+| Pinned golangci-lint on complete task-changed files | PASS | v2.11.2 with Go 1.26.8; --new-from-rev=fbde6b5 --whole-files; zero issues |
+| Final focused rerun after lint fixes | PASS | variable 29.467s; vault 120.016s; real CLI, Python launchers, Windows Ctrl+C and helper compiler lookup |
+
+The real Windows console test retains handles for broker, CLI, PowerShell and a
+Ctrl+C-immune native child. It deliberately presents a foreign-process allowlist
+first and asserts that the broker refuses to signal. Only an exact match to its
+private console permits CTRL_C_EVENT. Both command children must be gone before
+closing the test's fallback Job Object; no request is sent before resolution.
+
+Launcher fixture provenance:
+- Azure CLI 2.90.0 build_scripts/windows/scripts/az_msi.cmd and az_zip.cmd:
+  exact IF/interpreter forwarding bodies, with local fake azure.cli modules in an
+  offline venv. No Azure CLI service calls or credentials.
+- Google Cloud CLI 585.0.0: reduced bootstrap retaining interpreter probe,
+  delayed-expansion enable/disable, final %* forwarding and exit propagation.
+  Source archive google-cloud-sdk-585.0.0-windows-x86_64-bundled-python.zip,
+  SHA256 `42ab5eb7ccc4c217f96afcc17f427f177b58af5334854e358d2b909115c2fd79`.
+  This tests the relevant launcher pattern, not every SDK bootstrap branch.
+
+The earlier blanket warnings about quotes and delayed expansion are superseded.
+Actual provider launchers do not CALL-reparse user arguments; Google disables
+delayed expansion before forwarding. Tests compare both Go and Python argv rather
+than assuming their parsers are identical. CR/LF and NUL validation and the CMD
+length budget remain explicit platform input constraints.
+
+## Additional Full Gate Attempt
+
+The unmodified scripts/ci-local.sh --go ran on a detached LF Ubuntu clone of
+`2829eaa`, with its origin pointing only at the local checkout. It exited 1 after
+11m27s at full go test, not at a missing-tool step. Checksum-verified temporary
+tools: Go 1.27.1, Node 22.23.2, npm 10.9.8, golangci-lint 2.11.2, GoReleaser 2.17.1,
+jq 1.8.1 and Zig 0.15.2 for Cgo. All disposable tools/checkouts were removed.
+
+Build, fuzz corpora, backlog, layout, front-door, README quickstart and stream
+discipline passed. POSIX variable and vault tests passed within the full run.
+The M30-004 prose-inventory error is now fixed. Remaining failures were:
+
+- TestRunDoesNotFailOnTelemetryError depends on GET https://example.com and failed
+  with that live request blocked. No request to the live endpoint was authorized.
+- DNS classification initially saw the refusing proxy; a focused rerun exempting
+  only the reserved nonexistent.invalid host passed all three classification cases.
+
+Race, coverage, lint, smoke, release and authenticated README installation were
+not reached. The full gate has not been rerun to PASS. Its smoke fixture also has
+a public HTTPBin dependency; the install stage requires authenticated access.
+Raw logs were retained under the local TEMP directory
+`curlew-M30-004-2829eaa-validation`, outside the source checkout.
+
+## Lint Toolchain Check
+
+The pinned v2.11.2 prebuilt linter targets Go 1.26 and cannot read Go 1.27 export
+data; rebuilding the same linter with Go 1.27 did not update its internal reader.
+It was run with a checksum-verified temporary Go 1.26.8 toolchain instead. This
+did not change the installed Go or repository module/linter versions.
+
+New test/helper errcheck, deprecated runtime.GOROOT lookup and formatting findings
+were fixed. Helper builds now locate the active compiler on PATH. Complete changed
+files in variable/vault/consolehelper pass lint. An unrestricted run also reports
+two pre-existing gofumpt findings in internal/variable/dynamic.go and
+dynamic_helpers.go; those files were not reformatted as part of this task.

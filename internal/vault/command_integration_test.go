@@ -47,39 +47,59 @@ type nativeProviderCase struct {
 
 func nativeProviderCases() []nativeProviderCase {
 	return []nativeProviderCase{
-		{"aws", "aws", func() vault.Provider { return vault.NewAWSProvider("region ' \u96ea", nil) },
+		{
+			"aws", "aws", func() vault.Provider { return vault.NewAWSProvider("region ' \u96ea", nil) },
 			func(path string) []string {
 				return []string{"secretsmanager", "get-secret-value", "--secret-id", path, "--region", "region ' \u96ea", "--query", "SecretString", "--output", "text"}
 			},
-			[]string{"sts", "get-caller-identity", "--region", "region ' \u96ea"}, "InvalidClientTokenId", "ResourceNotFoundException"},
-		{"azure", "az", func() vault.Provider { return vault.NewAzureProvider("vault ' \u96ea", nil) },
+			[]string{"sts", "get-caller-identity", "--region", "region ' \u96ea"},
+			"InvalidClientTokenId", "ResourceNotFoundException",
+		},
+		{
+			"azure", "az", func() vault.Provider { return vault.NewAzureProvider("vault ' \u96ea", nil) },
 			func(path string) []string {
 				return []string{"keyvault", "secret", "show", "--name", path, "--vault-name", "vault ' \u96ea", "--query", "value", "-o", "tsv"}
 			},
-			[]string{"account", "show"}, "AADSTS", "SecretNotFound"},
-		{"gcp", "gcloud", func() vault.Provider { return vault.NewGCPProvider("project ' \u96ea", nil) },
+			[]string{"account", "show"},
+			"AADSTS", "SecretNotFound",
+		},
+		{
+			"gcp", "gcloud", func() vault.Provider { return vault.NewGCPProvider("project ' \u96ea", nil) },
 			func(path string) []string {
 				return []string{"secrets", "versions", "access", "latest", "--secret=" + path, "--project=project ' \u96ea"}
 			},
-			[]string{"config", "get-value", "project"}, "UNAUTHENTICATED", "NOT_FOUND"},
-		{"hashicorp", "vault", func() vault.Provider {
-			return vault.NewHashiCorpProvider(stubAddress, vault.AuthConfig{Method: "token", Token: stubToken}, nil)
+			[]string{"config", "get-value", "project"},
+			"UNAUTHENTICATED", "NOT_FOUND",
 		},
+		{
+			"hashicorp", "vault", func() vault.Provider {
+				return vault.NewHashiCorpProvider(stubAddress, vault.AuthConfig{Method: "token", Token: stubToken}, nil)
+			},
 			func(path string) []string { return []string{"kv", "get", "-format=json", path} },
-			[]string{"token", "lookup", "-format=json"}, "permission denied", "No value found"},
-		{"op", "op", func() vault.Provider { return vault.NewOnePasswordProvider(nil) },
+			[]string{"token", "lookup", "-format=json"},
+			"permission denied", "No value found",
+		},
+		{
+			"op", "op", func() vault.Provider { return vault.NewOnePasswordProvider(nil) },
 			func(path string) []string {
 				if strings.HasPrefix(path, "op://") {
 					return []string{"read", path}
 				}
 				return []string{"item", "get", path, "--format", "json"}
-			}, []string{"whoami"}, "not currently signed in", "no item named"},
+			},
+			[]string{"whoami"},
+			"not currently signed in", "no item named",
+		},
 	}
 }
 
 func providerGo(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(runtime.GOROOT(), "bin", "go"+providerExeSuffix())
+	compiler, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatalf("put the active Go compiler on PATH to build provider fixtures: %v", err)
+	}
+	return compiler
 }
 
 func buildProviderProgram(t *testing.T, source string) string {
@@ -105,7 +125,7 @@ func providerExeSuffix() string {
 func setupProviderStub(t *testing.T, binary string, batch bool) (string, string) {
 	t.Helper()
 	directory := filepath.Join(t.TempDir(), "provider tools \u96ea")
-	if err := os.Mkdir(directory, 0700); err != nil {
+	if err := os.Mkdir(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	contents, err := os.ReadFile(binary)
@@ -119,7 +139,7 @@ func setupProviderStub(t *testing.T, binary string, batch bool) (string, string)
 			name = program + ".cmd"
 			data = []byte("@echo off\r\n\"%~dp0provider-stub.exe\" %*\r\n")
 		}
-		if err := os.WriteFile(filepath.Join(directory, name), data, 0700); err != nil {
+		if err := os.WriteFile(filepath.Join(directory, name), data, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -148,7 +168,11 @@ func readProviderInvocations(t *testing.T, capture string) []providerInvocation 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("close provider capture: %v", err)
+		}
+	}()
 	var invocations []providerInvocation
 	decoder := json.NewDecoder(file)
 	for {
@@ -517,9 +541,10 @@ func testProviderRealBinary(t *testing.T, stubBinary string) {
 				t.Fatalf("expected one provider fetch: %+v", invocations)
 			}
 			wantArgs := []string{"kv", "get", "-format=json", "secret path '\u96ea"}
-			if providerName == "team-aws" {
+			switch providerName {
+			case "team-aws":
 				wantArgs = []string{"secretsmanager", "get-secret-value", "--secret-id", "secret path '\u96ea", "--region", "region '\u96ea", "--query", "SecretString", "--output", "text"}
-			} else if providerName == "team-azure" {
+			case "team-azure":
 				wantArgs = []string{"keyvault", "secret", "show", "--name", "secret path '\u96ea", "--vault-name", "vault '\u96ea", "--query", "value", "-o", "tsv"}
 			}
 			if !reflect.DeepEqual(invocations[0].Args, wantArgs) {
@@ -585,7 +610,7 @@ func writeProviderYAML(t *testing.T, path string, value any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

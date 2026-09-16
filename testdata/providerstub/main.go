@@ -10,7 +10,7 @@ import (
 
 func main() {
 	if capture := os.Getenv("CURLEW_STUB_CAPTURE"); capture != "" {
-		file, err := os.OpenFile(capture, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		file, err := os.OpenFile(capture, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 		if err != nil {
 			os.Exit(90)
 		}

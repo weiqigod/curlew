@@ -671,13 +671,14 @@ before request/event output.
 
 Vault providers invoke programs with argv and child-only environment overrides,
 not user-shell strings. Windows `.exe` arguments support literal quotes and
-metacharacters. `.cmd`/`.bat` support direct `%*` forwarding with delayed expansion
-disabled: embedded double quotes and control characters other than tab are
-rejected before launch. Invocation and environment-entry limits are 8000 UTF-16
-units, including transport overhead for the invocation. Wrappers that reparse
-arguments with `CALL` or enable delayed expansion are unsupported; use a native
-executable or a compatible wrapper. See [Windows notes](WINDOWS.md) for verification
-scope; Windows arm64 and the full repository gate remain separate checks.
+metacharacters. Batch quoting preserves those values through CMD and provider
+forwarding, including Azure CLI MSI/ZIP and Google Cloud CLI launcher patterns.
+NUL and batch line terminators (CR/LF) are rejected before launch. Encoded batch
+invocations and environment entries are capped at 8000 UTF-16 units below CMD's
+line limit. Custom batch code is still executed as written; deliberate additional
+argument expansion inside a script is not undone. See [Windows notes](WINDOWS.md)
+for verification scope; Windows arm64 and the full repository gate remain separate
+checks.
 
 ### 6.5 Sensitivity and Redaction
 

@@ -18,15 +18,17 @@ import (
 func buildProgramHelper(t *testing.T) string {
 	t.Helper()
 	name := "native helper O'\u00e5"
-	goName := "go"
 	if runtime.GOOS == "windows" {
 		name += ".exe"
-		goName += ".exe"
+	}
+	compiler, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatalf("put the active Go compiler on PATH to build test helpers: %v", err)
 	}
 	program := filepath.Join(t.TempDir(), name)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	build := exec.CommandContext(ctx, filepath.Join(runtime.GOROOT(), "bin", goName), "build", "-buildvcs=false", "-o", program, "./testdata/programhelper")
+	build := exec.CommandContext(ctx, compiler, "build", "-buildvcs=false", "-o", program, "./testdata/programhelper")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build native helper: %v\n%s", err, output)
 	}
