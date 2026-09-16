@@ -20,8 +20,8 @@ func TestExecuteCommand(t *testing.T) {
 		{"trailing_newline_stripped", "printf 'hello\n'", "hello", nil},
 		{"pipe_syntax_works", "echo hello | tr a-z A-Z", "HELLO", nil},
 		{"non_zero_exit_returns_error", "exit 1", "", ErrCommandFailed},
-		{"error_includes_command_and_exit_code", "exit 42", "", ErrCommandFailed},
-		{"error_includes_stderr", "echo err >&2; exit 1", "", ErrCommandFailed},
+		{"error_includes_exit_code", "exit 42", "", ErrCommandFailed},
+		{"stderr_failure", "echo err >&2; exit 1", "", ErrCommandFailed},
 		{"empty_stdout_returns_empty_string", "true", "", nil},
 		{"multiline_stdout_preserved", "printf 'a\nb'", "a\nb", nil},
 	}
@@ -59,24 +59,28 @@ func TestExecuteCommand(t *testing.T) {
 	}
 }
 
-func TestExecuteCommand_error_includes_stderr(t *testing.T) {
-	_, err := ExecuteCommand(context.Background(), "echo err >&2; exit 1")
+func TestExecuteCommand_error_hides_stderr(t *testing.T) {
+	command := "echo private-stderr-78341 >&2; exit 1"
+	if runtime.GOOS == "windows" {
+		command = "[Console]::Error.Write('private-stderr-78341'); exit 1"
+	}
+	_, err := ExecuteCommand(context.Background(), command)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "err") {
-		t.Errorf("error = %q, want to contain stderr output 'err'", err.Error())
+	if strings.Contains(err.Error(), "private-stderr-78341") || !strings.Contains(err.Error(), "code 1") {
+		t.Errorf("error = %q, want safe exit code without stderr or script", err.Error())
 	}
 }
 
-func TestExecuteCommand_error_includes_command_and_exit_code(t *testing.T) {
+func TestExecuteCommand_error_includes_exit_code(t *testing.T) {
 	_, err := ExecuteCommand(context.Background(), "exit 42")
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "exit 42") {
-		t.Errorf("error = %q, want to contain the command 'exit 42'", msg)
+	if !strings.Contains(msg, "code 42") || strings.Contains(msg, "exit 42") {
+		t.Errorf("error = %q, want exit code without raw command", msg)
 	}
 }
 
