@@ -2105,6 +2105,8 @@ capabilities:
         completed_date: 2026-09-16
         verified_by: ai
       - id: M30-004
-        status: backlog
+        status: planned
+        planned_date: 2026-09-16
+        branch: feature/M30-004-windows-commands
       - id: M30-005
         status: backlog

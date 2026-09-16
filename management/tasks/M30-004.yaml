@@ -1,6 +1,8 @@
 id: M30-004
 title: "Run command-backed variables and vault providers on native Windows"
-status: backlog
+status: planned
+planned_date: 2026-09-16
+branch: feature/M30-004-windows-commands
 priority: 1
 created: 2026-09-16
 phase: "M30: Local product usability"
