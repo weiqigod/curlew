@@ -1,10 +1,12 @@
 # Product Roadmap — from green build to shipped tool
 
-## Current status — 2026-09-15
+## Current status — 2026-09-16
 
 M1–M28 are complete. The published release is v0.1.0; main includes later fixes.
-M29-001 remains open pending the owner's CI billing decision. M30-001 tracks the
-current documentation, executable cookbook, agent help and complete-build work.
+M29-001 remains open pending the owner's CI billing decision. M30-001 through
+M30-003 are complete. M30-004 tracks native Windows command/vault portability;
+M30-005 tracks Windows setup and native smoke verification. Both Windows tasks
+remain open; see [Windows readiness](WINDOWS.md) for the setup and evidence checklist.
 Run `go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v`
 for the authoritative task state.
 

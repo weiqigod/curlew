@@ -132,6 +132,9 @@ GOPRIVATE='github.com/weiqigod/*' go install github.com/weiqigod/curlew/cmd/curl
 
 ### Clone and build
 
+**Windows:** see the [PowerShell setup and native verification checklist](docs/WINDOWS.md)
+for build commands, known shell/vault limitations and open Windows work.
+
 The complete app requires Go 1.24+ and Node.js 22+ at build time. Build the frontend
 first so the executable includes its JavaScript and CSS. No Node.js is needed to
 run the finished binary.

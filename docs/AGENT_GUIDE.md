@@ -10,6 +10,10 @@ dry-run, skill-reference and skill installation/update improvements. Build this 
 `scripts/build-ui.sh` followed by `go build -o curlew ./cmd/curlew` until a newer
 release includes them.
 
+For Windows, follow the [PowerShell setup and readiness checklist](WINDOWS.md).
+Command-backed variables and CLI-backed vault providers still require portability
+work; cross-built archives do not establish native Windows execution.
+
 ## Start a project
 
 Install the executable using the [installation instructions](../README.md#install).
