@@ -3,6 +3,7 @@ package variable
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +27,18 @@ func TestExecuteCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if runtime.GOOS == "windows" {
+				switch tt.name {
+				case "trailing_newline_stripped":
+					tt.command = "Write-Output 'hello'"
+				case "pipe_syntax_works":
+					tt.command = "'hello' | ForEach-Object { $_.ToUpperInvariant() }"
+				case "empty_stdout_returns_empty_string":
+					tt.command = "$null"
+				case "multiline_stdout_preserved":
+					tt.command = "[Console]::Write(\"a`nb\")"
+				}
+			}
 			got, err := ExecuteCommand(context.Background(), tt.command)
 			if tt.wantErr != nil {
 				if err == nil {

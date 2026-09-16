@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // ErrCommandFailed indicates a from_command execution returned a non-zero exit code.
@@ -58,16 +59,23 @@ func (c *CommandCache) Set(key, value string, ttlSeconds int) {
 	}
 }
 
-// ExecuteCommand runs a shell command via /bin/sh -c and returns stdout
+// ExecuteCommand runs a platform shell command and returns UTF-8 stdout
 // with trailing newlines trimmed. Returns ErrCommandFailed on non-zero exit
 // with the command, exit code, and stderr in the error message.
 func ExecuteCommand(ctx context.Context, command string) (string, error) {
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrCommandFailed, err)
+	}
+	cmd := shellCommand(ctx, command)
+	cmd.WaitDelay = time.Second
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("%w: %w", ErrCommandFailed, ctx.Err())
+		}
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return "", fmt.Errorf("%w: command %q exited with code %d: %s",
@@ -76,5 +84,8 @@ func ExecuteCommand(ctx context.Context, command string) (string, error) {
 		return "", fmt.Errorf("%w: command %q: %w", ErrCommandFailed, command, err)
 	}
 
-	return strings.TrimRight(stdout.String(), "\n"), nil
+	if !utf8.Valid(stdout.Bytes()) {
+		return "", fmt.Errorf("%w: output is not valid UTF-8", ErrCommandFailed)
+	}
+	return trimCommandOutput(stdout.String()), nil
 }
