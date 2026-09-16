@@ -2,12 +2,14 @@
 # With curlew.yaml declaring output.format: json, running this collection with
 # no CLI flags will produce JSON output on stdout.
 #
-# Run: curlew run examples/output-block/collection.yaml | jq -r '.summary.total'
+# Start examples/local-server.py first; see README.md for the complete recipe.
 name: Output Block Demo
+variables:
+  base_url: http://127.0.0.1:18081
 requests:
   - name: hello
     request:
       method: GET
-      url: "https://httpbin.org/get"
+      url: "{{base_url}}/get"
     assertions:
       status: 200

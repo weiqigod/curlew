@@ -1,0 +1,25 @@
+id: M30-002
+title: "Complete local output and plugin example walkthroughs"
+status: done
+priority: 1
+created: 2026-09-16
+phase: "M30: Local product usability"
+dependencies: [M30-001]
+observable: |
+  go test ./cmd/curlew -run TestLocalExampleRecipes -count=1
+  ./scripts/ci-local.sh --go
+behaviors:
+  - Output and plugin recipes run entirely against a loopback fixture.
+  - The invalid-format example fails with its documented exit code and diagnostic before HTTP.
+  - Plugin instructions preserve the working directory and use the installed CLI.
+  - Recipe tests verify inherited JSON output and actual metric submission.
+scope: |
+  Repair remaining examples/output-block and examples/plugins documentation.
+  Add an examples index, a Python fixture and executable README regression tests.
+  No live provider calls, release publication or CI billing changes.
+definition_of_done:
+  - README recipes and plugin tests pass
+  - Full local Go gate passes
+  - Review and verification evidence recorded
+  - CHANGELOG.md updated
+complexity: medium

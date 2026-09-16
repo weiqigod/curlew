@@ -1,6 +1,6 @@
 # datadog-metrics plugin
 
-Submits an `curlew.request.duration` gauge metric to Datadog for every HTTP
+Submits a `curlew.request.duration` gauge metric to Datadog for every HTTP
 response observed by Curlew via the `on_response` hook.
 
 ## Configuration
@@ -15,86 +15,74 @@ response observed by Curlew via the `on_response` hook.
 > experimenting. The plugin submits live metrics when `DATADOG_API_KEY` and
 > network access are both present.
 
-## Build
+## Prerequisites
+
+Run the following commands from the repository root. Install Go 1.24+, Python 3,
+and put `curlew` on `PATH` (see [installation](../../../README.md#install)).
+The plugin is a separate Go module. Build/test commands below use a subshell so
+your terminal stays at the repository root.
+
+## Start the fixture
+
+In a separate terminal, from the repository root:
 
 ```bash
-# From the repository root
-cd examples/plugins/datadog-metrics
-go build -o /tmp/curlew-dd-plugin .
+python3 examples/local-server.py
 ```
 
-## Run
+This server handles the test GET request locally and accepts metric POSTs with
+HTTP 202. It prints `http://127.0.0.1:18081`. Stop it with Ctrl-C when finished.
+For an available ephemeral port, use `--port 0` and set `EXAMPLE_URL` in the
+other terminal to the printed address.
 
-### Against a local mock server (recommended for demos, no Datadog account needed)
+## Run locally
 
-Start a minimal HTTP server in one terminal that accepts POST requests and
-returns 202:
+This builds the plugin, shows its metadata, and runs the shipped collection.
+Both the tested API and metric destination use the local fixture. The dummy key
+only enables the plugin; no Datadog account is needed.
 
 ```bash
-# Python 3 one-liner — accepts all requests and responds 200
-python3 -c "
-import http.server, json
-
-class H(http.server.BaseHTTPRequestHandler):
-    def do_POST(self):
-        self.send_response(202); self.end_headers()
-    def log_message(self, *a): pass
-
-http.server.HTTPServer(('127.0.0.1', 8888), H).serve_forever()
-"
+example_bin=$(mktemp -d)
+trap 'rm -rf "$example_bin"' EXIT
+(cd examples/plugins/datadog-metrics && go build -o "$example_bin/datadog-metrics" .)
+"$example_bin/datadog-metrics" --help
+DD_API_URL="${EXAMPLE_URL:-http://127.0.0.1:18081}" \
+DATADOG_API_KEY=local-example-key \
+CURLEW_PLUGINS="$example_bin/datadog-metrics" \
+  curlew run examples/plugins/datadog-metrics/collection.yaml \
+    --var "base_url=${EXAMPLE_URL:-http://127.0.0.1:18081}"
 ```
 
-In a second terminal, run curlew with the plugin:
+The collection reports one passing request, and stderr includes
+`[plugin:datadog-metrics] submitted 1 metric`.
 
-```bash
-DD_API_URL=http://127.0.0.1:8888 \
-CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
-DATADOG_API_KEY=test-key \
-  ./curlew run testdata/plugins/one-request.yaml
-```
-
-Expected output (stderr tail):
-
-```
-[plugin:datadog-metrics] submitted 1 metric
-```
-
-### Against real Datadog
-
-```bash
-CURLEW_PLUGINS=/tmp/curlew-dd-plugin \
-DATADOG_API_KEY=<your-key> \
-  ./curlew run your-collection.yaml
-```
+The fixture's `/observations` endpoint returns the received GET count and
+submitted JSON payloads. The regression test checks those payloads, so a
+passing request alone cannot hide failed metric delivery. This mock does not
+validate Datadog's production API contract.
 
 ## Test
 
-The test suite runs entirely against an `httptest.Server` — no Datadog account
-or network access needed:
+The plugin tests use local `httptest.Server` fixtures; they need loopback sockets
+but no external service or credentials.
 
 ```bash
-cd examples/plugins/datadog-metrics
-go test ./...
+(cd examples/plugins/datadog-metrics && go test ./...)
 ```
 
-## Standalone invocation
+## Real Datadog (optional)
 
-Run the binary with `--help` to print plugin metadata without entering the
-JSON-RPC loop:
+Build a persistent plugin binary from the repository root:
 
 ```bash
-/tmp/curlew-dd-plugin --help
+(cd examples/plugins/datadog-metrics && go build -o /tmp/curlew-dd-plugin .)
 ```
 
-Output:
-
-```
-Plugin:   datadog-metrics
-Version:  0.1.0
-Hooks:    on_response, on_result
-Protocol: 1
-...
-```
+For a real service, set `DATADOG_API_KEY` in your environment and point
+`CURLEW_PLUGINS` at that binary when running your own collection. Unset
+`DD_API_URL` to use `DD_SITE` (default `datadoghq.com`). This submits live metrics;
+it requires your account and can affect your usage charges. The local recipe
+above is the tested example; no live Datadog account is used in verification.
 
 ## Metric shape
 

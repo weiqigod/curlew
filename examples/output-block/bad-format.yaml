@@ -2,12 +2,14 @@
 # This file exercises the "unknown output format" error path (exit 3).
 #
 # Run: curlew run examples/output-block/bad-format.yaml
-# Expected: exit 3, stderr contains 'unknown output format "markdown"'
+# Expected: exit 3, stderr contains 'unknown output format "not-a-format"'
 name: Bad Format Demo
+variables:
+  base_url: http://127.0.0.1:18081
 output:
-  format: markdown
+  format: not-a-format
 requests:
   - name: hello
     request:
       method: GET
-      url: "https://httpbin.org/get"
+      url: "{{base_url}}/get"

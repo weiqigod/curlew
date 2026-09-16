@@ -1,0 +1,10 @@
+name: Local plugin demo
+variables:
+  base_url: http://127.0.0.1:18081
+requests:
+  - name: hello
+    request:
+      method: GET
+      url: '{{base_url}}/get'
+    assertions:
+      status: 200
