@@ -87,7 +87,7 @@ func providerGo(t *testing.T) string {
 
 func buildProviderProgram(t *testing.T, source string) string {
 	t.Helper()
-	program := filepath.Join(t.TempDir(), "program"+providerExeSuffix())
+	program := filepath.Join(t.TempDir(), filepath.Base(source)+providerExeSuffix())
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	command := exec.CommandContext(ctx, providerGo(t), "build", "-o", program, source)
@@ -138,6 +138,7 @@ func setupProviderStub(t *testing.T, binary string, batch bool) (string, string)
 	t.Setenv("CURLEW_STUB_TOKEN", stubToken)
 	t.Setenv("CURLEW_STUB_INHERITED", "inherited-value")
 	t.Setenv("CURLEW_STUB_ERROR", "")
+	t.Setenv("CURLEW_STUB_OUTPUT", "")
 	t.Setenv("CURLEW_STUB_WAIT", "")
 	t.Setenv("VAULT_ADDR", "parent-address")
 	t.Setenv("VAULT_TOKEN", "parent-token")
@@ -218,6 +219,7 @@ func TestProviderNativeCommands(t *testing.T) {
 					if providerCase.name == "op" {
 						paths[1] = "op://vault/item \u96ea/field"
 					}
+					wantValues := make(map[string]string, len(paths))
 					for _, path := range paths {
 						value, err := provider.Fetch(context.Background(), path)
 						if err != nil {
@@ -234,12 +236,13 @@ func TestProviderNativeCommands(t *testing.T) {
 						if value != want {
 							t.Errorf("Fetch = %q, want %q", value, want)
 						}
+						wantValues[path] = want
 					}
 					values, err := provider.BulkFetch(context.Background(), paths)
 					if err != nil {
 						t.Fatal(err)
 					}
-					if len(values) != len(paths) {
+					if !reflect.DeepEqual(values, wantValues) {
 						t.Fatalf("bulk values: %v", values)
 					}
 					invocations := readProviderInvocations(t, capture)
@@ -309,6 +312,7 @@ func TestProviderNativeCommands(t *testing.T) {
 	}
 	for _, providerCase := range nativeProviderCases() {
 		t.Run("errors/"+providerCase.name, func(t *testing.T) {
+			setupProviderStub(t, binary, false)
 			for _, operation := range []string{"fetch", "validate", "bulk"} {
 				for _, failure := range []struct {
 					name, pattern string
@@ -320,7 +324,6 @@ func TestProviderNativeCommands(t *testing.T) {
 				} {
 					t.Run(operation+"/"+failure.name, func(t *testing.T) {
 						defer requireProviderNoPanic(t)
-						setupProviderStub(t, binary, false)
 						t.Setenv("CURLEW_STUB_ERROR", failure.pattern+" private-stderr-marker")
 						provider := providerCase.newProvider()
 						var err error
@@ -333,6 +336,10 @@ func TestProviderNativeCommands(t *testing.T) {
 							_, err = provider.BulkFetch(context.Background(), []string{"private-secret-path"})
 						}
 						requireProviderSafeError(t, err, "private-secret-path")
+						var exitErr *exec.ExitError
+						if !errors.As(err, &exitErr) || exitErr.ExitCode() != 42 {
+							t.Errorf("lost exit code: %v", err)
+						}
 						if failure.sentinel != nil && !errors.Is(err, failure.sentinel) {
 							t.Errorf("lost classification: %v", err)
 						}
@@ -361,7 +368,6 @@ func TestProviderNativeCommands(t *testing.T) {
 			})
 			t.Run("deadline", func(t *testing.T) {
 				defer requireProviderNoPanic(t)
-				setupProviderStub(t, binary, false)
 				t.Setenv("CURLEW_STUB_WAIT", "yes")
 				ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 				defer cancel()
@@ -377,7 +383,6 @@ func TestProviderNativeCommands(t *testing.T) {
 			})
 			t.Run("cancelled", func(t *testing.T) {
 				defer requireProviderNoPanic(t)
-				setupProviderStub(t, binary, false)
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				_, err := providerCase.newProvider().Fetch(ctx, "private-secret-path")
@@ -388,13 +393,66 @@ func TestProviderNativeCommands(t *testing.T) {
 			})
 		})
 	}
+	t.Run("approle-errors", func(t *testing.T) {
+		setupProviderStub(t, binary, false)
+		for _, operation := range []string{"fetch", "validate"} {
+			for _, pattern := range []string{"invalid role", "connection refused", "unclassified failure"} {
+				t.Run(operation+"/"+pattern, func(t *testing.T) {
+					t.Setenv("CURLEW_STUB_ERROR", pattern+" private-stderr-marker")
+					provider := vault.NewHashiCorpProvider(stubAddress, vault.AuthConfig{Method: "approle", RoleID: stubRole, SecretID: stubSecretID}, nil)
+					var err error
+					if operation == "validate" {
+						err = provider.ValidateConfig()
+					} else {
+						_, err = provider.Fetch(context.Background(), "private-secret-path")
+					}
+					requireProviderSafeError(t, err, "private-secret-path")
+					if pattern == "invalid role" && !errors.Is(err, vault.ErrProviderAuth) {
+						t.Errorf("lost auth classification: %v", err)
+					}
+					if pattern == "connection refused" && !strings.Contains(err.Error(), "Vault server") {
+						t.Errorf("missing network hint: %v", err)
+					}
+				})
+			}
+		}
+	})
+	t.Run("hashicorp-invalid-output", func(t *testing.T) {
+		setupProviderStub(t, binary, false)
+		for _, fixture := range []struct {
+			name, output, private, operation string
+		}{
+			{"response", `98765432123456789`, "98765432123456789", "failed to parse response"},
+			{"data", `{"data":98765432123456789}`, "98765432123456789", "failed to parse data field"},
+			{"secret", `{"data":{"data":{"private-field":98765432123456789e999}}}`, "98765432123456789e999", "failed to parse secret data"},
+			{"approle", `{"auth":{"client_token":98765432123456789}}`, "98765432123456789", "failed to parse approle login response"},
+		} {
+			t.Run(fixture.name, func(t *testing.T) {
+				t.Setenv("CURLEW_STUB_OUTPUT", fixture.output)
+				auth := vault.AuthConfig{Method: "token", Token: stubToken}
+				if fixture.name == "approle" {
+					auth = vault.AuthConfig{Method: "approle", RoleID: stubRole, SecretID: stubSecretID}
+				}
+				_, err := vault.NewHashiCorpProvider(stubAddress, auth, nil).Fetch(context.Background(), "private-secret-path")
+				if err == nil {
+					t.Fatal("expected invalid JSON response error")
+				}
+				if strings.Contains(err.Error(), fixture.private) {
+					t.Errorf("JSON error leaked response value: %v", err)
+				}
+				if !strings.Contains(err.Error(), fixture.operation) {
+					t.Errorf("lost parse operation: %v", err)
+				}
+			})
+		}
+	})
 }
 
 func testProviderRealBinary(t *testing.T, stubBinary string) {
 	cli := buildProviderProgram(t, "../../cmd/curlew")
 	for _, providerName := range []string{"project-hashicorp", "team-aws", "team-azure"} {
 		t.Run(providerName, func(t *testing.T) {
-			setupProviderStub(t, stubBinary, false)
+			_, capture := setupProviderStub(t, stubBinary, false)
 			project := t.TempDir()
 			t.Setenv("CURLEW_CONFIG_DIR", filepath.Join(project, "user-config"))
 			t.Setenv("CURLEW_TEAM_CONFIG", "")
@@ -466,6 +524,19 @@ func testProviderRealBinary(t *testing.T, stubBinary string) {
 			if err != nil {
 				t.Fatalf("run: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
 			}
+			invocations := readProviderInvocations(t, capture)
+			if len(invocations) != 1 {
+				t.Fatalf("expected one provider fetch: %+v", invocations)
+			}
+			wantArgs := []string{"kv", "get", "-format=json", "secret path '\u96ea"}
+			if providerName == "team-aws" {
+				wantArgs = []string{"secretsmanager", "get-secret-value", "--secret-id", "secret path '\u96ea", "--region", "region '\u96ea", "--query", "SecretString", "--output", "text"}
+			} else if providerName == "team-azure" {
+				wantArgs = []string{"keyvault", "secret", "show", "--name", "secret path '\u96ea", "--vault-name", "vault '\u96ea", "--query", "value", "-o", "tsv"}
+			}
+			if !reflect.DeepEqual(invocations[0].Args, wantArgs) {
+				t.Errorf("runner argv = %#v, want %#v", invocations[0].Args, wantArgs)
+			}
 			select {
 			case actual := <-received:
 				want := map[string]string{"command": commandSecret, "vault": stubSecret}
@@ -480,15 +551,7 @@ func testProviderRealBinary(t *testing.T, stubBinary string) {
 				t.Fatal(err)
 			}
 			for name, data := range map[string]string{"stdout": stdout, "stderr": stderr, "events": string(events)} {
-				for _, sensitive := range []string{commandSecret, stubSecret, stubToken} {
-					encoded, err := json.Marshal(sensitive)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if strings.Contains(data, sensitive) || strings.Contains(data, string(encoded[1:len(encoded)-1])) {
-						t.Errorf("%s leaked %q: %s", name, sensitive, data)
-					}
-				}
+				checkProviderOutputSecrets(t, name, data, []string{commandSecret, stubSecret, stubToken})
 			}
 			if !json.Valid([]byte(stdout)) {
 				t.Errorf("stdout is not JSON: %s", stdout)
@@ -537,4 +600,36 @@ func writeProviderYAML(t *testing.T, path string, value any) {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func checkProviderOutputSecrets(t *testing.T, name, data string, secrets []string) {
+	t.Helper()
+	var inspect func(string, any)
+	inspect = func(location string, value any) {
+		switch value := value.(type) {
+		case string:
+			for _, secret := range secrets {
+				if strings.Contains(value, secret) {
+					t.Errorf("%s leaked %q", location, secret)
+				}
+			}
+			decoder := json.NewDecoder(strings.NewReader(value))
+			for {
+				var nested any
+				if err := decoder.Decode(&nested); err != nil {
+					break
+				}
+				inspect(location, nested)
+			}
+		case map[string]any:
+			for key, child := range value {
+				inspect(location+"."+key, child)
+			}
+		case []any:
+			for _, child := range value {
+				inspect(location, child)
+			}
+		}
+	}
+	inspect(name, data)
 }

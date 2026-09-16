@@ -34,6 +34,10 @@ func main() {
 		fmt.Fprintln(os.Stdout, os.Getenv("CURLEW_STUB_SECRET"))
 		os.Exit(42)
 	}
+	if output := os.Getenv("CURLEW_STUB_OUTPUT"); output != "" {
+		fmt.Print(output)
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "write" {
 		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{
 			"auth": map[string]string{"client_token": os.Getenv("CURLEW_STUB_TOKEN")},
