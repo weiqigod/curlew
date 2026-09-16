@@ -14,9 +14,9 @@
 - **C# .NET backend** + web dashboard — retained in `src/` and `web/`, but the CLI no
   longer talks to them.
 
-**Current Status (2026-09-15):** M1–M28 are complete. M29-001 (CI auto-triggers)
-remains open pending a billing decision. M30-001 is the documentation and agent
-usability task; see its task file for current status and verification evidence.
+**Current Status (2026-09-16):** M1–M28 are complete. M29-001 (CI auto-triggers)
+remains open pending a billing decision. M30 tracks documentation and agent
+usability; inspect the live task files for status and verification evidence.
 `v0.1.0` is published; main includes subsequent fixes. The CLI is local and
 ungated. `src/` and `web/` are retained, frozen platform code, not CLI dependencies.
 Use `go test ./internal/backlog/ -run TestBacklog_repository_is_consistent -v`

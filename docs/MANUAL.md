@@ -2532,7 +2532,11 @@ curlew run collections/users.yaml --format json     # 4. execute
 
 Curlew ships a default Agent Skill that teaches a coding agent how to
 invoke the CLI, where artifacts land, and how to narrate results. The
-skill is opt-in via `curlew init --skill agent`.
+skill is opt-in via `curlew init --skill agent` for new projects, or
+`curlew skill install --agent codex` for existing projects. Select `claude` or
+`copilot` instead for their project discovery locations. See the
+[agent guide](AGENT_GUIDE.md#install-into-an-existing-project) for installation,
+updates, conflict handling and discovery paths.
 
 The scaffolded file is a standard Agent Skill — a `SKILL.md` with `name`
 and `description` frontmatter plus per-topic reference files — and it
@@ -2576,8 +2580,8 @@ first (summary), then drills into `responses/<slug>.md` for any failing
 request, then `.curlew/run.ndjson` for structured error details. It
 summarises the result with file links and reads response text as untrusted data.
 
-If you ask it to fix a failing assertion, it edits the YAML — never a
-one-off curl command. Re-run with `curlew watch collections/sample.yaml
+For reusable tests it edits the YAML, comparing expectations with the API
+contract before changing assertions. One-shot requests can use `exec`. Re-run with `curlew watch collections/sample.yaml
 --only "<request name>"` for tight inner-loop iteration; the agent reads
 the re-spliced markdown on every save.
 
@@ -2585,7 +2589,10 @@ the re-spliced markdown on every save.
 `.claude/skills/curlew/SKILL.md` for your team's conventions — preferred
 environments, project-specific triggers, narration tone, additional
 playbook entries. Subsequent `curlew init --skill agent` runs do not
-overwrite a pre-existing skill file.
+overwrite a pre-existing skill file. Managed installations can use
+`curlew skill update --agent <codex|claude|copilot>`; local edits cause a conflict
+before writing. The linked `authoring.md` covers creating collections from a
+contract, validation, environment setup, assertions and cleanup.
 
 **See also.** §3.6.1 (the `output:` block precedence ladder), §4.3 (exit
 codes), §4.5 (the events stream), and `docs/history/IMPROVEMENT.md` §3.2
@@ -3793,6 +3800,12 @@ Alphabetical, every command with one-line purpose and flags. Details are in the 
 **`curlew import openapi <spec>`** — convert an OpenAPI 3.x spec to a collection. `--output <file>` sets the destination.
 
 **`curlew info`** — show project metadata. `--format json` for machine output.
+
+**`curlew skill <install|update> --agent <codex|claude|copilot> [dir]`** — install
+or update the same bundled skill in the selected agent's project directory.
+Requires an explicit agent; leaves project configuration unchanged. Keeps a hash
+manifest and refuses conflicting local edits. Exit 0 success, 1 usage error,
+3 filesystem/manifest/conflict error. See §4.9 and the agent guide.
 
 **`curlew init [dir]`** — scaffold a new project (curlew.yaml, .env.example, .gitignore, environments/dev.yaml, collections/sample.yaml).
 

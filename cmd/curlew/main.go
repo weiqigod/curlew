@@ -84,6 +84,8 @@ func runWithWriters(args []string, stdout, stderr io.Writer) int {
 		return execCmdOut(args[1:], os.Stdin, stdout, stderr)
 	case "validate":
 		return validateCmdOut(args[1:], stdout, stderr)
+	case "skill":
+		return skillCmdOut(args[1:], stdout, stderr)
 	case "init":
 		return initCmdOut(args[1:], stdout, stderr)
 	case "info":
@@ -3359,6 +3361,7 @@ func filterShowDepsItems(items []parser.RequestItem, selection []string) ([]pars
 // sync with the first Usage line of the corresponding print*HelpTo function;
 // TestUsageSynopsis_MatchesPrintHelpFirstLine asserts the two stay in sync.
 var usageSynopses = map[string]string{
+	"skill":     "Usage: curlew skill <install|update> --agent <codex|claude|copilot> [dir]",
 	"":          "Usage: curlew <command> [arguments]",
 	"perf":      "Usage: curlew perf <request-file> [options]",
 	"ui":        "Usage: curlew ui [--port <n>] [--env <name>] [--collection <file>] [--no-open] [--no-color]",
@@ -3393,6 +3396,7 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  exec <url>      Execute a single request (for AI agents and scripts)")
 	_, _ = fmt.Fprintln(w, "  validate <file> Validate collection files without executing requests")
 	_, _ = fmt.Fprintln(w, "                  Also validates shared vault configuration templates (team_secrets.vault_configs)")
+	_, _ = fmt.Fprintln(w, "  skill          Install or update the Curlew skill for your coding agent")
 	_, _ = fmt.Fprintln(w, "  init [dir]      Initialize a new curlew project (use --output <fmt> to scaffold an output: block; use --skill agent for an agent skill)")
 	_, _ = fmt.Fprintln(w, "  info            Show project metadata (collections, environments, root)")
 	_, _ = fmt.Fprintln(w, "  schema          Output JSON Schema for the collection format")

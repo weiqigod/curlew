@@ -1,0 +1,26 @@
+id: M30-003
+title: "Install and maintain a portable Curlew agent skill"
+status: done
+priority: 1
+created: 2026-09-16
+phase: "M30: Local product usability"
+dependencies: [M30-002]
+observable: |
+  curlew skill install --agent codex /tmp/curlew-skill-demo
+  curlew skill update --agent codex /tmp/curlew-skill-demo
+behaviors:
+  - Install the same embedded skill for Codex, Claude Code or Copilot without changing project configuration.
+  - Updates replace unchanged managed files and preserve custom files; conflicting edits abort before writes.
+  - Invalid arguments, unsafe paths and malformed state fail clearly without modifying files.
+  - A collection-authoring workflow produces validated local requests and meaningful assertions.
+  - Reproducible evaluation scenarios expose stale results, assertion weakening and untrusted response instructions.
+scope: |
+  Dedicated project-local skill install/update commands, hash-based ownership tracking,
+  authoring reference, agent discovery documentation and local evaluation scenarios.
+  Keep init --skill agent compatible. No MCP server, paid agent calls or binary release.
+definition_of_done:
+  - Installer unit tests and real CLI integration tests pass
+  - Documented local authoring and evaluation fixtures execute successfully
+  - Full local Go gate passes with coverage at least 80 percent
+  - Self-review, verification report and changelog updated
+complexity: medium

@@ -79,6 +79,7 @@ platform directories have a separate scope; see the [documentation map](docs/REA
 | `run <file\|glob>` | Execute a collection, or everything matching a pattern |
 | `exec <url>` | Execute a single request — built for scripts and AI agents |
 | `validate <file>` | Check collections (and shared vault templates) without sending requests |
+| `skill install/update` | Install or safely update the agent skill; requires `--agent codex`, `claude` or `copilot` |
 | `init [dir]` | Scaffold a project; `--output <fmt>`, `--skill agent` |
 | `info` | Show project metadata — collections, environments, root |
 | `schema` | Print the collection JSON Schema; `--project` for `curlew.yaml` |
@@ -196,7 +197,7 @@ byte.
 
 ## Use with an AI agent
 
-The current source includes help, dry-run and skill-reference fixes added after
+The current source includes help, dry-run, skill-reference and skill installation/update improvements added after
 v0.1.0. Build this checkout to use them until the next release.
 
 Curlew integrates through shell commands, files, JSON results and NDJSON events.
@@ -204,7 +205,9 @@ Curlew integrates through shell commands, files, JSON results and NDJSON events.
 is not an MCP connection.
 
 In a new project, run `curlew init --skill agent`. This installs an agent playbook
-and configures Markdown reports plus structured events. Start with the
+and configures Markdown reports plus structured events. For an existing project,
+use `curlew skill install --agent codex` (or `claude` / `copilot`). Update with
+`curlew skill update --agent codex`; conflicting team edits are preserved. Start with the
 [agent guide](docs/AGENT_GUIDE.md) for discovery, validation, execution and failure
 handling. Use `curlew <command> --help` to inspect one command without executing it.
 

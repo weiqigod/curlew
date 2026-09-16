@@ -34,6 +34,8 @@ func printCommandHelp(command string, w io.Writer) bool {
 		_, _ = fmt.Fprintln(w, usageSynopsis("import"))
 		_, _ = fmt.Fprintln(w, "Usage: curlew import openapi <spec-path> [--output <file>]")
 		_, _ = fmt.Fprintln(w, "Import a local OpenAPI 3.x file into a YAML collection.")
+	case "skill":
+		printSkillHelpTo(w)
 	case "init":
 		printInitHelpTo(w)
 	case "vault":

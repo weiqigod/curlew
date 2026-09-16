@@ -6,7 +6,7 @@ Curlew does not call an LLM and does not provide an MCP server. Its JSON-RPC
 plugins are request-processing extensions, not MCP tools.
 
 This guide describes the current source. Release v0.1.0 predates the help,
-dry-run and skill-reference fixes. Build this checkout using
+dry-run, skill-reference and skill installation/update improvements. Build this checkout using
 `scripts/build-ui.sh` followed by `go build -o curlew ./cmd/curlew` until a newer
 release includes them.
 
@@ -19,23 +19,80 @@ From a new directory:
 curlew init --skill agent
 ```
 
-This writes `.claude/skills/curlew/SKILL.md` and ten topic references. The new
-project defaults to Markdown reports under `responses/` and events in
-`.curlew/run.ndjson`. The scaffold targets the documented Claude Code / Copilot
-skill layout. With another coding agent, explicitly ask it to read that SKILL.md
-and follow its linked references; do not assume automatic skill discovery.
+This writes `.claude/skills/curlew/SKILL.md` and eleven topic references,
+including a collection-authoring workflow. The project defaults to Markdown
+reports under `responses/` and events in `.curlew/run.ndjson`.
 
-Suggested instruction:
+## Install into an existing project
 
-> Read .claude/skills/curlew/SKILL.md. Inspect this project's collections and
+Choose your agent and run one command from the project root. The optional final
+argument is a project directory; it defaults to the current directory. Installation
+also works before project initialization and changes only the selected skill directory.
+
+```bash
+curlew skill install --agent codex
+```
+
+| Agent | Select with | Installed entry point |
+|---|---|---|
+| Codex | `--agent codex` | `.agents/skills/curlew/SKILL.md` |
+| Claude Code | `--agent claude` | `.claude/skills/curlew/SKILL.md` |
+| GitHub Copilot | `--agent copilot` | `.github/skills/curlew/SKILL.md` |
+
+These are project discovery locations documented by [OpenAI](https://learn.chatgpt.com/docs/build-skills),
+[Anthropic](https://code.claude.com/docs/en/skills), and
+[GitHub](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills)
+(checked 2026-09-16). The payload is identical for every target. Prefer one location
+per agent/project to avoid duplicate skill discovery. Legacy `init --skill agent`
+keeps its Claude/Copilot-compatible location. For Codex, use `curlew init` followed
+by `curlew skill install --agent codex`, then configure reports if desired.
+
+Ask the agent to read the installed SKILL.md if it has not discovered it; restart
+or reload the host if needed. Other agents can use the same files through explicit
+instructions, without an automatic discovery guarantee.
+
+Suggested instruction for Codex:
+
+> Read .agents/skills/curlew/SKILL.md. Inspect this project's collections and
 > environment, validate the selected collection, run it against my local API,
 > and explain any failure with links to the report and assertion source line.
 
-`init` refuses a directory that already contains `curlew.yaml` or `curlew.yml`.
-To add the skill to an existing project, scaffold a separate temporary directory,
-then copy its `.claude/skills/curlew/` directory into your project after reviewing
-any existing skill files. Edit the existing configuration yourself and create the
-`.curlew/` directory for events; add `.curlew/` to your ignore file. For example:
+For new tests, ask the agent to read the linked `authoring.md`, inspect the API
+contract, and create the smallest useful collection with meaningful assertions.
+
+### Updates and team edits
+
+After upgrading the Curlew executable:
+
+```bash
+curlew skill update --agent codex
+```
+
+Keep `.curlew-skill.json` alongside the skill in version control. It records hashes
+of installed files. Updates replace unchanged managed files and restore missing
+references. Unknown custom files are retained, including files no longer bundled.
+A modified file or differing unmanaged file causes exit 3 **before any writes**;
+the diagnostic names conflicts. Repeated installs of identical content are safe.
+`install` does not replace a differing old version; use `update` for managed files.
+An update requires an existing SKILL.md. Neither command changes project config,
+collections, ignore files, or report directories. No overwrite/force flag exists.
+
+A legacy scaffold has no manifest. Identical files can be adopted by `install`;
+older or customized files require a manual merge. On a conflict, install the new
+skill to an unused temporary directory, compare it with your installed skill, and
+merge deliberately. Do not copy its manifest over locally modified files: that
+would misrepresent ownership. A customized file remains protected on future
+updates. Files are replaced individually and the manifest is written last; an I/O
+failure may leave a partial update, so retain the error and rerun after resolving
+the filesystem problem. Conflicts and unsafe paths are checked before writing.
+The installer rejects symlinks inside the selected agent directory.
+
+### Configure reports when needed
+
+`init` refuses a directory containing `curlew.yaml` or `curlew.yml`. Skill
+installation works there without changing your existing output choices. For
+Markdown reports and events, edit the configuration explicitly, create `.curlew/`,
+and add `.curlew/` to your ignore file:
 
 ```yaml
 output:
@@ -148,3 +205,12 @@ setup, main or teardown requests, including glob and parallel invocations.
 commands run against Mudflat with its complete fixtures; no external API is required.
 Provider-specific authentication still requires that provider's installed CLI,
 credentials and permissions; local tests do not prove access to your account.
+
+## Evaluate agent behavior
+
+The [skill evaluation tasks](../testdata/skill-evals/README.md) prepare three local
+scenarios with real artifacts and a reviewer rubric: an API contract regression,
+a stale success report after a YAML failure, and instructions embedded in an API
+response. Retain the agent transcript and collection diff to assess its decisions.
+Fixture regression tests establish the setup works; they are not model evaluations
+and do not establish an agent pass rate.

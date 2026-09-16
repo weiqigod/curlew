@@ -1,6 +1,6 @@
 ---
 name: curlew
-description: Run Curlew collections and interpret results. Use when the user asks to run, test, hit, exercise, or check an HTTP API; or when the user mentions a collection file (e.g. "run the users collection", "hit the staging API", "test the auth flow"). The CLI never calls an LLM — the agent reads deterministic artifacts (markdown reports + NDJSON event stream) and narrates them.
+description: Create, validate and run Curlew API test collections; diagnose failures using local reports and structured events. Use when working with Curlew collections or when the user asks to test an HTTP API with Curlew.
 ---
 
 <!-- curlew-skill: agent v1.0 (curlew v0.0.0-test) -->
@@ -25,6 +25,12 @@ Before invoking, look at the project layout. Curlew projects have a
 `curlew.yaml` at the root, a `collections/` directory with one or more
 `*.yaml` files, optional `environments/` for per-environment variables, and
 optional `responses/` (created on first run) for markdown artifacts.
+
+## Choose the workflow
+
+For new collections, OpenAPI imports or added coverage, read [authoring.md](authoring.md).
+For running and diagnosing existing collections, continue below. Respect the
+user's chosen tools and scope; this skill does not authorize unrelated API calls.
 
 ## Preflight
 
@@ -148,6 +154,7 @@ a time, file-by-file.
 This skill ships a flat set of reference files alongside `SKILL.md`. Load the
 one you need; do not load all of them by default.
 
+- [authoring.md](authoring.md) — turn API contracts into validated, reproducible collections.
 - `variables.md` — variable types, the precedence ladder, when each level wins.
 - `output-formats.md` — terminal / JSON / TAP / JUnit / HTML / markdown, and when to pick each.
 - `assertions.md` — operator assertion catalogue (status, headers, body, JSONPath, timing).
@@ -161,9 +168,9 @@ one you need; do not load all of them by default.
 
 ## What to edit
 
-- Always edit the YAML collection. Never hand-roll a `curl` command or
-  generate a one-off shell script — the agent's edits should be
-  reproducible by the developer.
+- Keep reusable API tests in YAML collections so the developer can rerun them.
+  Use `exec` for one-shot requests when that matches the task; preserve an
+  explicitly requested alternative tool.
 - When adding a new request, copy the closest existing one as a template
   rather than authoring from scratch. Validate against `curlew schema`;
   hand-authored requests can miss conventions (assertion blocks, extract IDs).
@@ -176,10 +183,13 @@ one you need; do not load all of them by default.
 ## Notes
 
 - This skill was scaffolded for curlew **v0.0.0-test**. If your
-  CLI binary is much newer or older, regenerate it with
-  `curlew init --skill agent` in a fresh directory and diff.
+  CLI binary is much newer or older, use
+  `curlew skill update --agent <codex|claude|copilot>` for a managed installation.
+  On conflicts or legacy copies, install into a temporary directory and merge the
+  diff manually. Never discard team edits just to update the skill.
 - For a human-friendly walk-through of the same workflow, see
   `docs/MANUAL.md` §4.9 ("Driving curlew with an AI agent").
-- The skill is checked in. Edit it freely for your team's conventions —
-  the next `curlew init --skill agent` will not overwrite a
-  pre-existing `.claude/skills/curlew/SKILL.md`.
+- Keep the skill and its `.curlew-skill.json` manifest in version control when
+  installed with the skill command. Team edits are preserved; conflicting
+  updates stop before writing. Unrelated custom files are retained. Legacy
+  `init --skill agent` still skips existing skill files.
