@@ -24,7 +24,9 @@ func buildProgramHelper(t *testing.T) string {
 		goName += ".exe"
 	}
 	program := filepath.Join(t.TempDir(), name)
-	build := exec.Command(filepath.Join(runtime.GOROOT(), "bin", goName), "build", "-o", program, "./testdata/programhelper")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	build := exec.CommandContext(ctx, filepath.Join(runtime.GOROOT(), "bin", goName), "build", "-buildvcs=false", "-o", program, "./testdata/programhelper")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build native helper: %v\n%s", err, output)
 	}

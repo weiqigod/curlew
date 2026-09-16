@@ -2631,6 +2631,44 @@ func TestRunFromCommand(t *testing.T) {
 	})
 }
 
+func TestResolvedSecretsSurviveScopeFailure(t *testing.T) {
+	for _, supplied := range []bool{false, true} {
+		t.Run(fmt.Sprintf("supplied_set_%t", supplied), func(t *testing.T) {
+			var sensitive *variable.SensitiveSet
+			if supplied {
+				sensitive = variable.NewSensitiveSet()
+			}
+			explicit := variable.NewSensitiveSet()
+			explicit.Add("opaque")
+			col := &parser.Collection{
+				Name: "pre-execution failure",
+				Variables: parser.SensitiveVars{
+					Values:    map[string]string{"broken": "{{missing}}"},
+					Commands:  map[string]parser.CommandVar{"opaque": {Command: "echo command-private-value", Sensitive: true}},
+					Sensitive: explicit,
+				},
+			}
+			_, summary, err := Run(context.Background(), col, func(context.Context, *httpexec.Request) (*httpexec.Result, error) {
+				t.Fatal("HTTP must not run after scope failure")
+				return nil, nil
+			}, VarSources{
+				RuntimeSensitive: sensitive,
+				Secrets:          &vault.SecretsConfig{Provider: vault.ProviderAWS, Region: "local", Keys: map[string]string{"opaque_vault": "local-only"}},
+				VaultExecutor:    func(context.Context, string) (string, error) { return "vault-private-value", nil },
+			})
+			if err == nil || summary == nil || summary.RuntimeSensitive == nil {
+				t.Fatalf("error=%v summary=%+v", err, summary)
+			}
+			if supplied && summary.RuntimeSensitive != sensitive {
+				t.Fatal("caller sensitive set replaced")
+			}
+			if got := variable.RedactBody("command-private-value vault-private-value", summary.RuntimeSensitive, false); got != "[REDACTED] [REDACTED]" {
+				t.Fatalf("early summary did not retain resolved values: %q", got)
+			}
+		})
+	}
+}
+
 func TestRun_VaultResolution(t *testing.T) {
 	t.Run("vault_secrets_resolved_and_available_as_variables", func(t *testing.T) {
 		mockExec := func(ctx context.Context, command string) (string, error) {

@@ -79,10 +79,7 @@ func nativeProviderCases() []nativeProviderCase {
 
 func providerGo(t *testing.T) string {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "Go", "bin", "go.exe")
-	}
-	return filepath.Join(runtime.GOROOT(), "bin", "go")
+	return filepath.Join(runtime.GOROOT(), "bin", "go"+providerExeSuffix())
 }
 
 func buildProviderProgram(t *testing.T, source string) string {
@@ -90,7 +87,7 @@ func buildProviderProgram(t *testing.T, source string) string {
 	program := filepath.Join(t.TempDir(), filepath.Base(source)+providerExeSuffix())
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	command := exec.CommandContext(ctx, providerGo(t), "build", "-o", program, source)
+	command := exec.CommandContext(ctx, providerGo(t), "build", "-buildvcs=false", "-o", program, source)
 	command.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off")
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("build %s: %v\n%s", source, err, output)

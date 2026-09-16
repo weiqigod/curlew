@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -50,5 +51,9 @@ func main() {
 		})
 		return
 	}
-	fmt.Print(os.Getenv("CURLEW_STUB_SECRET") + "\r\n")
+	newline := "\n"
+	if runtime.GOOS == "windows" {
+		newline = "\r\n"
+	}
+	fmt.Print(os.Getenv("CURLEW_STUB_SECRET") + newline)
 }

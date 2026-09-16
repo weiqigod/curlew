@@ -10,6 +10,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zalando/go-keyring v0.2.6
+	golang.org/x/sys v0.37.0
 	golang.org/x/text v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -31,7 +32,6 @@ require (
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948 // indirect
-	golang.org/x/sys v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240826202546-f6391c0de4c7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240826202546-f6391c0de4c7 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
