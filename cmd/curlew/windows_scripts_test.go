@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -135,6 +136,26 @@ func TestSmokeScriptsOwnOnlyTheirResources(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPosixSmokeRegistersEveryChild(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join("..", "..", "smoke", "run.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(content), "\n")
+	assignment := regexp.MustCompile(`^\s*([A-Z][A-Z0-9_]*_PID)=\$!\s*$`)
+	for index, line := range lines {
+		match := assignment.FindStringSubmatch(line)
+		if len(match) != 2 {
+			continue
+		}
+		end := min(index+4, len(lines))
+		nearby := strings.Join(lines[index+1:end], "\n")
+		if !strings.Contains(nearby, `register_pid "$`+match[1]+`"`) {
+			t.Errorf("%s is not registered immediately after process start", match[1])
+		}
 	}
 }
 
