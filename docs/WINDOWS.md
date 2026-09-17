@@ -20,6 +20,8 @@ Neither task is complete. WSL success does not count as native Windows evidence.
 The command implementation does not require Git Bash. See the
 [M30-004 verification record](../management/plans/M30-004-verified.md) for actual
 checks and remaining blockers; packaged-app and arm64 checks are still open.
+The proposed [Windows repair plan](../management/plans/windows-repair-plan.md)
+orders the remaining fixes, task dependencies and completion checks.
 
 ## Prerequisites
 
