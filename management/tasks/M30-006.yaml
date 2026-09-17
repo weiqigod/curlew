@@ -1,0 +1,46 @@
+id: M30-006
+title: "Repair native Windows foundations and verification gates"
+status: backlog
+priority: 1
+created: 2026-09-17
+phase: "M30: Local product usability"
+dependencies: [M30-003]
+observable: |
+  On native Windows, run the platform-safe CLI, plugin and editor integration
+  tests plus the PowerShell smoke entry point using only loopback fixtures.
+  On POSIX, run the authoritative local gate in auto-scope mode. Both paths
+  retain stage-by-stage evidence and make missing required tools fail clearly.
+behaviors:
+  - Native Windows test packages compile and real test executables use platform-correct names.
+  - Perf interruption uses isolated platform-native signal delivery and cleans up all owned processes.
+  - Telemetry, smoke and DNS classification tests use controlled local or reserved endpoints without public application traffic.
+  - Deterministic repository text, goldens and embedded templates retain LF bytes in fresh Windows and POSIX checkouts.
+  - Portable tests use deterministic failures while genuine POSIX contracts remain covered by explicit platform tests.
+  - Windows discovers and runs supported plugin executables without weakening POSIX execute-bit checks.
+  - Windows editor launch handles batch wrappers and quoted paths with exact argument preservation.
+  - UI collection labels handle native path separators without changing filesystem execution paths.
+  - Native verification preflights required developer tools, uses loopback fixtures, owns its processes and preserves authoritative gate coverage.
+  - Full applicable native and POSIX gates report every stage honestly, including race, coverage, lint, smoke, release, install and dogfood checks.
+scope: |
+  Implement repair-plan stages R1-R6 from the M30-004 companion plan: native test
+  compilation and executable naming; hermetic network tests; deterministic checkout
+  bytes and portable test assumptions; plugin discovery/lifecycle; editor launch and
+  UI path labels; and repeatable Windows verification. Add platform-specific tests,
+  local stubs and a PowerShell smoke/developer entry point. Repair the existing POSIX
+  smoke's unsafe fixed-port and shared-temp cleanup. Establish a documented compatible
+  Go/linter/race toolchain and run the authoritative POSIX gate in auto-scope mode.
+  No live provider calls, public application test traffic, cloud spend, hosted CI
+  trigger changes, broad process kills or changes to a user's global configuration.
+  M30-004 command/vault behavior remains owned by M30-004; M30-005 owns clean-host,
+  packaged-release and wider end-to-end Windows acceptance after this foundation.
+definition_of_done:
+  - Native Windows CLI, plugin and UI-adjacent test packages compile and their relevant tests pass
+  - Platform-native perf cancellation returns the documented exit and leaves no owned processes
+  - Telemetry and smoke tests pass with external application traffic blocked
+  - Fresh Windows and POSIX checkouts produce deterministic golden and embedded-template bytes
+  - Plugin discovery/lifecycle and editor argument preservation have real native executable evidence
+  - PowerShell verification and smoke entry points fail closed, use loopback fixtures and clean up only owned resources
+  - Applicable native race, coverage and whole-repository lint checks pass or an unsupported target is documented as a blocker
+  - The authoritative local gate passes in auto-scope mode with coverage at least 80 percent
+  - Review, verification report, Windows documentation and CHANGELOG are updated
+complexity: high

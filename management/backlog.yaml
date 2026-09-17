@@ -2108,3 +2108,5 @@ capabilities:
         status: backlog
       - id: M30-005
         status: backlog
+      - id: M30-006
+        status: backlog
