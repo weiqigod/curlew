@@ -347,15 +347,3 @@ func quickstartServer(ctx context.Context, t *testing.T) string {
 
 	return "http://" + ln.Addr().String() + "/anything"
 }
-
-// nonBlankLines counts the non-blank lines of s, for the expected-output
-// floor guard above.
-func nonBlankLines(s string) int {
-	n := 0
-	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimSpace(line) != "" {
-			n++
-		}
-	}
-	return n
-}

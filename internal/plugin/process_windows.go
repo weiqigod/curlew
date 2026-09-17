@@ -86,7 +86,7 @@ func spawnPlugin(path string, stderr io.Writer) (io.WriteCloser, io.ReadCloser, 
 	return stdin, stdout, stop, nil
 }
 
-func failPluginSetup(cmd *exec.Cmd, stdin io.Closer, stdout io.Closer, job windows.Handle, setupErr error) error {
+func failPluginSetup(cmd *exec.Cmd, stdin, stdout io.Closer, job windows.Handle, setupErr error) error {
 	_ = stdin.Close()
 	_ = stdout.Close()
 	killErr := cmd.Process.Kill()

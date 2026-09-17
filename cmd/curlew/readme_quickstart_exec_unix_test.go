@@ -69,3 +69,13 @@ func TestReadme_quickstart_actually_works(t *testing.T) {
 		t.Errorf("README.md:%d: quickstart output mismatch\n--- got ---\n%s\n--- want ---\n%s", quickstart.line, got, want)
 	}
 }
+
+func nonBlankLines(value string) int {
+	count := 0
+	for _, line := range strings.Split(value, "\n") {
+		if strings.TrimSpace(line) != "" {
+			count++
+		}
+	}
+	return count
+}
