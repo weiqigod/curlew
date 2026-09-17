@@ -9,7 +9,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
 // TestHost_Load_WithRealFixture builds the hello-plugin fixture and tests it
@@ -57,4 +60,82 @@ func TestHost_Load_WithRealFixture(t *testing.T) {
 	if p.Path != binPath {
 		t.Errorf("path: got %q, want %q", p.Path, binPath)
 	}
+}
+
+func TestHost_Close_RealProcessTree(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skip in -short mode")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain not on PATH")
+	}
+
+	dir := t.TempDir()
+	binary := filepath.Join(dir, discoveryExecutableName("lifecycle-plugin"))
+	build := exec.Command("go", "build", "-buildvcs=false", "-o", binary,
+		"../../testdata/plugins/lifecycle-plugin")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build lifecycle plugin: %v\n%s", err, output)
+	}
+
+	pidFile := filepath.Join(dir, "child.pid")
+	eofFile := filepath.Join(dir, "eof.marker")
+	t.Setenv("CURLEW_PLUGIN_CHILD_PID_FILE", pidFile)
+	t.Setenv("CURLEW_PLUGIN_EOF_FILE", eofFile)
+
+	host := NewHost(io.Discard)
+	plugins, channels, loadErrs, err := host.LoadForRun(context.Background(), binary)
+	if err != nil {
+		t.Fatalf("LoadForRun: %v", err)
+	}
+	if len(loadErrs) != 0 || len(plugins) != 1 || len(channels) != 1 {
+		t.Fatalf("plugins=%v channels=%d loadErrs=%+v", plugins, len(channels), loadErrs)
+	}
+
+	childPID := readPIDFile(t, pidFile)
+	t.Cleanup(func() {
+		if processAlive(childPID) {
+			if process, findErr := os.FindProcess(childPID); findErr == nil {
+				_ = process.Kill()
+			}
+		}
+	})
+
+	if err := host.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := os.Stat(eofFile); err != nil {
+		t.Fatalf("plugin did not observe stdin EOF before termination: %v", err)
+	}
+	waitForProcessExit(t, childPID)
+}
+
+func readPIDFile(t *testing.T, path string) int {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		body, err := os.ReadFile(path)
+		if err == nil {
+			pid, parseErr := strconv.Atoi(strings.TrimSpace(string(body)))
+			if parseErr != nil {
+				t.Fatalf("parse child pid %q: %v", body, parseErr)
+			}
+			return pid
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("child pid file %s was not created", path)
+	return 0
+}
+
+func waitForProcessExit(t *testing.T, pid int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if !processAlive(pid) {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("plugin descendant %d is still running", pid)
 }
