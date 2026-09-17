@@ -264,12 +264,12 @@ func (c *DetailCollector) Seed(items []plannedItem) {
 // relPath converts an absolute source path to root-relative.
 func (c *DetailCollector) relPath(p string) string {
 	if p == "" || !filepath.IsAbs(p) {
-		return p
+		return filepath.ToSlash(p)
 	}
 	if rel, err := filepath.Rel(c.root, p); err == nil && !strings.HasPrefix(rel, "..") {
-		return rel
+		return filepath.ToSlash(rel)
 	}
-	return filepath.Base(p)
+	return filepath.ToSlash(filepath.Base(p))
 }
 
 // RequestStart implements runner.EventSink: adopt the seeded row (re-key from
