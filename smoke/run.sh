@@ -6,10 +6,46 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Every temporary path and process belongs to this invocation. The single EXIT
 # trap never searches ports or deletes another run's files.
-SMOKE_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/curlew_smoke_XXXXXX")
+SMOKE_TEMP_BASE="${TMPDIR:-/tmp}"
+SMOKE_ROOT=$(command mktemp -d "$SMOKE_TEMP_BASE/curlew_smoke_XXXXXX")
+SMOKE_ROOT=$(cd "$SMOKE_ROOT" && pwd -P)
 SMOKE_CFG_DIR="$SMOKE_ROOT/config"
 mkdir -p "$SMOKE_CFG_DIR"
 export CURLEW_CONFIG_DIR="$SMOKE_CFG_DIR"
+
+# Keep every later mktemp allocation inside this run's already-unique root.
+# Moving a generated path to add its suffix avoids BSD/macOS mktemp's
+# requirement that the X block end the template.
+mktemp() {
+  local make_dir=0 template="curlew_XXXXXX" base suffix path
+  if [ "${1:-}" = "-d" ]; then
+    make_dir=1
+    shift
+  elif [ "${1:-}" = "-t" ]; then
+    shift
+    template="${1:-curlew}_XXXXXX"
+    shift || true
+  fi
+  if [ "$#" -gt 0 ]; then
+    template="$1"
+  fi
+  base="${template##*/}"
+  if [[ "$base" != *XXXXXX* ]]; then
+    base="${base}_XXXXXX"
+  fi
+  suffix="${base#*XXXXXX}"
+  base="${base%%XXXXXX*}XXXXXX"
+  if [ "$make_dir" -eq 1 ]; then
+    path=$(command mktemp -d "$SMOKE_ROOT/$base")
+  else
+    path=$(command mktemp "$SMOKE_ROOT/$base")
+  fi
+  if [ -n "$suffix" ]; then
+    mv -- "$path" "$path$suffix"
+    path="$path$suffix"
+  fi
+  printf '%s\n' "$path"
+}
 
 declare -a SMOKE_OWNED_PIDS=()
 declare -a SMOKE_OWNED_PATHS=("$SMOKE_ROOT")
@@ -28,21 +64,24 @@ unregister_pid() {
 }
 stop_pid() {
   local pid="${1:-}"
+  local signal="${2:-TERM}"
   if [ -z "$pid" ]; then
     return
   fi
-  kill "$pid" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
+  STOP_PID_STATUS=0
+  kill "-$signal" "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || STOP_PID_STATUS=$?
   unregister_pid "$pid"
 }
 cleanup() {
-  local pid path
-	  while [ "${#SMOKE_OWNED_PIDS[@]}" -gt 0 ]; do
-	    pid="${SMOKE_OWNED_PIDS[-1]}"
-	    unset 'SMOKE_OWNED_PIDS[-1]'
-	    kill "$pid" 2>/dev/null || true
-	    wait "$pid" 2>/dev/null || true
-	  done
+  local pid path last
+  while [ "${#SMOKE_OWNED_PIDS[@]}" -gt 0 ]; do
+    last=$((${#SMOKE_OWNED_PIDS[@]} - 1))
+    pid="${SMOKE_OWNED_PIDS[$last]}"
+    unset 'SMOKE_OWNED_PIDS[$last]'
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
   for path in "${SMOKE_OWNED_PATHS[@]}"; do
     rm -rf -- "$path"
   done
@@ -63,39 +102,68 @@ fail() {
   exit 1
 }
 
-# Hermetic HTTP fixture: smoke must never execute requests against the public
-# internet — a slow httpbin.org patch alone has failed the CI gate on network
-# weather. A local httpbin-compatible echo server stands in for httpbin.org;
-# collections below point at http://127.0.0.1:9190. The port remains fixed
-# because historical quoted heredocs contain that literal. If it is occupied,
-# this run fails rather than terminating or borrowing the existing listener.
-SMOKE_HTTPBIN_PORT=9190
-SMOKE_HTTPBIN_URL="http://127.0.0.1:${SMOKE_HTTPBIN_PORT}"
-python3 "$SCRIPT_DIR/fixtures/httpbin_server.py" "$SMOKE_HTTPBIN_PORT" &
+# Hermetic HTTP fixture: bind an OS-selected loopback port and publish it through
+# an owned file. The smoke never searches ports or terminates an existing owner.
+SMOKE_HTTPBIN_PORT_FILE="$SMOKE_ROOT/httpbin.port"
+SMOKE_HTTPBIN_LOG="$SMOKE_ROOT/httpbin.log"
+python3 "$SCRIPT_DIR/fixtures/httpbin_server.py" 0 --port-file "$SMOKE_HTTPBIN_PORT_FILE" >"$SMOKE_HTTPBIN_LOG" 2>&1 &
 SMOKE_HTTPBIN_PID=$!
 register_pid "$SMOKE_HTTPBIN_PID"
 SMOKE_HTTPBIN_READY=0
 for _i in $(seq 1 50); do
   if ! kill -0 "$SMOKE_HTTPBIN_PID" 2>/dev/null; then
-    fail "local httpbin fixture could not bind $SMOKE_HTTPBIN_URL"
+    SMOKE_HTTPBIN_ERROR=$(cat "$SMOKE_HTTPBIN_LOG" 2>/dev/null || true)
+    stop_pid "$SMOKE_HTTPBIN_PID"
+    fail "local httpbin fixture exited before publishing a port" "$SMOKE_HTTPBIN_ERROR"
   fi
-  if curl -fsS "$SMOKE_HTTPBIN_URL/get" >/dev/null 2>&1; then
-    SMOKE_HTTPBIN_READY=1
-    break
+  if [ -s "$SMOKE_HTTPBIN_PORT_FILE" ]; then
+    SMOKE_HTTPBIN_PORT=$(cat "$SMOKE_HTTPBIN_PORT_FILE")
+    if [[ "$SMOKE_HTTPBIN_PORT" =~ ^[0-9]+$ ]] \
+      && [ "$SMOKE_HTTPBIN_PORT" -gt 0 ] \
+      && [ "$SMOKE_HTTPBIN_PORT" -le 65535 ]; then
+      SMOKE_HTTPBIN_URL="http://127.0.0.1:${SMOKE_HTTPBIN_PORT}"
+      if curl -fsS "$SMOKE_HTTPBIN_URL/get" >/dev/null 2>&1; then
+        SMOKE_HTTPBIN_READY=1
+        break
+      fi
+    fi
   fi
   sleep 0.1
 done
 if [ "$SMOKE_HTTPBIN_READY" -ne 1 ]; then
-    stop_pid "$SMOKE_HTTPBIN_PID"
-  fail "local httpbin fixture did not become ready on $SMOKE_HTTPBIN_URL"
+  SMOKE_HTTPBIN_ERROR=$(cat "$SMOKE_HTTPBIN_LOG" 2>/dev/null || true)
+  stop_pid "$SMOKE_HTTPBIN_PID"
+  fail "local httpbin fixture did not become ready" "$SMOKE_HTTPBIN_ERROR"
 fi
+
+# The body contains quoted heredocs that deliberately suppress shell expansion.
+# Materialize one owned copy with the dynamic fixture URL substituted, source it
+# in this shell, then exit before the source template below is reached.
+SMOKE_BODY="$SMOKE_ROOT/run-body.sh"
+python3 - "$SCRIPT_DIR/run.sh" "$SMOKE_BODY" "$SMOKE_HTTPBIN_URL" <<'PY'
+import pathlib
+import sys
+
+source_path, body_path, fixture_url = sys.argv[1:]
+lines = pathlib.Path(source_path).read_text(encoding="utf-8").splitlines(keepends=True)
+start = next(
+  index for index, line in enumerate(lines) if line.rstrip("\r\n") == "# SMOKE_BODY_START"
+) + 1
+body = "".join(lines[start:])
+body = body.replace("__SMOKE_HTTPBIN_URL__", fixture_url)
+pathlib.Path(body_path).write_text(body, encoding="utf-8")
+PY
+source "$SMOKE_BODY"
+exit $?
+
+# SMOKE_BODY_START
 
 echo "=== Smoke Test ==="
 echo
 
 echo "--- Building curlew ---"
 cd "$PROJECT_ROOT"
-go build -o curlew ./cmd/curlew
+go build -buildvcs=false -o curlew ./cmd/curlew
 echo "Build: OK"
 echo
 
@@ -117,14 +185,14 @@ echo "--- Running sample collection (hermetic copy against local fixture) ---"
 # never depends on the public internet.
 # mktemp -d (trailing Xs) is macOS-portable; a suffixed template like
 # XXXXXX.yaml is created literally on macOS and collides across runs.
-SMOKE_HELLO_DIR=$(mktemp -d /tmp/curlew_hello_XXXXXX)
+SMOKE_HELLO_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_hello_XXXXXX)
 SMOKE_HELLO="$SMOKE_HELLO_DIR/hello.yaml"
 sed "s|https://httpbin.org|$SMOKE_HTTPBIN_URL|g" sample/hello.yaml > "$SMOKE_HELLO"
 ./curlew run "$SMOKE_HELLO"
 echo
 
 echo "--- Running with empty requests collection (expect warning, exit 0) ---"
-EMPTY_FILE=$(mktemp /tmp/curlew_empty_XXXXXX.yaml)
+EMPTY_FILE=$(mktemp ${SMOKE_ROOT}/curlew_empty_XXXXXX.yaml)
 cat > "$EMPTY_FILE" << 'YAML'
 name: Empty Collection
 requests: []
@@ -142,14 +210,14 @@ echo "--- Running with no args to run (expect exit 1) ---"
 echo
 
 echo "--- Running collection with status assertion (expect pass) ---"
-ASSERT_FILE=$(mktemp /tmp/curlew_assert_XXXXXX.yaml)
+ASSERT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_assert_XXXXXX.yaml)
 cat > "$ASSERT_FILE" << YAML
 name: Assert Pass
 requests:
   - name: Check Status
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -158,14 +226,14 @@ rm -f "$ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing assertion (expect exit 1) ---"
-ASSERT_FAIL_FILE=$(mktemp /tmp/curlew_assert_fail_XXXXXX.yaml)
+ASSERT_FAIL_FILE=$(mktemp ${SMOKE_ROOT}/curlew_assert_fail_XXXXXX.yaml)
 cat > "$ASSERT_FAIL_FILE" << YAML
 name: Assert Fail
 requests:
   - name: Check Status
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 404
 YAML
@@ -174,14 +242,14 @@ rm -f "$ASSERT_FAIL_FILE"
 echo
 
 echo "--- Running collection with body assertion (expect pass) ---"
-BODY_ASSERT_FILE=$(mktemp /tmp/curlew_body_assert_XXXXXX.yaml)
+BODY_ASSERT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_body_assert_XXXXXX.yaml)
 cat > "$BODY_ASSERT_FILE" << YAML
 name: Body Assert Pass
 requests:
   - name: Check Body
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
       body:
@@ -195,14 +263,14 @@ rm -f "$BODY_ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing body assertion (expect exit 1) ---"
-BODY_ASSERT_FAIL_FILE=$(mktemp /tmp/curlew_body_fail_XXXXXX.yaml)
+BODY_ASSERT_FAIL_FILE=$(mktemp ${SMOKE_ROOT}/curlew_body_fail_XXXXXX.yaml)
 cat > "$BODY_ASSERT_FAIL_FILE" << YAML
 name: Body Assert Fail
 requests:
   - name: Check Body
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       body:
         \$.missing_field:
@@ -213,14 +281,14 @@ rm -f "$BODY_ASSERT_FAIL_FILE"
 echo
 
 echo "--- Running collection with header assertion (expect pass) ---"
-HEADER_ASSERT_FILE=$(mktemp /tmp/curlew_header_assert_XXXXXX.yaml)
+HEADER_ASSERT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_header_assert_XXXXXX.yaml)
 cat > "$HEADER_ASSERT_FILE" << YAML
 name: Header Assert Pass
 requests:
   - name: Check Header
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       headers:
         Content-Type:
@@ -231,14 +299,14 @@ rm -f "$HEADER_ASSERT_FILE"
 echo
 
 echo "--- Running collection with timing assertion (expect pass) ---"
-TIMING_ASSERT_FILE=$(mktemp /tmp/curlew_timing_assert_XXXXXX.yaml)
+TIMING_ASSERT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_timing_assert_XXXXXX.yaml)
 cat > "$TIMING_ASSERT_FILE" << YAML
 name: Timing Assert Pass
 requests:
   - name: Check Timing
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       timing:
         max_duration_ms: 30000
@@ -248,14 +316,14 @@ rm -f "$TIMING_ASSERT_FILE"
 echo
 
 echo "--- Running collection with failing header assertion (expect exit 1) ---"
-HEADER_FAIL_FILE=$(mktemp /tmp/curlew_header_fail_XXXXXX.yaml)
+HEADER_FAIL_FILE=$(mktemp ${SMOKE_ROOT}/curlew_header_fail_XXXXXX.yaml)
 cat > "$HEADER_FAIL_FILE" << YAML
 name: Header Assert Fail
 requests:
   - name: Check Header
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       headers:
         X-Nonexistent-Header:
@@ -272,7 +340,7 @@ echo "$OUTPUT" | grep -q "nonexistent.yaml" && echo "PASS: file path in error" |
 echo
 
 echo "--- Connection refused error format ---"
-CONN_FILE=$(mktemp /tmp/curlew_conn_XXXXXX.yaml)
+CONN_FILE=$(mktemp ${SMOKE_ROOT}/curlew_conn_XXXXXX.yaml)
 cat > "$CONN_FILE" << 'YAML'
 name: Connection Test
 requests:
@@ -288,14 +356,14 @@ rm -f "$CONN_FILE"
 echo
 
 echo "--- Running collection with body operators (expect pass) ---"
-OPERATORS_FILE=$(mktemp /tmp/curlew_operators_XXXXXX.yaml)
+OPERATORS_FILE=$(mktemp ${SMOKE_ROOT}/curlew_operators_XXXXXX.yaml)
 cat > "$OPERATORS_FILE" << 'YAML'
 name: Body Operators
 requests:
   - name: Check Operators
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get?count=42"
+      url: "__SMOKE_HTTPBIN_URL__/get?count=42"
     assertions:
       status: 200
       body:
@@ -312,11 +380,11 @@ rm -f "$OPERATORS_FILE"
 echo
 
 echo "--- Running collection with variables (expect pass) ---"
-VARS_FILE=$(mktemp /tmp/curlew_vars_XXXXXX.yaml)
+VARS_FILE=$(mktemp ${SMOKE_ROOT}/curlew_vars_XXXXXX.yaml)
 cat > "$VARS_FILE" << 'YAML'
 name: Variable Test
 variables:
-  base_url: "http://127.0.0.1:9190"
+  base_url: "__SMOKE_HTTPBIN_URL__"
 requests:
   - name: Check Variables
     request:
@@ -330,7 +398,7 @@ rm -f "$VARS_FILE"
 echo
 
 echo "--- Running collection with circular variables (expect exit 5) ---"
-CIRC_FILE=$(mktemp /tmp/curlew_circ_XXXXXX.yaml)
+CIRC_FILE=$(mktemp ${SMOKE_ROOT}/curlew_circ_XXXXXX.yaml)
 cat > "$CIRC_FILE" << 'YAML'
 name: Circular Variable Test
 variables:
@@ -340,27 +408,27 @@ requests:
   - name: Should Not Run
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 ./curlew run "$CIRC_FILE" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$CIRC_FILE"
 echo
 
 echo "--- Running collection with variable extraction (expect pass) ---"
-EXTRACT_FILE=$(mktemp /tmp/curlew_extract_XXXXXX.yaml)
+EXTRACT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_extract_XXXXXX.yaml)
 cat > "$EXTRACT_FILE" << 'YAML'
 name: Extraction Test
 requests:
   - name: Get Data
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get?token=secret123"
+      url: "__SMOKE_HTTPBIN_URL__/get?token=secret123"
     extract:
       token_url: "$.url"
   - name: Use Extracted
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
       headers:
         X-Extracted: "{{token_url}}"
     assertions:
@@ -371,14 +439,14 @@ rm -f "$EXTRACT_FILE"
 echo
 
 echo "--- Running collection with extraction failure (expect exit 1) ---"
-EXTRACT_FAIL_FILE=$(mktemp /tmp/curlew_extract_fail_XXXXXX.yaml)
+EXTRACT_FAIL_FILE=$(mktemp ${SMOKE_ROOT}/curlew_extract_fail_XXXXXX.yaml)
 cat > "$EXTRACT_FAIL_FILE" << 'YAML'
 name: Extraction Fail Test
 requests:
   - name: Extract Missing
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     extract:
       missing: "$.nonexistent.path"
 YAML
@@ -387,7 +455,7 @@ rm -f "$EXTRACT_FAIL_FILE"
 echo
 
 echo "--- Running collection with --var override (expect pass) ---"
-VAR_OVERRIDE_FILE=$(mktemp /tmp/curlew_var_override_XXXXXX.yaml)
+VAR_OVERRIDE_FILE=$(mktemp ${SMOKE_ROOT}/curlew_var_override_XXXXXX.yaml)
 cat > "$VAR_OVERRIDE_FILE" << 'YAML'
 name: Var Override Test
 variables:
@@ -400,30 +468,30 @@ requests:
     assertions:
       status: 200
 YAML
-./curlew run "$VAR_OVERRIDE_FILE" --var base_url=http://127.0.0.1:9190 && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
+./curlew run "$VAR_OVERRIDE_FILE" --var base_url=__SMOKE_HTTPBIN_URL__ && echo "Pass: exit code 0" || echo "ERROR: expected exit 0, got $?"
 rm -f "$VAR_OVERRIDE_FILE"
 echo
 
 echo "--- Running with --var invalid format (expect exit 1) ---"
-VAR_INVALID_FILE=$(mktemp /tmp/curlew_var_invalid_XXXXXX.yaml)
+VAR_INVALID_FILE=$(mktemp ${SMOKE_ROOT}/curlew_var_invalid_XXXXXX.yaml)
 cat > "$VAR_INVALID_FILE" << 'YAML'
 name: Test
 requests:
   - name: X
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 ./curlew run "$VAR_INVALID_FILE" --var noequals && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$VAR_INVALID_FILE"
 echo
 
 echo "--- Running collection with --env flag (expect pass) ---"
-ENV_DIR=$(mktemp -d /tmp/curlew_env_XXXXXX)
+ENV_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_env_XXXXXX)
 mkdir -p "$ENV_DIR/environments"
 cat > "$ENV_DIR/environments/dev.yaml" << 'YAML'
 variables:
-  base_url: "http://127.0.0.1:9190"
+  base_url: "__SMOKE_HTTPBIN_URL__"
 YAML
 cat > "$ENV_DIR/env-test.yaml" << 'YAML'
 name: Env Test
@@ -440,7 +508,7 @@ rm -rf "$ENV_DIR"
 echo
 
 echo "--- Running with --env missing environment (expect error listing available) ---"
-ENV_MISS_DIR=$(mktemp -d /tmp/curlew_env_miss_XXXXXX)
+ENV_MISS_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_env_miss_XXXXXX)
 mkdir -p "$ENV_MISS_DIR/environments"
 cat > "$ENV_MISS_DIR/environments/dev.yaml" << 'YAML'
 variables:
@@ -452,7 +520,7 @@ requests:
   - name: X
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 OUTPUT=$(./curlew run "$ENV_MISS_DIR/test.yaml" --env staging 2>&1 || true)
 echo "$OUTPUT" | grep -q "dev" && echo "PASS: available environment listed" || fail "Missing available env in: $OUTPUT"
@@ -460,9 +528,9 @@ rm -rf "$ENV_MISS_DIR"
 echo
 
 echo "--- Running collection with .env auto-loading (expect pass) ---"
-DOTENV_DIR=$(mktemp -d /tmp/curlew_dotenv_XXXXXX)
+DOTENV_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_dotenv_XXXXXX)
 cat > "$DOTENV_DIR/.env" << 'ENV'
-BASE_URL=http://127.0.0.1:9190
+BASE_URL=__SMOKE_HTTPBIN_URL__
 ENV
 cat > "$DOTENV_DIR/test.yaml" << 'YAML'
 name: Dotenv Test
@@ -479,14 +547,14 @@ rm -rf "$DOTENV_DIR"
 echo
 
 echo "--- Running collection without .env (expect pass, no error) ---"
-NO_DOTENV_DIR=$(mktemp -d /tmp/curlew_no_dotenv_XXXXXX)
+NO_DOTENV_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_no_dotenv_XXXXXX)
 cat > "$NO_DOTENV_DIR/test.yaml" << 'YAML'
 name: No Dotenv Test
 requests:
   - name: Check No Dotenv
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -495,8 +563,8 @@ rm -rf "$NO_DOTENV_DIR"
 echo
 
 echo "--- Running collection with --env-var flag (expect pass) ---"
-export SMOKE_TEST_URL="http://127.0.0.1:9190"
-ENVVAR_FILE=$(mktemp /tmp/curlew_envvar_XXXXXX.yaml)
+export SMOKE_TEST_URL="__SMOKE_HTTPBIN_URL__"
+ENVVAR_FILE=$(mktemp ${SMOKE_ROOT}/curlew_envvar_XXXXXX.yaml)
 cat > "$ENVVAR_FILE" << 'YAML'
 name: Env Var Test
 requests:
@@ -513,14 +581,14 @@ echo
 
 echo "--- Running with --env-var for missing OS var (expect error) ---"
 unset SMOKE_MISSING_VAR 2>/dev/null || true
-ENVVAR_MISS_FILE=$(mktemp /tmp/curlew_envvar_miss_XXXXXX.yaml)
+ENVVAR_MISS_FILE=$(mktemp ${SMOKE_ROOT}/curlew_envvar_miss_XXXXXX.yaml)
 cat > "$ENVVAR_MISS_FILE" << 'YAML'
 name: Test
 requests:
   - name: X
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 OUTPUT=$(./curlew run "$ENVVAR_MISS_FILE" --env-var SMOKE_MISSING_VAR 2>&1 || true)
 echo "$OUTPUT" | grep -q "not set" && echo "PASS: error indicates variable not set" || fail "Missing 'not set' in: $OUTPUT"
@@ -533,13 +601,13 @@ echo "$HELP_OUTPUT" | grep -q "\-\-env-var" && echo "PASS: --env-var in help" ||
 echo
 
 echo "--- Running collection with external request reference (expect pass) ---"
-EXT_REF_DIR=$(mktemp -d /tmp/curlew_ext_ref_XXXXXX)
+EXT_REF_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_ext_ref_XXXXXX)
 mkdir -p "$EXT_REF_DIR/requests"
 cat > "$EXT_REF_DIR/requests/get.yaml" << 'YAML'
 name: External Get
 request:
   method: GET
-  url: "http://127.0.0.1:9190/get"
+  url: "__SMOKE_HTTPBIN_URL__/get"
 assertions:
   status: 200
 YAML
@@ -553,7 +621,7 @@ rm -rf "$EXT_REF_DIR"
 echo
 
 echo "--- Running collection with missing external reference (expect exit 3) ---"
-EXT_MISS_DIR=$(mktemp -d /tmp/curlew_ext_miss_XXXXXX)
+EXT_MISS_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_ext_miss_XXXXXX)
 cat > "$EXT_MISS_DIR/collection.yaml" << 'YAML'
 name: Missing Ref Smoke Test
 requests:
@@ -565,28 +633,28 @@ rm -rf "$EXT_MISS_DIR"
 echo
 
 echo "--- Running collection with setup and teardown (expect pass, headers printed) ---"
-SETUP_TD_FILE=$(mktemp /tmp/curlew_setup_td_XXXXXX.yaml)
+SETUP_TD_FILE=$(mktemp ${SMOKE_ROOT}/curlew_setup_td_XXXXXX.yaml)
 cat > "$SETUP_TD_FILE" << 'YAML'
 name: Setup Teardown Smoke Test
 setup:
   - name: Setup Request
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 requests:
   - name: Main Request
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 teardown:
   - name: Teardown Request
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -599,21 +667,21 @@ rm -f "$SETUP_TD_FILE"
 echo
 
 echo "--- Teardown runs when main fails (exit code ignores teardown) ---"
-MAIN_FAIL_TD_FILE=$(mktemp /tmp/curlew_main_fail_td_XXXXXX.yaml)
+MAIN_FAIL_TD_FILE=$(mktemp ${SMOKE_ROOT}/curlew_main_fail_td_XXXXXX.yaml)
 cat > "$MAIN_FAIL_TD_FILE" << 'YAML'
 name: Main Fail Teardown Test
 requests:
   - name: Failing Main
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 999
 teardown:
   - name: Teardown Still Runs
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -626,12 +694,12 @@ rm -f "$MAIN_FAIL_TD_FILE"
 echo
 
 echo "--- Project config variables resolved (walk-up) ---"
-TMP=$(mktemp -d /tmp/curlew_proj_XXXXXX)
+TMP=$(mktemp -d ${SMOKE_ROOT}/curlew_proj_XXXXXX)
 mkdir -p "$TMP/project/sub"
 cat > "$TMP/project/curlew.yaml" << 'YAML'
 project_name: SmokeTest
 variables:
-  smoke_base: http://127.0.0.1:9190
+  smoke_base: __SMOKE_HTTPBIN_URL__
 YAML
 cat > "$TMP/project/sub/collection.yaml" << 'YAML'
 name: ProjectConfigTest
@@ -658,16 +726,16 @@ echo "$HELP_OUTPUT" | grep -q "\-\-seed" && echo "PASS: --seed in help" || fail 
 echo
 
 echo '--- Dynamic function {{$uuid}} produces a UUID in the request ---'
-UUID_SRV_DIR=$(mktemp -d /tmp/curlew_uuid_XXXXXX)
+UUID_SRV_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_uuid_XXXXXX)
 # We can't capture what hits a real server easily in smoke, so just run the collection and check exit 0.
-UUID_FILE=$(mktemp /tmp/curlew_uuid_XXXXXX.yaml)
+UUID_FILE=$(mktemp ${SMOKE_ROOT}/curlew_uuid_XXXXXX.yaml)
 cat > "$UUID_FILE" << 'YAML'
 name: Dynamic UUID Smoke
 requests:
   - name: UUID Request
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get?id={{$uuid}}&ts={{$timestamp}}"
+      url: "__SMOKE_HTTPBIN_URL__/get?id={{$uuid}}&ts={{$timestamp}}"
     assertions:
       status: 200
 YAML
@@ -678,7 +746,7 @@ echo
 
 echo "--- --seed produces deterministic output (run twice, same UUID in URL) ---"
 SEED_FILE=""
-SEED_FILE=$(mktemp /tmp/curlew_seed_XXXXXX.yaml)
+SEED_FILE=$(mktemp ${SMOKE_ROOT}/curlew_seed_XXXXXX.yaml)
 register_path "$SEED_FILE"
 cat > "$SEED_FILE" << 'YAML'
 name: Seed Smoke
@@ -686,7 +754,7 @@ requests:
   - name: Seeded Request
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get?id={{$uuid}}"
+      url: "__SMOKE_HTTPBIN_URL__/get?id={{$uuid}}"
     assertions:
       status: 200
 YAML
@@ -727,14 +795,14 @@ echo "$HELP_OUTPUT" | grep -q "\-\-no-color" && echo "PASS: --no-color in help" 
 echo
 
 echo "--- Running with --format json (expect valid JSON) ---"
-JSON_FILE=$(mktemp /tmp/curlew_json_XXXXXX.yaml)
+JSON_FILE=$(mktemp ${SMOKE_ROOT}/curlew_json_XXXXXX.yaml)
 cat > "$JSON_FILE" << 'YAML'
 name: JSON Format Smoke
 requests:
   - name: JSON Get
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -745,14 +813,14 @@ rm -f "$JSON_FILE"
 echo
 
 echo "--- --format json with failing assertion (expect JSON with failed status) ---"
-JSON_FAIL_FILE=$(mktemp /tmp/curlew_json_fail_XXXXXX.yaml)
+JSON_FAIL_FILE=$(mktemp ${SMOKE_ROOT}/curlew_json_fail_XXXXXX.yaml)
 cat > "$JSON_FAIL_FILE" << 'YAML'
 name: JSON Fail Smoke
 requests:
   - name: Expect 404
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 404
 YAML
@@ -762,14 +830,14 @@ rm -f "$JSON_FAIL_FILE"
 echo
 
 echo "--- --format json with no assertions (assertions array not null) ---"
-JSON_NO_ASSERT_FILE=$(mktemp /tmp/curlew_json_no_assert_XXXXXX.yaml)
+JSON_NO_ASSERT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_json_no_assert_XXXXXX.yaml)
 cat > "$JSON_NO_ASSERT_FILE" << 'YAML'
 name: No Assert Smoke
 requests:
   - name: No Assert
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 JSON_NO_ASSERT_OUTPUT=$(./curlew run "$JSON_NO_ASSERT_FILE" --format json)
 echo "$JSON_NO_ASSERT_OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); r=d['requests'][0]; assert isinstance(r['assertions'], list), 'assertions should be array'" && echo "PASS: assertions is array not null" || fail "assertions not array in: $JSON_NO_ASSERT_OUTPUT"
@@ -782,14 +850,14 @@ echo "$HELP_OUTPUT" | grep -q "\-\-format" && echo "PASS: --format in help" || f
 echo
 
 echo "--- TAP: passing collection ---"
-TAP_FILE=$(mktemp /tmp/curlew_tap_XXXXXX.yaml)
+TAP_FILE=$(mktemp ${SMOKE_ROOT}/curlew_tap_XXXXXX.yaml)
 cat > "$TAP_FILE" << 'YAML'
 name: TAP Format Smoke
 requests:
   - name: TAP Get
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -809,14 +877,14 @@ echo "PASS: tap listed in --format help"
 echo
 
 echo "--- Verbosity: quiet mode produces minimal output ---"
-QUIET_FILE=$(mktemp /tmp/curlew_quiet_XXXXXX.yaml)
+QUIET_FILE=$(mktemp ${SMOKE_ROOT}/curlew_quiet_XXXXXX.yaml)
 cat > "$QUIET_FILE" << 'YAML'
 name: Quiet Mode Test
 requests:
   - name: Check Quiet
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     assertions:
       status: 200
 YAML
@@ -832,14 +900,14 @@ rm -f "$QUIET_FILE"
 echo
 
 echo "--- Verbosity: verbose mode shows request detail lines ---"
-VERBOSE_FILE=$(mktemp /tmp/curlew_verbose_XXXXXX.yaml)
+VERBOSE_FILE=$(mktemp ${SMOKE_ROOT}/curlew_verbose_XXXXXX.yaml)
 cat > "$VERBOSE_FILE" << 'YAML'
 name: Verbose Mode Test
 requests:
   - name: Check Verbose
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
       headers:
         Accept: "application/json"
     assertions:
@@ -872,11 +940,11 @@ echo "$HELP_OUTPUT" | grep -q "\-\-allow-sensitive" && echo "PASS: --allow-sensi
 echo
 
 echo "--- Sensitive vars redacted at -vv (default) ---"
-SENSITIVE_FILE=$(mktemp /tmp/curlew_sensitiveXXXXXX.yaml)
+SENSITIVE_FILE=$(mktemp ${SMOKE_ROOT}/curlew_sensitiveXXXXXX.yaml)
 cat > "$SENSITIVE_FILE" << 'YAML'
 name: Sensitive Redaction Test
 variables:
-  base_url: "http://127.0.0.1:9190"
+  base_url: "__SMOKE_HTTPBIN_URL__"
   password: "my_super_secret_123"
 requests:
   - name: Get
@@ -899,11 +967,11 @@ rm -f "$SENSITIVE_FILE"
 echo
 
 echo "--- --allow-sensitive shows plain text values ---"
-ALLOW_SENS_FILE=$(mktemp /tmp/curlew_allow_sensXXXXXX.yaml)
+ALLOW_SENS_FILE=$(mktemp ${SMOKE_ROOT}/curlew_allow_sensXXXXXX.yaml)
 cat > "$ALLOW_SENS_FILE" << 'YAML'
 name: Allow Sensitive Test
 variables:
-  base_url: "http://127.0.0.1:9190"
+  base_url: "__SMOKE_HTTPBIN_URL__"
   password: "visible_secret_456"
 requests:
   - name: Get
@@ -921,11 +989,6 @@ rm -f "$ALLOW_SENS_FILE"
 echo
 
 echo "--- \$faker.ssn auto-redacted in -vv terminal output (M13-002) ---"
-FAKER_SRV_PORT=9177
-python3 -m http.server $FAKER_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
-FAKER_SRV_PID=$!
-register_pid "$FAKER_SRV_PID"
-sleep 0.3
 # mktemp -t is macOS-portable and avoids the literal-filename issue that arises
 # when a suffix follows the X-placeholder block on macOS (e.g. XXXXXXfoo.yaml).
 FAKER_FILE=$(mktemp -t curlew_faker_ssn)
@@ -933,7 +996,7 @@ register_path "$FAKER_FILE"
 cat > "$FAKER_FILE" << 'YAML'
 name: Faker SSN Redaction
 variables:
-  base_url: "http://127.0.0.1:9177"
+  base_url: "__SMOKE_HTTPBIN_URL__"
 requests:
   - name: Submit
     request:
@@ -973,7 +1036,7 @@ echo
 
 echo "--- \$faker.ssn auto-redacted in --format markdown output (M13-002) ---"
 # The markdown report renders the request body as JSON; the SSN must appear as [REDACTED].
-FAKER_MD_DIR=$(mktemp -d /tmp/curlew_faker_md_XXXXXX)
+FAKER_MD_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_faker_md_XXXXXX)
 register_path "$FAKER_MD_DIR"
 ./curlew run "$FAKER_FILE" --format markdown --report "$FAKER_MD_DIR" --no-color --seed 42 2>&1 || true
 FAKER_MD_CONTENT=$(cat "$FAKER_MD_DIR"/*.md 2>/dev/null || true)
@@ -985,22 +1048,16 @@ echo "$FAKER_MD_CONTENT" | grep -qE '[0-9]{3}-[0-9]{2}-[0-9]{4}' \
   || echo "PASS: raw SSN value not present in --format markdown report"
 rm -rf "$FAKER_MD_DIR"; FAKER_MD_DIR=""
 
-stop_pid "$FAKER_SRV_PID"
 rm -f "$FAKER_FILE"
 echo
 
 echo "--- \$faker financial fields auto-redacted in -vv terminal output (M13-007) ---"
-FIN_SRV_PORT=9178
-python3 -m http.server $FIN_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
-FIN_SRV_PID=$!
-register_pid "$FIN_SRV_PID"
-sleep 0.3
 FIN_FILE=$(mktemp -t curlew_faker_fin)
 register_path "$FIN_FILE"
 cat > "$FIN_FILE" << 'YAML'
 name: Faker Financial Redaction
 variables:
-  base_url: "http://127.0.0.1:9178"
+  base_url: "__SMOKE_HTTPBIN_URL__"
 requests:
   - name: Submit
     request:
@@ -1024,7 +1081,7 @@ echo "$FIN_OUT" | grep -q '\[REDACTED\]' \
 echo
 
 echo "--- \$faker financial fields auto-redacted in --format markdown output (M13-007) ---"
-FIN_MD_DIR=$(mktemp -d /tmp/curlew_faker_fin_md_XXXXXX)
+FIN_MD_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_faker_fin_md_XXXXXX)
 register_path "$FIN_MD_DIR"
 ./curlew run "$FIN_FILE" --format markdown --report "$FIN_MD_DIR" --no-color --seed 42 2>&1 || true
 FIN_MD_CONTENT=$(cat "$FIN_MD_DIR"/*.md 2>/dev/null || true)
@@ -1047,12 +1104,11 @@ echo "$FIN_JSON_OUT" | grep -qE '"4[0-9]{15}"' \
   && fail "raw card pattern leaked into --format json output" "$FIN_JSON_OUT" \
   || echo "PASS: raw card value not present in --format json output"
 
-stop_pid "$FIN_SRV_PID"
 rm -f "$FIN_FILE"
 echo
 
 echo "--- Running curlew init (expect project created) ---"
-INIT_DIR=$(mktemp -d /tmp/curlew_init_XXXXXX)
+INIT_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_init_XXXXXX)
 ./curlew init "$INIT_DIR" || fail "init failed"
 [ -f "$INIT_DIR/curlew.yaml" ]            && echo "PASS: curlew.yaml created"             || fail "curlew.yaml missing"
 [ -f "$INIT_DIR/.gitignore" ]              && echo "PASS: .gitignore created"               || fail ".gitignore missing"
@@ -1082,7 +1138,7 @@ echo
 echo "=== Info command ==="
 
 echo "--- Info: in project directory (JSON) ---"
-INFO_DIR=$(mktemp -d /tmp/curlew_info_XXXXXX)
+INFO_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_info_XXXXXX)
 cat > "$INFO_DIR/curlew.yaml" << 'YAML'
 project_name: SmokeInfo
 YAML
@@ -1105,7 +1161,7 @@ rm -rf "$INFO_DIR"
 echo
 
 echo "--- Info: human-readable output ---"
-INFO_HR_DIR=$(mktemp -d /tmp/curlew_info_hr_XXXXXX)
+INFO_HR_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_info_hr_XXXXXX)
 cat > "$INFO_HR_DIR/curlew.yaml" << 'YAML'
 project_name: HumanReadable
 YAML
@@ -1117,7 +1173,7 @@ rm -rf "$INFO_HR_DIR"
 echo
 
 echo "--- Info: outside project directory (expect error, exit 5) ---"
-INFO_NO_DIR=$(mktemp -d /tmp/curlew_info_no_XXXXXX)
+INFO_NO_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_info_no_XXXXXX)
 cd "$INFO_NO_DIR"
 "$PROJECT_ROOT/curlew" info > /dev/null 2>&1 && EXITCODE=0 || EXITCODE=$?
 [ "$EXITCODE" = "5" ] && echo "PASS: exit code 5 outside project" || fail "expected exit 5, got $EXITCODE"
@@ -1160,7 +1216,7 @@ echo "$VALIDATE_HELP" | grep -q "validate" && echo "PASS: validate appears in he
 echo
 
 echo "--- Validate: invalid YAML (expect exit 3) ---"
-BAD_YAML=$(mktemp /tmp/curlew_bad_yaml_XXXXXX.yaml)
+BAD_YAML=$(mktemp ${SMOKE_ROOT}/curlew_bad_yaml_XXXXXX.yaml)
 printf 'invalid: yaml: :\n' > "$BAD_YAML"
 ./curlew validate "$BAD_YAML" && echo "ERROR: should have failed" || echo "Exit code: $?"
 rm -f "$BAD_YAML"
@@ -1193,20 +1249,20 @@ echo
 echo "=== Exec command ==="
 
 echo "--- Exec with inline URL ---"
-./curlew exec http://127.0.0.1:9190/get && echo "PASS: exec inline URL exit 0" || echo "Exit code: $?"
+./curlew exec __SMOKE_HTTPBIN_URL__/get && echo "PASS: exec inline URL exit 0" || echo "Exit code: $?"
 echo
 
 echo "--- Exec with --dry-run ---"
-DRY_OUT=$(./curlew exec http://127.0.0.1:9190/get --dry-run 2>&1)
+DRY_OUT=$(./curlew exec __SMOKE_HTTPBIN_URL__/get --dry-run 2>&1)
 echo "$DRY_OUT" | grep -q "DRY RUN" && echo "PASS: dry-run output contains DRY RUN" || fail "Missing DRY RUN in: $DRY_OUT"
 echo
 
 echo "--- Exec with --stdin JSON ---"
-echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./curlew exec --stdin && echo "PASS: exec stdin exit 0" || echo "Exit code: $?"
+echo '{"url":"__SMOKE_HTTPBIN_URL__/get","method":"GET"}' | ./curlew exec --stdin && echo "PASS: exec stdin exit 0" || echo "Exit code: $?"
 echo
 
 echo "--- Exec with --format json ---"
-EXEC_JSON=$(echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./curlew exec --stdin --format json)
+EXEC_JSON=$(echo '{"url":"__SMOKE_HTTPBIN_URL__/get","method":"GET"}' | ./curlew exec --stdin --format json)
 echo "$EXEC_JSON" | python3 -m json.tool > /dev/null && echo "PASS: exec --format json produces valid JSON" || fail "Invalid JSON: $EXEC_JSON"
 echo "$EXEC_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'status' in d and 'requests' in d, f'Missing fields: {list(d.keys())}'" && echo "PASS: exec JSON has expected fields" || fail "Missing fields in: $EXEC_JSON"
 echo
@@ -1217,8 +1273,8 @@ echo 'not json' | ./curlew exec --stdin > /dev/null 2>&1 && EXITCODE=0 || EXITCO
 echo
 
 echo "--- Exec with --log ---"
-EXEC_LOG=$(mktemp /tmp/curlew_exec_log_XXXXXX.jsonl)
-echo '{"url":"http://127.0.0.1:9190/get","method":"GET"}' | ./curlew exec --stdin --log "$EXEC_LOG" && echo "PASS: exec with --log exit 0" || echo "Exit code: $?"
+EXEC_LOG=$(mktemp ${SMOKE_ROOT}/curlew_exec_log_XXXXXX.jsonl)
+echo '{"url":"__SMOKE_HTTPBIN_URL__/get","method":"GET"}' | ./curlew exec --stdin --log "$EXEC_LOG" && echo "PASS: exec with --log exit 0" || echo "Exit code: $?"
 [ -s "$EXEC_LOG" ] && echo "PASS: log file is non-empty" || fail "log file is empty"
 rm -f "$EXEC_LOG"
 echo
@@ -1267,7 +1323,7 @@ echo "--- Dynamic auth profiles are resolved (no feature gate) ---"
 # The project config declares a dynamic auth profile whose collection file
 # does not exist. The runner must get far enough to try loading it (proving
 # the profile is honored, not gated) and fail with a file-not-found error.
-AUTH_TMP=$(mktemp -d /tmp/curlew_auth_XXXXXX)
+AUTH_TMP=$(mktemp -d ${SMOKE_ROOT}/curlew_auth_XXXXXX)
 mkdir -p "$AUTH_TMP/project"
 cat > "$AUTH_TMP/project/curlew.yaml" << 'YAML'
 project_name: smoke-auth
@@ -1282,7 +1338,7 @@ requests:
   - name: main request
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
 YAML
 AUTH_OUT=$(./curlew run "$AUTH_TMP/project/collection.yaml" 2>&1 || true)
 echo "$AUTH_OUT" | grep -q "auth/login.yaml" && echo "PASS: dynamic auth profile collection was resolved" || { echo "FAIL: Expected auth/login.yaml lookup in: $AUTH_OUT"; rm -rf "$AUTH_TMP"; exit 1; }
@@ -1291,7 +1347,7 @@ rm -rf "$AUTH_TMP"
 echo
 
 echo "--- from_command variables ---"
-FROM_CMD_DIR="$(mktemp -d /tmp/curlew_from_cmd_XXXXXX)"
+FROM_CMD_DIR="$(mktemp -d ${SMOKE_ROOT}/curlew_from_cmd_XXXXXX)"
 cat > "$FROM_CMD_DIR/from_cmd.yaml" <<'YAML'
 name: from_command-smoke
 variables:
@@ -1300,7 +1356,7 @@ requests:
   - name: echo-back
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get?msg={{GREETING}}"
+      url: "__SMOKE_HTTPBIN_URL__/get?msg={{GREETING}}"
 YAML
 
 set +e
@@ -1319,7 +1375,7 @@ rm -rf "$FROM_CMD_DIR"
 echo
 
 echo "--- Per-request auth: missing profile gives clear error ---"
-PER_AUTH_FILE=$(mktemp /tmp/curlew_per_auth_XXXXXX.yaml)
+PER_AUTH_FILE=$(mktemp ${SMOKE_ROOT}/curlew_per_auth_XXXXXX.yaml)
 cat > "$PER_AUTH_FILE" << 'YAML'
 name: Per-Request Auth Test
 requests:
@@ -1327,7 +1383,7 @@ requests:
     auth: admin_token
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
     assertions:
       status: 200
 YAML
@@ -1337,14 +1393,14 @@ rm -f "$PER_AUTH_FILE"
 echo
 
 echo "--- Watch mode: start, trigger re-run, clean exit ---"
-WATCH_DIR=$(mktemp -d /tmp/curlew_watch_XXXXXX)
+WATCH_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_watch_XXXXXX)
 cat > "$WATCH_DIR/col.yaml" << 'YAML'
 name: Watch Test
 requests:
   - name: Ping
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
     assertions:
       status: 200
 YAML
@@ -1357,10 +1413,8 @@ sleep 2
 echo "# touched" >> "$WATCH_DIR/col.yaml"
 sleep 2
 # Stop the watcher
-kill -INT $WATCH_PID 2>/dev/null || true
-wait $WATCH_PID 2>/dev/null
-unregister_pid "$WATCH_PID"
-WATCH_EXIT=$?
+stop_pid "$WATCH_PID" INT
+WATCH_EXIT=$STOP_PID_STATUS
 if [ "$WATCH_EXIT" -eq 0 ] || [ "$WATCH_EXIT" -eq 130 ]; then
   echo "PASS: watch exited cleanly (exit code $WATCH_EXIT)"
 else
@@ -1372,25 +1426,23 @@ rm -rf "$WATCH_DIR"
 echo
 
 echo "--- Watch mode: --format json suppresses decorations ---"
-WATCH_JSON_DIR=$(mktemp -d /tmp/curlew_watchjson_XXXXXX)
+WATCH_JSON_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_watchjson_XXXXXX)
 cat > "$WATCH_JSON_DIR/col.yaml" << 'YAML'
 name: Watch JSON Test
 requests:
   - name: Ping
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
     assertions:
       status: 200
 YAML
-WATCH_JSON_OUT=$(mktemp /tmp/curlew_watchjson_out_XXXXXX)
+WATCH_JSON_OUT=$(mktemp ${SMOKE_ROOT}/curlew_watchjson_out_XXXXXX)
 ./curlew watch "$WATCH_JSON_DIR/col.yaml" --format json --no-color > "$WATCH_JSON_OUT" 2>/dev/null &
 WATCH_JSON_PID=$!
 register_pid "$WATCH_JSON_PID"
 sleep 2
-kill -INT $WATCH_JSON_PID 2>/dev/null || true
-wait $WATCH_JSON_PID 2>/dev/null
-unregister_pid "$WATCH_JSON_PID"
+stop_pid "$WATCH_JSON_PID" INT
 # Verify no terminal decorations in output
 if grep -q "Watching for changes" "$WATCH_JSON_OUT"; then
   echo "FAIL: --format json should suppress 'Watching for changes' message"
@@ -1418,7 +1470,7 @@ fi
 echo
 
 echo "--- Data-driven testing ---"
-DD_DIR=$(mktemp -d /tmp/curlew_dd_XXXXXX)
+DD_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_dd_XXXXXX)
 cat > "$DD_DIR/data.csv" << 'CSV'
 name,expected
 alice,200
@@ -1432,7 +1484,7 @@ requests:
       source: data.csv
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get?user={{name}}"
+      url: "__SMOKE_HTTPBIN_URL__/get?user={{name}}"
     assertions:
       status: 200
 YAML
@@ -1449,14 +1501,14 @@ rm -rf "$DD_DIR"
 echo
 
 echo "--- --format junit emits JUnit XML ---"
-JUNIT_DIR=$(mktemp -d /tmp/curlew_junit_XXXXXX)
+JUNIT_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_junit_XXXXXX)
 cat > "$JUNIT_DIR/test.yaml" << 'YAML'
 name: JUnit Smoke Test
 requests:
   - name: Example
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 JUNIT_OUT=$(./curlew run "$JUNIT_DIR/test.yaml" --format junit 2>&1 || true)
 if echo "$JUNIT_OUT" | grep -q "<testsuites"; then
@@ -1479,14 +1531,14 @@ echo "$HELP_OUT" | grep -q "\-\-report" && echo "PASS: --report in help" || fail
 echo
 
 echo "--- --format html writes an HTML report ---"
-HTML_DIR=$(mktemp -d /tmp/curlew_html_XXXXXX)
+HTML_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_html_XXXXXX)
 cat > "$HTML_DIR/test.yaml" << 'YAML'
 name: HTML Smoke Test
 requests:
   - name: Example
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
 YAML
 HTML_RC=0
 HTML_OUT=$(./curlew run "$HTML_DIR/test.yaml" --format html --report "$HTML_DIR/report.html" 2>&1) || HTML_RC=$?
@@ -1516,14 +1568,14 @@ rm -rf "$HTML_DIR"
 echo
 
 echo "--- Running GraphQL collection against local fixture ---"
-GQL_FILE=$(mktemp /tmp/curlew_gql_XXXXXX.yaml)
+GQL_FILE=$(mktemp ${SMOKE_ROOT}/curlew_gql_XXXXXX.yaml)
 cat > "$GQL_FILE" << 'YAML'
 name: GraphQL Smoke Test
 requests:
   - name: GraphQL Query
     request:
       protocol: graphql
-      url: "http://127.0.0.1:9190/graphql"
+      url: "__SMOKE_HTTPBIN_URL__/graphql"
       graphql:
         query: "query { hello }"
 YAML
@@ -1540,7 +1592,7 @@ rm -f "$GQL_FILE"
 echo
 
 echo "--- GraphQL invalid protocol (expect parse error) ---"
-GQL_BAD_FILE=$(mktemp /tmp/curlew_gql_bad_XXXXXX.yaml)
+GQL_BAD_FILE=$(mktemp ${SMOKE_ROOT}/curlew_gql_bad_XXXXXX.yaml)
 cat > "$GQL_BAD_FILE" << 'YAML'
 name: Bad Protocol Test
 requests:
@@ -1561,7 +1613,7 @@ rm -f "$GQL_BAD_FILE"
 echo
 
 echo "--- GraphQL query_file + fragments ---"
-GQL_DIR=$(mktemp -d /tmp/curlew_gql_files_XXXXXX)
+GQL_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_gql_files_XXXXXX)
 mkdir -p "$GQL_DIR/graphql/queries" "$GQL_DIR/graphql/fragments"
 cat > "$GQL_DIR/graphql/queries/get_user.graphql" << 'GQL'
 query GetUser {
@@ -1580,7 +1632,7 @@ requests:
   - name: Get User
     request:
       protocol: graphql
-      url: "http://127.0.0.1:9190/graphql"
+      url: "__SMOKE_HTTPBIN_URL__/graphql"
       graphql:
         query_file: graphql/queries/get_user.graphql
         fragments:
@@ -1601,7 +1653,7 @@ echo
 echo "--- WebSocket protocol executes (expect dial failure against closed port) ---"
 # No live WebSocket server in the hermetic fixture set: a dial failure against
 # a closed localhost port proves the websocket protocol actually executes.
-WS_FILE=$(mktemp /tmp/curlew_ws_XXXXXX.yaml)
+WS_FILE=$(mktemp ${SMOKE_ROOT}/curlew_ws_XXXXXX.yaml)
 cat > "$WS_FILE" << 'YAML'
 name: WebSocket Smoke
 requests:
@@ -1629,7 +1681,7 @@ rm -f "$WS_FILE"
 echo
 
 echo "--- WebSocket invalid action (expect parse error) ---"
-WS_BAD_FILE=$(mktemp /tmp/curlew_ws_bad_XXXXXX.yaml)
+WS_BAD_FILE=$(mktemp ${SMOKE_ROOT}/curlew_ws_bad_XXXXXX.yaml)
 cat > "$WS_BAD_FILE" << 'YAML'
 name: Bad WS
 requests:
@@ -1653,14 +1705,14 @@ rm -f "$WS_BAD_FILE"
 echo
 
 echo "--- GraphQL error_handling ignore is a valid value ---"
-GQL_IGNORE_FILE=$(mktemp /tmp/curlew_gql_ignore_XXXXXX.yaml)
+GQL_IGNORE_FILE=$(mktemp ${SMOKE_ROOT}/curlew_gql_ignore_XXXXXX.yaml)
 cat > "$GQL_IGNORE_FILE" << 'YAML'
 name: GraphQL Ignore Test
 requests:
   - name: Ignore Mode
     request:
       protocol: graphql
-      url: "http://127.0.0.1:9190/graphql"
+      url: "__SMOKE_HTTPBIN_URL__/graphql"
       graphql:
         query: "{ me { id } }"
         error_handling: ignore
@@ -1678,7 +1730,7 @@ rm -f "$GQL_IGNORE_FILE"
 echo
 
 echo "--- WebSocket reconnect config parses without error ---"
-WS_RECONNECT_FILE=$(mktemp /tmp/curlew_ws_reconnect_XXXXXX.yaml)
+WS_RECONNECT_FILE=$(mktemp ${SMOKE_ROOT}/curlew_ws_reconnect_XXXXXX.yaml)
 cat > "$WS_RECONNECT_FILE" << 'YAML'
 name: WS Reconnect Smoke
 requests:
@@ -1703,7 +1755,7 @@ echo "PASS: websocket reconnect config accepted by parser"
 echo
 
 echo "--- WebSocket heartbeat config parses without error ---"
-WS_HB_FILE=$(mktemp /tmp/curlew_ws_hb_XXXXXX.yaml)
+WS_HB_FILE=$(mktemp ${SMOKE_ROOT}/curlew_ws_hb_XXXXXX.yaml)
 cat > "$WS_HB_FILE" << 'YAML'
 name: WS Heartbeat Smoke
 requests:
@@ -1726,7 +1778,7 @@ echo "PASS: websocket heartbeat config accepted by parser"
 echo
 
 echo "--- WebSocket URL auto-detection (ws:// scheme) parses as websocket protocol ---"
-WS_AUTO_FILE=$(mktemp /tmp/curlew_ws_auto_XXXXXX.yaml)
+WS_AUTO_FILE=$(mktemp ${SMOKE_ROOT}/curlew_ws_auto_XXXXXX.yaml)
 cat > "$WS_AUTO_FILE" << 'YAML'
 name: WS AutoDetect Smoke
 requests:
@@ -1754,7 +1806,7 @@ echo "--- Discovery: glob runs matching collections ---"
 # testdata/discovery points at httpbin.org as user-facing documentation; run
 # a hermetic copy rewritten to the local fixture so smoke never hits the
 # public internet.
-DISC_DIR=$(mktemp -d /tmp/curlew_disc_XXXXXX)
+DISC_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_disc_XXXXXX)
 mkdir -p "$DISC_DIR/sub"
 for f in a_test.yaml b_test.yaml ignore.yaml; do
   sed "s|https://httpbin.org|$SMOKE_HTTPBIN_URL|g" "testdata/discovery/$f" > "$DISC_DIR/$f"
@@ -1785,8 +1837,8 @@ echo "PASS: literal path bypasses discovery (exit 3)"
 echo
 
 echo "--- Include directive: merges included requests ---"
-INC_PARENT=$(mktemp /tmp/curlew_inc_parent_XXXXXX.yaml)
-INC_SHARED_DIR=$(mktemp -d /tmp/curlew_inc_shared_XXXXXX)
+INC_PARENT=$(mktemp ${SMOKE_ROOT}/curlew_inc_parent_XXXXXX.yaml)
+INC_SHARED_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_inc_shared_XXXXXX)
 INC_CHILD="$INC_SHARED_DIR/auth.yaml"
 cat > "$INC_CHILD" << 'YAML'
 name: Shared Auth
@@ -1794,19 +1846,19 @@ requests:
   - name: Auth Check
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
 YAML
 cat > "$INC_PARENT" << YAML
 name: Parent Collection
 variables:
-  base_url: http://127.0.0.1:9190
+  base_url: __SMOKE_HTTPBIN_URL__
 include:
   - $INC_CHILD
 requests:
   - name: Parent Request
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
 YAML
 INC_RC=0
 INC_OUT=$(./curlew run "$INC_PARENT" 2>&1) || INC_RC=$?
@@ -1825,8 +1877,8 @@ echo
 
 # --- M3-005: curlew import openapi ---
 echo "--- Import OpenAPI ---"
-mkdir -p /tmp/curlew-smoke-openapi
-cat > /tmp/curlew-smoke-openapi/petstore.yaml <<'OAI'
+mkdir -p ${SMOKE_ROOT}/curlew-smoke-openapi
+cat > ${SMOKE_ROOT}/curlew-smoke-openapi/petstore.yaml <<'OAI'
 openapi: 3.0.3
 info:
   title: Petstore
@@ -1853,18 +1905,18 @@ paths:
           description: OK
 OAI
 
-./curlew import openapi /tmp/curlew-smoke-openapi/petstore.yaml \
-    --output /tmp/curlew-smoke-openapi/generated.yaml \
+./curlew import openapi ${SMOKE_ROOT}/curlew-smoke-openapi/petstore.yaml \
+    --output ${SMOKE_ROOT}/curlew-smoke-openapi/generated.yaml \
   && echo "PASS: import openapi writes file" \
   || fail "import openapi failed"
 
-./curlew validate /tmp/curlew-smoke-openapi/generated.yaml \
+./curlew validate ${SMOKE_ROOT}/curlew-smoke-openapi/generated.yaml \
   && echo "PASS: generated collection validates" \
   || fail "generated collection failed to validate"
 
 # --- M3-006: headers, request bodies, and status assertions ---
 echo "--- Import OpenAPI with headers/body/status (M3-006) ---"
-cat > /tmp/curlew-smoke-openapi/petstore-full.yaml <<'OAI'
+cat > ${SMOKE_ROOT}/curlew-smoke-openapi/petstore-full.yaml <<'OAI'
 openapi: 3.0.3
 info:
   title: Petstore Full
@@ -1896,47 +1948,40 @@ paths:
         '404': { description: Not found }
 OAI
 
-./curlew import openapi /tmp/curlew-smoke-openapi/petstore-full.yaml \
-    --output /tmp/curlew-smoke-openapi/full-generated.yaml \
+./curlew import openapi ${SMOKE_ROOT}/curlew-smoke-openapi/petstore-full.yaml \
+    --output ${SMOKE_ROOT}/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: import openapi full spec writes file" \
   || fail "import openapi full spec failed"
 
-grep -q "X-API-Key" /tmp/curlew-smoke-openapi/full-generated.yaml \
+grep -q "X-API-Key" ${SMOKE_ROOT}/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains X-API-Key header" \
   || fail "missing X-API-Key header in generated collection"
 
-grep -q "body:" /tmp/curlew-smoke-openapi/full-generated.yaml \
-  && grep -q "name: string" /tmp/curlew-smoke-openapi/full-generated.yaml \
+grep -q "body:" ${SMOKE_ROOT}/curlew-smoke-openapi/full-generated.yaml \
+  && grep -q "name: string" ${SMOKE_ROOT}/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains request body" \
   || fail "missing request body in generated collection"
 
-grep -q "status:" /tmp/curlew-smoke-openapi/full-generated.yaml \
+grep -q "status:" ${SMOKE_ROOT}/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: generated collection contains status assertions" \
   || fail "missing status assertions in generated collection"
 
-./curlew validate /tmp/curlew-smoke-openapi/full-generated.yaml \
+./curlew validate ${SMOKE_ROOT}/curlew-smoke-openapi/full-generated.yaml \
   && echo "PASS: full generated collection validates" \
   || fail "full generated collection failed to validate"
 
-rm -rf /tmp/curlew-smoke-openapi
+rm -rf ${SMOKE_ROOT}/curlew-smoke-openapi
 echo
 
 echo "=== Shared vault template (M4-002) ==="
 echo "--- Run with CURLEW_TEAM_CONFIG + stub ---"
-SMOKE_SRV_PORT=8099
-python3 -m http.server $SMOKE_SRV_PORT --bind 127.0.0.1 > /dev/null 2>&1 &
-SMOKE_SRV_PID=$!
-register_pid "$SMOKE_SRV_PID"
-sleep 0.5
-
 export CURLEW_TEAM_CONFIG=testdata/team/shared-vault-template.yaml
 export CURLEW_VAULT_STUB=1
 
-SMOKE_OUT=$(./curlew run testdata/team/uses-team-vault.yaml --env production 2>&1)
+SMOKE_OUT=$(./curlew run testdata/team/uses-team-vault.yaml --env production --var "base_url=$SMOKE_HTTPBIN_URL" 2>&1)
 SMOKE_RC=$?
 
 unset CURLEW_TEAM_CONFIG CURLEW_VAULT_STUB
-stop_pid "$SMOKE_SRV_PID"
 
 if [ "$SMOKE_RC" -eq 0 ]; then
   echo "PASS: team template run exit 0"
@@ -1967,7 +2012,7 @@ echo "$SMOKE_OUT" | grep -q '"state"' \
   || fail "missing summary in dry-run output" "$SMOKE_OUT"
 
 # --summary writes the verdict to a file; a failing results file exits 1.
-PRCHECK_SUMMARY=$(mktemp /tmp/curlew_prcheck_XXXXXX.json)
+PRCHECK_SUMMARY=$(mktemp ${SMOKE_ROOT}/curlew_prcheck_XXXXXX.json)
 ./curlew pr-check --results testdata/team/sample-junit.json --summary "$PRCHECK_SUMMARY" > /dev/null 2>&1
 [ -s "$PRCHECK_SUMMARY" ] \
   && echo "PASS: pr-check --summary wrote a summary file" \
@@ -1981,7 +2026,7 @@ rm -f "$PRCHECK_SUMMARY"
 
 # The documented pipeline: `curlew run --format json` output feeds pr-check directly.
 # Uses the local fixture server — the smoke suite never touches the public internet.
-PRCHECK_COL=$(mktemp /tmp/curlew_prcheck_col_XXXXXX.yaml)
+PRCHECK_COL=$(mktemp ${SMOKE_ROOT}/curlew_prcheck_col_XXXXXX.yaml)
 cat > "$PRCHECK_COL" << YAML
 name: PrCheck Pipeline
 requests:
@@ -1992,7 +2037,7 @@ requests:
     assertions:
       status: 200
 YAML
-PRCHECK_RUN_JSON=$(mktemp /tmp/curlew_prcheck_run_XXXXXX.json)
+PRCHECK_RUN_JSON=$(mktemp ${SMOKE_ROOT}/curlew_prcheck_run_XXXXXX.json)
 ./curlew run "$PRCHECK_COL" --format json > "$PRCHECK_RUN_JSON" 2>/dev/null || true
 PRCHECK_OUT=$(./curlew pr-check --results "$PRCHECK_RUN_JSON" 2>&1) || true
 echo "$PRCHECK_OUT" | grep -qE "^(success|failure): pass=" \
@@ -2021,83 +2066,70 @@ echo "PASS: perf --help documents all expected flags"
 # Invalid --vus -> exit 2
 SMOKE_RC=0
 ./curlew perf testdata/perf/sample-request.yaml \
-  --vus 0 --duration 1s > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
+  --vus 0 --duration 1s > /dev/null 2>${SMOKE_ROOT}/curlew_perf_err_$$.txt || SMOKE_RC=$?
 [ "$SMOKE_RC" -eq 2 ] && echo "PASS: --vus 0 exits 2" \
-  || { echo "FAIL: --vus 0 exited $SMOKE_RC (want 2)"; cat /tmp/curlew_perf_err_$$.txt; exit 1; }
-rm -f /tmp/curlew_perf_err_$$.txt
+  || { echo "FAIL: --vus 0 exited $SMOKE_RC (want 2)"; cat ${SMOKE_ROOT}/curlew_perf_err_$$.txt; exit 1; }
+rm -f ${SMOKE_ROOT}/curlew_perf_err_$$.txt
 
-# End-to-end: start a minimal HTTP server, run perf 1s against it.
-PERF_COL="/tmp/curlew_perf_smoke_$$.yaml"
-# Spin up a Go HTTP echo server inline using a helper script.
-# Use python3 if available, otherwise skip the end-to-end block.
-if command -v python3 >/dev/null 2>&1; then
-  python3 -m http.server 18765 --bind 127.0.0.1 >/tmp/curlew_perf_http_$$.log 2>&1 &
-  PERF_PID=$!
-  register_pid "$PERF_PID"
-  # Give the server a moment to start.
-  sleep 0.5
-
-  cat > "$PERF_COL" << YAML
+# End-to-end: run perf for 1s against the primary fixture.
+PERF_COL="${SMOKE_ROOT}/curlew_perf_smoke_$$.yaml"
+cat > "$PERF_COL" << YAML
 name: perf-smoke
 request:
   method: GET
-  url: "http://127.0.0.1:18765/"
+  url: "__SMOKE_HTTPBIN_URL__/"
 YAML
 
-  SMOKE_RC=0
-  PERF_OUT=$(./curlew perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
-  echo "$PERF_OUT" | grep -q "Load test: 2 virtual users" \
-    && echo "PASS: perf prints header" \
-    || { echo "FAIL: perf header"; echo "$PERF_OUT"; stop_pid "$PERF_PID"; exit 1; }
-  echo "$PERF_OUT" | grep -q "Requests sent:" \
-    && echo "PASS: perf prints summary" \
-    || { echo "FAIL: perf summary missing"; stop_pid "$PERF_PID"; exit 1; }
+SMOKE_RC=0
+PERF_OUT=$(./curlew perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
+echo "$PERF_OUT" | grep -q "Load test: 2 virtual users" \
+  && echo "PASS: perf prints header" \
+  || { echo "FAIL: perf header"; echo "$PERF_OUT"; exit 1; }
+echo "$PERF_OUT" | grep -q "Requests sent:" \
+  && echo "PASS: perf prints summary" \
+  || { echo "FAIL: perf summary missing"; exit 1; }
 
-  # M5-012: --output json report
-  PERF_JSON="/tmp/curlew_perf_report_$$.json"
-  SMOKE_RC=0
-  ./curlew perf "$PERF_COL" --vus 2 --duration 1s \
-    --output "$PERF_JSON" > /tmp/curlew_perf_stdout_$$.log 2>&1 || SMOKE_RC=$?
-  grep -q "Results: requests=" /tmp/curlew_perf_stdout_$$.log \
-    && echo "PASS: perf --output json prints summary line" \
-    || { echo "FAIL: missing Results line"; cat /tmp/curlew_perf_stdout_$$.log; stop_pid "$PERF_PID"; exit 1; }
-  [ -s "$PERF_JSON" ] && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$PERF_JSON" \
-    && echo "PASS: perf --output json produces valid JSON" \
-    || { echo "FAIL: invalid or empty JSON"; cat "$PERF_JSON"; stop_pid "$PERF_PID"; exit 1; }
-  rm -f "$PERF_JSON" /tmp/curlew_perf_stdout_$$.log
+# M5-012: --output json report
+PERF_JSON="${SMOKE_ROOT}/curlew_perf_report_$$.json"
+SMOKE_RC=0
+./curlew perf "$PERF_COL" --vus 2 --duration 1s \
+  --output "$PERF_JSON" > ${SMOKE_ROOT}/curlew_perf_stdout_$$.log 2>&1 || SMOKE_RC=$?
+grep -q "Results: requests=" ${SMOKE_ROOT}/curlew_perf_stdout_$$.log \
+  && echo "PASS: perf --output json prints summary line" \
+  || { echo "FAIL: missing Results line"; cat ${SMOKE_ROOT}/curlew_perf_stdout_$$.log; exit 1; }
+[ -s "$PERF_JSON" ] && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$PERF_JSON" \
+  && echo "PASS: perf --output json produces valid JSON" \
+  || { echo "FAIL: invalid or empty JSON"; cat "$PERF_JSON"; exit 1; }
+rm -f "$PERF_JSON" ${SMOKE_ROOT}/curlew_perf_stdout_$$.log
 
-  # M5-012: --output html report
-  PERF_HTML="/tmp/curlew_perf_report_$$.html"
-  ./curlew perf "$PERF_COL" --vus 2 --duration 1s \
-    --output "$PERF_HTML" > /dev/null 2>&1
-  grep -q "<title>curlew perf report</title>" "$PERF_HTML" \
-    && echo "PASS: perf --output html wrote expected title" \
-    || { echo "FAIL: perf html missing title"; stop_pid "$PERF_PID"; exit 1; }
-  rm -f "$PERF_HTML"
+# M5-012: --output html report
+PERF_HTML="${SMOKE_ROOT}/curlew_perf_report_$$.html"
+./curlew perf "$PERF_COL" --vus 2 --duration 1s \
+  --output "$PERF_HTML" > /dev/null 2>&1
+grep -q "<title>curlew perf report</title>" "$PERF_HTML" \
+  && echo "PASS: perf --output html wrote expected title" \
+  || { echo "FAIL: perf html missing title"; exit 1; }
+rm -f "$PERF_HTML"
 
-  # M5-012: unsupported extension -> exit 2
-  SMOKE_RC=0
-  ./curlew perf "$PERF_COL" --vus 1 --duration 200ms \
-    --output "/tmp/x_smoke_$$.xyz" > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
-  [ "$SMOKE_RC" -eq 2 ] && echo "PASS: unsupported extension exits 2" \
-    || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/curlew_perf_err_$$.txt; stop_pid "$PERF_PID"; exit 1; }
-  grep -qi "unsupported report format" /tmp/curlew_perf_err_$$.txt \
-    && echo "PASS: stderr mentions unsupported format" \
-    || { echo "FAIL: stderr missing message"; cat /tmp/curlew_perf_err_$$.txt; stop_pid "$PERF_PID"; exit 1; }
-  rm -f /tmp/curlew_perf_err_$$.txt
+# M5-012: unsupported extension -> exit 2
+SMOKE_RC=0
+./curlew perf "$PERF_COL" --vus 1 --duration 200ms \
+  --output "${SMOKE_ROOT}/x_smoke_$$.xyz" > /dev/null 2>${SMOKE_ROOT}/curlew_perf_err_$$.txt || SMOKE_RC=$?
+[ "$SMOKE_RC" -eq 2 ] && echo "PASS: unsupported extension exits 2" \
+  || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat ${SMOKE_ROOT}/curlew_perf_err_$$.txt; exit 1; }
+grep -qi "unsupported report format" ${SMOKE_ROOT}/curlew_perf_err_$$.txt \
+  && echo "PASS: stderr mentions unsupported format" \
+  || { echo "FAIL: stderr missing message"; cat ${SMOKE_ROOT}/curlew_perf_err_$$.txt; exit 1; }
+rm -f ${SMOKE_ROOT}/curlew_perf_err_$$.txt
 
-  stop_pid "$PERF_PID"
-  rm -f "$PERF_COL" /tmp/curlew_perf_http_$$.log
-else
-  echo "SKIP: python3 not available; skipping perf end-to-end test"
-fi
+rm -f "$PERF_COL"
 
 echo
 
 echo "=== Report Upload flag validation (M4-012) ==="
 
 # Create a minimal collection file for flag validation tests (use PID to ensure unique name)
-MINIMAL_COL="/tmp/curlew_report_upload_smoke_$$.yaml"
+MINIMAL_COL="${SMOKE_ROOT}/curlew_report_upload_smoke_$$.yaml"
 cat > "$MINIMAL_COL" << 'YAML'
 name: minimal-smoke
 requests:
@@ -2167,10 +2199,10 @@ echo
 
 echo "=== Plugins (M5-017) ==="
 
-PLUGIN_DIR=$(mktemp -d /tmp/curlew_plugins_XXXXXX)
+PLUGIN_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_plugins_XXXXXX)
 
 echo "--- Building hello-plugin fixture ---"
-go build -o "$PLUGIN_DIR/hello-plugin" ./testdata/plugins/hello-plugin
+go build -buildvcs=false -o "$PLUGIN_DIR/hello-plugin" ./testdata/plugins/hello-plugin
 echo "Build: OK"
 
 echo "--- Single plugin ---"
@@ -2204,19 +2236,19 @@ echo
 
 echo "=== Plugin hooks (M5-018) ==="
 
-HOOK_DIR=$(mktemp -d /tmp/curlew_hooklog_XXXXXX)
+HOOK_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_hooklog_XXXXXX)
 echo "--- Building hooklog-plugin fixture ---"
-go build -o "$HOOK_DIR/hooklog" ./testdata/plugins/hooklog-plugin
+go build -buildvcs=false -o "$HOOK_DIR/hooklog" ./testdata/plugins/hooklog-plugin
 echo "Build: OK"
 
-SMOKE_COLL=$(mktemp /tmp/curlew_hooklog_coll_XXXXXX.yaml)
+SMOKE_COLL=$(mktemp ${SMOKE_ROOT}/curlew_hooklog_coll_XXXXXX.yaml)
 cat > "$SMOKE_COLL" <<'YAML'
 name: Hooklog smoke
 requests:
   - name: ping
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
     assertions:
       status: 200
 YAML
@@ -2235,9 +2267,9 @@ echo
 
 echo "=== Example plugin: datadog-metrics (M5-019) ==="
 
-DD_BUILD_DIR=$(mktemp -d /tmp/curlew_ddplugin_XXXXXX)
+DD_BUILD_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_ddplugin_XXXXXX)
 echo "--- Building datadog-metrics example ---"
-(cd "$PROJECT_ROOT/examples/plugins/datadog-metrics" && go build -o "$DD_BUILD_DIR/datadog-metrics" .)
+(cd "$PROJECT_ROOT/examples/plugins/datadog-metrics" && go build -buildvcs=false -o "$DD_BUILD_DIR/datadog-metrics" .)
 echo "Build: OK"
 
 echo "--- Testing datadog-metrics example ---"
@@ -2258,7 +2290,7 @@ echo
 
 echo "=== body_file / body_binary_file (external-file request bodies) ==="
 
-BF_DIR=$(mktemp -d /tmp/curlew_body_file_XXXXXX)
+BF_DIR=$(mktemp -d ${SMOKE_ROOT}/curlew_body_file_XXXXXX)
 
 echo "--- Running collection with body_file (text + interpolation) ---"
 cat > "$BF_DIR/payload.json" << 'JSON'
@@ -2270,7 +2302,7 @@ requests:
   - name: POST body_file to fixture
     request:
       method: POST
-      url: "http://127.0.0.1:9190/anything"
+      url: "__SMOKE_HTTPBIN_URL__/anything"
       body_file: "payload.json"
     assertions:
       status: 200
@@ -2295,7 +2327,7 @@ requests:
   - name: POST raw bytes
     request:
       method: POST
-      url: "http://127.0.0.1:9190/anything"
+      url: "__SMOKE_HTTPBIN_URL__/anything"
       headers:
         Content-Type: "application/octet-stream"
       body_binary_file: "blob.bin"
@@ -2340,15 +2372,15 @@ rm -rf "$BF_DIR"
 echo
 
 echo "--- Events NDJSON stream (--events happy path) ---"
-EVENTS_COL=$(mktemp /tmp/curlew_events_col_XXXXXX.yaml)
-EVENTS_OUT=$(mktemp /tmp/curlew_events_out_XXXXXX.jsonl)
+EVENTS_COL=$(mktemp ${SMOKE_ROOT}/curlew_events_col_XXXXXX.yaml)
+EVENTS_OUT=$(mktemp ${SMOKE_ROOT}/curlew_events_out_XXXXXX.jsonl)
 cat > "$EVENTS_COL" << 'YAML'
 name: events-smoke
 requests:
   - name: ping
     request:
       method: GET
-      url: http://127.0.0.1:9190/get
+      url: __SMOKE_HTTPBIN_URL__/get
     assertions:
       status: 200
 YAML
@@ -2372,7 +2404,7 @@ requests:
   - name: signed
     request:
       method: GET
-      url: "http://127.0.0.1:9190/get"
+      url: "__SMOKE_HTTPBIN_URL__/get"
     signing:
       type: aws-sigv4
       params:
@@ -2402,7 +2434,7 @@ requests:
   - name: signed
     request:
       method: POST
-      url: "http://127.0.0.1:9190/post"
+      url: "__SMOKE_HTTPBIN_URL__/post"
     signing:
       type: oauth1
       params:
@@ -2423,11 +2455,6 @@ rm -rf "$OAUTH1_DIR"
 echo
 
 echo "--- Running webhook-sign Stripe (validates dynamic-fn + secret redaction) ---"
-WHSIG_SRV_PORT=9181
-python3 -m http.server $WHSIG_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
-WHSIG_SRV_PID=$!
-register_pid "$WHSIG_SRV_PID"
-sleep 0.3
 WHSIG_DIR=$(mktemp -d)
 cat > "$WHSIG_DIR/stripe.yaml" << 'YAML'
 name: webhook-sign demo
@@ -2435,7 +2462,7 @@ requests:
   - name: stripe-webhook
     request:
       method: POST
-      url: "http://127.0.0.1:9181/"
+      url: "__SMOKE_HTTPBIN_URL__/"
       headers:
         X-Stripe-Signature: "{{$webhookSign.stripe('{{payload}}','{{stripe_signing_secret}}','1492774577')}}"
       body: "{{payload}}"
@@ -2448,25 +2475,19 @@ WHSIG_OUT=$(./curlew run "$WHSIG_DIR/stripe.yaml" \
 WHSIG_HDR=$(echo "$WHSIG_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['requests'][0].get('request_headers',{}).get('X-Stripe-Signature','MISSING'))" 2>/dev/null || echo "MISSING")
 echo "$WHSIG_HDR" | grep -q 't=1492774577,v1=' \
     && echo "PASS: Stripe-Signature t=...,v1=... header rendered" \
-    || { echo "FAIL: missing t=...,v1=... shape; got: $WHSIG_HDR" ; stop_pid "$WHSIG_SRV_PID" ; rm -rf "$WHSIG_DIR" ; exit 1 ; }
+  || { echo "FAIL: missing t=...,v1=... shape; got: $WHSIG_HDR" ; rm -rf "$WHSIG_DIR" ; exit 1 ; }
 # Without --allow-sensitive, the secret value must not appear in JSON output.
 WHSIG_NOALLOW=$(./curlew run "$WHSIG_DIR/stripe.yaml" \
     --var payload='{"amount":1000}' \
     --var stripe_signing_secret=whsec_supersecret_donot_leak \
     -v --format json 2>/dev/null)
 echo "$WHSIG_NOALLOW" | grep -q 'whsec_supersecret_donot_leak' \
-    && { echo "FAIL: secret leaked into --format json output" ; stop_pid "$WHSIG_SRV_PID" ; rm -rf "$WHSIG_DIR" ; exit 1 ; } \
+  && { echo "FAIL: secret leaked into --format json output" ; rm -rf "$WHSIG_DIR" ; exit 1 ; } \
     || echo "PASS: secret not visible in serialised output"
-stop_pid "$WHSIG_SRV_PID"
 rm -rf "$WHSIG_DIR"
 echo
 
 echo "--- Running jwt-decode (validates JWT decode dynamic-fns produce valid JSON) ---"
-JWT_SRV_PORT=9182
-python3 -m http.server $JWT_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
-JWT_SRV_PID=$!
-register_pid "$JWT_SRV_PID"
-sleep 0.3
 JWT_DIR=$(mktemp -d)
 # JWT.io canonical example: HS256 over secret="your-256-bit-secret".
 # Uses a placeholder replaced by sed so the literal dot-separated token is
@@ -2482,12 +2503,12 @@ requests:
   - name: jwt-decode-headers
     request:
       method: POST
-      url: "http://127.0.0.1:9182/"
+      url: "__SMOKE_HTTPBIN_URL__/"
       headers:
         X-Token-Header: "{{$jwtDecodeHeader('JWT_TOKEN_PLACEHOLDER')}}"
         X-Token-Claims: "{{$jwtDecodeClaims('JWT_TOKEN_PLACEHOLDER')}}"
 YAML
-sed -i '' "s/JWT_TOKEN_PLACEHOLDER/${JWT_TOKEN}/g" "$JWT_DIR/jwt.yaml"
+sed -i "s/JWT_TOKEN_PLACEHOLDER/${JWT_TOKEN}/g" "$JWT_DIR/jwt.yaml"
 JWT_OUT=$(./curlew run "$JWT_DIR/jwt.yaml" -v --format json 2>/dev/null)
 # Extract the rendered header values from the JSON output.
 JWT_HDR_JSON=$(echo "$JWT_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['requests'][0].get('request_headers',{}).get('X-Token-Header','MISSING'))" 2>/dev/null || echo "MISSING")
@@ -2498,11 +2519,10 @@ JWT_ALG=$(echo "$JWT_HDR_JSON" | python3 -c "import sys,json; d=json.loads(sys.s
 JWT_SUB=$(echo "$JWT_CLAIMS_JSON" | python3 -c "import sys,json; d=json.loads(sys.stdin.read().strip()); print(d.get('sub','MISSING'))" 2>/dev/null || echo "MISSING")
 [ "$JWT_ALG" = "HS256" ] \
     && echo "PASS: jwtDecodeHeader returned valid JSON with alg=HS256" \
-    || { echo "FAIL: expected alg=HS256, got: $JWT_ALG" ; stop_pid "$JWT_SRV_PID" ; rm -rf "$JWT_DIR" ; exit 1 ; }
+  || { echo "FAIL: expected alg=HS256, got: $JWT_ALG" ; rm -rf "$JWT_DIR" ; exit 1 ; }
 [ "$JWT_SUB" = "1234567890" ] \
     && echo "PASS: jwtDecodeClaims returned valid JSON with sub=1234567890" \
-    || { echo "FAIL: expected sub=1234567890, got: $JWT_SUB" ; stop_pid "$JWT_SRV_PID" ; rm -rf "$JWT_DIR" ; exit 1 ; }
-stop_pid "$JWT_SRV_PID"
+  || { echo "FAIL: expected sub=1234567890, got: $JWT_SUB" ; rm -rf "$JWT_DIR" ; exit 1 ; }
 rm -rf "$JWT_DIR"
 echo
 
@@ -2510,8 +2530,10 @@ echo
 # Gated behind CURLEW_RUN_BACKEND_SMOKE=1 — default off until M14 stabilises.
 if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
   echo "--- Backend FileKeyProvider boot probe (M14-001) ---"
-  TMPKEYS=$(mktemp -d /tmp/curlew_keys_XXXXXX)
+  TMPKEYS=$(mktemp -d ${SMOKE_ROOT}/curlew_keys_XXXXXX)
+  BACKEND_SMOKE_URL="${CURLEW_BACKEND_URL:-http://localhost:5000}"
   ASPNETCORE_ENVIRONMENT=Testing \
+    ASPNETCORE_URLS="$BACKEND_SMOKE_URL" \
     Curlew__KeyProvider__Mode=file \
     Curlew__KeyProvider__Env=smoke \
     Curlew__KeyProvider__File__Dir="$TMPKEYS" \
@@ -2521,7 +2543,7 @@ if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
   register_path "$TMPKEYS"
   BACKEND_READY=0
   for i in $(seq 1 30); do
-    if curl -fsS http://localhost:5000/internal/keys/active >/dev/null 2>&1; then
+    if curl -fsS "$BACKEND_SMOKE_URL/internal/keys/active" >/dev/null 2>&1; then
       BACKEND_READY=1
       break
     fi
@@ -2533,7 +2555,7 @@ if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
     rm -rf "$TMPKEYS"
     exit 1
   fi
-  BACKEND_KID=$(curl -fsS http://localhost:5000/internal/keys/active | python3 -c "import sys,json; print(json.load(sys.stdin)['kid'])" 2>/dev/null || echo "MISSING")
+  BACKEND_KID=$(curl -fsS "$BACKEND_SMOKE_URL/internal/keys/active" | python3 -c "import sys,json; print(json.load(sys.stdin)['kid'])" 2>/dev/null || echo "MISSING")
   if [[ ! "$BACKEND_KID" =~ ^[a-z0-9-]{1,64}$ ]]; then
     echo "FAIL: kid '$BACKEND_KID' does not match the allowlist regex ^[a-z0-9-]{1,64}$" >&2
     stop_pid "$BACKEND_PID"
@@ -2568,16 +2590,8 @@ echo
 
 # ── M19-004: cel: assertions ──────────────────────────────────────────────────
 echo "=== M19-004: cel: assertions ==="
-CEL_PORT=9180
-(cd smoke/fixtures && python3 -m http.server "$CEL_PORT" --bind 127.0.0.1 >/dev/null 2>&1) &
-CEL_SRV_PID=$!
-register_pid "$CEL_SRV_PID"
-sleep 0.5
-cleanup_cel_srv() { stop_pid "$CEL_SRV_PID"; }
-
 CEL_RC=0
-CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --format terminal 2>&1) || CEL_RC=$?
-stop_pid "$CEL_SRV_PID"
+CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --var "base_url=$SMOKE_HTTPBIN_URL" --format terminal 2>&1) || CEL_RC=$?
 
 if [ "$CEL_RC" -ne 1 ]; then
   echo "FAIL: expected exit 1 (one failing CEL assertion), got $CEL_RC"

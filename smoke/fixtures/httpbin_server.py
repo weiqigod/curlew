@@ -35,6 +35,14 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):  # keep smoke output clean
         pass
 
+    def _send_json(self, payload):
+        out = json.dumps(payload).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
     def _echo(self, body):
         parsed = urlparse(self.path)
         payload = {
@@ -54,18 +62,18 @@ class Handler(BaseHTTPRequestHandler):
                     payload["json"] = json.loads(body)
                 except ValueError:
                     pass
-        out = json.dumps(payload).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(out)))
-        self.end_headers()
-        self.wfile.write(out)
+        self._send_json(payload)
 
     def _read_body(self):
         length = int(self.headers.get("Content-Length") or 0)
         return self.rfile.read(length)
 
     def do_GET(self):
+        if urlparse(self.path).path == "/cel_response.json":
+            self._send_json(
+                {"total": 9.50, "items": [{"price": 5.00}, {"price": 5.50}]}
+            )
+            return
         self._echo(None)
 
     def do_POST(self):
@@ -78,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     args = sys.argv[1:]
-    port = int(args.pop(0)) if args and not args[0].startswith("--") else 9190
+    port = int(args.pop(0)) if args and not args[0].startswith("--") else 0
     port_file = None
     if args:
         if len(args) != 2 or args[0] != "--port-file":
