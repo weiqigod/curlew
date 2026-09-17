@@ -14,7 +14,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-function Require-Tool {
+function Get-RequiredTool {
     param([Parameter(Mandatory)][string]$Name)
     $tool = Get-Command $Name -ErrorAction SilentlyContinue
     if ($null -eq $tool) {
@@ -32,13 +32,13 @@ function Invoke-Checked {
     }
 }
 
-$go = Require-Tool $GoCommand
+$go = Get-RequiredTool $GoCommand
 $goRoot = Split-Path -Parent (Split-Path -Parent $go)
 $env:GOROOT = $goRoot
 $env:PATH = (Split-Path -Parent $go) + ";" + $env:PATH
-$node = Require-Tool $NodeCommand
-$npm = Require-Tool $NpmCommand
-$python = Require-Tool $PythonCommand
+$node = Get-RequiredTool $NodeCommand
+$npm = Get-RequiredTool $NpmCommand
+$python = Get-RequiredTool $PythonCommand
 
 $goVersion = & $go version
 if ($LASTEXITCODE -ne 0 -or $goVersion -notmatch 'go1\.(\d+)') {
@@ -62,10 +62,10 @@ if ($PreflightOnly) {
     exit 0
 }
 
-$lint = Require-Tool $LintCommand
-$lintGo = Require-Tool $LintGoCommand
-$goreleaser = Require-Tool $GoReleaserCommand
-$cCompiler = Require-Tool $CCompilerCommand
+$lint = Get-RequiredTool $LintCommand
+$lintGo = Get-RequiredTool $LintGoCommand
+$goreleaser = Get-RequiredTool $GoReleaserCommand
+$cCompiler = Get-RequiredTool $CCompilerCommand
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
 Push-Location $repoRoot

@@ -54,6 +54,12 @@ The Go gate needs Go 1.24+, Node.js 22+ / npm, Python 3, Git, authenticated
 GitHub CLI access to this private repository, golangci-lint and GoReleaser v2.
 The frontend build is part of the binary build; release users do not need Node.
 
+On Windows, run `pwsh -NoProfile -File scripts/verify-windows.ps1` for native
+build, test, race, coverage, lint and smoke evidence. Its prerequisites are in
+`docs/WINDOWS.md`. This is supplementary platform coverage: the final committed
+revision must still pass auto-scoped `./scripts/ci-local.sh` on POSIX so release,
+install and Mudflat dogfood stages run unchanged.
+
 The Go gate (always run, whichever mode you pick) directly runs:
 
 - `./scripts/build-ui.sh` — install locked UI dependencies and build embedded assets

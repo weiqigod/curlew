@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Native Windows development foundations.** Added fail-closed PowerShell
+  verification and loopback smoke scripts, native plugin discovery and process
+  cleanup, quoted editor and batch-wrapper launch, stable API path labels,
+  isolated perf Ctrl+C coverage, and deterministic fixture bytes (M30-006).
 - **Portable agent skill installation.** `skill install` and `skill update` target
   Codex, Claude Code or Copilot projects without changing configuration. Hash-based
   updates preserve team edits and refuse conflicts before writes. The skill now
