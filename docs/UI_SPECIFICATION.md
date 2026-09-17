@@ -53,8 +53,14 @@ ui:
 
 Flags override the corresponding configuration. `CURLEW_EDITOR` overrides
 `ui.editor`; the fallback is `code --goto`. Editor templates are split into
-arguments, not evaluated as shell scripts. A missing editor produces a diagnostic;
-it does not prevent running collections.
+arguments, not evaluated as shell scripts. In `ui.editor`, single and double
+quotes must preserve spaces and Windows backslashes in one argument. When
+CURLEW_EDITOR names a Windows batch wrapper, Curlew must pass literal arguments
+through the system command interpreter; `.cmd` and `.bat` wrappers receive spaces,
+quotes and shell metacharacters as data, not commands. NUL, CR,
+LF and batch invocations above the documented CMD length budget are rejected.
+A missing or invalid editor produces a diagnostic; it does not prevent running
+collections.
 
 ### 2.4 Exit codes
 

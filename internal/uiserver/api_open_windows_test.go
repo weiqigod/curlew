@@ -4,7 +4,6 @@ package uiserver
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,13 +29,13 @@ func TestStartEditorWindowsPreservesArguments(t *testing.T) {
 
 	for _, extension := range []string{".cmd", ".bat"} {
 		wrapper := filepath.Join(dir, "editor"+extension)
-		body := fmt.Sprintf("@echo off\r\n\"%s\" %%*\r\n", recorder)
+		body := "@echo off\r\n\"%~dp0argvrecorder.exe\" %*\r\n"
 		if err := os.WriteFile(wrapper, []byte(body), 0o600); err != nil {
 			t.Fatalf("write wrapper: %v", err)
 		}
 	}
 	codeWrapper := filepath.Join(dir, "code.cmd")
-	body := fmt.Sprintf("@echo off\r\n\"%s\" %%*\r\n", recorder)
+	body := "@echo off\r\n\"%~dp0argvrecorder.exe\" %*\r\n"
 	if err := os.WriteFile(codeWrapper, []byte(body), 0o600); err != nil {
 		t.Fatalf("write code wrapper: %v", err)
 	}
@@ -64,8 +63,20 @@ func TestStartEditorWindowsPreservesArguments(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			output := filepath.Join(t.TempDir(), "argv.json")
 			t.Setenv("CURLEW_EDITOR_ARGV_FILE", output)
-			if err := startEditor(dir, append([]string{test.program}, want...)); err != nil {
-				t.Fatalf("startEditor: %v", err)
+			args := append([]string{test.program}, want...)
+			if test.program == recorder {
+				if err := startEditor(dir, args); err != nil {
+					t.Fatalf("startEditor: %v", err)
+				}
+			} else {
+				cmd, err := editorCommand(args)
+				if err != nil {
+					t.Fatalf("editorCommand: %v", err)
+				}
+				cmd.Dir = dir
+				if output, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("run editor wrapper: %v\n%s", err, output)
+				}
 			}
 			got := waitEditorArgs(t, output)
 			if !reflect.DeepEqual(got, want) {
