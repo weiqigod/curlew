@@ -3,6 +3,7 @@
   // Run/Cancel segment, caret menu with the §10.6.1.5 enablement table.
   import { onDestroy, onMount } from 'svelte';
   import { cancelActiveRun, startRun } from '../../controller';
+  import { fileBasename } from '../../format';
   import { pushEsc, registerKey } from '../../keyboard';
   import { route } from '../../router';
   import { focusedRequests } from '../../stores/focused-run';
@@ -35,7 +36,7 @@
     }
     return null;
   })();
-  $: focusedCollectionName = focusedCollection?.split('/').pop() ?? '';
+  $: focusedCollectionName = fileBasename(focusedCollection ?? '');
 
   $: selCount = $sidebarSelection.names.length;
   $: terminal = $runState === 'completed' || $runState === 'cancelled' || $runState === 'error';

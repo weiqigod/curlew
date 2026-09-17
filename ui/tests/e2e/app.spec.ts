@@ -42,10 +42,7 @@ test('run all: batch across collections, live rows, summary reconciles', async (
   // (basic.yaml, parallel.yaml, retried.yaml — broken.yaml is excluded).
   // The setup/teardown phase headers share the class, so filter on ".yaml".
   const groups = page.locator('.at-group-h', { hasText: '.yaml' });
-  await expect(groups).toHaveCount(3);
-  await expect(page.locator('.at-group-h', { hasText: 'basic.yaml' })).toBeVisible();
-  await expect(page.locator('.at-group-h', { hasText: 'parallel.yaml' })).toBeVisible();
-  await expect(page.locator('.at-group-h', { hasText: 'retried.yaml' })).toBeVisible();
+  await expect(groups).toHaveText(['basic.yaml', 'parallel.yaml', 'retried.yaml']);
   // basic.yaml: 6 passed / 1 failed / 1 error / 1 skipped (9 rows);
   // parallel.yaml: 3 passed; retried.yaml: 1 passed → 13 total, 10 passed.
   await expect(page.locator('span[aria-label="10 passed"]')).toBeVisible();

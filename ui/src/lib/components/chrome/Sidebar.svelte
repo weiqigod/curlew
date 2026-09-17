@@ -4,6 +4,7 @@
   // base_slug), selection mode scoped to one collection, read-only footer.
   import { onDestroy, onMount } from 'svelte';
   import type { LiveStatus } from '../../event-reducer';
+  import { fileBasename } from '../../format';
   import { pushEscFallback, registerKey } from '../../keyboard';
   import { navigate, route } from '../../router';
   import { focusedRequests, routeRunId } from '../../stores/focused-run';
@@ -134,7 +135,7 @@
   function toggleSelect(c: TreeCollection, r: TreeRequest, checked: boolean): void {
     sidebarSelection.update((sel) => {
       if (sel.collection !== null && sel.collection !== c.path && checked) {
-        toast(`selection moved to ${c.path.split('/').pop() ?? c.path}`);
+        toast(`selection moved to ${fileBasename(c.path)}`);
         return { collection: c.path, names: [r.name] };
       }
       const names = checked
@@ -224,7 +225,7 @@
             <span class="chev">
               {#if c.valid}<Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />{/if}
             </span>
-            <span class="cpath at-mono">{c.path.replace(/^collections\//, '')}</span>
+            <span class="cpath at-mono">{c.path.replace(/^collections[\\/]/, '')}</span>
             {#if !c.valid}
               <span class="invalid"><Icon name="warn" size={13} /> invalid</span>
             {:else}
