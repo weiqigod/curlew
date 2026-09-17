@@ -30,7 +30,7 @@ func TestHost_Load_WithRealFixture(t *testing.T) {
 	binPath := filepath.Join(tmp, discoveryExecutableName("hello-plugin"))
 
 	// Build the fixture relative to this test file.
-	cmd := exec.Command("go", "build", "-o", binPath,
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", binPath,
 		"../../testdata/plugins/hello-plugin")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
