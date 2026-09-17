@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
-	"time"
 )
 
 func spawnPlugin(path string, stderr io.Writer) (io.WriteCloser, io.ReadCloser, func(), error) {
@@ -39,15 +38,11 @@ func spawnPlugin(path string, stderr io.Writer) (io.WriteCloser, io.ReadCloser, 
 	stop := func() {
 		once.Do(func() {
 			_ = stdin.Close()
-			select {
-			case <-waited:
-			case <-time.After(shutdownTimeout):
+			if !waitPluginExit(waited, shutdownTimeout) {
 				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
-				select {
-				case <-waited:
-				case <-time.After(shutdownTimeout):
+				if !waitPluginExit(waited, shutdownTimeout) {
 					_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-					<-waited
+					_ = waitPluginExit(waited, shutdownTimeout)
 				}
 			}
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)

@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -74,13 +73,11 @@ func spawnPlugin(path string, stderr io.Writer) (io.WriteCloser, io.ReadCloser, 
 	stop := func() {
 		once.Do(func() {
 			_ = stdin.Close()
-			select {
-			case <-waited:
-			case <-time.After(shutdownTimeout):
+			if !waitPluginExit(waited, shutdownTimeout) {
 				_ = windows.TerminateJobObject(job, 1)
-				<-waited
 			}
 			_ = windows.CloseHandle(job)
+			_ = waitPluginExit(waited, shutdownTimeout)
 		})
 	}
 	return stdin, stdout, stop, nil
