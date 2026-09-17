@@ -30,7 +30,7 @@ const testVersion = "9.9.9-ldflags-test"
 // directly to pass -buildvcs=false.
 func buildBinaryWithFlags(t *testing.T, extraFlags ...string) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "curlew")
+	binary := testExecutablePath(t.TempDir(), "curlew")
 	args := append([]string{"build"}, extraFlags...)
 	args = append(args, "-o", binary, ".")
 	cmd := exec.Command("go", args...)
@@ -548,7 +548,7 @@ func buildFixtureBinary(t *testing.T, fixtureDir string) (binPath, stampedVersio
 	t.Helper()
 
 	binDir := t.TempDir()
-	binPath = filepath.Join(binDir, "curlew")
+	binPath = testExecutablePath(binDir, "curlew")
 
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/curlew")
 	cmd.Dir = fixtureDir

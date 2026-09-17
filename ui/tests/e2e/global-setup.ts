@@ -8,12 +8,12 @@
 //     `curlew ui --port 0 --no-open --env dev`, parsing the printed
 //     URL + token from stdout.
 //  5. Persists everything the tests/teardown need to a state file in tmpdir.
-import { execSync } from 'node:child_process';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, execSync, spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { executableName } from '../../src/lib/platform';
 import { startEchoServer, refusedPort, type EchoServer } from './echo-server';
 import { writeFixtureProject } from './fixture';
 import { STATE_FILE, type E2EState, type UiServer } from './helpers';
@@ -54,9 +54,9 @@ function ensureSpaBuilt(): void {
 }
 
 function buildBinary(binDir: string): string {
-  const bin = path.join(binDir, 'curlew');
+  const bin = path.join(binDir, executableName(process.platform, 'curlew'));
   console.log('[e2e setup] building curlew binary');
-  execSync(`go build -o ${JSON.stringify(bin)} ./cmd/curlew`, { cwd: REPO_ROOT, stdio: 'inherit' });
+  execFileSync('go', ['build', '-o', bin, './cmd/curlew'], { cwd: REPO_ROOT, stdio: 'inherit' });
   return bin;
 }
 

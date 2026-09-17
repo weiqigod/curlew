@@ -55,7 +55,7 @@ func writeCollection(t *testing.T, dir, name, content string) string {
 
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "curlew")
+	binary := testExecutablePath(t.TempDir(), "curlew")
 	cmd := exec.Command("go", "build", "-o", binary, ".")
 	cmd.Dir = filepath.Join(".", ".")
 	out, err := cmd.CombinedOutput()
