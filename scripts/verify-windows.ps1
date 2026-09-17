@@ -33,6 +33,9 @@ function Invoke-Checked {
 }
 
 $go = Require-Tool $GoCommand
+$goRoot = Split-Path -Parent (Split-Path -Parent $go)
+$env:GOROOT = $goRoot
+$env:PATH = (Split-Path -Parent $go) + ";" + $env:PATH
 $node = Require-Tool $NodeCommand
 $npm = Require-Tool $NpmCommand
 $python = Require-Tool $PythonCommand
