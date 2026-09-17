@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$GoCommand = "go",
-    [string]$PythonCommand = "python"
+    [string]$PythonCommand = "python",
+    [string]$FixtureScript = "",
+    [int]$ReadyTimeoutSeconds = 15
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,6 +18,7 @@ function Invoke-Checked {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$fixture = if ($FixtureScript -eq "") { Join-Path $PSScriptRoot "fixtures/httpbin_server.py" } else { $FixtureScript }
 $marker = New-TemporaryFile
 Remove-Item -LiteralPath $marker -Force
 $smokeRoot = New-Item -ItemType Directory -Path $marker
@@ -23,7 +26,6 @@ $server = $null
 
 try {
     $portFile = Join-Path $smokeRoot "httpbin.port"
-    $fixture = Join-Path $PSScriptRoot "fixtures/httpbin_server.py"
     $startInfo = [Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = $PythonCommand
     $startInfo.UseShellExecute = $false
@@ -42,7 +44,7 @@ try {
     $env:CURLEW_TEAM_CONFIG = ""
     New-Item -ItemType Directory -Path $env:CURLEW_CONFIG_DIR | Out-Null
 
-    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    $deadline = [DateTime]::UtcNow.AddSeconds($ReadyTimeoutSeconds)
     while (-not (Test-Path -LiteralPath $portFile)) {
         if ($server.HasExited) { throw "loopback fixture exited $($server.ExitCode)" }
         if ([DateTime]::UtcNow -ge $deadline) { throw "loopback fixture did not publish its port" }
