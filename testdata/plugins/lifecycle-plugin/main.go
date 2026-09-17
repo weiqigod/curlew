@@ -20,6 +20,9 @@ type response struct {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "probe" {
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "child" {
 		signal.Ignore(os.Interrupt)
 		select {}

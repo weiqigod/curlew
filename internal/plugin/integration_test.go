@@ -4,6 +4,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -35,6 +36,7 @@ func TestHost_Load_WithRealFixture(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("go build fixture: %v", err)
 	}
+	warmPluginBinary(t, binPath)
 
 	host := NewHost(io.Discard)
 	loaded, errs, err := host.Load(context.Background(), binPath)
@@ -77,6 +79,7 @@ func TestHost_Close_RealProcessTree(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build lifecycle plugin: %v\n%s", err, output)
 	}
+	warmPluginBinary(t, binary, "probe")
 
 	pidFile := filepath.Join(dir, "child.pid")
 	eofFile := filepath.Join(dir, "eof.marker")
@@ -108,6 +111,20 @@ func TestHost_Close_RealProcessTree(t *testing.T) {
 		t.Fatalf("plugin did not observe stdin EOF before termination: %v", err)
 	}
 	waitForProcessExit(t, childPID)
+}
+
+func warmPluginBinary(t *testing.T, binary string, args ...string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err := exec.CommandContext(ctx, binary, args...).Run()
+	var exitErr *exec.ExitError
+	if err != nil && !errors.As(err, &exitErr) {
+		t.Fatalf("warm plugin fixture: %v", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("warm plugin fixture: %v", ctx.Err())
+	}
 }
 
 func readPIDFile(t *testing.T, path string) int {
