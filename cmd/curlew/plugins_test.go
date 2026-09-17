@@ -822,8 +822,8 @@ func TestRun_HookPlugin_TwoPluginsChainInOrder(t *testing.T) {
 	defer srv.Close()
 
 	tmp := t.TempDir()
-	pathA := filepath.Join(tmp, "aplug")
-	pathB := filepath.Join(tmp, "bplug")
+	pathA := testExecutablePath(tmp, "aplug")
+	pathB := testExecutablePath(tmp, "bplug")
 	for _, p := range []string{pathA, pathB} {
 		if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 			t.Fatal(err)

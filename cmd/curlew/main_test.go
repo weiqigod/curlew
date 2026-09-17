@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,16 +54,38 @@ func writeCollection(t *testing.T, dir, name, content string) string {
 	return path
 }
 
+var (
+	sharedBinaryOnce   sync.Once
+	sharedBinaryDir    string
+	sharedBinaryPath   string
+	sharedBinaryOutput []byte
+	sharedBinaryErr    error
+)
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if sharedBinaryDir != "" {
+		_ = os.RemoveAll(sharedBinaryDir)
+	}
+	os.Exit(code)
+}
+
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	binary := testExecutablePath(t.TempDir(), "curlew")
-	cmd := exec.Command("go", "build", "-o", binary, ".")
-	cmd.Dir = filepath.Join(".", ".")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
+	sharedBinaryOnce.Do(func() {
+		sharedBinaryDir, sharedBinaryErr = os.MkdirTemp("", "curlew-test-binary-")
+		if sharedBinaryErr != nil {
+			return
+		}
+		sharedBinaryPath = testExecutablePath(sharedBinaryDir, "curlew")
+		cmd := exec.Command("go", "build", "-buildvcs=false", "-o", sharedBinaryPath, ".")
+		cmd.Dir = filepath.Join(".", ".")
+		sharedBinaryOutput, sharedBinaryErr = cmd.CombinedOutput()
+	})
+	if sharedBinaryErr != nil {
+		t.Fatalf("build failed: %v\n%s", sharedBinaryErr, sharedBinaryOutput)
 	}
-	return binary
+	return sharedBinaryPath
 }
 
 func runBinary(t *testing.T, binary string, args ...string) (stdout, stderr string, exitCode int) {
@@ -7543,7 +7566,7 @@ func TestImportOpenAPI_WritesCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if info.Mode().Perm() != 0o644 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o644 {
 		t.Errorf("mode = %v, want 0644", info.Mode().Perm())
 	}
 

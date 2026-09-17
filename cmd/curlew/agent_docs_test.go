@@ -70,10 +70,10 @@ func TestAgentManualRecipe(t *testing.T) {
 	if strings.Count(script, "curlew ") < 4 {
 		t.Fatal("agent recipe lost an execution step")
 	}
+	binary := buildBinary(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	base := quickstartServer(ctx, t)
-	binary := buildBinary(t)
 	dir := t.TempDir()
 	stdout, stderr, code := runBinaryInDir(t, binary, dir, "init")
 	if code != 0 {
