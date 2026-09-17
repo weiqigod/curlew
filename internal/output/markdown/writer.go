@@ -8,7 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+var reportPathLocks sync.Map
+
+func lockReportPath(path string) func() {
+	value, _ := reportPathLocks.LoadOrStore(path, &sync.Mutex{})
+	mutex := value.(*sync.Mutex)
+	mutex.Lock()
+	return mutex.Unlock
+}
 
 // EnsureReportDir creates the target directory via os.MkdirAll(0755).
 // The variadic subpath argument is reserved for M9-004 (data-driven
@@ -57,6 +67,9 @@ func writeAtomic(path string, data []byte) error {
 // writeFile dispatches the write to the correct splice action:
 // fresh write, sentinel splice, append orphan, or .md.new fallback.
 func writeFile(path, slug string, content []byte, errW io.Writer) error {
+	unlock := lockReportPath(path)
+	defer unlock()
+
 	existing, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		// Fresh write: no existing file.
