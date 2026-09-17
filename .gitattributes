@@ -2,4 +2,11 @@
 # socket, CRLF and all. Git must not normalise line endings in them: a CRLF→LF
 # conversion on checkout would rewrite every response's framing and fail every
 # golden comparison on a machine configured differently from the author's.
+*.md text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=lf
+internal/uiserver/assets/dist/*.html text eol=lf
+internal/uiserver/assets/dist/*.js text eol=lf
+internal/uiserver/assets/dist/*.css text eol=lf
+
 testapi/golden/** -text -diff
