@@ -15,12 +15,34 @@ declare -a SMOKE_OWNED_PIDS=()
 declare -a SMOKE_OWNED_PATHS=("$SMOKE_ROOT")
 register_pid() { SMOKE_OWNED_PIDS+=("$1"); }
 register_path() { SMOKE_OWNED_PATHS+=("$1"); }
+unregister_pid() {
+  local target="$1"
+  local -a retained=()
+  local pid
+  for pid in "${SMOKE_OWNED_PIDS[@]}"; do
+    if [ "$pid" != "$target" ]; then
+      retained+=("$pid")
+    fi
+  done
+  SMOKE_OWNED_PIDS=("${retained[@]}")
+}
+stop_pid() {
+  local pid="${1:-}"
+  if [ -z "$pid" ]; then
+    return
+  fi
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  unregister_pid "$pid"
+}
 cleanup() {
   local pid path
-  for pid in "${SMOKE_OWNED_PIDS[@]}"; do
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
-  done
+	  while [ "${#SMOKE_OWNED_PIDS[@]}" -gt 0 ]; do
+	    pid="${SMOKE_OWNED_PIDS[-1]}"
+	    unset 'SMOKE_OWNED_PIDS[-1]'
+	    kill "$pid" 2>/dev/null || true
+	    wait "$pid" 2>/dev/null || true
+	  done
   for path in "${SMOKE_OWNED_PATHS[@]}"; do
     rm -rf -- "$path"
   done
@@ -64,7 +86,7 @@ for _i in $(seq 1 50); do
   sleep 0.1
 done
 if [ "$SMOKE_HTTPBIN_READY" -ne 1 ]; then
-  kill "$SMOKE_HTTPBIN_PID" 2>/dev/null || true
+    stop_pid "$SMOKE_HTTPBIN_PID"
   fail "local httpbin fixture did not become ready on $SMOKE_HTTPBIN_URL"
 fi
 
@@ -963,7 +985,7 @@ echo "$FAKER_MD_CONTENT" | grep -qE '[0-9]{3}-[0-9]{2}-[0-9]{4}' \
   || echo "PASS: raw SSN value not present in --format markdown report"
 rm -rf "$FAKER_MD_DIR"; FAKER_MD_DIR=""
 
-kill "$FAKER_SRV_PID" 2>/dev/null || true
+stop_pid "$FAKER_SRV_PID"
 rm -f "$FAKER_FILE"
 echo
 
@@ -1025,7 +1047,7 @@ echo "$FIN_JSON_OUT" | grep -qE '"4[0-9]{15}"' \
   && fail "raw card pattern leaked into --format json output" "$FIN_JSON_OUT" \
   || echo "PASS: raw card value not present in --format json output"
 
-kill "$FIN_SRV_PID" 2>/dev/null || true
+stop_pid "$FIN_SRV_PID"
 rm -f "$FIN_FILE"
 echo
 
@@ -1329,6 +1351,7 @@ YAML
 # Start watcher in background
 ./curlew watch "$WATCH_DIR/col.yaml" --no-color &
 WATCH_PID=$!
+register_pid "$WATCH_PID"
 sleep 2
 # Trigger a file change
 echo "# touched" >> "$WATCH_DIR/col.yaml"
@@ -1336,6 +1359,7 @@ sleep 2
 # Stop the watcher
 kill -INT $WATCH_PID 2>/dev/null || true
 wait $WATCH_PID 2>/dev/null
+unregister_pid "$WATCH_PID"
 WATCH_EXIT=$?
 if [ "$WATCH_EXIT" -eq 0 ] || [ "$WATCH_EXIT" -eq 130 ]; then
   echo "PASS: watch exited cleanly (exit code $WATCH_EXIT)"
@@ -1362,9 +1386,11 @@ YAML
 WATCH_JSON_OUT=$(mktemp /tmp/curlew_watchjson_out_XXXXXX)
 ./curlew watch "$WATCH_JSON_DIR/col.yaml" --format json --no-color > "$WATCH_JSON_OUT" 2>/dev/null &
 WATCH_JSON_PID=$!
+register_pid "$WATCH_JSON_PID"
 sleep 2
 kill -INT $WATCH_JSON_PID 2>/dev/null || true
 wait $WATCH_JSON_PID 2>/dev/null
+unregister_pid "$WATCH_JSON_PID"
 # Verify no terminal decorations in output
 if grep -q "Watching for changes" "$WATCH_JSON_OUT"; then
   echo "FAIL: --format json should suppress 'Watching for changes' message"
@@ -1910,7 +1936,7 @@ SMOKE_OUT=$(./curlew run testdata/team/uses-team-vault.yaml --env production 2>&
 SMOKE_RC=$?
 
 unset CURLEW_TEAM_CONFIG CURLEW_VAULT_STUB
-kill "$SMOKE_SRV_PID" 2>/dev/null || true
+stop_pid "$SMOKE_SRV_PID"
 
 if [ "$SMOKE_RC" -eq 0 ]; then
   echo "PASS: team template run exit 0"
@@ -2007,6 +2033,7 @@ PERF_COL="/tmp/curlew_perf_smoke_$$.yaml"
 if command -v python3 >/dev/null 2>&1; then
   python3 -m http.server 18765 --bind 127.0.0.1 >/tmp/curlew_perf_http_$$.log 2>&1 &
   PERF_PID=$!
+  register_pid "$PERF_PID"
   # Give the server a moment to start.
   sleep 0.5
 
@@ -2021,10 +2048,10 @@ YAML
   PERF_OUT=$(./curlew perf "$PERF_COL" --vus 2 --duration 1s 2>&1) || SMOKE_RC=$?
   echo "$PERF_OUT" | grep -q "Load test: 2 virtual users" \
     && echo "PASS: perf prints header" \
-    || { echo "FAIL: perf header"; echo "$PERF_OUT"; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: perf header"; echo "$PERF_OUT"; stop_pid "$PERF_PID"; exit 1; }
   echo "$PERF_OUT" | grep -q "Requests sent:" \
     && echo "PASS: perf prints summary" \
-    || { echo "FAIL: perf summary missing"; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: perf summary missing"; stop_pid "$PERF_PID"; exit 1; }
 
   # M5-012: --output json report
   PERF_JSON="/tmp/curlew_perf_report_$$.json"
@@ -2033,10 +2060,10 @@ YAML
     --output "$PERF_JSON" > /tmp/curlew_perf_stdout_$$.log 2>&1 || SMOKE_RC=$?
   grep -q "Results: requests=" /tmp/curlew_perf_stdout_$$.log \
     && echo "PASS: perf --output json prints summary line" \
-    || { echo "FAIL: missing Results line"; cat /tmp/curlew_perf_stdout_$$.log; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: missing Results line"; cat /tmp/curlew_perf_stdout_$$.log; stop_pid "$PERF_PID"; exit 1; }
   [ -s "$PERF_JSON" ] && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$PERF_JSON" \
     && echo "PASS: perf --output json produces valid JSON" \
-    || { echo "FAIL: invalid or empty JSON"; cat "$PERF_JSON"; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: invalid or empty JSON"; cat "$PERF_JSON"; stop_pid "$PERF_PID"; exit 1; }
   rm -f "$PERF_JSON" /tmp/curlew_perf_stdout_$$.log
 
   # M5-012: --output html report
@@ -2045,7 +2072,7 @@ YAML
     --output "$PERF_HTML" > /dev/null 2>&1
   grep -q "<title>curlew perf report</title>" "$PERF_HTML" \
     && echo "PASS: perf --output html wrote expected title" \
-    || { echo "FAIL: perf html missing title"; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: perf html missing title"; stop_pid "$PERF_PID"; exit 1; }
   rm -f "$PERF_HTML"
 
   # M5-012: unsupported extension -> exit 2
@@ -2053,13 +2080,13 @@ YAML
   ./curlew perf "$PERF_COL" --vus 1 --duration 200ms \
     --output "/tmp/x_smoke_$$.xyz" > /dev/null 2>/tmp/curlew_perf_err_$$.txt || SMOKE_RC=$?
   [ "$SMOKE_RC" -eq 2 ] && echo "PASS: unsupported extension exits 2" \
-    || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/curlew_perf_err_$$.txt; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: unsupported extension exited $SMOKE_RC"; cat /tmp/curlew_perf_err_$$.txt; stop_pid "$PERF_PID"; exit 1; }
   grep -qi "unsupported report format" /tmp/curlew_perf_err_$$.txt \
     && echo "PASS: stderr mentions unsupported format" \
-    || { echo "FAIL: stderr missing message"; cat /tmp/curlew_perf_err_$$.txt; kill "$PERF_PID" 2>/dev/null; exit 1; }
+    || { echo "FAIL: stderr missing message"; cat /tmp/curlew_perf_err_$$.txt; stop_pid "$PERF_PID"; exit 1; }
   rm -f /tmp/curlew_perf_err_$$.txt
 
-  kill "$PERF_PID" 2>/dev/null || true
+  stop_pid "$PERF_PID"
   rm -f "$PERF_COL" /tmp/curlew_perf_http_$$.log
 else
   echo "SKIP: python3 not available; skipping perf end-to-end test"
@@ -2399,6 +2426,7 @@ echo "--- Running webhook-sign Stripe (validates dynamic-fn + secret redaction) 
 WHSIG_SRV_PORT=9181
 python3 -m http.server $WHSIG_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
 WHSIG_SRV_PID=$!
+register_pid "$WHSIG_SRV_PID"
 sleep 0.3
 WHSIG_DIR=$(mktemp -d)
 cat > "$WHSIG_DIR/stripe.yaml" << 'YAML'
@@ -2420,16 +2448,16 @@ WHSIG_OUT=$(./curlew run "$WHSIG_DIR/stripe.yaml" \
 WHSIG_HDR=$(echo "$WHSIG_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['requests'][0].get('request_headers',{}).get('X-Stripe-Signature','MISSING'))" 2>/dev/null || echo "MISSING")
 echo "$WHSIG_HDR" | grep -q 't=1492774577,v1=' \
     && echo "PASS: Stripe-Signature t=...,v1=... header rendered" \
-    || { echo "FAIL: missing t=...,v1=... shape; got: $WHSIG_HDR" ; kill "$WHSIG_SRV_PID" 2>/dev/null || true ; rm -rf "$WHSIG_DIR" ; exit 1 ; }
+    || { echo "FAIL: missing t=...,v1=... shape; got: $WHSIG_HDR" ; stop_pid "$WHSIG_SRV_PID" ; rm -rf "$WHSIG_DIR" ; exit 1 ; }
 # Without --allow-sensitive, the secret value must not appear in JSON output.
 WHSIG_NOALLOW=$(./curlew run "$WHSIG_DIR/stripe.yaml" \
     --var payload='{"amount":1000}' \
     --var stripe_signing_secret=whsec_supersecret_donot_leak \
     -v --format json 2>/dev/null)
 echo "$WHSIG_NOALLOW" | grep -q 'whsec_supersecret_donot_leak' \
-    && { echo "FAIL: secret leaked into --format json output" ; kill "$WHSIG_SRV_PID" 2>/dev/null || true ; rm -rf "$WHSIG_DIR" ; exit 1 ; } \
+    && { echo "FAIL: secret leaked into --format json output" ; stop_pid "$WHSIG_SRV_PID" ; rm -rf "$WHSIG_DIR" ; exit 1 ; } \
     || echo "PASS: secret not visible in serialised output"
-kill "$WHSIG_SRV_PID" 2>/dev/null || true
+stop_pid "$WHSIG_SRV_PID"
 rm -rf "$WHSIG_DIR"
 echo
 
@@ -2437,6 +2465,7 @@ echo "--- Running jwt-decode (validates JWT decode dynamic-fns produce valid JSO
 JWT_SRV_PORT=9182
 python3 -m http.server $JWT_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
 JWT_SRV_PID=$!
+register_pid "$JWT_SRV_PID"
 sleep 0.3
 JWT_DIR=$(mktemp -d)
 # JWT.io canonical example: HS256 over secret="your-256-bit-secret".
@@ -2469,11 +2498,11 @@ JWT_ALG=$(echo "$JWT_HDR_JSON" | python3 -c "import sys,json; d=json.loads(sys.s
 JWT_SUB=$(echo "$JWT_CLAIMS_JSON" | python3 -c "import sys,json; d=json.loads(sys.stdin.read().strip()); print(d.get('sub','MISSING'))" 2>/dev/null || echo "MISSING")
 [ "$JWT_ALG" = "HS256" ] \
     && echo "PASS: jwtDecodeHeader returned valid JSON with alg=HS256" \
-    || { echo "FAIL: expected alg=HS256, got: $JWT_ALG" ; kill "$JWT_SRV_PID" 2>/dev/null || true ; rm -rf "$JWT_DIR" ; exit 1 ; }
+    || { echo "FAIL: expected alg=HS256, got: $JWT_ALG" ; stop_pid "$JWT_SRV_PID" ; rm -rf "$JWT_DIR" ; exit 1 ; }
 [ "$JWT_SUB" = "1234567890" ] \
     && echo "PASS: jwtDecodeClaims returned valid JSON with sub=1234567890" \
-    || { echo "FAIL: expected sub=1234567890, got: $JWT_SUB" ; kill "$JWT_SRV_PID" 2>/dev/null || true ; rm -rf "$JWT_DIR" ; exit 1 ; }
-kill "$JWT_SRV_PID" 2>/dev/null || true
+    || { echo "FAIL: expected sub=1234567890, got: $JWT_SUB" ; stop_pid "$JWT_SRV_PID" ; rm -rf "$JWT_DIR" ; exit 1 ; }
+stop_pid "$JWT_SRV_PID"
 rm -rf "$JWT_DIR"
 echo
 
@@ -2500,19 +2529,19 @@ if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
   done
   if [ "$BACKEND_READY" -eq 0 ]; then
     echo "FAIL: backend did not start within 30 seconds" >&2
-    kill "$BACKEND_PID" 2>/dev/null || true
+    stop_pid "$BACKEND_PID"
     rm -rf "$TMPKEYS"
     exit 1
   fi
   BACKEND_KID=$(curl -fsS http://localhost:5000/internal/keys/active | python3 -c "import sys,json; print(json.load(sys.stdin)['kid'])" 2>/dev/null || echo "MISSING")
   if [[ ! "$BACKEND_KID" =~ ^[a-z0-9-]{1,64}$ ]]; then
     echo "FAIL: kid '$BACKEND_KID' does not match the allowlist regex ^[a-z0-9-]{1,64}$" >&2
-    kill "$BACKEND_PID" 2>/dev/null || true
+    stop_pid "$BACKEND_PID"
     rm -rf "$TMPKEYS"
     exit 1
   fi
   echo "PASS: kid=$BACKEND_KID"
-  kill "$BACKEND_PID" 2>/dev/null || true
+  stop_pid "$BACKEND_PID"
   rm -rf "$TMPKEYS"
   echo
 fi
@@ -2544,11 +2573,11 @@ CEL_PORT=9180
 CEL_SRV_PID=$!
 register_pid "$CEL_SRV_PID"
 sleep 0.5
-cleanup_cel_srv() { kill "$CEL_SRV_PID" 2>/dev/null || true; }
+cleanup_cel_srv() { stop_pid "$CEL_SRV_PID"; }
 
 CEL_RC=0
 CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --format terminal 2>&1) || CEL_RC=$?
-kill "$CEL_SRV_PID" 2>/dev/null || true
+stop_pid "$CEL_SRV_PID"
 
 if [ "$CEL_RC" -ne 1 ]; then
   echo "FAIL: expected exit 1 (one failing CEL assertion), got $CEL_RC"
@@ -2670,6 +2699,6 @@ export CURLEW_CONFIG_DIR="$SMOKE_CFG_DIR"
 echo
 
 rm -rf "$SMOKE_CFG_DIR" "$SMOKE_HELLO_DIR"
-kill "$SMOKE_HTTPBIN_PID" 2>/dev/null || true
+stop_pid "$SMOKE_HTTPBIN_PID"
 
 echo "=== Smoke Test Complete ==="
