@@ -2513,7 +2513,7 @@ fi
 
 # ── M19-001: if: conditional gate ─────────────────────────────────────────────
 echo "=== M19-001: if: conditional gate ==="
-IF_OUTPUT=$(./curlew run smoke/fixtures/if_conditional.yaml --format terminal 2>&1)
+IF_OUTPUT=$(./curlew run smoke/fixtures/if_conditional.yaml --var base_url="$SMOKE_HTTPBIN_URL" --format terminal 2>&1)
 echo "$IF_OUTPUT"
 if echo "$IF_OUTPUT" | grep -q "SKIPPED.*confirm-pending-order"; then
   echo "PASS: confirm-pending-order rendered as SKIPPED"
