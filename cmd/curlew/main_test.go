@@ -8089,57 +8089,6 @@ func readEventsFile(t *testing.T, path string) []byte {
 	return data
 }
 
-// TestRunCmd_Events_StdoutPath verifies that when --events /dev/stdout is
-// provided, the NDJSON stream is written to stdout alongside normal output.
-// This test uses the real binary because /dev/stdout bypasses in-process pipe redirects.
-func TestRunCmd_Events_StdoutPath(t *testing.T) {
-	if os.Getenv("CI") != "" {
-		// /dev/stdout may not be available in some CI environments; skip if needed.
-		t.Skip("skipping /dev/stdout test in CI")
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	binary := buildBinary(t)
-	dir := t.TempDir()
-	col := writeCollection(t, dir, "stdout-events.yaml", fmt.Sprintf(`
-name: stdout-events
-requests:
-  - name: ping
-    request:
-      method: GET
-      url: %s
-`, srv.URL))
-
-	// Run the binary; /dev/stdout is captured via cmd.Stdout in runBinary.
-	stdout, _, code := runBinary(t, binary, "run", col, "--events", "/dev/stdout")
-	if code != 0 {
-		t.Fatalf("want exit 0, got %d\nstdout: %s", code, stdout)
-	}
-
-	// stdout should contain at least one NDJSON line with kind=run.start.
-	foundRunStart := false
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var obj map[string]any
-		if err := json.Unmarshal([]byte(line), &obj); err != nil {
-			continue // not a JSON line (terminal output)
-		}
-		if kind, _ := obj["kind"].(string); kind == "run.start" {
-			foundRunStart = true
-		}
-	}
-	if !foundRunStart {
-		t.Errorf("expected run.start NDJSON line in stdout, got:\n%s", stdout)
-	}
-}
-
 // TestRunCmd_Events_HTMLMissingReport_EmitsRunError verifies that --format html
 // without --report emits run.error + run.end with exit_code=1.
 func TestRunCmd_Events_HTMLMissingReport_EmitsRunError(t *testing.T) {

@@ -516,7 +516,7 @@ func buildTaggedFixture(t *testing.T, tag string) string {
 	runFixtureGit(t, fixtureDir, "config", "user.name", "curlew-fixture")
 	runFixtureGit(t, fixtureDir, "config", "commit.gpgsign", "false")
 	runFixtureGit(t, fixtureDir, "config", "tag.gpgsign", "false")
-	runFixtureGit(t, fixtureDir, "config", "core.hooksPath", "/dev/null")
+	runFixtureGit(t, fixtureDir, "config", "core.hooksPath", os.DevNull)
 	runFixtureGit(t, fixtureDir, "add", "-A")
 	runFixtureGit(t, fixtureDir, "commit", "-q", "--no-verify", "-m", "fixture commit")
 	runFixtureGit(t, fixtureDir, "tag", tag)
