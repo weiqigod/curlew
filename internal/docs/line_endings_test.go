@@ -33,6 +33,7 @@ func TestRepositoryDeterministicTextUsesLF(t *testing.T) {
 		":(glob)testapi/collections/**/*.yaml",
 		"internal/schema/testdata/output_project_skill_claude.yaml",
 		":(glob)internal/signer/awssigv4/testdata/**/*.txt",
+		"ui/index.html",
 		"internal/uiserver/assets/dist/*.html",
 		"internal/uiserver/assets/dist/*.js",
 		"internal/uiserver/assets/dist/*.css",

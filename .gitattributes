@@ -23,6 +23,7 @@ examples/cookbook/*.yaml text eol=lf
 testapi/collections/**/*.yaml text eol=lf
 internal/schema/testdata/output_project_skill_claude.yaml text eol=lf
 internal/signer/awssigv4/testdata/**/*.txt text eol=lf
+ui/index.html text eol=lf
 internal/uiserver/assets/dist/*.html text eol=lf
 internal/uiserver/assets/dist/*.js text eol=lf
 internal/uiserver/assets/dist/*.css text eol=lf
