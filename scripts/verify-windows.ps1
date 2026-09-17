@@ -57,21 +57,23 @@ if ([int]$Matches[1] -lt 22) {
 Invoke-Checked $npm "--version"
 Invoke-Checked $python "--version"
 
+$lint = Get-RequiredTool $LintCommand
+$lintGo = Get-RequiredTool $LintGoCommand
+$goreleaser = Get-RequiredTool $GoReleaserCommand
+$cCompiler = Get-RequiredTool $CCompilerCommand
+
 if ($PreflightOnly) {
     Write-Output "WINDOWS_PREFLIGHT_PASS go=$goVersion node=$nodeVersion"
     exit 0
 }
 
-$lint = Get-RequiredTool $LintCommand
-$lintGo = Get-RequiredTool $LintGoCommand
-$goreleaser = Get-RequiredTool $GoReleaserCommand
-$cCompiler = Get-RequiredTool $CCompilerCommand
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
 Push-Location $repoRoot
 try {
     Invoke-Checked $npm "--prefix" "ui" "ci" "--no-fund"
     Invoke-Checked $npm "--prefix" "ui" "run" "check"
+    Invoke-Checked $npm "--prefix" "ui" "run" "lint"
     Invoke-Checked $npm "--prefix" "ui" "test"
     Invoke-Checked $npm "--prefix" "ui" "run" "build"
     Invoke-Checked $go "build" "./cmd/curlew"
