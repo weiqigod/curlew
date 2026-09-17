@@ -2109,4 +2109,6 @@ capabilities:
       - id: M30-005
         status: backlog
       - id: M30-006
-        status: backlog
+        status: planned
+        planned_date: 2026-09-17
+        branch: feature/M30-006-windows-foundation
