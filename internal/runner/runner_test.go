@@ -304,7 +304,11 @@ func TestRun_mixed_network_error_and_assertion_failure(t *testing.T) {
 
 func TestRun_total_duration_is_positive(t *testing.T) {
 	col := makeCollection([]string{"A"}, false)
-	_, summary, _ := Run(context.Background(), col, successExecutor, VarSources{})
+	delayedExecutor := func(ctx context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+		time.Sleep(time.Millisecond)
+		return successExecutor(ctx, req)
+	}
+	_, summary, _ := Run(context.Background(), col, delayedExecutor, VarSources{})
 	if summary.Duration <= 0 {
 		t.Errorf("duration = %v, want > 0", summary.Duration)
 	}

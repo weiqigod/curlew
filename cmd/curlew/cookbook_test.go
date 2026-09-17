@@ -74,7 +74,7 @@ func TestCookbookRecipes(t *testing.T) {
 
 func executeDocScript(t *testing.T, ctx context.Context, binary, dir, base, script string) string {
 	t.Helper()
-	cmd := exec.CommandContext(ctx, "bash", "-euo", "pipefail", "-c", script)
+	cmd := exec.CommandContext(ctx, testBash(t), "-euo", "pipefail", "-c", script)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"),
