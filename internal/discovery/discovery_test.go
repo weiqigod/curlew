@@ -84,7 +84,7 @@ func TestExpand(t *testing.T) {
 		},
 		{
 			name:    "absolute rejected",
-			pattern: "/etc/*.yaml",
+			pattern: filepath.Join(filepath.VolumeName(root)+string(filepath.Separator), "etc", "*.yaml"),
 			wantErr: ErrAbsolutePattern,
 		},
 		{

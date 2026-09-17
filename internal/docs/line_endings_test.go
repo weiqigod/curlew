@@ -15,6 +15,12 @@ func TestRepositoryDeterministicTextUsesLF(t *testing.T) {
 		"*.md",
 		"*.sh",
 		"*.ps1",
+		"*.json",
+		"*.ndjson",
+		"*.svx",
+		"*.yaml",
+		"*.yml",
+		"internal/signer/awssigv4/testdata",
 		"internal/uiserver/assets/dist/*.html",
 		"internal/uiserver/assets/dist/*.js",
 		"internal/uiserver/assets/dist/*.css",
@@ -31,16 +37,24 @@ func TestRepositoryDeterministicTextUsesLF(t *testing.T) {
 	if len(paths) == 0 {
 		t.Fatal("no deterministic text files found")
 	}
+	attr := exec.Command("git", "check-attr", "--stdin", "eol")
+	attr.Dir = root
+	attr.Stdin = strings.NewReader(strings.Join(paths, "\n") + "\n")
+	attrOutput, err := attr.Output()
+	if err != nil {
+		t.Fatalf("check eol attributes: %v", err)
+	}
+	attributes := make(map[string]string, len(paths))
+	for _, line := range strings.Split(strings.TrimSpace(string(attrOutput)), "\n") {
+		path, value, ok := strings.Cut(line, ": eol: ")
+		if ok {
+			attributes[path] = value
+		}
+	}
 	for _, path := range paths {
 		t.Run(strings.ReplaceAll(path, "/", "_"), func(t *testing.T) {
-			attr := exec.Command("git", "check-attr", "eol", "--", path)
-			attr.Dir = root
-			attrOutput, attrErr := attr.Output()
-			if attrErr != nil {
-				t.Fatalf("check eol attribute: %v", attrErr)
-			}
-			if !strings.HasSuffix(strings.TrimSpace(string(attrOutput)), "eol: lf") {
-				t.Fatalf("%s does not declare eol=lf: %s", path, attrOutput)
+			if attributes[path] != "lf" {
+				t.Fatalf("%s does not declare eol=lf: %q", path, attributes[path])
 			}
 
 			content, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))

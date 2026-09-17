@@ -5,6 +5,12 @@
 *.md text eol=lf
 *.sh text eol=lf
 *.ps1 text eol=lf
+*.json text eol=lf
+*.ndjson text eol=lf
+*.svx text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+internal/signer/awssigv4/testdata/**/*.txt text eol=lf
 internal/uiserver/assets/dist/*.html text eol=lf
 internal/uiserver/assets/dist/*.js text eol=lf
 internal/uiserver/assets/dist/*.css text eol=lf

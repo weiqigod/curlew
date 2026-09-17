@@ -176,7 +176,8 @@ func Format(err error) string {
 }
 
 func isConnectionRefused(err error) bool {
-	return strings.Contains(err.Error(), "connection refused")
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "connection refused") || strings.Contains(message, "actively refused")
 }
 
 func extractHost(err error) string {
