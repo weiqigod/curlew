@@ -23,7 +23,7 @@ func TestHost_Load_WithRealFixture(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	binPath := filepath.Join(tmp, "hello-plugin")
+	binPath := filepath.Join(tmp, discoveryExecutableName("hello-plugin"))
 
 	// Build the fixture relative to this test file.
 	cmd := exec.Command("go", "build", "-o", binPath,

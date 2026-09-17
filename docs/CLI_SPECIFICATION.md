@@ -1544,6 +1544,8 @@ space.
 
 `CURLEW_PLUGINS` holds a colon-separated (semicolon on Windows) list of plugin
 executables or directories. Directories expand to their executable entries.
+POSIX plugin candidates must be regular files with an execute bit. Windows plugin
+candidates must be regular `.exe` files; script wrappers are not accepted as plugins.
 
 ```bash
 export CURLEW_PLUGINS=/usr/local/lib/curlew-plugins:/home/me/my-plugin

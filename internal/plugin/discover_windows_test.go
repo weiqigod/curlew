@@ -7,9 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 func TestDiscoverWindowsExecutablePolicy(t *testing.T) {
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "Windows plugin candidates must be regular `.exe` files"); err != nil {
+		t.Fatal(err)
+	}
 	write := func(t *testing.T, dir, name string) string {
 		t.Helper()
 		path := filepath.Join(dir, name)
