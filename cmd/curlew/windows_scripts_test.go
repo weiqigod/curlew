@@ -28,6 +28,38 @@ func TestWindowsVerificationPreflightRejectsMissingTool(t *testing.T) {
 	}
 }
 
+func TestWindowsVerificationPreflightChecksDeveloperTools(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("PowerShell verification entry point is native Windows coverage")
+	}
+	pwsh, err := exec.LookPath("pwsh")
+	if err != nil {
+		t.Skip("pwsh not available")
+	}
+	script := filepath.Join("..", "..", "scripts", "verify-windows.ps1")
+	cmd := exec.Command(pwsh, "-NoProfile", "-File", script, "-PreflightOnly", "-LintCommand", "curlew-linter-that-does-not-exist")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("missing required linter exited 0\n%s", output)
+	}
+	if !strings.Contains(string(output), "curlew-linter-that-does-not-exist") {
+		t.Fatalf("missing-linter diagnostic = %q", output)
+	}
+}
+
+func TestWindowsVerificationRunsAllUIQualityChecks(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join("..", "..", "scripts", "verify-windows.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(content)
+	for _, command := range []string{`"run" "check"`, `"run" "lint"`, `"test"`, `"run" "build"`} {
+		if !strings.Contains(text, command) {
+			t.Errorf("Windows verifier is missing UI command %s", command)
+		}
+	}
+}
+
 func TestSmokeScriptsOwnOnlyTheirResources(t *testing.T) {
 	tests := []struct {
 		path      string
