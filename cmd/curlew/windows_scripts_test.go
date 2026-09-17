@@ -82,8 +82,19 @@ func TestSmokeScriptsOwnOnlyTheirResources(t *testing.T) {
 				"Get-NetTCPConnection",
 				"Get-Process |",
 				"taskkill",
+				"Start-Process -FilePath $PythonCommand -ArgumentList",
 			},
-			required: []string{"New-TemporaryFile", "127.0.0.1", "Stop-Process -Id $server.Id"},
+			required: []string{
+				"New-TemporaryFile",
+				"127.0.0.1",
+				"Stop-Process -Id $server.Id",
+				"ProcessStartInfo",
+				"ArgumentList.Add",
+				"CURLEW_CONFIG_DIR",
+				"CURLEW_TELEMETRY_FILE",
+				"CURLEW_PLUGINS",
+				"CURLEW_TEAM_CONFIG",
+			},
 		},
 	}
 
