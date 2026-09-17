@@ -1,7 +1,8 @@
 id: M30-006
 title: "Repair native Windows foundations and verification gates"
-status: planned
+status: in_progress
 planned_date: 2026-09-17
+started_date: 2026-09-17
 branch: feature/M30-006-windows-foundation
 priority: 1
 created: 2026-09-17
