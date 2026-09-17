@@ -6,6 +6,7 @@ param(
     [string]$NpmCommand = "npm.cmd",
     [string]$PythonCommand = "python",
     [string]$LintCommand = "golangci-lint",
+    [string]$LintGoCommand = "go",
     [string]$GoReleaserCommand = "goreleaser",
     [string]$CCompilerCommand = "gcc"
 )
@@ -59,6 +60,7 @@ if ($PreflightOnly) {
 }
 
 $lint = Require-Tool $LintCommand
+$lintGo = Require-Tool $LintGoCommand
 $goreleaser = Require-Tool $GoReleaserCommand
 $cCompiler = Require-Tool $CCompilerCommand
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -77,7 +79,16 @@ try {
     Invoke-Checked $go "test" "-p" "1" "-race" "./..." "-count=1" "-timeout=40m"
     Invoke-Checked $go "test" "-p" "1" "-coverprofile=coverage-windows.out" "./..." "-timeout=30m"
     Invoke-Checked $go "tool" "cover" "-func=coverage-windows.out"
-    Invoke-Checked $lint "run" "--timeout=10m"
+    $savedPath = $env:PATH
+    $savedGoRoot = $env:GOROOT
+    try {
+        $env:GOROOT = Split-Path -Parent (Split-Path -Parent $lintGo)
+        $env:PATH = (Split-Path -Parent $lintGo) + ";" + $savedPath
+        Invoke-Checked $lint "run" "--timeout=10m"
+    } finally {
+        $env:PATH = $savedPath
+        $env:GOROOT = $savedGoRoot
+    }
     Invoke-Checked $goreleaser "check"
     Invoke-Checked "pwsh" "-NoProfile" "-File" (Join-Path $repoRoot "smoke/run.ps1") "-GoCommand" $go "-PythonCommand" $python
     Write-Output "WINDOWS_VERIFY_PASS"
