@@ -159,6 +159,24 @@ func TestPosixSmokeRegistersEveryChild(t *testing.T) {
 	}
 }
 
+func TestPosixSmokeUsesDynamicPortsAndOwnedTempRoot(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join("..", "..", "smoke", "run.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(content)
+	fixedPort := regexp.MustCompile(`(?m)^[A-Z][A-Z0-9_]*_PORT=[0-9]+\s*$`)
+	if matches := fixedPort.FindAllString(text, -1); len(matches) > 0 {
+		t.Errorf("POSIX smoke contains fixed listener assignments: %v", matches)
+	}
+	if strings.Contains(text, "127.0.0.1:9190") {
+		t.Error("POSIX smoke contains the historical fixed HTTP fixture port")
+	}
+	if strings.Contains(text, "/tmp/") {
+		t.Error("POSIX smoke creates artifacts outside SMOKE_ROOT")
+	}
+}
+
 func TestHTTPBinFixtureSupportsDynamicPortFile(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join("..", "..", "smoke", "fixtures", "httpbin_server.py"))
 	if err != nil {
