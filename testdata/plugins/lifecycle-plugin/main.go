@@ -56,4 +56,7 @@ func main() {
 		_, _ = os.Stdout.Write(append(body, '\n'))
 	}
 	_ = os.WriteFile(os.Getenv("CURLEW_PLUGIN_EOF_FILE"), []byte("closed\n"), 0o600)
+	if os.Getenv("CURLEW_PLUGIN_STALL_AFTER_EOF") == "1" {
+		select {}
+	}
 }

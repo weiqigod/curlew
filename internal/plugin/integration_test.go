@@ -65,6 +65,15 @@ func TestHost_Load_WithRealFixture(t *testing.T) {
 }
 
 func TestHost_Close_RealProcessTree(t *testing.T) {
+	t.Run("cooperative exit", func(t *testing.T) {
+		testHostCloseRealProcessTree(t, false)
+	})
+	t.Run("stalled after EOF", func(t *testing.T) {
+		testHostCloseRealProcessTree(t, true)
+	})
+}
+
+func testHostCloseRealProcessTree(t *testing.T, stallAfterEOF bool) {
 	if testing.Short() {
 		t.Skip("skip in -short mode")
 	}
@@ -85,6 +94,9 @@ func TestHost_Close_RealProcessTree(t *testing.T) {
 	eofFile := filepath.Join(dir, "eof.marker")
 	t.Setenv("CURLEW_PLUGIN_CHILD_PID_FILE", pidFile)
 	t.Setenv("CURLEW_PLUGIN_EOF_FILE", eofFile)
+	if stallAfterEOF {
+		t.Setenv("CURLEW_PLUGIN_STALL_AFTER_EOF", "1")
+	}
 
 	host := NewHost(io.Discard)
 	plugins, channels, loadErrs, err := host.LoadForRun(context.Background(), binary)
@@ -104,8 +116,12 @@ func TestHost_Close_RealProcessTree(t *testing.T) {
 		}
 	})
 
+	started := time.Now()
 	if err := host.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > 2*shutdownTimeout {
+		t.Fatalf("Close took %s, want at most %s", elapsed, 2*shutdownTimeout)
 	}
 	if _, err := os.Stat(eofFile); err != nil {
 		t.Fatalf("plugin did not observe stdin EOF before termination: %v", err)
