@@ -4,12 +4,28 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Use an isolated config dir so results do not depend on this machine's
-# state (cached device/config files in the real config dir). The telemetry
-# section overrides CURLEW_CONFIG_DIR for its own fixtures and restores
-# this default when done.
-SMOKE_CFG_DIR=$(mktemp -d /tmp/curlew_smoke_cfg_XXXXXX)
+# Every temporary path and process belongs to this invocation. The single EXIT
+# trap never searches ports or deletes another run's files.
+SMOKE_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/curlew_smoke_XXXXXX")
+SMOKE_CFG_DIR="$SMOKE_ROOT/config"
+mkdir -p "$SMOKE_CFG_DIR"
 export CURLEW_CONFIG_DIR="$SMOKE_CFG_DIR"
+
+declare -a SMOKE_OWNED_PIDS=()
+declare -a SMOKE_OWNED_PATHS=("$SMOKE_ROOT")
+register_pid() { SMOKE_OWNED_PIDS+=("$1"); }
+register_path() { SMOKE_OWNED_PATHS+=("$1"); }
+cleanup() {
+  local pid path
+  for pid in "${SMOKE_OWNED_PIDS[@]}"; do
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+  for path in "${SMOKE_OWNED_PATHS[@]}"; do
+    rm -rf -- "$path"
+  done
+}
+trap cleanup EXIT
 
 # fail "message" [context lines...] — print a FAIL line (plus optional context)
 # and abort the run. Exiting via `exit 1` fires any active EXIT trap, so
@@ -28,25 +44,19 @@ fail() {
 # Hermetic HTTP fixture: smoke must never execute requests against the public
 # internet — a slow httpbin.org patch alone has failed the CI gate on network
 # weather. A local httpbin-compatible echo server stands in for httpbin.org;
-# collections below point at http://127.0.0.1:9190. The port is hardcoded
-# because most heredocs in this script are quote-escaped ('YAML') and cannot
-# expand variables. Sections that override the EXIT trap can leak the server
-# on a mid-run failure, so the next run self-heals by killing any stale
-# listener first (same pattern as the M14 stub backend).
+# collections below point at http://127.0.0.1:9190. The port remains fixed
+# because historical quoted heredocs contain that literal. If it is occupied,
+# this run fails rather than terminating or borrowing the existing listener.
 SMOKE_HTTPBIN_PORT=9190
 SMOKE_HTTPBIN_URL="http://127.0.0.1:${SMOKE_HTTPBIN_PORT}"
-lsof -ti "tcp:${SMOKE_HTTPBIN_PORT}" 2>/dev/null | xargs kill -9 2>/dev/null || true
-
-# Self-heal mktemp debris: macOS mktemp creates suffixed templates like
-# curlew_foo_XXXXXX.yaml literally (no randomisation), so a run that aborted
-# between a section's mktemp and its rm leaves a file that makes the next
-# run's mktemp fail with "File exists". Concurrent smoke runs on one machine
-# are unsupported regardless (fixed ports, shared /tmp names).
-rm -f /tmp/curlew_*_XXXXXX.yaml
 python3 "$SCRIPT_DIR/fixtures/httpbin_server.py" "$SMOKE_HTTPBIN_PORT" &
 SMOKE_HTTPBIN_PID=$!
+register_pid "$SMOKE_HTTPBIN_PID"
 SMOKE_HTTPBIN_READY=0
 for _i in $(seq 1 50); do
+  if ! kill -0 "$SMOKE_HTTPBIN_PID" 2>/dev/null; then
+    fail "local httpbin fixture could not bind $SMOKE_HTTPBIN_URL"
+  fi
   if curl -fsS "$SMOKE_HTTPBIN_URL/get" >/dev/null 2>&1; then
     SMOKE_HTTPBIN_READY=1
     break
@@ -646,8 +656,8 @@ echo
 
 echo "--- --seed produces deterministic output (run twice, same UUID in URL) ---"
 SEED_FILE=""
-trap 'rm -f "$SEED_FILE"' EXIT
 SEED_FILE=$(mktemp /tmp/curlew_seed_XXXXXX.yaml)
+register_path "$SEED_FILE"
 cat > "$SEED_FILE" << 'YAML'
 name: Seed Smoke
 requests:
@@ -892,12 +902,12 @@ echo "--- \$faker.ssn auto-redacted in -vv terminal output (M13-002) ---"
 FAKER_SRV_PORT=9177
 python3 -m http.server $FAKER_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
 FAKER_SRV_PID=$!
+register_pid "$FAKER_SRV_PID"
 sleep 0.3
 # mktemp -t is macOS-portable and avoids the literal-filename issue that arises
 # when a suffix follows the X-placeholder block on macOS (e.g. XXXXXXfoo.yaml).
 FAKER_FILE=$(mktemp -t curlew_faker_ssn)
-# Register cleanup so the temp file is removed on all exit paths (normal or error).
-trap 'rm -f "$FAKER_FILE"; rm -rf "${FAKER_MD_DIR:-}"; kill "$FAKER_SRV_PID" 2>/dev/null || true' EXIT
+register_path "$FAKER_FILE"
 cat > "$FAKER_FILE" << 'YAML'
 name: Faker SSN Redaction
 variables:
@@ -942,6 +952,7 @@ echo
 echo "--- \$faker.ssn auto-redacted in --format markdown output (M13-002) ---"
 # The markdown report renders the request body as JSON; the SSN must appear as [REDACTED].
 FAKER_MD_DIR=$(mktemp -d /tmp/curlew_faker_md_XXXXXX)
+register_path "$FAKER_MD_DIR"
 ./curlew run "$FAKER_FILE" --format markdown --report "$FAKER_MD_DIR" --no-color --seed 42 2>&1 || true
 FAKER_MD_CONTENT=$(cat "$FAKER_MD_DIR"/*.md 2>/dev/null || true)
 echo "$FAKER_MD_CONTENT" | grep -q '\[REDACTED\]' \
@@ -952,7 +963,6 @@ echo "$FAKER_MD_CONTENT" | grep -qE '[0-9]{3}-[0-9]{2}-[0-9]{4}' \
   || echo "PASS: raw SSN value not present in --format markdown report"
 rm -rf "$FAKER_MD_DIR"; FAKER_MD_DIR=""
 
-trap - EXIT
 kill "$FAKER_SRV_PID" 2>/dev/null || true
 rm -f "$FAKER_FILE"
 echo
@@ -961,9 +971,10 @@ echo "--- \$faker financial fields auto-redacted in -vv terminal output (M13-007
 FIN_SRV_PORT=9178
 python3 -m http.server $FIN_SRV_PORT --bind 127.0.0.1 >/dev/null 2>&1 &
 FIN_SRV_PID=$!
+register_pid "$FIN_SRV_PID"
 sleep 0.3
 FIN_FILE=$(mktemp -t curlew_faker_fin)
-trap 'rm -f "$FIN_FILE"; rm -rf "${FIN_MD_DIR:-}"; kill "$FIN_SRV_PID" 2>/dev/null || true' EXIT
+register_path "$FIN_FILE"
 cat > "$FIN_FILE" << 'YAML'
 name: Faker Financial Redaction
 variables:
@@ -992,6 +1003,7 @@ echo
 
 echo "--- \$faker financial fields auto-redacted in --format markdown output (M13-007) ---"
 FIN_MD_DIR=$(mktemp -d /tmp/curlew_faker_fin_md_XXXXXX)
+register_path "$FIN_MD_DIR"
 ./curlew run "$FIN_FILE" --format markdown --report "$FIN_MD_DIR" --no-color --seed 42 2>&1 || true
 FIN_MD_CONTENT=$(cat "$FIN_MD_DIR"/*.md 2>/dev/null || true)
 echo "$FIN_MD_CONTENT" | grep -q '\[REDACTED\]' \
@@ -1013,7 +1025,6 @@ echo "$FIN_JSON_OUT" | grep -qE '"4[0-9]{15}"' \
   && fail "raw card pattern leaked into --format json output" "$FIN_JSON_OUT" \
   || echo "PASS: raw card value not present in --format json output"
 
-trap - EXIT
 kill "$FIN_SRV_PID" 2>/dev/null || true
 rm -f "$FIN_FILE"
 echo
@@ -1889,12 +1900,8 @@ echo "--- Run with CURLEW_TEAM_CONFIG + stub ---"
 SMOKE_SRV_PORT=8099
 python3 -m http.server $SMOKE_SRV_PORT --bind 127.0.0.1 > /dev/null 2>&1 &
 SMOKE_SRV_PID=$!
+register_pid "$SMOKE_SRV_PID"
 sleep 0.5
-
-cleanup_smoke_srv() {
-  kill "$SMOKE_SRV_PID" 2>/dev/null || true
-}
-trap cleanup_smoke_srv EXIT
 
 export CURLEW_TEAM_CONFIG=testdata/team/shared-vault-template.yaml
 export CURLEW_VAULT_STUB=1
@@ -1904,7 +1911,6 @@ SMOKE_RC=$?
 
 unset CURLEW_TEAM_CONFIG CURLEW_VAULT_STUB
 kill "$SMOKE_SRV_PID" 2>/dev/null || true
-trap - EXIT
 
 if [ "$SMOKE_RC" -eq 0 ]; then
   echo "PASS: team template run exit 0"
@@ -2482,8 +2488,8 @@ if [ "${CURLEW_RUN_BACKEND_SMOKE:-}" = "1" ]; then
     Curlew__KeyProvider__File__Dir="$TMPKEYS" \
     dotnet run --project "$PROJECT_ROOT/src/ApiTool.Backend" --no-build &
   BACKEND_PID=$!
-  # shellcheck disable=SC2064
-  trap "kill $BACKEND_PID 2>/dev/null || true; rm -rf $TMPKEYS" EXIT
+  register_pid "$BACKEND_PID"
+  register_path "$TMPKEYS"
   BACKEND_READY=0
   for i in $(seq 1 30); do
     if curl -fsS http://localhost:5000/internal/keys/active >/dev/null 2>&1; then
@@ -2536,14 +2542,13 @@ echo "=== M19-004: cel: assertions ==="
 CEL_PORT=9180
 (cd smoke/fixtures && python3 -m http.server "$CEL_PORT" --bind 127.0.0.1 >/dev/null 2>&1) &
 CEL_SRV_PID=$!
+register_pid "$CEL_SRV_PID"
 sleep 0.5
 cleanup_cel_srv() { kill "$CEL_SRV_PID" 2>/dev/null || true; }
-trap cleanup_cel_srv EXIT
 
 CEL_RC=0
 CEL_OUTPUT=$(./curlew run smoke/fixtures/cel_assertions.yaml --format terminal 2>&1) || CEL_RC=$?
 kill "$CEL_SRV_PID" 2>/dev/null || true
-trap - EXIT
 
 if [ "$CEL_RC" -ne 1 ]; then
   echo "FAIL: expected exit 1 (one failing CEL assertion), got $CEL_RC"
@@ -2590,8 +2595,7 @@ echo
 ## M18-008: telemetry subcommand round-trip
 echo "--- M18-008: telemetry round-trip ---"
 SMOKE_TELEMETRY_DIR="$(mktemp -d)"
-cleanup_telemetry() { rm -rf "$SMOKE_TELEMETRY_DIR"; }
-trap cleanup_telemetry EXIT
+register_path "$SMOKE_TELEMETRY_DIR"
 
 export CURLEW_CONFIG_DIR="$SMOKE_TELEMETRY_DIR"
 export CURLEW_TELEMETRY_FILE="$SMOKE_TELEMETRY_DIR/telemetry.ndjson"

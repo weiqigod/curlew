@@ -15,11 +15,16 @@ checks assert on:
       data     raw request body decoded as UTF-8 ("" if binary), bodied methods only
       json     parsed body when Content-Type is JSON, else null, bodied methods only
 
-Usage: httpbin_server.py [port]   (binds 127.0.0.1, default port 9190)
+Usage: httpbin_server.py [port] [--port-file PATH]
+
+Port 0 asks the OS for an available loopback port. When --port-file is given,
+the selected port is written atomically before requests are served.
 """
 
 import json
+import os
 import sys
+import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qsl, urlparse
 
@@ -72,8 +77,30 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9190
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    args = sys.argv[1:]
+    port = int(args.pop(0)) if args and not args[0].startswith("--") else 9190
+    port_file = None
+    if args:
+        if len(args) != 2 or args[0] != "--port-file":
+            raise SystemExit("usage: httpbin_server.py [port] [--port-file PATH]")
+        port_file = args[1]
+
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    if port_file:
+        parent = os.path.dirname(os.path.abspath(port_file))
+        fd, temporary = tempfile.mkstemp(prefix="httpbin-port-", dir=parent)
+        try:
+            with os.fdopen(fd, "w", encoding="ascii") as stream:
+                stream.write(str(server.server_address[1]))
+                stream.write("\n")
+            os.replace(temporary, port_file)
+        except BaseException:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+            raise
+    server.serve_forever()
 
 
 if __name__ == "__main__":
