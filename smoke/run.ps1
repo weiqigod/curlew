@@ -23,10 +23,24 @@ $server = $null
 
 try {
     $portFile = Join-Path $smokeRoot "httpbin.port"
-    $serverOut = Join-Path $smokeRoot "httpbin.stdout.log"
-    $serverErr = Join-Path $smokeRoot "httpbin.stderr.log"
     $fixture = Join-Path $PSScriptRoot "fixtures/httpbin_server.py"
-    $server = Start-Process -FilePath $PythonCommand -ArgumentList @($fixture, "0", "--port-file", $portFile) -PassThru -NoNewWindow -RedirectStandardOutput $serverOut -RedirectStandardError $serverErr
+    $startInfo = [Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $PythonCommand
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in @($fixture, "0", "--port-file", $portFile)) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+    $server = [Diagnostics.Process]::Start($startInfo)
+    $server.BeginOutputReadLine()
+    $server.BeginErrorReadLine()
+
+    $env:CURLEW_CONFIG_DIR = Join-Path $smokeRoot "config"
+    $env:CURLEW_TELEMETRY_FILE = Join-Path $smokeRoot "telemetry.ndjson"
+    $env:CURLEW_PLUGINS = ""
+    $env:CURLEW_TEAM_CONFIG = ""
+    New-Item -ItemType Directory -Path $env:CURLEW_CONFIG_DIR | Out-Null
 
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
     while (-not (Test-Path -LiteralPath $portFile)) {
