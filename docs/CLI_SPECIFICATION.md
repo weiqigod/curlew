@@ -609,6 +609,13 @@ Nested references resolve to a depth of 10. A reference cycle
 (`a` → `b` → `a`) is a variable resolution error (exit 5). An undefined
 reference with no default is also exit 5.
 
+Dynamic functions in named variable values are evaluated when those variables
+are interpolated into a request, including `body_file` contents. For example,
+`invoice_id: "{{$timestampMs}}"` can be referenced as `{{invoice_id}}`.
+Dependent date expressions may reference other named variables. They share the
+existing per-request function cache; results are not fixed at project load time.
+No wrapper script is required, and explicit CLI overrides still take precedence.
+
 ### 6.2 Precedence
 
 Ten sources, lowest to highest. When a name is defined more than once, the

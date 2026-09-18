@@ -2,6 +2,38 @@
 
 Date: 2026-09-17. Status: proposed execution plan; implementation not started here.
 
+## Consolidation Handoff (2026-09-18)
+
+The user requested all local Curlew work be consolidated into local `main` before
+further repairs. M30-005 investigation and M30-006 foundations are already contained
+in M30-004 via merge `b0786e6`. The subsequent YAML dynamic-variable fix, tests,
+specification and verification notes are included in this handoff as well.
+The original plan and baseline below are historical, not the current build state.
+
+This consolidation is not a full-gate PASS or task completion. No remote push or
+release publication is authorized. Keep the task records in their current states.
+
+Consolidation check: the dynamic-variable unit regressions and backlog integrity
+passed. `TestBodyFile_ProjectDynamicValues` failed at its documentation assertion:
+`no claim in CLI_SPECIFICATION.md matches "Dynamic functions in named variable values"`.
+That assertion fails before the HTTP portion of the test. Preserve and fix this
+finding after consolidation; do not report the current CLI regression as passing.
+
+1. [ ] Review the combined code and current editor diagnostics from the main checkout.
+2. [ ] Complete native verification and the authoritative auto-scoped POSIX gate
+   on the combined revision. Earlier scoped checks and partial gate runs are evidence,
+   not a substitute for the final gate. GitHub.com authentication remains required
+   by the README installation stage; later release/install/dogfood stages still
+   need completion.
+3. [ ] Reconcile the M30-004/M30-006 review and verification records, then plan
+   M30-005 clean-host and packaged Windows acceptance.
+
+The installed executable at `C:\tools\curlew\curlew.exe` includes the YAML fix.
+The separate local API project
+remains outside this source repository. Its real vault mapping is still missing;
+only loopback requests were used for runtime verification. Do not copy that
+environment into this repository or send real invoices as part of consolidation.
+
 ## Goal
 
 Finish M30-004 with a passing required gate, then complete M30-005 with native

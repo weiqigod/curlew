@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Dynamic functions in YAML variable values.** Request interpolation now
+  evaluates named dynamic values and dependent date expressions without a wrapper
+  script, preserving request-scoped caching and explicit CLI overrides.
 - **Native Windows command and vault execution.** Command variables use explicit
   PowerShell/UTF-8 semantics; vault providers use structured arguments and child
   environments. Process containment and timeouts prevent lingering descendants,

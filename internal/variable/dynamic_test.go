@@ -156,6 +156,113 @@ func isHexColor(t *testing.T, val string) {
 
 // tests -----------------------------------------------------------------
 
+func TestScope_DynamicVariableValues(t *testing.T) {
+	registry := NewRegistry(nil)
+	frozen := time.Date(2026, time.September, 18, 10, 30, 0, 0, time.UTC)
+	registry.now = func() time.Time { return frozen }
+	calls := 0
+	registry.funcs["sequence"] = func(_ *rand.Rand, _ []string) (string, error) {
+		calls++
+		return strconv.Itoa(calls), nil
+	}
+	scope := NewScope(map[string]string{
+		"invoice_id":        "{{$sequence}}",
+		"invoice_timestamp": "{{$timestamp}}",
+		"invoice_date":      "{{$formatDate('{{invoice_timestamp}}', '2006-01-02')}}",
+		"due_timestamp":     "{{$dateAdd('30', 'day')}}",
+		"due_date":          "{{$formatDate('{{due_timestamp}}', '2006-01-02')}}",
+		"description":       "O'Brien & Co",
+		"encoded":           "{{$urlEncode('{{description}}')}}",
+	}).WithDynamic(registry)
+	if err := scope.Resolve(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatal("Resolve evaluated a request-time function")
+	}
+	for request := 1; request <= 2; request++ {
+		scope.BeginRequest()
+		got, err := scope.Interpolate("{{invoice_id}}|{{invoice_id|default:missing}}|{{invoice_date}}|{{due_date}}|{{encoded}}")
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := fmt.Sprintf("%d|%d|2026-09-18|2026-10-18|O%%27Brien+%%26+Co", request, request)
+		if got != want {
+			t.Errorf("request %d: got %q, want %q", request, got, want)
+		}
+		scope.EndRequest()
+	}
+	for _, mode := range []string{"snapshot", "request override"} {
+		t.Run(mode, func(t *testing.T) {
+			child := scope.Snapshot()
+			if mode == "request override" {
+				var err error
+				child, err = scope.WithOverrides(map[string]string{"unrelated": "value"})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			child.BeginRequest()
+			defer child.EndRequest()
+			got, err := child.Interpolate("{{invoice_date}}|{{due_date}}|{{encoded}}")
+			if err != nil || got != "2026-09-18|2026-10-18|O%27Brien+%26+Co" {
+				t.Fatalf("got %q, error %v", got, err)
+			}
+		})
+	}
+}
+
+func TestScope_DynamicVariableSafety(t *testing.T) {
+	t.Run("unknown function fails", func(t *testing.T) {
+		scope := NewScope(map[string]string{"value": "{{$doesNotExist}}"}).WithDynamic(NewRegistry(nil))
+		if err := scope.Resolve(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := scope.Interpolate("{{value}}"); err == nil {
+			t.Fatal("unknown function remained literal")
+		}
+	})
+	t.Run("cycle introduced after resolution is bounded", func(t *testing.T) {
+		scope := NewScope(nil).WithDynamic(NewRegistry(nil))
+		if err := scope.Resolve(); err != nil {
+			t.Fatal(err)
+		}
+		scope.Set("value", "{{$urlEncode('{{value}}')}}")
+		if _, err := scope.Interpolate("{{value}}"); !errors.Is(err, ErrDepthExceeded) {
+			t.Fatalf("got %v, want depth error", err)
+		}
+	})
+	t.Run("function output stays literal", func(t *testing.T) {
+		registry := NewRegistry(nil)
+		registry.funcs["literal"] = func(_ *rand.Rand, _ []string) (string, error) {
+			return "{{$doesNotExist}}", nil
+		}
+		scope := NewScope(map[string]string{"value": "{{$literal}}"}).WithDynamic(registry)
+		if err := scope.Resolve(); err != nil {
+			t.Fatal(err)
+		}
+		got, err := scope.Interpolate("{{value}}")
+		if err != nil || got != "{{$doesNotExist}}" {
+			t.Fatalf("function output was re-evaluated: %q, %v", got, err)
+		}
+	})
+	t.Run("sensitive generated values remain redacted", func(t *testing.T) {
+		sensitive := NewSensitiveSet()
+		scope := NewScope(map[string]string{"value": "{{$faker.ssn}}"}).
+			WithDynamic(NewRegistry(nil)).WithRuntimeSensitive(sensitive)
+		if err := scope.Resolve(); err != nil {
+			t.Fatal(err)
+		}
+		got, err := scope.Interpolate("{{value}}")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if values := sensitive.Values(); len(values) != 1 || values[0] != got {
+			t.Fatal("generated sensitive value was not registered")
+		}
+	})
+}
+
 func TestRegistry_Evaluate(t *testing.T) {
 	seed := int64(42)
 	reg := NewRegistry(&seed)

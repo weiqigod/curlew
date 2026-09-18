@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"mime"
 	"net/http"
@@ -11,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/weiqigod/curlew/internal/docs"
 )
@@ -180,6 +183,104 @@ func allows(want []string, got string) bool {
 		}
 	}
 	return false
+}
+
+func TestBodyFile_ProjectDynamicValues(t *testing.T) {
+	if _, err := docs.Prose("CLI_SPECIFICATION.md", "Dynamic functions in named variable values"); err != nil {
+		t.Fatal(err)
+	}
+	binary := buildBinary(t)
+	project := t.TempDir()
+	config := `project_name: dynamic-invoice
+variables:
+  invoice_id: "{{$timestampMs}}"
+  invoice_timestamp: "{{$timestamp}}"
+  invoice_date: "{{$formatDate('{{invoice_timestamp}}', '2006-01-02')}}"
+  due_timestamp: "{{$dateAdd('30', 'day')}}"
+  due_date: "{{$formatDate('{{due_timestamp}}', '2006-01-02')}}"
+`
+	type capturedInvoice struct {
+		ID       string  `json:"id"`
+		Payment  string  `json:"payment"`
+		Date     string  `json:"date"`
+		Due      string  `json:"due"`
+		Amount   float64 `json:"amount"`
+		HeaderID string
+		Err      error
+	}
+	received := make(chan capturedInvoice, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		var invoice capturedInvoice
+		invoice.Err = json.NewDecoder(request.Body).Decode(&invoice)
+		invoice.HeaderID = request.Header.Get("X-Invoice-ID")
+		received <- invoice
+		response.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+	collection := fmt.Sprintf(`name: YAML invoice
+requests:
+  - name: Submit invoice
+    variables:
+      unrelated: request-value
+    request:
+      method: POST
+      url: %q
+      headers:
+        X-Invoice-ID: "{{invoice_id}}"
+      body_file: invoice.json
+    assertions:
+      status: 201
+`, server.URL)
+	for name, content := range map[string]string{
+		"curlew.yaml": config,
+		"invoice.json": `{"id":"{{invoice_id}}","payment":"{{invoice_id}}",` +
+			`"date":"{{invoice_date}}","due":"{{due_date}}","amount":3125.00}`,
+		"collection.yaml": collection,
+	} {
+		if err := os.WriteFile(filepath.Join(project, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, override := range []bool{false, true} {
+		t.Run(fmt.Sprintf("override=%t", override), func(t *testing.T) {
+			args := []string{"run", "collection.yaml", "--format", "json"}
+			if override {
+				args = append(args, "--var", "invoice_id=fixed-id", "--var", "invoice_date=2026-01-01", "--var", "due_date=2026-01-31")
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			command := exec.CommandContext(ctx, binary, args...)
+			command.Dir = project
+			command.Env = append(os.Environ(), "CURLEW_TEAM_CONFIG=", "CURLEW_PLUGINS=", "CURLEW_CONFIG_DIR="+project)
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("CLI: %v\n%s", err, output)
+			}
+			var invoice capturedInvoice
+			select {
+			case invoice = <-received:
+			default:
+				t.Fatal("CLI did not send a request")
+			}
+			if invoice.Err != nil {
+				t.Fatal(invoice.Err)
+			}
+			if invoice.ID != invoice.Payment || invoice.ID != invoice.HeaderID || invoice.Amount != 3125 {
+				t.Fatalf("inconsistent invoice: %+v", invoice)
+			}
+			date, dateErr := time.Parse("2006-01-02", invoice.Date)
+			due, dueErr := time.Parse("2006-01-02", invoice.Due)
+			if dateErr != nil || dueErr != nil || due.Sub(date) != 30*24*time.Hour {
+				t.Fatalf("invalid dates: %+v", invoice)
+			}
+			if override {
+				if invoice.ID != "fixed-id" || invoice.Date != "2026-01-01" {
+					t.Fatalf("CLI override ignored: %+v", invoice)
+				}
+			} else if !regexp.MustCompile(`^\d{13}$`).MatchString(invoice.ID) || invoice.Date != time.Now().UTC().Format("2006-01-02") {
+				t.Fatalf("dynamic values not evaluated: %+v", invoice)
+			}
+		})
+	}
 }
 
 func TestDocTables_bodyFileExtensionsDetectWhatIsDocumented(t *testing.T) {

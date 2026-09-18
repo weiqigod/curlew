@@ -188,3 +188,32 @@ were fixed. Helper builds now locate the active compiler on PATH. Complete chang
 files in variable/vault/consolehelper pass lint. An unrestricted run also reports
 two pre-existing gofumpt findings in internal/variable/dynamic.go and
 dynamic_helpers.go; those files were not reformatted as part of this task.
+
+## YAML Variable Resolution Follow-up (2026-09-18)
+
+The installed CLI left dynamic functions inside named project variables literal.
+A focused regression reproduced the invoice ID/date failure, including nested
+date aliases and quoted values. Interpolation now evaluates the original named
+expression at request time with bounded recursion and the existing function cache.
+Request-scope copies preserve the expression. No invoice generation belongs in
+the external PowerShell runner; that workaround was removed.
+
+| Check | Result |
+| --- | --- |
+| ID/date/escaping regression before implementation | FAIL as expected, literal functions reached interpolation output |
+| Dynamic variable, override, recursion, sensitivity, and literal-return tests | PASS |
+| Existing interpolation/function/redaction and fuzz-seed checks | PASS |
+| Native Windows race check for interpolation/function scope | PASS |
+| Real CLI with project YAML, JSON body file and explicit overrides | PASS |
+| Pinned linter for this fix, complete changed files | PASS, 0 issues |
+| Installed executable with the external Ingestion Test project | PASS against loopback only; YAML generated IDs and UTC dates without runtime value overrides |
+
+The external project retains its existing customer and numeric invoice data.
+No Azure secret or business endpoint was accessed. This focused repair does not
+close the outstanding full-gate requirements above. The user subsequently requested
+local-main consolidation; see [the handoff](windows-repair-plan.md#consolidation-handoff-2026-09-18).
+
+Consolidation rerun: variable regressions and backlog integrity PASS. The final
+CLI regression now FAILS at its subsequently added `docs.Prose` assertion because
+the specification text is not recognized as a prose claim. Its earlier runtime
+PASS remains historical evidence, not a PASS for this final test revision.

@@ -327,6 +327,13 @@ func (s *Scope) Resolve() error {
 // with their resolved values. Returns error if any variable is undefined or an
 // unknown dynamic function is referenced.
 func (s *Scope) Interpolate(input string) (string, error) {
+	return s.interpolate(input, 0)
+}
+
+func (s *Scope) interpolate(input string, depth int) (string, error) {
+	if depth >= MaxDepth {
+		return "", fmt.Errorf("%w (max %d)", ErrDepthExceeded, MaxDepth)
+	}
 	// Pre-scan: if there are dynamic function calls and a runtimeSensitive
 	// set is attached, build a map of per-call sensitive-arg flags from the
 	// original (pre-secrets-substitution) input. This must happen before Pass 0
@@ -425,7 +432,7 @@ func (s *Scope) Interpolate(input string) (string, error) {
 			}
 			resolvedArgs := make([]string, len(argLits))
 			for i, lit := range argLits {
-				v, ierr := s.Interpolate(lit)
+				v, ierr := s.interpolate(lit, depth+1)
 				if ierr != nil {
 					retErr = ierr
 					return match
@@ -476,11 +483,15 @@ func (s *Scope) Interpolate(input string) (string, error) {
 	// and an undefined name here is not an error — supplying the fallback is
 	// the whole point of the form.
 	input = defaultPattern.ReplaceAllStringFunc(input, func(match string) string {
+		if retErr != nil {
+			return match
+		}
 		sub := defaultPattern.FindStringSubmatch(match)
 		if sub == nil {
 			return match
 		}
 		if val, ok := s.resolved[sub[1]]; ok {
+			val, retErr = s.interpolateVariable(sub[1], val, depth)
 			return val
 		}
 		return sub[2]
@@ -502,12 +513,24 @@ func (s *Scope) Interpolate(input string) (string, error) {
 			}
 			return match
 		}
+		val, retErr = s.interpolateVariable(name, val, depth)
 		return val
 	})
 	if retErr != nil {
 		return "", retErr
 	}
 	return result, nil
+}
+
+func (s *Scope) interpolateVariable(name, value string, depth int) (string, error) {
+	if s.registry == nil || !dynPattern.MatchString(value) {
+		return value, nil
+	}
+	raw, ok := s.vars[name]
+	if !ok {
+		raw = value
+	}
+	return s.interpolate(raw, depth+1)
 }
 
 // InterpolateMap replaces all {{var}} placeholders in map values.
@@ -567,6 +590,11 @@ func (s *Scope) WithOverrides(overrides map[string]string) (*Scope, error) {
 	}
 	merged := make(map[string]string, len(s.resolved)+len(overrides))
 	for k, v := range s.resolved {
+		if s.registry != nil && dynPattern.MatchString(v) {
+			if raw, ok := s.vars[k]; ok {
+				v = raw
+			}
+		}
 		merged[k] = v
 	}
 	for k, v := range overrides {
