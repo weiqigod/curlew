@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -244,6 +245,9 @@ func TestRaw_TrailingGarbageAfterCompleteResponse(t *testing.T) {
 }
 
 func TestRaw_ResetAfterNBytes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows may report a linger-zero close as clean after buffered bytes")
+	}
 	addr := startRawServer(t)
 	got, reset := rawGet(t, addr, "/raw/reset-after/20")
 

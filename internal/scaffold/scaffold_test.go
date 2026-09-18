@@ -285,41 +285,29 @@ func TestInit(t *testing.T) {
 }
 
 func TestInit_error_when_directory_not_writable(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("running as root, permission checks don't apply")
+	dir := filepath.Join(t.TempDir(), "project")
+	if err := os.WriteFile(dir, []byte("not a directory"), 0o600); err != nil {
+		t.Fatalf("seed target file: %v", err)
 	}
-	dir := t.TempDir()
-	// Make the directory read-only so MkdirAll / WriteFile fail
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatalf("chmod: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o750) })
 
 	err := Init(Options{Dir: dir})
 	if err == nil {
-		t.Fatal("expected error for non-writable directory, got nil")
+		t.Fatal("expected error when target directory is a file, got nil")
 	}
 }
 
 func TestInit_error_writing_curlew_yaml(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("running as root, permission checks don't apply")
+	parent := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(parent, []byte("blocker"), 0o600); err != nil {
+		t.Fatalf("seed parent file: %v", err)
 	}
-	dir := t.TempDir()
-	// Pre-create subdirs so MkdirAll succeeds, then make root read-only so WriteFile fails
-	for _, sub := range []string{"environments", "collections"} {
-		if err := os.MkdirAll(filepath.Join(dir, sub), 0o750); err != nil {
-			t.Fatalf("setup mkdir %s: %v", sub, err)
-		}
-	}
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatalf("chmod: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o750) })
 
-	err := Init(Options{Dir: dir})
+	err := writeFile(filepath.Join(parent, "curlew.yaml"), "project_name: test\n")
 	if err == nil {
-		t.Fatal("expected error when root dir is read-only, got nil")
+		t.Fatal("expected error when curlew.yaml parent is a file, got nil")
+	}
+	if !strings.Contains(err.Error(), "writing curlew.yaml") {
+		t.Fatalf("error = %q, want curlew.yaml write context", err)
 	}
 }
 

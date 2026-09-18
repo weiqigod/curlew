@@ -57,8 +57,16 @@ type Request struct {
 	QueryParams map[string]string
 }
 
+type requestDoer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // Execute sends an HTTP request and returns the result.
 func Execute(ctx context.Context, req *Request) (*Result, error) {
+	return executeWithClient(ctx, req, http.DefaultClient)
+}
+
+func executeWithClient(ctx context.Context, req *Request, client requestDoer) (*Result, error) {
 	reqURL, err := applyQueryParams(req.URL, req.QueryParams)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrNetwork, err)
@@ -84,7 +92,7 @@ func Execute(ctx context.Context, req *Request) (*Result, error) {
 	}
 
 	start := time.Now()
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		// Do() returned without a response, so there is no body to wait for and
 		// this is the whole of the exchange.

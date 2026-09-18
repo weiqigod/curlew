@@ -2,4 +2,30 @@
 # socket, CRLF and all. Git must not normalise line endings in them: a CRLF→LF
 # conversion on checkout would rewrite every response's framing and fail every
 # golden comparison on a machine configured differently from the author's.
+README.md text eol=lf
+docs/AGENT_GUIDE.md text eol=lf
+docs/CLI_SPECIFICATION.md text eol=lf
+docs/MANUAL.md text eol=lf
+examples/**/*.md text eol=lf
+templates/skills/**/*.md text eol=lf
+cmd/curlew/testdata/skill_agent_golden.md text eol=lf
+internal/output/markdown/testdata/golden/*.md text eol=lf
+scripts/**/*.sh text eol=lf
+smoke/**/*.sh text eol=lf
+testapi/harness/**/*.sh text eol=lf
+testdata/**/*.sh text eol=lf
+scripts/**/*.ps1 text eol=lf
+smoke/**/*.ps1 text eol=lf
+internal/output/events/testdata/golden/*.ndjson text eol=lf
+site/src/content/examples/*.svx text eol=lf
+examples/agent/*.yaml text eol=lf
+examples/cookbook/*.yaml text eol=lf
+testapi/collections/**/*.yaml text eol=lf
+internal/schema/testdata/output_project_skill_claude.yaml text eol=lf
+internal/signer/awssigv4/testdata/**/*.txt text eol=lf
+ui/index.html text eol=lf
+internal/uiserver/assets/dist/*.html text eol=lf
+internal/uiserver/assets/dist/*.js text eol=lf
+internal/uiserver/assets/dist/*.css text eol=lf
+
 testapi/golden/** -text -diff

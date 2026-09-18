@@ -666,7 +666,7 @@ func TestHistory_PersistListDeleteCompare(t *testing.T) {
 
 func TestOpen_NoEditor409AndLaunch(t *testing.T) {
 	ts, root := newTestServer(t, func(o *uiserver.Options) {
-		o.EditorCommand = "true {file}:{line}" // /usr/bin/true: succeeds, ignores args
+		o.EditorCommand = `"` + os.Args[0] + `" -test.run=^$ {file}:{line}`
 	})
 	writeFile(t, root, "collections/c.yaml", validCollection)
 

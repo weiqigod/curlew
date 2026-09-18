@@ -112,13 +112,9 @@ func TestLoadDotenv(t *testing.T) {
 }
 
 func TestLoadDotenv_unreadable_file(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("test requires non-root user")
-	}
-
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".env")
-	if err := os.WriteFile(path, []byte("KEY=val"), 0o000); err != nil {
+	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
 

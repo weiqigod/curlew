@@ -5,6 +5,7 @@
 import { get, writable } from 'svelte/store';
 import { ApiError } from './api/client';
 import { cancelRun, getCurrentRun, getRun, getRunRequests, startRun as postRun } from './api/runs';
+import { fileBasename } from './format';
 import { navigate } from './router';
 import { WsClient } from './ws';
 import { environments, loadEnvironments, selectedEnv } from './stores/environments';
@@ -117,7 +118,7 @@ function handleFrame(frame: WsFrame): void {
 
 function pulseWatch(paths: string[]): void {
   if (paths.length === 0) return;
-  const base = paths[0].split('/').pop() ?? paths[0];
+  const base = fileBasename(paths[0]);
   const extra = paths.length > 1 ? ` +${paths.length - 1}` : '';
   watchSeq++;
   watchEvent.set({ label: `${base}${extra} changed · tree reloaded`, seq: watchSeq });

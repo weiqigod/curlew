@@ -218,7 +218,7 @@ func (s *Server) handleEnvironments(w http.ResponseWriter, r *http.Request) {
 				Sensitive: sensitive,
 			})
 		}
-		envs = append(envs, envEntry{Name: name, File: file, Variables: vlist})
+		envs = append(envs, envEntry{Name: name, File: filepath.ToSlash(file), Variables: vlist})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"environments": envs})
 }

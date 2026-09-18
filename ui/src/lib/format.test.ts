@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { fmtBytes, fmtMs, fmtUs } from './format';
+import { fileBasename, fmtBytes, fmtMs, fmtUs } from './format';
+
+describe('fileBasename', () => {
+  it.each([
+    ['collections/users.yaml', 'users.yaml'],
+    ['collections\\users.yaml', 'users.yaml'],
+    ['collections\\nested/users.yaml', 'users.yaml'],
+    ['users.yaml', 'users.yaml'],
+    ['', ''],
+  ])('extracts the display name from %j', (input, expected) => {
+    expect(fileBasename(input)).toBe(expected);
+  });
+});
 
 describe('fmtUs', () => {
   it('renders sub-millisecond values in µs', () => {

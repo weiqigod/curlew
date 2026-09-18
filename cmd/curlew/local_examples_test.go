@@ -34,7 +34,10 @@ func TestLocalExampleRecipes(t *testing.T) {
 		startCommand = command
 	}
 	// The documented --port 0 option avoids fixed-port collisions in tests.
-	server := exec.CommandContext(ctx, "bash", "-euo", "pipefail", "-c", "exec "+startCommand+" --port 0")
+	if startCommand != "python3 examples/local-server.py" {
+		t.Fatalf("unexpected fixture command: %q", startCommand)
+	}
+	server := testPythonCommand(t, ctx, filepath.Join(root, "examples", "local-server.py"), "--port", "0")
 	server.Dir = root
 	pipe, err := server.StdoutPipe()
 	if err != nil {
@@ -53,6 +56,10 @@ func TestLocalExampleRecipes(t *testing.T) {
 		t.Fatalf("nonlocal fixture: %q", base)
 	}
 	dir := t.TempDir()
+	toolPath := filepath.Dir(binary) + string(os.PathListSeparator) + os.Getenv("PATH")
+	if shim := testPythonShim(t); shim != "" {
+		toolPath = shim + string(os.PathListSeparator) + toolPath
+	}
 	if err := os.CopyFS(filepath.Join(dir, "examples"), os.DirFS(filepath.Join(root, "examples"))); err != nil {
 		t.Fatal(err)
 	}
@@ -67,9 +74,9 @@ func TestLocalExampleRecipes(t *testing.T) {
 			if len(blocks) != 1 || blocks[0].lang != "bash" {
 				t.Fatal("expected one executable bash recipe")
 			}
-			command := exec.CommandContext(ctx, "bash", "-euo", "pipefail", "-c", blocks[0].body)
+			command := exec.CommandContext(ctx, testBash(t), "-euo", "pipefail", "-c", blocks[0].body)
 			command.Dir = dir
-			command.Env = append(os.Environ(), "PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"), "CURLEW_CONFIG_DIR="+t.TempDir(), "EXAMPLE_URL="+base, "CURLEW_PLUGINS=", "NO_COLOR=1")
+			command.Env = append(os.Environ(), "PATH="+toolPath, "CURLEW_CONFIG_DIR="+t.TempDir(), "EXAMPLE_URL="+base, "CURLEW_PLUGINS=", "NO_COLOR=1")
 			if out, err := command.CombinedOutput(); err != nil {
 				t.Fatalf("recipe failed: %v\n%s", err, out)
 			}

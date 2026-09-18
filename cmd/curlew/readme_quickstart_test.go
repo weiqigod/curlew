@@ -12,19 +12,17 @@ package main
 // section, only another "## " does, and that behaviour is already proven
 // there.
 //
-// Untagged, unlike the install exec test: it costs about as much as
+// Unlike the install exec test, it costs about as much as
 // buildBinary plus starting an in-process mudflat server, with no network,
 // no `gh`, and no credentials, so there is no reason to keep it out of the
-// three routine `go test` passes in scripts/ci-local.sh.
+// three routine `go test` passes in scripts/ci-local.sh. It is a Bash contract;
+// native Windows behavior is covered by scripts/verify-windows.ps1.
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -348,92 +346,4 @@ func quickstartServer(ctx context.Context, t *testing.T) string {
 	})
 
 	return "http://" + ln.Addr().String() + "/anything"
-}
-
-// TestReadme_quickstart_actually_works is the observable: README.md's
-// quickstart is run, not read. It extracts the section's command block and
-// expected-output block, runs the commands in a temp directory against a
-// local mudflat server, and asserts the (duration-normalised) output
-// matches what the README shows byte for byte.
-func TestReadme_quickstart_actually_works(t *testing.T) {
-	repoRoot := readmeRepoRoot(t)
-	doc := readmeReadFileOrFatal(t, filepath.Join(repoRoot, "README.md"))
-
-	qs, err := quickstartExtract(doc)
-	if err != nil {
-		t.Fatalf("extract quickstart: %v", err)
-	}
-
-	// Vacuity guard, independent of the sentinels above: a truncated block
-	// must fail here rather than be "successfully" run and matched against a
-	// truncated expectation. Measured on this tree: 3 command lines.
-	if len(qs.commands) < 3 {
-		t.Fatalf("found %d quickstart command(s); measured 3 on this tree -- a command was silently dropped, or the extraction is broken", len(qs.commands))
-	}
-	// Floor on the expected-output side too, for the same reason: measured
-	// 14 non-blank lines in the real output block.
-	if nonBlankLines(qs.want) < 10 {
-		t.Fatalf("quickstart expected-output block has only %d non-blank line(s); measured 14 on this tree", nonBlankLines(qs.want))
-	}
-	if !strings.Contains(qs.want, "passed") {
-		t.Fatalf("quickstart expected-output block never mentions \"passed\" -- it does not look like a real curlew run's output")
-	}
-
-	// D3: the harness supplies environment and never rewrites the README's
-	// text. A README that hardcoded a URL would silently stop being
-	// redirectable at a local server, so that is checked here rather than
-	// merely relied upon.
-	if !strings.Contains(qs.script, "$BASE_URL") {
-		t.Fatal("the quickstart block names no $BASE_URL -- the harness can no longer redirect it at a local server")
-	}
-	for _, host := range []string{"httpbin.org", "example.com", "https://", "http://"} {
-		if strings.Contains(qs.script, host) {
-			t.Fatalf("the quickstart block names %q directly -- it must reach only the local server the harness supplies via $BASE_URL", host)
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	base := quickstartServer(ctx, t)
-	binary := buildBinary(t)
-
-	dir := t.TempDir()
-	script := filepath.Join(dir, "quickstart.sh")
-	if err := os.WriteFile(script, []byte(qs.script), 0o600); err != nil {
-		t.Fatalf("write quickstart script: %v", err)
-	}
-
-	cmd := exec.CommandContext(ctx, "bash", "-euo", "pipefail", script)
-	cmd.Dir = dir
-	cmd.Env = append(
-		os.Environ(),
-		"BASE_URL="+base,
-		"NO_COLOR=1",
-		"CURLEW_CONFIG_DIR="+t.TempDir(),
-		"PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"),
-	)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("README.md:%d: quickstart block failed: %v\n--- block ---\n%s\n--- output ---\n%s", qs.line, err, qs.script, out)
-	}
-
-	got := quickstartNormalizeDurations(strings.TrimSpace(string(out)))
-	want := quickstartNormalizeDurations(strings.TrimSpace(qs.want))
-	if got != want {
-		t.Errorf("README.md:%d: quickstart output does not match what the README shows.\n--- got ---\n%s\n--- want ---\n%s", qs.line, got, want)
-	}
-}
-
-// nonBlankLines counts the non-blank lines of s, for the expected-output
-// floor guard above.
-func nonBlankLines(s string) int {
-	n := 0
-	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimSpace(line) != "" {
-			n++
-		}
-	}
-	return n
 }

@@ -2,10 +2,12 @@ package uiserver
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // handleOpen serves POST /api/v1/open (spec §4.13): launches the user's
@@ -43,29 +45,34 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	args := buildEditorArgs(editor, abs, body.Line)
+	args, err := buildEditorArgs(editor, abs, body.Line)
+	if err != nil {
+		writeAPIError(w, http.StatusConflict, "no_editor", "invalid editor command: "+err.Error(),
+			"set ui.editor in curlew.yaml or $CURLEW_EDITOR", nil)
+		return
+	}
 	if len(args) == 0 {
 		writeAPIError(w, http.StatusConflict, "no_editor", "editor command is empty",
 			"set ui.editor in curlew.yaml or $CURLEW_EDITOR", nil)
 		return
 	}
-	cmd := exec.Command(args[0], args[1:]...) //nolint:gosec // user-configured editor command, localhost-only server
-	cmd.Dir = s.opts.Root
-	if err := cmd.Start(); err != nil {
+	if err := startEditor(s.opts.Root, args); err != nil {
 		writeAPIError(w, http.StatusConflict, "no_editor", "could not launch editor: "+err.Error(),
 			"set ui.editor in curlew.yaml or $CURLEW_EDITOR", nil)
 		return
 	}
-	go func() { _ = cmd.Wait() }() // reap; non-zero editor exit is not detected
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // buildEditorArgs executes the command template: {file}/{line} placeholders
 // substituted when present, else "<cmd> <abs-path>:<line>" appended (§4.13).
-func buildEditorArgs(template, absFile string, line int) []string {
-	fields := strings.Fields(template)
+func buildEditorArgs(template, absFile string, line int) ([]string, error) {
+	fields, err := splitEditorTemplate(template)
+	if err != nil {
+		return nil, err
+	}
 	if len(fields) == 0 {
-		return nil
+		return nil, nil
 	}
 	hasPlaceholder := strings.Contains(template, "{file}") || strings.Contains(template, "{line}")
 	out := make([]string, 0, len(fields)+1)
@@ -77,5 +84,48 @@ func buildEditorArgs(template, absFile string, line int) []string {
 	if !hasPlaceholder {
 		out = append(out, absFile+":"+strconv.Itoa(line))
 	}
-	return out
+	return out, nil
+}
+
+func splitEditorTemplate(template string) ([]string, error) {
+	if strings.ContainsAny(template, "\x00\r\n") {
+		return nil, fmt.Errorf("NUL, CR and LF are not allowed")
+	}
+	var args []string
+	var current strings.Builder
+	var quote rune
+	started := false
+	flush := func() {
+		if started {
+			args = append(args, current.String())
+			current.Reset()
+			started = false
+		}
+	}
+	for _, character := range template {
+		if quote != 0 {
+			if character == quote {
+				quote = 0
+			} else {
+				current.WriteRune(character)
+			}
+			started = true
+			continue
+		}
+		switch {
+		case character == '\'' || character == '"':
+			quote = character
+			started = true
+		case unicode.IsSpace(character):
+			flush()
+		default:
+			current.WriteRune(character)
+			started = true
+		}
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unmatched %q quote", quote)
+	}
+	flush()
+	return args, nil
 }

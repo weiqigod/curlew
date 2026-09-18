@@ -1,6 +1,6 @@
 # Running Curlew on Windows
 
-**Status checked: 2026-09-16.** This is the setup procedure and the remaining
+**Status checked: 2026-09-17.** This is the setup procedure and the remaining
 Windows work, not a claim of completed native Windows testing.
 
 ## What is ready, and what is not
@@ -8,16 +8,19 @@ Windows work, not a claim of completed native Windows testing.
 | Area | Evidence / status |
 |---|---|
 | Windows amd64 and arm64 executables and ZIP archives | Cross-built and archive/checksum checks passed in the local gate. This does not prove native execution. |
-| Basic CLI and embedded browser UI | Native amd64 build and version/help passed. Full browser UI smoke verification remains open. |
+| Basic CLI and embedded browser UI | Native amd64 build, validation, loopback execution, documented failure and cleanup pass through `smoke/run.ps1`; the browser UI also runs locally. Packaged browser acceptance remains open. |
 | Agent skill installation | Codex, Claude Code and Copilot destinations implemented; native Windows filesystem/discovery verification remains open. |
 | Command-backed variables (`from_command`) | Native amd64 PowerShell/output/cancellation tests pass; Linux regression tests also pass. Full repository gate remains open. |
 | CLI-backed vault providers | Native `.exe` and compatible `.cmd` stubs pass for all five providers; real CLI loopback and redaction cases pass. Batch limits below apply. |
-| Documentation and verification scripts | Most recipes and `scripts/ci-local.sh` use Bash. The PowerShell build below avoids Bash, but the full development gate is not yet a native Windows gate. |
+| Plugins and editor launch | Native `.exe` plugin discovery, process-tree cleanup, quoted editor commands and `.cmd`/`.bat` forwarding pass local tests. |
+| Development verification | `scripts/verify-windows.ps1` runs native checks; `scripts/ci-local.sh` remains the authoritative repository gate. |
 
 Open work is tracked in [M30-004: command/vault portability](../management/tasks/M30-004.yaml)
 and [M30-005: native Windows verification](../management/tasks/M30-005.yaml).
-Neither task is complete. WSL success does not count as native Windows evidence.
-The command implementation does not require Git Bash. See the
+Windows foundation fixes are tracked in [M30-006](../management/tasks/M30-006.yaml).
+M30-004 and M30-006 still need final workflow closure. WSL success counts only as
+POSIX evidence, not native Windows evidence. The command implementation does not
+require Git Bash. See the
 [M30-004 verification record](../management/plans/M30-004-verified.md) for actual
 checks and remaining blockers; packaged-app and arm64 checks are still open.
 The proposed [Windows repair plan](../management/plans/windows-repair-plan.md)
@@ -144,12 +147,44 @@ is **not verified**, not PASS. Report any failure with the command and diagnosti
 Stop fixture and UI processes when done. Store the evidence in the M30-005
 verification report, with a per-platform/per-feature PASS, FAIL or NOT RUN matrix.
 
+## Native developer verification
+
+The lightweight product smoke needs Go and Python 3 and uses only dynamic
+loopback ports. It creates one temporary root and terminates only its own fixture:
+
+```powershell
+pwsh -NoProfile -File smoke/run.ps1
+```
+
+The broader native entry point additionally requires Node.js 22+, npm,
+golangci-lint 2.11.2, GoReleaser 2.17.1 and a GCC-compatible Windows C compiler
+for `go test -race`. Check prerequisites without running the suites:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-windows.ps1 -PreflightOnly
+```
+
+Then run native build, UI, tests, race, coverage, lint, release-config and smoke
+checks:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-windows.ps1
+```
+
+The pinned golangci-lint 2.11.2 binary was built with Go 1.26 and cannot analyze
+Go 1.27 export data. Keep the active product compiler and pass a separate Go
+1.26.x executable through `-LintGoCommand` when using Go 1.27. This native script
+does not replace the authoritative auto-scoped `./scripts/ci-local.sh` POSIX run.
+A missing required tool fails preflight; it is not reported as a skipped pass.
+
 ## Remaining engineering work
 
-- **M30-004:** complete the authoritative full gate; resolve
-   any remaining review findings. Native scoped success is not final task completion.
-- **M30-005:** run the checklist on real Windows, resolve findings, add a repeatable
-  Windows smoke command, and update these instructions from observed results.
+- **M30-004:** complete the authoritative full gate and resolve any remaining
+   review findings. Native scoped success is not final task completion.
+- **M30-006:** record the completed native/Posix verification evidence and close
+   the foundation task after the authoritative gate passes.
+- **M30-005:** run the complete checklist on clean and packaged Windows installs,
+   resolve findings, and update these instructions from observed results.
   Separate the lightweight app smoke test from development tests needing Bash or
   other tools. Automatic hosted CI remains subject to the separate M29-001 billing
   decision; local Windows verification can proceed independently.

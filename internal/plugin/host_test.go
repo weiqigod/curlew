@@ -325,7 +325,7 @@ func TestHost_Load_HandshakeTimeout(t *testing.T) {
 // and returns its full path.
 func writeExe(t *testing.T, dir, name string) string {
 	t.Helper()
-	p := filepath.Join(dir, name)
+	p := filepath.Join(dir, discoveryExecutableName(name))
 	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -2111,3 +2111,8 @@ capabilities:
         branch: feature/M30-004-windows-commands
       - id: M30-005
         status: backlog
+      - id: M30-006
+        status: in_progress
+        planned_date: 2026-09-17
+        started_date: 2026-09-17
+        branch: feature/M30-006-windows-foundation
