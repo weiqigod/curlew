@@ -217,3 +217,24 @@ Consolidation rerun: variable regressions and backlog integrity PASS. The final
 CLI regression now FAILS at its subsequently added `docs.Prose` assertion because
 the specification text is not recognized as a prose claim. Its earlier runtime
 PASS remains historical evidence, not a PASS for this final test revision.
+
+## Editor Diagnostics Follow-up (2026-09-18)
+
+Fixed the 14 current-source entries from the user's Problems screenshot: four
+`fmt.Appendf` suggestions, four buffer-write suggestions, one error-comparison
+warning, and five unused parameters. Error identity is checked separately from
+the other result fields. Removed private-helper arguments were updated at every
+caller, including the Unix-only quickstart test. No diagnostic settings changed.
+
+| Check | Result |
+| --- | --- |
+| Focused binary-events, Markdown, raw HTTP golden bytes, WebSocket, session, retention, extraction, GraphQL and agent-guide tests | PASS |
+| `gopls check -severity=info` on the changed native files | PASS, no information, warnings or errors |
+| Native `go build ./...` | PASS, Go 1.27.1 |
+| Full uncapped `golangci-lint run` | PASS, 0 issues; v2.11.2 with Go 1.26.8 |
+| CLI test cross-compilation for linux/amd64 and darwin/amd64 | PASS; compilation only, not runtime evidence |
+
+Optional hint-level modernization suggestions are outside this cleanup. The
+known documentation-claim test failure and full-gate requirements above remain
+open. The user requested committing this cleanup and merging it into local main.
+No push or task completion is included.

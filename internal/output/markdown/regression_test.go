@@ -25,7 +25,8 @@ func maskVolatileLines(b []byte) []byte {
 			strings.HasPrefix(stripped, "started_at: ") {
 			// Replace volatile value with a fixed placeholder.
 			prefix := stripped[:strings.Index(stripped, ": ")+2]
-			buf.WriteString(prefix + "<masked>\n")
+			buf.WriteString(prefix)
+			buf.WriteString("<masked>\n")
 		} else {
 			buf.Write(line)
 		}

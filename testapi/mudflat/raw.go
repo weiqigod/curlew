@@ -485,7 +485,9 @@ func buildHugeHeaderResponse() []byte {
 	var b bytes.Buffer
 	b.WriteString("HTTP/1.1 200 OK\r\n")
 	b.WriteString("Content-Type: text/plain\r\n")
-	b.WriteString("X-Huge: " + strings.Repeat("v", 8192) + "\r\n")
+	b.WriteString("X-Huge: ")
+	b.WriteString(strings.Repeat("v", 8192))
+	b.WriteString("\r\n")
 	b.WriteString("Content-Length: 5\r\n")
 	b.WriteString("Connection: close\r\n")
 	b.WriteString("\r\n")

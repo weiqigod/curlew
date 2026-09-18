@@ -2717,7 +2717,7 @@ func executeDataDriven(
 
 	// Parallel data-driven execution
 	if item.DataDriven.Parallel {
-		return executeDataDrivenParallel(ctx, col, item, scope, exec, vars, phase, checkRequired, stopOnFailure, counter, maxRequests, collectionRetry, sectionRetry, globalRetry, ds)
+		return executeDataDrivenParallel(ctx, col, item, scope, exec, vars, phase, checkRequired, stopOnFailure, counter, collectionRetry, sectionRetry, globalRetry, ds)
 	}
 
 	// Execute iterations sequentially
@@ -2949,7 +2949,6 @@ func executeDataDrivenParallel(
 	checkRequired bool,
 	stopOnFailure bool,
 	counter *int,
-	maxRequests int,
 	collectionRetry *retry.FullConfig,
 	sectionRetry *retry.FullConfig,
 	globalRetry *retry.FullConfig,

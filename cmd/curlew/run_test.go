@@ -890,7 +890,7 @@ func TestBinary_Run_EventsFlag(t *testing.T) {
 
 	dir := t.TempDir()
 	col := filepath.Join(dir, "c.yaml")
-	if err := os.WriteFile(col, []byte(fmt.Sprintf(`
+	if err := os.WriteFile(col, fmt.Appendf(nil, `
 name: binary-events-test
 requests:
   - name: ping
@@ -899,7 +899,7 @@ requests:
       url: %q
     assertions:
       status: 200
-`, srv.URL)), 0o600); err != nil {
+`, srv.URL), 0o600); err != nil {
 		t.Fatalf("write collection: %v", err)
 	}
 	eventsPath := filepath.Join(dir, "events.jsonl")

@@ -4560,7 +4560,7 @@ func TestRun_DataDriven_ExtractionAccumulates(t *testing.T) {
 	writeCSVFile(t, dir, "data.csv", "val\na\nb\nc")
 
 	callNum := 0
-	exec := func(_ context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+	exec := func(_ context.Context, _ *httpexec.Request) (*httpexec.Result, error) {
 		callNum++
 		body := fmt.Sprintf(`{"id":"user_%d"}`, callNum)
 		return &httpexec.Result{
@@ -5410,7 +5410,7 @@ func TestRun_DataDriven_ParallelExtractionAccumulates(t *testing.T) {
 	writeCSVFile(t, dir, "data.csv", "val\na\nb\nc")
 
 	callNum := int32(0)
-	exec := func(_ context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+	exec := func(_ context.Context, _ *httpexec.Request) (*httpexec.Result, error) {
 		n := atomic.AddInt32(&callNum, 1)
 		body := fmt.Sprintf(`{"id":"user_%d"}`, n)
 		return &httpexec.Result{
@@ -7043,7 +7043,7 @@ func nilExec(_ context.Context, _ *httpexec.Request) (*httpexec.Result, error) {
 
 // --- GraphQL Error Handling Mode Tests (M2-031) ---
 
-func makeGraphQLCollection(body, globalMode, perReqMode string) (*parser.Collection, VarSources) {
+func makeGraphQLCollection(globalMode, perReqMode string) (*parser.Collection, VarSources) {
 	var gqlCfg *parser.GraphQLConfig
 	if perReqMode != "" {
 		gqlCfg = &parser.GraphQLConfig{
@@ -7121,7 +7121,7 @@ func TestRun_graphql_mode_matrix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			col, vars := makeGraphQLCollection(tt.body, tt.globalMode, tt.perReqMode)
+			col, vars := makeGraphQLCollection(tt.globalMode, tt.perReqMode)
 			results, summary, err := Run(context.Background(), col, makeGraphQLExecutor(tt.body), vars)
 			if err != nil {
 				t.Fatalf("Run() error: %v", err)
@@ -7145,7 +7145,7 @@ func TestRun_graphql_mode_matrix(t *testing.T) {
 func TestRun_graphql_warn_mode_updates_existing_test_behaviour(t *testing.T) {
 	// Verify existing warn test: partial success + warn → passes AND has warnings
 	exec := makeGraphQLExecutor(`{"errors":[{"message":"deprecated field"}],"data":{"user":{"name":"Alice"}}}`)
-	col, vars := makeGraphQLCollection("", "", "warn")
+	col, vars := makeGraphQLCollection("", "warn")
 
 	results, summary, err := Run(context.Background(), col, exec, vars)
 	if err != nil {

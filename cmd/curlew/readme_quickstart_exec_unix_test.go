@@ -42,7 +42,7 @@ func TestReadme_quickstart_actually_works(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	base := quickstartServer(ctx, t)
+	base := quickstartServer(t)
 	binary := buildBinary(t)
 	dir := t.TempDir()
 	script := filepath.Join(dir, "quickstart.sh")

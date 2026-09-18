@@ -107,7 +107,7 @@ func TestDocTable_graphqlMatrixIsWhatTheBinaryDoes(t *testing.T) {
 			}
 			want := row[col]
 			t.Run(outcome+"/"+mode, func(t *testing.T) {
-				col, vars := makeGraphQLCollection(body, "", mode)
+				col, vars := makeGraphQLCollection("", mode)
 				results, summary, err := Run(context.Background(), col, makeGraphQLExecutor(body), vars)
 				if err != nil {
 					t.Fatalf("Run: %v", err)

@@ -73,7 +73,7 @@ func TestAgentManualRecipe(t *testing.T) {
 	binary := buildBinary(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	base := quickstartServer(ctx, t)
+	base := quickstartServer(t)
 	dir := t.TempDir()
 	stdout, stderr, code := runBinaryInDir(t, binary, dir, "init")
 	if code != 0 {

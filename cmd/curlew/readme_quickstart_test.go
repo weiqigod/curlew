@@ -326,7 +326,7 @@ func TestReadme_quickstart_normalization(t *testing.T) {
 // A zero mudflat.Options gets the specification's defaults, allocates no TLS
 // material, and starts no goroutine of its own -- Serve is what starts
 // serving, so t.Cleanup below is what stops it.
-func quickstartServer(ctx context.Context, t *testing.T) string {
+func quickstartServer(t *testing.T) string {
 	t.Helper()
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
