@@ -238,3 +238,59 @@ Optional hint-level modernization suggestions are outside this cleanup. The
 known documentation-claim test failure and full-gate requirements above remain
 open. The user requested committing this cleanup and merging it into local main.
 No push or task completion is included.
+
+## Combined Verification Follow-up (2026-09-18)
+
+Base: `39d14ad`, with the following repairs, requested for commit on 2026-09-21. The earlier
+documentation-claim failure is resolved by expressing the existing contract as
+"must be evaluated"; the prose assertion is retained. Windows precedence fixtures
+now use PowerShell and a local `.cmd` provider stub. Fast-loopback timing tests
+accept zero at the host clock resolution, with new exact phase-arithmetic cases
+and the existing delayed-body regression retained. One Unix test cleanup now
+explicitly discards its close error. Go sources now check out with LF under
+`core.autocrlf=true`; the new regression failed before the attribute rule and
+passes after it, with raw golden transcripts still excluded from conversion.
+The watch integration test no longer limits reruns based on OS event-delivery
+speed; exact coalescing remains covered by the direct debounce-burst test.
+The editor-launch test now waits for its helper to report the exact file/line
+argument after leaving the temporary working directory, avoiding Windows cleanup
+failure while retaining asynchronous editor launch.
+No production implementation changed.
+
+| Check | Result |
+| --- | --- |
+| Real CLI YAML dynamic values and overrides | PASS, native Windows and Linux |
+| Native UI check, lint, unit tests, build | PASS; svelte-check 0 errors/warnings, 13 test files |
+| Native full ordinary tests, first run | FAIL on POSIX-only precedence fixtures, strictly positive fast-loopback timing assertions, and a filesystem debounce-count assumption; all failing groups pass on focused reruns |
+| Native full tests with coverage, final run | PASS, 87.5%; no failed test events |
+| Native race | All packages passed across the full run and a complete UI-server package rerun; the initial run failed only editor-helper directory cleanup, with no data race reported |
+| Native loopback smoke | PASS |
+| Windows amd64 snapshot ZIP on Windows | PASS: SHA-256, version, init, validate, embedded JavaScript/CSS, authenticated collection discovery; not clean-host acceptance |
+| LF checkout policy and native lint | PASS: RED/GREEN checkout regression, uncapped lint 0 issues |
+| Linux full ordinary tests and race | PASS |
+| Linux total coverage | PASS, 86.6% |
+| Linux full lint and smoke | PASS after Unix-only errcheck repair |
+| Linux release config, host snapshot, embedded UI, six archives/version/checksums | PASS |
+| README remote installation stage | BLOCKED: release not found; source install and clone cannot authenticate to GitHub |
+| Local Mudflat collections, parallel rendezvous, gaps, redaction, OpenAPI, curl cross-check and ledger | PASS, unchanged stages run separately after the install blocker |
+| Final test-only repairs on Linux | PASS for YAML/precedence, timing arithmetic, process containment and uncapped lint |
+| Final watch/timing race checks on Linux | PASS, complete packages |
+| Final editor-helper cleanup | PASS: native regression three times, complete UI-server race suites on Windows and Linux, final Linux lint 0 issues |
+
+Evidence: `%TEMP%/curlew-windows-verification-20260918-152628.log`,
+`%TEMP%/curlew-windows-smoke-20260918.log`,
+`%TEMP%/curlew-native-final-checks-20260918.log`,
+`%TEMP%/curlew-native-coverage-final-20260918.jsonl`,
+`%TEMP%/curlew-native-final-coverage-20260918.out`, and in WSL
+`~/.cache/curlew-ci-39d14ad-repaired.log` plus
+`~/.cache/curlew-dogfood-39d14ad.log`.
+
+The authoritative gate remains blocked, not passed with a skipped stage.
+The native verifier's original invocation also failed; the repaired native test,
+race, coverage, lint and smoke checks were verified separately, not represented
+as one uninterrupted script PASS.
+GitHub authentication and release visibility must be resolved before rerunning
+the README install checks and full gate. Clean-host Windows acceptance remains
+M30-005 work. No paid service, real vault, or business API was called. The user
+authorized a local commit only; no merge, push, task closure, or release
+publication is included in this follow-up.

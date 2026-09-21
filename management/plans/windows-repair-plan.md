@@ -1,6 +1,25 @@
 # Windows Repair Plan
 
-Date: 2026-09-17. Status: proposed execution plan; implementation not started here.
+Date: 2026-09-17. Updated: 2026-09-18. Status: implemented repairs; verification in progress.
+
+## Current Verification (2026-09-18)
+
+The documentation-claim failure below is fixed: the real CLI YAML/body-file test
+passes with dynamic values and explicit overrides. Native precedence fixtures and
+clock-resolution-sensitive HTTP tests were also repaired and pass focused checks.
+
+The Linux gate passed Go tests, race, 86.6% coverage, lint, smoke and all six
+release archives before failing at README installation: release access and Git
+authentication for `github.com/weiqigod/curlew` are unavailable. The unchanged
+local dogfood stages passed separately, including redaction and ledger checks.
+This is not an uninterrupted full-gate PASS. Native UI and smoke checks passed;
+the full native test/coverage run passed at 87.5%. Native race packages all passed
+across the full run and a complete UI-server rerun after fixing helper cleanup.
+The original Windows verifier invocation did not pass end to end. See the
+[verification report](M30-004-verified.md#combined-verification-follow-up-2026-09-18).
+The built Windows amd64 ZIP also passed checksum, version, init, validate, UI
+asset and authenticated discovery checks on this machine. Native lint passes
+with a regression-tested LF checkout policy. Clean-host acceptance is still open.
 
 ## Consolidation Handoff (2026-09-18)
 

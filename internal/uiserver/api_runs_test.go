@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -665,8 +666,17 @@ func TestHistory_PersistListDeleteCompare(t *testing.T) {
 }
 
 func TestOpen_NoEditor409AndLaunch(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	if err := listener.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CURLEW_TEST_EDITOR_ADDRESS", listener.Addr().String())
 	ts, root := newTestServer(t, func(o *uiserver.Options) {
-		o.EditorCommand = `"` + os.Args[0] + `" -test.run=^$ {file}:{line}`
+		o.EditorCommand = `"` + os.Args[0] + `" -test.run=^TestOpenEditorHelper$ -- "{file}:{line}"`
 	})
 	writeFile(t, root, "collections/c.yaml", validCollection)
 
@@ -675,11 +685,44 @@ func TestOpen_NoEditor409AndLaunch(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Errorf("open = %d, want 204", resp.StatusCode)
 	}
+	connection, err := listener.AcceptTCP()
+	if err != nil {
+		t.Fatalf("editor helper did not release its working directory: %v", err)
+	}
+	defer func() { _ = connection.Close() }()
+	if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var location string
+	if err := json.NewDecoder(connection).Decode(&location); err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(root, "collections", "c.yaml") + ":3"; location != want {
+		t.Fatalf("editor location = %q, want %q", location, want)
+	}
 
 	// Outside root → 400.
 	resp = apiPost(t, ts, "/api/v1/open", map[string]any{"file": "../etc/passwd", "line": 1})
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("open escape = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestOpenEditorHelper(t *testing.T) {
+	address := os.Getenv("CURLEW_TEST_EDITOR_ADDRESS")
+	if address == "" {
+		return
+	}
+	if err := os.Chdir(os.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	connection, err := net.DialTimeout("tcp4", address, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = connection.Close() }()
+	if err := json.NewEncoder(connection).Encode(os.Args[len(os.Args)-1]); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -18,6 +18,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Executable documentation and Windows test fixtures.** The dynamic-variable
+  contract is recognized by its prose regression. Precedence tests use native
+  shell/provider fixtures, and HTTP timing tests cover exact phase arithmetic
+  without requiring sub-clock-resolution loopback exchanges to measure positive.
+  Go-source checkouts retain LF for native formatting checks. Watch tests keep
+  event coalescing separate from OS-dependent file-notification timing.
 - **Dynamic functions in YAML variable values.** Request interpolation now
   evaluates named dynamic values and dependent date expressions without a wrapper
   script, preserving request-scoped caching and explicit CLI overrides.

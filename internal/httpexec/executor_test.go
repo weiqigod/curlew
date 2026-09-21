@@ -215,8 +215,8 @@ func TestExecute(t *testing.T) {
 			if result.StatusCode != tt.wantStatus {
 				t.Errorf("got status %d, want %d", result.StatusCode, tt.wantStatus)
 			}
-			if result.Duration <= 0 {
-				t.Error("expected positive duration")
+			if result.Duration < 0 {
+				t.Error("expected non-negative duration")
 			}
 		})
 	}

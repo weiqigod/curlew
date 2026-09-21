@@ -10,6 +10,24 @@ import (
 	"testing"
 )
 
+func TestGoSourcesUseLFOnWindowsCheckouts(t *testing.T) {
+	paths := []string{"cmd/curlew/main.go", "internal/variable/process_posix_test.go"}
+	args := []string{"-C", readmeRepoRoot(t), "-c", "core.autocrlf=true", "check-attr", "-z", "eol", "--"}
+	output, err := exec.Command("git", append(args, paths...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("check checkout attributes: %v\n%s", err, output)
+	}
+	fields := strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+	if len(fields) != 3*len(paths) {
+		t.Fatalf("unexpected attribute output: %q", output)
+	}
+	for index := range paths {
+		if fields[3*index+2] != "lf" {
+			t.Errorf("%s eol = %q, want lf for native gofumpt", fields[3*index], fields[3*index+2])
+		}
+	}
+}
+
 func TestWindowsVerificationPreflightRejectsMissingTool(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("PowerShell verification entry point is native Windows coverage")

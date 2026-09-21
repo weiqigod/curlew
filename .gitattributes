@@ -2,6 +2,7 @@
 # socket, CRLF and all. Git must not normalise line endings in them: a CRLF→LF
 # conversion on checkout would rewrite every response's framing and fail every
 # golden comparison on a machine configured differently from the author's.
+*.go text eol=lf
 README.md text eol=lf
 docs/AGENT_GUIDE.md text eol=lf
 docs/CLI_SPECIFICATION.md text eol=lf
