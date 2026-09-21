@@ -160,6 +160,9 @@ func TestScope_DynamicVariableValues(t *testing.T) {
 	registry := NewRegistry(nil)
 	frozen := time.Date(2026, time.September, 18, 10, 30, 0, 0, time.UTC)
 	registry.now = func() time.Time { return frozen }
+	registry.funcs["timestamp"] = func(_ *rand.Rand, _ []string) (string, error) {
+		return strconv.FormatInt(frozen.Unix(), 10), nil
+	}
 	calls := 0
 	registry.funcs["sequence"] = func(_ *rand.Rand, _ []string) (string, error) {
 		calls++

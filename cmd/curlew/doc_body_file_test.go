@@ -194,6 +194,7 @@ func TestBodyFile_ProjectDynamicValues(t *testing.T) {
 	config := `project_name: dynamic-invoice
 variables:
   invoice_id: "{{$timestampMs}}"
+	request_id: "{{$uuid}}"
   invoice_timestamp: "{{$timestamp}}"
   invoice_date: "{{$formatDate('{{invoice_timestamp}}', '2006-01-02')}}"
   due_timestamp: "{{$dateAdd('30', 'day')}}"
@@ -214,7 +215,12 @@ variables:
 		invoice.Err = json.NewDecoder(request.Body).Decode(&invoice)
 		invoice.HeaderID = request.Header.Get("X-Invoice-ID")
 		received <- invoice
+		response.Header().Set("Content-Type", "application/json")
+		response.Header().Set("X-Request-ID", request.Header.Get("X-Request-ID"))
 		response.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(response).Encode(invoice); err != nil {
+			t.Errorf("encode invoice response: %v", err)
+		}
 	}))
 	defer server.Close()
 	collection := fmt.Sprintf(`name: YAML invoice
@@ -227,9 +233,18 @@ requests:
       url: %q
       headers:
         X-Invoice-ID: "{{invoice_id}}"
+				X-Request-ID: "{{request_id}}"
       body_file: invoice.json
     assertions:
       status: 201
+			headers:
+				X-Request-ID:
+					equals: "{{request_id}}"
+			body:
+				$.id:
+					equals: "{{invoice_id}}"
+				$.payment:
+					equals: "{{invoice_id}}"
 `, server.URL)
 	for name, content := range map[string]string{
 		"curlew.yaml": config,
@@ -237,6 +252,7 @@ requests:
 			`"date":"{{invoice_date}}","due":"{{due_date}}","amount":3125.00}`,
 		"collection.yaml": collection,
 	} {
+		content = strings.ReplaceAll(content, "\t", "  ")
 		if err := os.WriteFile(filepath.Join(project, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -252,14 +268,15 @@ requests:
 			command := exec.CommandContext(ctx, binary, args...)
 			command.Dir = project
 			command.Env = append(os.Environ(), "CURLEW_TEAM_CONFIG=", "CURLEW_PLUGINS=", "CURLEW_CONFIG_DIR="+project)
-			if output, err := command.CombinedOutput(); err != nil {
-				t.Fatalf("CLI: %v\n%s", err, output)
-			}
+			output, runErr := command.CombinedOutput()
 			var invoice capturedInvoice
 			select {
 			case invoice = <-received:
 			default:
-				t.Fatal("CLI did not send a request")
+				t.Fatalf("CLI did not send a request: %v\n%s", runErr, output)
+			}
+			if runErr != nil {
+				t.Fatalf("CLI: %v\n%s", runErr, output)
 			}
 			if invoice.Err != nil {
 				t.Fatal(invoice.Err)

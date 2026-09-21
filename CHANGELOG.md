@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Dynamic values in response assertions.** Generated values stay consistent
+  across request fields, response assertions and extraction; the next request
+  gets a fresh cache. Native loopback CLI and browser runs cover invoice YAML
+  and JSON body files (M30-004).
 - **Executable documentation and Windows test fixtures.** The dynamic-variable
   contract is recognized by its prose regression. Precedence tests use native
   shell/provider fixtures, and HTTP timing tests cover exact phase arithmetic

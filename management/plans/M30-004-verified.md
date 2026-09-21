@@ -294,3 +294,69 @@ the README install checks and full gate. Clean-host Windows acceptance remains
 M30-005 work. No paid service, real vault, or business API was called. The user
 authorized a local commit only; no merge, push, task closure, or release
 publication is included in this follow-up.
+
+## Installed Windows Runtime Follow-up (2026-09-21)
+
+Scope: make the existing app usable on this Windows amd64 machine. No GitHub,
+real vault, business API, or paid service calls. Local repair branch:
+`fix/M30-004-dynamic-assertion-cache`, based on `1f03b70`. After runtime verification,
+the user requested a local commit and merge into `main`; no push is authorized.
+
+The installed binary reproduced a request-cache bug: invoice ID interpolation
+was consistent in the sent header and JSON body, but response assertions generated
+new values. The real-binary invoice regression failed with both dynamic and
+overridden invoice IDs (UUID header assertions make the failure independent of
+clock resolution). `InterpolateRequest` now retains the function cache through
+response handling; the next request resets it. Unit coverage checks fresh values
+and independent snapshot scopes. A nearby date fixture now freezes its timestamp
+function as well as its date-add clock; previously it only passed on September 18.
+
+| Check | Result |
+| --- | --- |
+| Existing API project validation | PASS before and after replacement; no project configuration changed |
+| Installed command discovery | Saved user PATH already correct; refreshed this terminal's stale process PATH |
+| Real-binary invoice regression | RED before repair, GREEN for both override cases afterward |
+| Request-cache lifecycle and snapshot isolation | PASS |
+| Complete requtil, runner, parallel and runservice packages | PASS |
+| Dynamic scope and registry tests | PASS after fixing the frozen-clock fixture |
+| Whole variable package attempt | Not a full pass: exceeded the five-minute package budget in Windows batch tests; interrupted `.cmd/long_argument` case passes separately |
+| Native affected-package lint | PASS, zero issues with Go 1.26.8 and ten-minute limit; first attempt exhausted five-minute limit |
+| Frontend build and native executable build | PASS |
+| Copied invoice YAML/JSON on loopback | PASS, two requests in sequential and parallel modes; stable ID, dates, numeric amounts |
+| JSON, NDJSON events and Markdown reports | PASS |
+| Browser run, request details and history | PASS, two requests and zero failures; JavaScript and CSS return HTTP 200 |
+| Actual project UI discovery | PASS, eight collections and 36 request entries; no real requests executed |
+| Disposable server cleanup | PASS, both test listeners stopped; actual project UI left running |
+
+Installed `C:\tools\curlew\curlew.exe` matches the verified candidate SHA-256:
+`6EF1F6D776E0B45DBDFECC6093A059CB63881ABC95728E1D924540BDA7A5D32F`.
+The previous binary is retained as `C:\tools\curlew\curlew-before-20260921.exe`.
+Both report `0.1.0-dev`; the hash distinguishes this local build. The candidate
+contains the complete embedded UI. Only the generated checkout index was restored
+after building; no generated assets are included in the source patch.
+
+Loopback evidence remains under `%LOCALAPPDATA%\Temp\Curlew Local Check 20260921`
+(events, Markdown reports, copied configuration and candidate executable).
+The Python fixture logged connection resets after completed HTTP responses when
+clients closed keep-alive sockets; all asserted requests passed.
+
+This is development-host runtime evidence, not clean-host, arm64, full race-suite,
+or uninterrupted authoritative-gate acceptance. Existing task statuses are unchanged.
+The real vault mapping and live API authentication remain unverified.
+
+### Local Merge Checks (2026-09-21)
+
+The pre-commit native build passed. Whole-repository lint passed with zero issues
+using Go 1.26.8 and golangci-lint 2.11.2. The full native Go test run used
+`go test -json -p 4 -timeout=30m ./...`; its retained log is
+`%TEMP%\curlew-premerge-tests-20260921-105054.jsonl`.
+All other packages completed successfully, but the CLI package exhausted the
+30-minute budget during the dirty-tag build fixture. No individual test failed.
+Its first 490 top-level tests had completed; the remaining 13 were selected from
+the test list and rerun without repeating completed tests. All 13 passed in
+335 seconds, including both tagged-build cases and the Windows end-to-end smoke.
+The completion log is
+`%TEMP%\curlew-premerge-cli-remainder-20260921-112622.jsonl`.
+This is complete ordinary-test evidence across two runs, not an uninterrupted
+`go test ./...` pass. The original timeout remains recorded.
+These checks do not replace the broader authoritative gate or close the tasks.
