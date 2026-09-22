@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Windows developer setup no longer requires a C compiler by default.**
+  Verification defaults to a compiler-free `Local` profile; `Race`, `Release`
+  and `Full` explicitly retain specialized checks and fail on missing tools.
+  Profile-specific results distinguish local success from full verification,
+  and the caller's environment is restored (M30-006).
 - **Dynamic values in response assertions.** Generated values stay consistent
   across request fields, response assertions and extraction; the next request
   gets a fresh cache. Native loopback CLI and browser runs cover invoice YAML

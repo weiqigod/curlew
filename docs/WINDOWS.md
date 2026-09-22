@@ -1,6 +1,6 @@
 # Running Curlew on Windows
 
-**Status checked: 2026-09-17.** This is the setup procedure and the remaining
+**Setup updated: 2026-09-21.** This is the setup procedure and the remaining
 Windows work, not a claim of completed native Windows testing.
 
 ## What is ready, and what is not
@@ -8,12 +8,12 @@ Windows work, not a claim of completed native Windows testing.
 | Area | Evidence / status |
 |---|---|
 | Windows amd64 and arm64 executables and ZIP archives | Cross-built and archive/checksum checks passed in the local gate. This does not prove native execution. |
-| Basic CLI and embedded browser UI | Native amd64 build, validation, loopback execution, documented failure and cleanup pass through `smoke/run.ps1`; the browser UI also runs locally. Packaged browser acceptance remains open. |
-| Agent skill installation | Codex, Claude Code and Copilot destinations implemented; native Windows filesystem/discovery verification remains open. |
+| Basic CLI and embedded browser UI | Native amd64 build, validation, loopback execution, documented failure and cleanup pass through `smoke/run.ps1`. Installed-app browser opening, live file refresh, CLI watch, stop/restart and history persistence also pass on this host. Packaged browser acceptance remains open. |
+| Agent skill installation | Installed-app install/reinstall/update and local-edit preservation pass for Codex, Claude Code and Copilot destinations on a spaced/Unicode Windows path. Actual agent-host discovery remains unverified. |
 | Command-backed variables (`from_command`) | Native amd64 PowerShell/output/cancellation tests pass; Linux regression tests also pass. Full repository gate remains open. |
 | CLI-backed vault providers | Native `.exe` and compatible `.cmd` stubs pass for all five providers; real CLI loopback and redaction cases pass. Batch limits below apply. |
 | Plugins and editor launch | Native `.exe` plugin discovery, process-tree cleanup, quoted editor commands and `.cmd`/`.bat` forwarding pass local tests. |
-| Development verification | `scripts/verify-windows.ps1` runs native checks; `scripts/ci-local.sh` remains the authoritative repository gate. |
+| Development verification | `scripts/verify-windows.ps1` defaults to compiler-free `Local` checks; `Race`, `Release` and `Full` are explicit profiles. `scripts/ci-local.sh` remains the authoritative repository gate. |
 
 Open work is tracked in [M30-004: command/vault portability](../management/tasks/M30-004.yaml)
 and [M30-005: native Windows verification](../management/tasks/M30-005.yaml).
@@ -23,6 +23,8 @@ POSIX evidence, not native Windows evidence. The command implementation does not
 require Git Bash. See the
 [M30-004 verification record](../management/plans/M30-004-verified.md) for actual
 checks and remaining blockers; packaged-app and arm64 checks are still open.
+The [installed-app workflow checks](../management/plans/M30-005-verified.md) record
+native development-host results, not clean-install or full-gate acceptance.
 The proposed [Windows repair plan](../management/plans/windows-repair-plan.md)
 orders the remaining fixes, task dependencies and completion checks.
 
@@ -37,6 +39,10 @@ below. Python 3 is optional, used only for the local fixture in the smoke checkl
 The finished executable embeds the UI; Go and Node.js are build dependencies,
 not runtime dependencies. Build from current main to include the recent skill
 installation and agent usability improvements; an older release may lack them.
+
+Installing or running Curlew does not require MinGW, GCC, GDB or Python. External
+tools are needed only for features configured to call them, such as Azure CLI for
+the Azure vault provider. Keep developer test tools separate from the app install.
 
 ## Clone and build in PowerShell
 
@@ -156,26 +162,62 @@ loopback ports. It creates one temporary root and terminates only its own fixtur
 pwsh -NoProfile -File smoke/run.ps1
 ```
 
-The broader native entry point additionally requires Node.js 22+, npm,
-golangci-lint 2.11.2, GoReleaser 2.17.1 and a GCC-compatible Windows C compiler
-for `go test -race`. Check prerequisites without running the suites:
+The native verifier has four profiles. `Local` is the default and sets
+`CGO_ENABLED=0`; it never resolves or invokes a C compiler or GoReleaser.
+
+| Profile | Checks | Required tools |
+| --- | --- | --- |
+| `Local` | UI check/lint/test/build, Go build/tests/coverage, Go lint, loopback smoke | Go, Node.js 22+, npm, Python 3 for fixtures, golangci-lint 2.11.2 and Go 1.26.x for lint |
+| `Race` | Native `go test -race` only | Go and an approved compatible Windows C compiler |
+| `Release` | `goreleaser check` only; does not build or publish archives | GoReleaser 2.17.1 |
+| `Full` | All three profiles' checks | All of the above |
+
+Check local prerequisites without running suites, then run the local checks:
 
 ```powershell
 pwsh -NoProfile -File scripts/verify-windows.ps1 -PreflightOnly
-```
-
-Then run native build, UI, tests, race, coverage, lint, release-config and smoke
-checks:
-
-```powershell
 pwsh -NoProfile -File scripts/verify-windows.ps1
 ```
+
+Successful local checks print `WINDOWS_LOCAL_VERIFY_PASS`, not a full-gate pass.
+`Race` and `Release` have their own success markers. Only `-Profile Full` prints
+`WINDOWS_VERIFY_PASS`. An explicitly selected profile fails if one of its tools
+is missing. The verifier restores its process environment and working directory.
+
+Do not install a broad compiler/debugger bundle just to run the app or local
+checks. The WinLibs bundle used during early Windows verification included an old
+Python runtime for GDB and was removed from the development machine. A recent GCC
+version alone does not establish that bundled runtimes are maintained.
+
+Run shared race coverage inside an existing WSL/Linux development environment,
+from a checkout of the revision being verified:
+
+```bash
+go test -race ./...
+```
+
+That requires a Linux C compiler and is Linux evidence, not Windows coverage.
+Keep Windows-specific race checks in an isolated Windows test environment with
+an explicitly approved compiler and inspected bundled dependencies. Go's
+[Windows race detector requirements](https://go.dev/doc/articles/race_detector#Requirements)
+include MinGW-w64 runtime libraries; the full WinLibs bundle and GDB are not
+required. In that environment, use:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-windows.ps1 -Profile Race
+pwsh -NoProfile -File scripts/verify-windows.ps1 -Profile Release
+pwsh -NoProfile -File scripts/verify-windows.ps1 -Profile Full
+```
+
+The isolated environment is a setup requirement, not something these scripts
+provision or install. No hosted CI or cloud spending is enabled by choosing a profile.
 
 The pinned golangci-lint 2.11.2 binary was built with Go 1.26 and cannot analyze
 Go 1.27 export data. Keep the active product compiler and pass a separate Go
 1.26.x executable through `-LintGoCommand` when using Go 1.27. This native script
 does not replace the authoritative auto-scoped `./scripts/ci-local.sh` POSIX run.
 A missing required tool fails preflight; it is not reported as a skipped pass.
+See the [profile and toolchain cleanup evidence](../management/plans/M30-006-verified.md).
 
 ## Remaining engineering work
 
