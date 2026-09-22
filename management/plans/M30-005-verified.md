@@ -73,3 +73,54 @@ paid service was called. The user's project and installed executable were unchan
 Earlier runtime, output and request-cache checks are recorded in
 [M30-004 verification](M30-004-verified.md); compiler-free developer profiles and
 toolchain cleanup are recorded in [M30-006 verification](M30-006-verified.md).
+
+## Setup Request Action Fix (2026-09-22)
+
+The definition panel offered **Run this request** for setup and teardown rows,
+but the execution contract accepts only exact main-request names. Selecting the
+token setup therefore failed with `no request named`. The panel now omits that
+action for non-main phases and its handler rejects them defensively. This matches
+the existing sidebar selection rules without broadening execution to other requests.
+
+| Check | Result |
+| --- | --- |
+| Component regression before implementation | RED for setup and teardown; also covers duplicate names across phases |
+| Focused definition-panel tests after implementation | PASS, nine tests including main selection and busy states |
+| Whole UI unit/component suite | PASS, 132 tests in 13 files |
+| Svelte/TypeScript and ESLint | PASS, zero reported errors or warnings |
+| Real embedded-app Playwright regressions | PASS, two tests using installed Edge and loopback fixtures |
+| Main-request execution | PASS, setup + selected main + teardown all return HTTP 200; no other main requests execute |
+| Definition views | PASS at 1280px and 960px; 390px shows the existing minimum-width guard, not a mobile application claim |
+| Installed application | PASS, correct phase actions verified in the user's API project without executing live requests |
+
+Playwright's bundled Chromium was absent, so an untracked temporary configuration
+selected the already-installed Edge browser. No browser was downloaded. An initial
+new assertion matched both a sidebar badge and the summary; it was scoped to the
+summary, then passed. The temporary configuration was removed after verification.
+Screenshots remain under `ui/test-results/` (ignored build/test output).
+
+Installed executable: `C:\tools\curlew\curlew.exe`.
+SHA-256: `976147A60E34448B6F3CD6B5CA1EC36B4B6CD9DCA0FCF94EDDB09A4DE177AC61`.
+Previous executable retained as
+`C:\tools\curlew\curlew-before-setup-action-20260922.exe`.
+The installed binary embeds the rebuilt frontend; the tracked fallback index was
+restored after building, so generated assets are not part of the source patch.
+
+The existing user UI was restarted on port 8765 with `ingestion-test` selected.
+The setup panel was inspected without running it; the main-request action remains
+enabled. No 1Password retrieval, token request, invoice or business API request was
+made during this fix. Formal Windows acceptance remains open.
+
+### Pre-commit Checks
+
+The user requested a local commit only, not a merge or push.
+
+- Native Go build passed with Go 1.27.1 and cgo disabled.
+- Whole-repository golangci-lint 2.11.2 passed with zero issues using Go 1.26.8.
+- `go test -json -p 4 -timeout=60m ./...` passed with exit 0: 55 test packages,
+  including 504 top-level CLI tests. Go reused valid cached package results;
+  the CLI package completed in 681.606 seconds.
+- Structured test log: `%TEMP%/curlew-ui-precommit-20260922-132607.jsonl`.
+
+These checks supplement the UI and browser results above. They do not claim a
+full native profile, race or clean-host acceptance pass.

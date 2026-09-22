@@ -18,6 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **UI request actions respect execution phases.** Setup and teardown definitions
+  no longer offer an individual run action that the runner cannot execute.
+  Main-request selection still includes automatic setup and teardown.
 - **Windows developer setup no longer requires a C compiler by default.**
   Verification defaults to a compiler-free `Local` profile; `Race`, `Release`
   and `Full` explicitly retain specialized checks and fail on missing tools.

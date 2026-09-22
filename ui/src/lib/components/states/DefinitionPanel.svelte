@@ -33,7 +33,7 @@
   $: resultRunId = $routeRunId ?? $runMeta.run_id;
 
   function runThis(): void {
-    if (busy || request === undefined) return;
+    if (busy || request?.phase !== 'main') return;
     void startRun({
       collection: path,
       env: $selectedEnv ?? $meta?.project.default_env ?? '',
@@ -79,9 +79,11 @@
       </div>
 
       <div class="actions">
-        <button class="at-btn" disabled={busy} on:click={runThis}>
-          ▶ Run this request
-        </button>
+        {#if request.phase === 'main'}
+          <button class="at-btn" disabled={busy} on:click={runThis}>
+            ▶ Run this request
+          </button>
+        {/if}
         {#if resultRow !== undefined && resultRunId !== null}
           <button class="at-btn ghost" on:click={viewResult}>view latest result →</button>
         {/if}

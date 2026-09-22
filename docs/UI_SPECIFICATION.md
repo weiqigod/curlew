@@ -133,6 +133,8 @@ The `POST /runs` payload is `StartParams` in `orchestrator.go`:
 
 A null collection requests a batch. Modes are `all`, `selection`, and
 `rerun_failed`; selection uses exact main-request names from one collection.
+Only main-request definitions offer the individual run action. Setup and teardown
+definitions remain inspectable but cannot be selected for an individual run.
 Setup and teardown remain part of the execution. The UI renders pending, running,
 passed, failed, skipped and error outcomes. Assertion failures and transport
 errors are different outcomes; a skipped request is not a pass.

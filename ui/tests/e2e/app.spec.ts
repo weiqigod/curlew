@@ -217,6 +217,9 @@ test('request definition panel: deep link renders the raw template and can run o
   // Selection of one main request still runs setup + teardown (pure seeders).
   await expect(page.locator('.rr')).toHaveCount(3);
   await expect(row(page, 'Get json ok')).toBeVisible();
+  await expect(row(page, 'Setup ping')).toContainText('200 OK');
+  await expect(row(page, 'Teardown ping')).toContainText('200 OK');
+  await expect(page.locator('.strip span[aria-label="3 passed"]')).toBeVisible();
 
   // Sidebar click on a request with NO result in the focused run → definition
   // panel (the fallback that replaced the invisible footer hint).
@@ -227,4 +230,29 @@ test('request definition panel: deep link renders the raw template and can run o
   // Sidebar click on a request WITH a result in the focused run → inspector.
   await page.locator('.rrow').filter({ hasText: 'Get json ok' }).click();
   await expect(page.getByRole('tab', { name: 'Body' })).toBeVisible();
+});
+
+test('setup and teardown definitions never offer invalid single-request actions', async ({ page: definitionPage }, testInfo) => {
+  const runStarts: string[] = [];
+  definitionPage.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/runs')) {
+      runStarts.push(request.url());
+    }
+  });
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 960, height: 844 }]) {
+    await definitionPage.setViewportSize(viewport);
+    await gotoApp(definitionPage, '#/def/collections%2Fbasic.yaml/get-json-ok');
+    await expect(definitionPage.getByRole('button', { name: /run this request/i })).toBeEnabled();
+    for (const phase of ['setup', 'teardown']) {
+      await definitionPage.goto(appUrl(`#/def/collections%2Fbasic.yaml/${phase}-ping`));
+      await expect(definitionPage.getByRole('main').locator('.phase')).toHaveText(phase);
+      await expect(definitionPage.getByRole('button', { name: /run this request/i })).toHaveCount(0);
+      await expect(definitionPage.getByRole('main').getByRole('button', { name: 'Open in editor' })).toBeVisible();
+      await definitionPage.screenshot({ path: testInfo.outputPath(`${phase}-${viewport.width}.png`), fullPage: true });
+    }
+  }
+  expect(runStarts).toEqual([]);
+  await definitionPage.setViewportSize({ width: 390, height: 844 });
+  await expect(definitionPage.getByText('curlew ui needs more room')).toBeVisible();
+  await definitionPage.screenshot({ path: testInfo.outputPath('minimum-width-390.png'), fullPage: true });
 });
