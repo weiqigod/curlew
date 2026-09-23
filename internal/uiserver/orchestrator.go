@@ -23,7 +23,7 @@ type StartParams struct {
 	Collection *string  `json:"collection"` // root-relative, or null = batch run
 	Env        string   `json:"env"`
 	Parallel   bool     `json:"parallel"`
-	Mode       string   `json:"mode"` // "all" | "selection" | "rerun_failed"
+	Mode       string   `json:"mode"` // "all" | "selection" | "setup" | "rerun_failed"
 	Selection  []string `json:"selection"`
 	RerunOf    *string  `json:"rerun_of"`
 }
@@ -201,11 +201,12 @@ func (o *Orchestrator) Shutdown() {
 
 // runTarget is one collection scheduled within a run.
 type runTarget struct {
-	rel       string // root-relative path
-	abs       string
-	col       *parser.Collection
-	selection []string // per-collection selection (nil = all)
-	prefix    string   // request-id prefix ("", or "c<i>-" for batch)
+	rel          string // root-relative path
+	abs          string
+	col          *parser.Collection
+	selection    []string // per-collection selection (nil = all)
+	setupRequest string
+	prefix       string // request-id prefix ("", or "c<i>-" for batch)
 }
 
 // Start validates params, seeds the collector, and launches the run
@@ -217,7 +218,7 @@ func (o *Orchestrator) Start(params StartParams) (string, *startError) {
 		params.Mode = "all"
 	}
 	switch params.Mode {
-	case "all", "selection", "rerun_failed":
+	case "all", "selection", "setup", "rerun_failed":
 	default:
 		return "", &startError{400, "bad_request", fmt.Sprintf("unknown mode %q", params.Mode), "", nil}
 	}
@@ -283,6 +284,9 @@ func (o *Orchestrator) Start(params StartParams) (string, *startError) {
 // resolveTargets maps StartParams to the per-collection execution plan.
 func (o *Orchestrator) resolveTargets(params *StartParams) ([]runTarget, *startError) {
 	s := o.server
+	if params.Mode == "setup" && (params.Collection == nil || len(params.Selection) != 1 || params.Selection[0] == "" || params.Parallel) {
+		return nil, &startError{400, "bad_request", "mode setup requires one collection and one setup request, without parallel execution", "", nil}
+	}
 
 	// rerun_failed: derive collection(s) + selection from the source run.
 	if params.Mode == "rerun_failed" {
@@ -310,6 +314,13 @@ func (o *Orchestrator) resolveTargets(params *StartParams) ([]runTarget, *startE
 		col, err := parser.ParseFile(abs)
 		if err != nil {
 			return nil, o.collectionInvalidError(rel, abs)
+		}
+		if params.Mode == "setup" {
+			selected, selectionErr := runservice.SelectSetupRequest(col, params.Selection[0])
+			if selectionErr != nil {
+				return nil, &startError{400, "bad_request", selectionErr.Error(), "", nil}
+			}
+			return []runTarget{{rel: rel, abs: abs, col: selected, setupRequest: params.Selection[0]}}, nil
 		}
 		return []runTarget{{rel: rel, abs: abs, col: col, selection: params.Selection}}, nil
 	}
@@ -559,6 +570,7 @@ func (o *Orchestrator) execute(ctx context.Context, active *ActiveRun, emitter *
 			CollectionPath:  t.abs,
 			EnvName:         active.Params.Env,
 			Selection:       t.selection,
+			SetupRequest:    t.setupRequest,
 			Parallel:        active.Params.Parallel,
 			RunID:           active.RunID,
 			RequestIDPrefix: t.prefix,

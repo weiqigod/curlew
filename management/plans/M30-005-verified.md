@@ -124,3 +124,138 @@ The user requested a local commit only, not a merge or push.
 
 These checks supplement the UI and browser results above. They do not claim a
 full native profile, race or clean-host acceptance pass.
+
+## Windows Collection Filter Fix (2026-09-22)
+
+A local project exposed multiple similarly named invoice collections using
+different environments. The reported missing `invoice_base_url` belonged to an
+APIM collection selected with the Ingestion environment; the failed run contained
+zero executed HTTP requests. The documented startup now scopes the UI to the
+configured collection instead of suggesting URL aliases for incompatible routes.
+
+Exercising `ui --collection` then exposed a Windows defect: `filepath.Rel` supplied
+backslashes but discovery compared against slash-separated paths. The server now
+normalizes the filter at construction, including the metadata it exposes.
+
+| Check | Result |
+| --- | --- |
+| Existing filter regression extended with native paths | RED: empty tree, unnormalized metadata and rejected batch start on Windows |
+| Same regression after normalization | PASS: slash and native paths both select one collection and one passing fake request |
+| Entire UI-server package | PASS, native Windows, cgo disabled |
+| UI-server package lint | PASS, zero issues |
+| Frontend and complete executable build | PASS |
+| Installed executable with `--collection .\collections\ingestion.yaml` | PASS: metadata and tree contain only `collections/ingestion.yaml` |
+| Actual project browser view | PASS: Ingestion TEST, configured TEST base URL, mutations enabled, invoice action available; not executed |
+
+Installed executable SHA-256:
+`07217F8AD98DA43F28F473EF34EDAD582399B7F3A9C0627CCE051C8A69724D41`.
+Previous executable retained as
+`C:\tools\curlew\curlew-before-collection-filter-20260922.exe`.
+An extra unfiltered Curlew instance on port 8766 held the executable open; after
+checking its exact executable/command and absence of child processes or external
+connections, it was stopped for replacement. One filtered UI remains on port 8765.
+
+The tests use fake request execution and localhost metadata reads. No secret was
+read, invoice sent, or business endpoint called by this repair. The unrelated
+APIM collections and their credentials were not changed. The generated tracked
+asset index was restored after building. This is scoped fix evidence, not another
+full-suite, race, clean-host or packaged-release acceptance run.
+
+## Persistent Request Workspace (2026-09-22)
+
+User requirement: run, inspect and run again without navigating away from the
+selected request. The definition view now retains the Run control and renders
+the existing inspector inline. Tab selection is local to that view. Sidebar
+request clicks consistently select the workspace rather than redirecting to a
+past result. The contextual toolbar and `r` key select the same main request;
+batch execution remains an explicit menu action. Setup/teardown cannot be run
+individually. No mutation is automatically retried.
+
+| Check | Result |
+| --- | --- |
+| Persistent-view component regressions | RED before implementation; GREEN for unchanged route intent, repeated results, inline network/config errors and busy guards |
+| All UI unit/component tests | PASS, 134 tests in 13 files |
+| Svelte/TypeScript and ESLint | PASS, zero errors/warnings |
+| Contextual toolbar browser regression | RED: toolbar submitted a batch; GREEN after selecting the open request |
+| Full embedded-app Playwright suite | PASS, 23 tests in installed Edge with loopback fixtures |
+| Manual run loop | Request button, toolbar and keyboard each start a new run of exactly one selected main request plus setup/teardown; URL remains unchanged |
+| Failure and cancellation behavior | Network error remains inline; cancel and subsequent successful run stay in the same workspace |
+| Screenshots | Reviewed at 1280px and 960px; existing sub-960px guard remains |
+| Complete executable and installed UI | PASS; actual Ingestion TEST workspace opened without executing a request |
+
+One intermediate browser run displayed an empty Assertions tab. It was not
+reproduced by the same four focused tests with browser exceptions enabled or by
+the final complete browser suite. This observation is retained, not claimed to
+have a diagnosed cause. No assertions were removed to get the final pass.
+
+Installed SHA-256:
+`7AF6A01E338A8E0A1366712455F0A44D9AD774F90F743C8269F199A5F40588FF`.
+Backup: `C:\tools\curlew\curlew-before-request-workspace-20260922.exe`.
+The filtered user session was restarted on port 8765. The extra unfiltered
+instance on port 8766 was stopped only after checking its exact executable,
+command line, and absence of child processes or external connections.
+
+Read-only inspection of the user's latest run showed OAuth HTTP 200 followed by
+an invoice POST ending with EOF before an HTTP response. This does not establish
+whether the remote service accepted the invoice. No live token, invoice, health
+or other business request was made during this work. Prior filter-fix changes
+were preserved; this workspace change remains uncommitted. No full Go suite,
+race or release acceptance was rerun for these frontend-only additions.
+
+## Manual Auth And Visible Setup (2026-09-22)
+
+This supersedes the earlier restriction on individual setup actions. The UI now
+supports `mode: setup` with one exact setup name. The server runs setup through
+that step, preserving prerequisites and redaction, without later setup, main or
+teardown requests. Panel, toolbar and keyboard use the same mode. Normal main
+runs still execute fresh setup; tokens are not cached across runs.
+
+The request workspace shows setup/main/teardown outcomes and HTTP codes together.
+Selecting a result changes only the inline inspector. Final details refresh
+without resetting the selected tab. Browser testing also exposed a null source
+snippet crash and premature summary reconciliation; both now have deterministic
+RED/GREEN regressions and fixes.
+
+| Check | Result |
+| --- | --- |
+| Real loopback token capture | PASS; two successive UI runs send the exact newly extracted fake bearer token; inspector remains redacted |
+| Setup-only API regression | RED unknown mode, then PASS; prerequisite ordering, external fragment, exclusion of same-name main/later setup/teardown, validation and redaction |
+| Affected Go packages | PASS, complete runservice and uiserver suites with CGO disabled |
+| Scoped Go lint | PASS, zero issues |
+| UI tests | PASS, 137 tests in 14 files |
+| Svelte/TypeScript and ESLint | PASS, zero errors/warnings |
+| Full real-binary browser suite | PASS, 23 tests using installed Edge and loopback fixtures |
+| Auth controls | Panel, toolbar and keyboard each execute setup only at 1280px and 960px, without navigation |
+| Installed UI | PASS; current auth controls enabled and final JS asset served on port 8765; no live request executed |
+
+Installed SHA-256:
+`5305F4A5702093F5AF5808C678BC1014E3DB9A56784728184A40530A2CDEE56C`.
+Backup: `C:\tools\curlew\curlew-before-manual-auth-20260922.exe`.
+Restarted only the verified idle filtered session. The second, user-started
+process was left running on its old loaded executable. No commit, merge or push.
+
+Read-only inspection of saved run `1f4ba266563b8c33131efd4529d950d4` showed
+auth HTTP 200, an outbound redacted Authorization header and invoice HTTP 401
+with `WWW-Authenticate: Bearer error="invalid_token"`. The saved redacted token
+cannot establish which validation failed. The loopback check proves the token
+wiring, not the original live token's exact bytes or validity. Before restart,
+the latest visible run instead showed a 1Password retrieval timeout; no run was
+active. No live credential retrieval or invoice retry was performed. Full Go,
+race, hosted CI and clean-host/release acceptance were not rerun for this change.
+
+### Pre-commit gate (2026-09-23)
+
+| Check | Result |
+| --- | --- |
+| `go build ./cmd/curlew` (CGO disabled) | PASS |
+| Whole-repository `golangci-lint run` (Go 1.26.8) | PASS, 0 issues |
+| `go test -json -p 4 -timeout 60m ./...` | 54 of 55 packages PASS; `internal/plugin` `TestHost_Close_RealProcessTree/cooperative_exit` failed with a plugin handshake timeout under parallel load |
+| That test alone, `-count=3` | PASS; package unchanged by this work, so treated as a load-dependent flake, not repaired |
+
+Log: `%TEMP%\curlew-precommit-auth-20260923.jsonl`. Race, hosted CI and
+clean-host acceptance were not run.
+
+The live 401 was later traced to the user's API project, not Curlew: the token
+request used a retired token server and omitted `Accept: application/jwt`, so
+Curity returned an opaque token the JWT-validating APIs reject. Both were fixed
+in that project's configuration; the invoice call is not yet live-verified.

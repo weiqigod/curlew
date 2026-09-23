@@ -26,10 +26,16 @@
   $: validCollections = ($tree?.collections ?? []).filter((c) => c.valid);
   $: totalMain = validCollections.reduce((n, c) => n + (c.counts?.main ?? 0), 0);
   $: runAllEnabled = validCollections.length >= 1;
+  $: selectedRequest = $route.name === 'definition'
+    ? validCollections.find((collection) => collection.path === $route.path)?.requests.find((request) => request.slug === $route.slug)
+    : undefined;
+  $: primaryEnabled = $route.name === 'definition'
+    ? selectedRequest?.phase === 'main' || selectedRequest?.phase === 'setup'
+    : runAllEnabled;
 
   // Focused collection: route #/tree/<path>, or the inspector request's file.
   $: focusedCollection = (() => {
-    if ($route.name === 'tree') return $route.path;
+    if ($route.name === 'tree' || $route.name === 'definition') return $route.path;
     if ($route.name === 'inspector') {
       const row = $focusedRequests.find((r) => r.request_id === $route.requestId);
       return row?.source_file ?? null;
@@ -59,6 +65,18 @@
     const collection = validCollections.length === 1 ? validCollections[0].path : null;
     void startRun({ ...baseParams(), collection, mode: 'all' });
     closeMenu();
+  }
+
+  function runPrimary(): void {
+    if ($route.name !== 'definition') {
+      runAll();
+      return;
+    }
+    if (busy || selectedRequest === undefined || selectedRequest.phase === 'teardown') return;
+    void startRun({
+      ...baseParams(), collection: $route.path, parallel: false,
+      mode: selectedRequest.phase === 'setup' ? 'setup' : 'selection', selection: [selectedRequest.name],
+    }, { navigate: false });
   }
 
   function runCurrent(): void {
@@ -116,7 +134,7 @@
 
   let unregister: Array<() => void> = [];
   onMount(() => {
-    unregister = [registerKey('runAll', runAll), registerKey('rerunFailed', rerunFailed)];
+    unregister = [registerKey('runAll', runPrimary), registerKey('rerunFailed', rerunFailed)];
   });
   onDestroy(() => {
     unregister.forEach((u) => u());
@@ -153,12 +171,12 @@
   {:else}
     <button
       class="at-btn primary seg-main"
-      disabled={!runAllEnabled}
-      title={runAllEnabled ? undefined : 'no collections'}
-      on:click={runAll}
+      disabled={!primaryEnabled}
+      title={primaryEnabled ? undefined : $route.name === 'definition' ? 'Teardown runs with main requests' : 'no collections'}
+      on:click={runPrimary}
     >
       <Icon name="play" size={12} />
-      Run all
+      {$route.name === 'definition' ? 'Run request' : 'Run all'}
     </button>
   {/if}
 

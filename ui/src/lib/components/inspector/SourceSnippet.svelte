@@ -7,7 +7,7 @@
 </script>
 
 <div class="snip at-mono">
-  {#each source.snippet as line, i}
+  {#each source.snippet ?? [] as line, i}
     {@const n = source.snippet_start_line + i}
     <div class="line" class:hl={n === source.line}>
       <span class="num">{n}</span>

@@ -67,7 +67,7 @@
         <span class="at-mono at-xs at-dim">{detail.source.file}:{detail.source.line}</span>
         <OpenInEditor file={detail.source.file} line={detail.source.line} compact />
       </div>
-      {#if detail.source.snippet.length > 0}
+      {#if (detail.source.snippet?.length ?? 0) > 0}
         <SourceSnippet source={detail.source} />
       {:else}
         <div class="at-mono at-xs at-dim nosnip">

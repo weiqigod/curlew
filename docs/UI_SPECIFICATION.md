@@ -131,11 +131,14 @@ The `POST /runs` payload is `StartParams` in `orchestrator.go`:
 {"collection":"collections/sample.yaml","env":"dev","parallel":false,"mode":"all"}
 ```
 
-A null collection requests a batch. Modes are `all`, `selection`, and
+A null collection requests a batch. Modes are `all`, `selection`, `setup`, and
 `rerun_failed`; selection uses exact main-request names from one collection.
-Only main-request definitions offer the individual run action. Setup and teardown
-definitions remain inspectable but cannot be selected for an individual run.
-Setup and teardown remain part of the execution. The UI renders pending, running,
+Mode `setup` requires one collection, exactly one setup name in `selection`, and
+`parallel: false`. It runs setup in declaration order through that request,
+excluding later setup, all main requests and teardown. Unknown or ambiguous names
+are rejected. Extracted values remain local to that run; a subsequent main run
+performs fresh setup. Teardown has no individual run action.
+Main-request execution still includes setup and teardown. The UI renders pending, running,
 passed, failed, skipped and error outcomes. Assertion failures and transport
 errors are different outcomes; a skipped request is not a pass.
 
@@ -161,6 +164,18 @@ Run all, selection, rerun failed, cancellation and optional parallel execution
 feed the same orchestration endpoint. The inspector exposes body, headers,
 assertions, timing, request and error details. Editing opens an external editor.
 History and comparison use retained UI runs.
+
+Selecting a sidebar request always opens its request workspace. Its definition
+and run control remain visible while it executes; responses, assertion failures,
+transport errors and all setup outcomes appear inline. A step list shows each
+phase, request name, outcome and HTTP status, including externally included auth
+requests. Selecting a step opens its details in place without executing it.
+Response-tab changes do not
+navigate. Running again replaces the displayed result with the new run; it does
+not automatically retry a mutation. While a main request is selected, the toolbar
+and `r` shortcut execute only that request, including normal setup and teardown,
+using the selected environment. On a setup request, those controls use setup-only
+mode. Batch actions remain explicit in the run menu.
 
 Press `?` for the current keyboard map: `r` runs, Shift+R reruns failures, `j`/`k`
 move through results, Enter opens the inspector, and `g` then `h` opens history.

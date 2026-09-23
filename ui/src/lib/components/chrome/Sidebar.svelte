@@ -7,8 +7,7 @@
   import { fileBasename } from '../../format';
   import { pushEscFallback, registerKey } from '../../keyboard';
   import { navigate, route } from '../../router';
-  import { focusedRequests, routeRunId } from '../../stores/focused-run';
-  import { runMeta } from '../../stores/run';
+  import { focusedRequests } from '../../stores/focused-run';
   import { toast } from '../../stores/toast';
   import { tree } from '../../stores/tree';
   import { clearSelection, sidebarSelection } from '../../stores/ui';
@@ -108,23 +107,6 @@
   }
 
   function clickRequest(c: TreeCollection, r: TreeRequest): void {
-    // → inspector when the request has a result in the focused run.
-    const runId = $routeRunId ?? $runMeta.run_id;
-    if (runId !== null) {
-      const row = $focusedRequests.find(
-        (x) =>
-          x.source_file === c.path &&
-          (x.iteration?.base_slug ?? x.slug) === r.slug &&
-          x.status !== 'pending' &&
-          x.status !== 'running',
-      );
-      if (row !== undefined) {
-        navigate({ name: 'inspector', runId, requestId: row.request_id });
-        return;
-      }
-    }
-    // No result to inspect — land on the request definition instead of a
-    // dead click (the old footer hint was invisible in practice).
     navigate({ name: 'definition', path: c.path, slug: r.slug });
   }
 

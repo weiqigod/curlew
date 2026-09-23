@@ -1,18 +1,17 @@
 <script lang="ts">
-  // Request definition panel (#/def/<path>/<slug>): the click-anywhere landing
-  // page for a sidebar request. Renders the parsed definition from /tree —
-  // never resolved values — plus run-this and open-in-editor affordances, and
-  // a link to the latest result when the focused run has one.
-  import { startRun } from '../../controller';
-  import { navigate } from '../../router';
+  // Request workspace: the definition and run control stay above inline results.
+  import { cancelActiveRun, startRun } from '../../controller';
   import { selectedEnv } from '../../stores/environments';
-  import { focusedRequests, routeRunId } from '../../stores/focused-run';
+  import { focusedRequests } from '../../stores/focused-run';
   import { meta } from '../../stores/meta';
   import { runMeta, runState } from '../../stores/run';
   import { tree } from '../../stores/tree';
   import Method from '../atoms/Method.svelte';
+  import Icon from '../atoms/Icon.svelte';
   import OpenInEditor from '../atoms/OpenInEditor.svelte';
   import TemplateUrl from '../atoms/TemplateUrl.svelte';
+  import Inspector from '../inspector/Inspector.svelte';
+  import RunErrorBanner from '../run/RunErrorBanner.svelte';
 
   export let path: string;
   export let slug: string;
@@ -22,38 +21,40 @@
 
   $: busy = $runState === 'starting' || $runState === 'running' || $runState === 'cancelling';
 
-  // Latest result for this request in the focused run (if any).
-  $: resultRow = $focusedRequests.find(
-    (x) =>
-      x.source_file === path &&
-      (x.iteration?.base_slug ?? x.slug) === slug &&
-      x.status !== 'pending' &&
-      x.status !== 'running',
+  $: ownsRun = $runMeta.params?.collection === path &&
+    (request?.phase === 'setup' || $runMeta.params.selection === null || $runMeta.params.selection.includes(request?.name ?? ''));
+  $: resultRows = $focusedRequests.filter((row) =>
+    (ownsRun || row.source_file === path) && row.phase === request?.phase &&
+    (row.iteration?.base_slug ?? row.slug) === slug &&
+    row.status !== 'pending' && row.status !== 'running',
   );
-  $: resultRunId = $routeRunId ?? $runMeta.run_id;
+  let chosenResult = '';
+  $: resultRunId = $runMeta.run_id;
+  $: stepRows = ownsRun ? $focusedRequests : resultRows;
+  $: chosenRow = stepRows.find((row) => `${resultRunId}/${slug}/${row.request_id}` === chosenResult);
+  $: resultRow = resultRows[0];
+  $: setupFailure = ownsRun ? $focusedRequests.find((row) =>
+    row.phase === 'setup' && (row.status === 'failed' || row.status === 'error'),
+  ) : undefined;
+  $: displayedRow = chosenRow ?? (resultRow?.status !== 'skipped' && resultRow !== undefined ? resultRow : setupFailure ?? resultRow);
+  $: runningName = ownsRun ? $focusedRequests.find((row) => row.status === 'running')?.name : undefined;
 
   function runThis(): void {
-    if (busy || request?.phase !== 'main') return;
+    if (busy || request === undefined || request.phase === 'teardown') return;
     void startRun({
       collection: path,
       env: $selectedEnv ?? $meta?.project.default_env ?? '',
       parallel: false,
-      mode: 'selection',
+      mode: request.phase === 'setup' ? 'setup' : 'selection',
       selection: [request.name],
       rerun_of: null,
-    });
-  }
-
-  function viewResult(): void {
-    if (resultRow !== undefined && resultRunId !== null) {
-      navigate({ name: 'inspector', runId: resultRunId, requestId: resultRow.request_id });
-    }
+    }, { navigate: false });
   }
 </script>
 
 {#if request !== undefined && collection !== undefined}
   <div class="def">
-    <div class="card">
+    <div class="request-head">
       <div class="head">
         <Method m={request.method} />
         <span class="name">{request.name}</span>
@@ -73,27 +74,58 @@
         <OpenInEditor file={collection.path} line={request.source_line} compact />
       </div>
 
-      <div class="hintline">
-        definitions are read-only — edit the YAML file; this view shows raw templates, never
-        resolved values
-      </div>
-
       <div class="actions">
-        {#if request.phase === 'main'}
+        {#if request.phase === 'main' || request.phase === 'setup'}
           <button class="at-btn" disabled={busy} on:click={runThis}>
-            ▶ Run this request
+            <Icon name="play" size={13} /> Run this request
           </button>
         {/if}
-        {#if resultRow !== undefined && resultRunId !== null}
-          <button class="at-btn ghost" on:click={viewResult}>view latest result →</button>
+        {#if ownsRun && busy}
+          <button class="at-btn ghost" disabled={$runState === 'cancelling'} on:click={() => void cancelActiveRun()}>
+            Cancel
+          </button>
         {/if}
-        <a href="#/" class="at-btn ghost">back to run view</a>
+        {#if ownsRun}
+          <span class="run-status at-mono" role="status">
+            {busy ? `${$runState}: ${runningName ?? request.name}` : $runState}
+            · {$runMeta.params?.env}
+          </span>
+        {/if}
       </div>
+    </div>
+    {#if ownsRun && $runMeta.error !== null}
+      <RunErrorBanner error={$runMeta.error} />
+    {/if}
+    {#if stepRows.length > 0}
+      <div class="steps" role="group" aria-label="Run steps">
+        {#each stepRows as row (row.request_id)}
+          <button
+            class="step"
+            aria-pressed={displayedRow?.request_id === row.request_id}
+            disabled={row.status === 'pending' || row.status === 'running'}
+            on:click={() => chosenResult = `${resultRunId}/${slug}/${row.request_id}`}
+          >
+            <span class="step-phase at-mono">{row.phase}</span>
+            <span class="step-name">{row.name}</span>
+            <span class="at-mono">{row.status}</span>
+            <span class="at-mono">{row.status_code ?? ''}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+    <div class="response">
+      {#if displayedRow !== undefined && resultRunId !== null}
+        {#key `${resultRunId}/${displayedRow.request_id}`}
+          <Inspector runId={resultRunId} requestId={displayedRow.request_id} embedded />
+        {/key}
+      {:else}
+        <div class="empty-result">{ownsRun && busy ? 'Waiting for response' : 'No response yet'}</div>
+      {/if}
     </div>
   </div>
 {:else}
   <div class="def">
-    <div class="card">
+    <div class="request-head">
       <div class="head">
         <span class="name">request not found</span>
       </div>
@@ -111,21 +143,18 @@
   .def {
     flex: 1;
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    flex-direction: column;
     min-height: 0;
-    padding: calc(var(--pad) * 3) var(--pad);
-    overflow-y: auto;
+    min-width: 0;
+    overflow: hidden;
   }
-  .card {
-    width: 100%;
-    max-width: 720px;
+  .request-head {
+    flex: none;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
     padding: var(--pad);
-    border: 1px solid var(--bd0);
-    border-radius: var(--rad);
+    border-bottom: 1px solid var(--bd0);
     background: var(--bg1);
   }
   .head {
@@ -156,6 +185,7 @@
   .row {
     display: flex;
     align-items: baseline;
+    flex-wrap: wrap;
     gap: 10px;
     min-width: 0;
   }
@@ -168,6 +198,7 @@
   .src {
     font-size: var(--fs-sm);
     color: var(--fg1);
+    overflow-wrap: anywhere;
   }
   .hintline {
     font-size: var(--fs-xs);
@@ -176,7 +207,56 @@
   .actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
     padding-top: 4px;
+  }
+  .run-status {
+    color: var(--fg2);
+    font-size: var(--fs-xs);
+    overflow-wrap: anywhere;
+  }
+  .response {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .empty-result {
+    margin: auto;
+    color: var(--fg3);
+  }
+  .steps {
+    flex: none;
+    max-height: 160px;
+    overflow: auto;
+    border-bottom: 1px solid var(--bd0);
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) 82px 32px;
+    gap: 10px;
+    width: 100%;
+    padding: 6px var(--pad);
+    border: 0;
+    background: transparent;
+    color: var(--fg1);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
+  }
+  .step:hover, .step[aria-pressed='true'] {
+    background: var(--bg2);
+  }
+  .step:disabled {
+    color: var(--fg2);
+    cursor: default;
+  }
+  .step-phase {
+    color: var(--fg2);
+  }
+  .step-name {
+    overflow-wrap: anywhere;
   }
 </style>

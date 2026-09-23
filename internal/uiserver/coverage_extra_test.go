@@ -370,29 +370,46 @@ func TestHistory_PersistedRunServesAfterRestart(t *testing.T) {
 
 // TestCollectionFilterRestrictsTreeAndRuns covers the --collection filter.
 func TestCollectionFilterRestrictsTreeAndRuns(t *testing.T) {
-	ts, root := newTestServer(t, func(o *uiserver.Options) {
-		o.Exec = fakeExec
-		o.CollectionFilter = "collections/a.yaml"
-	})
-	writeFile(t, root, "collections/a.yaml", "name: A\nrequests:\n  - name: Fine\n    request: {method: GET, url: \"http://t.test/ok\"}\n")
-	writeFile(t, root, "collections/b.yaml", "name: B\nrequests:\n  - name: Other\n    request: {method: GET, url: \"http://t.test/ok\"}\n")
+	for name, filter := range map[string]string{
+		"slash":  "collections/a.yaml",
+		"native": filepath.Join("collections", "a.yaml"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			server, root := newTestServer(t, func(options *uiserver.Options) {
+				options.Exec = fakeExec
+				options.CollectionFilter = filter
+			})
+			writeFile(t, root, "collections/a.yaml", "name: A\nrequests:\n  - name: Fine\n    request: {method: GET, url: \"http://t.test/ok\"}\n")
+			writeFile(t, root, "collections/b.yaml", "name: B\nrequests:\n  - name: Other\n    request: {method: GET, url: \"http://t.test/ok\"}\n")
 
-	resp := apiGet(t, ts, "/api/v1/tree")
-	tree := decodeJSON[struct {
-		Collections []struct {
-			Path string `json:"path"`
-		} `json:"collections"`
-	}](t, resp.Body)
-	_ = resp.Body.Close()
-	if len(tree.Collections) != 1 || tree.Collections[0].Path != "collections/a.yaml" {
-		t.Errorf("filtered tree = %+v", tree.Collections)
-	}
+			response := apiGet(t, server, "/api/v1/meta")
+			metadata := decodeJSON[struct {
+				Project struct {
+					CollectionFilter string `json:"collection_filter"`
+				} `json:"project"`
+			}](t, response.Body)
+			_ = response.Body.Close()
+			if metadata.Project.CollectionFilter != "collections/a.yaml" {
+				t.Errorf("metadata filter = %q, want slash-separated path", metadata.Project.CollectionFilter)
+			}
 
-	// Batch run respects the filter (single valid collection → no gate).
-	runID := startRun(t, ts, map[string]any{"collection": nil})
-	final := waitTerminal(t, ts, runID)
-	summary, _ := final["summary"].(map[string]any)
-	if summary["total"] != float64(1) {
-		t.Errorf("filtered batch total = %v, want 1", summary["total"])
+			response = apiGet(t, server, "/api/v1/tree")
+			tree := decodeJSON[struct {
+				Collections []struct {
+					Path string `json:"path"`
+				} `json:"collections"`
+			}](t, response.Body)
+			_ = response.Body.Close()
+			if len(tree.Collections) != 1 || tree.Collections[0].Path != "collections/a.yaml" {
+				t.Errorf("filtered tree = %+v", tree.Collections)
+			}
+
+			runID := startRun(t, server, map[string]any{"collection": nil})
+			final := waitTerminal(t, server, runID)
+			summary, _ := final["summary"].(map[string]any)
+			if summary["total"] != float64(1) || summary["passed"] != float64(1) {
+				t.Errorf("filtered batch summary = %v, want one passing request", summary)
+			}
+		})
 	}
 }

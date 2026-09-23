@@ -18,9 +18,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
-- **UI request actions respect execution phases.** Setup and teardown definitions
-  no longer offer an individual run action that the runner cannot execute.
-  Main-request selection still includes automatic setup and teardown.
+- **Manual request runs stay in one view.** The selected request and its Run
+  control remain above inline response, assertion and error tabs. Repeated runs,
+  cancellation and tab changes no longer require leaving the request. The toolbar
+  and `r` shortcut run that request, not every collection, while it is selected.
+- **Windows UI collection filtering.** Native collection paths are normalized
+  before discovery, so `ui --collection` no longer produces an empty sidebar
+  and batch runs remain limited to the selected collection.
+- **Auth requests can run independently.** Setup requests now support individual
+  runs from the panel, toolbar and keyboard, including preceding setup steps but
+  never main requests or teardown. Inline steps show successful auth as well as
+  failures and HTTP status codes. Main runs still perform fresh automatic setup.
+- **Completed response details refresh reliably.** Inspectors refresh final
+  assertions without changing tabs, missing source snippets no longer crash the
+  Request tab, and early completion events cannot cache an unfinished summary.
 - **Windows developer setup no longer requires a C compiler by default.**
   Verification defaults to a compiler-free `Local` profile; `Race`, `Release`
   and `Full` explicitly retain specialized checks and fail on missing tools.
