@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Native Windows development foundations.** Added fail-closed PowerShell
+  verification and loopback smoke scripts, native plugin discovery and process
+  cleanup, quoted editor and batch-wrapper launch, stable API path labels,
+  isolated perf Ctrl+C coverage, and deterministic fixture bytes (M30-006).
 - **Portable agent skill installation.** `skill install` and `skill update` target
   Codex, Claude Code or Copilot projects without changing configuration. Hash-based
   updates preserve team edits and refuse conflicts before writes. The skill now
@@ -14,6 +18,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Manual request runs stay in one view.** The selected request and its Run
+  control remain above inline response, assertion and error tabs. Repeated runs,
+  cancellation and tab changes no longer require leaving the request. The toolbar
+  and `r` shortcut run that request, not every collection, while it is selected.
+- **Windows UI collection filtering.** Native collection paths are normalized
+  before discovery, so `ui --collection` no longer produces an empty sidebar
+  and batch runs remain limited to the selected collection.
+- **Auth requests can run independently.** Setup requests now support individual
+  runs from the panel, toolbar and keyboard, including preceding setup steps but
+  never main requests or teardown. Inline steps show successful auth as well as
+  failures and HTTP status codes. Main runs still perform fresh automatic setup.
+- **Completed response details refresh reliably.** Inspectors refresh final
+  assertions without changing tabs, missing source snippets no longer crash the
+  Request tab, and early completion events cannot cache an unfinished summary.
+- **Windows developer setup no longer requires a C compiler by default.**
+  Verification defaults to a compiler-free `Local` profile; `Race`, `Release`
+  and `Full` explicitly retain specialized checks and fail on missing tools.
+  Profile-specific results distinguish local success from full verification,
+  and the caller's environment is restored (M30-006).
+- **Dynamic values in response assertions.** Generated values stay consistent
+  across request fields, response assertions and extraction; the next request
+  gets a fresh cache. Native loopback CLI and browser runs cover invoice YAML
+  and JSON body files (M30-004).
+- **Executable documentation and Windows test fixtures.** The dynamic-variable
+  contract is recognized by its prose regression. Precedence tests use native
+  shell/provider fixtures, and HTTP timing tests cover exact phase arithmetic
+  without requiring sub-clock-resolution loopback exchanges to measure positive.
+  Go-source checkouts retain LF for native formatting checks. Watch tests keep
+  event coalescing separate from OS-dependent file-notification timing.
+- **Dynamic functions in YAML variable values.** Request interpolation now
+  evaluates named dynamic values and dependent date expressions without a wrapper
+  script, preserving request-scoped caching and explicit CLI overrides.
+- **Native Windows command and vault execution.** Command variables use explicit
+  PowerShell/UTF-8 semantics; vault providers use structured arguments and child
+  environments. Process containment and timeouts prevent lingering descendants,
+  diagnostics omit secret-bearing output, and resolved values are registered
+  before body/event redaction. Windows batch launchers preserve embedded quotes,
+  backslashes and metacharacters, verified with Azure MSI/ZIP and Google Cloud
+  forwarding patterns and real Python argument parsing. Actual Windows Ctrl+C
+  tests verify CLI cancellation and child termination. Windows and Linux scoped tests pass;
+  the full repository gate remains open (M30-004).
 - **Remaining local examples.** Output-format and plugin walkthroughs now use
   a shared loopback fixture, preserve the working directory, and include exact
   executable commands. The invalid-format example uses an unsupported value;

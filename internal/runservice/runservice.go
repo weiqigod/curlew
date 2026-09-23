@@ -33,6 +33,7 @@ type Request struct {
 	CollectionPath  string   // absolute (caller resolves against project root)
 	EnvName         string   // empty = no environment file
 	Selection       []string // nil = all (VarSources.Selection semantics)
+	SetupRequest    string   // execute setup through this request, without main or teardown
 	Parallel        bool
 	Seed            *int64           // nil in UI v1
 	RunID           string           // required; caller mints via runner.NewRunID()
@@ -62,6 +63,15 @@ func Execute(ctx context.Context, req Request, exec runner.ExecuteFunc) (*Result
 	col, err := parser.ParseFile(req.CollectionPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrCollectionInvalid, err)
+	}
+	if req.SetupRequest != "" {
+		if req.Parallel || len(req.Selection) != 0 {
+			return nil, fmt.Errorf("setup-only execution cannot use main selection or parallel execution")
+		}
+		col, err = SelectSetupRequest(col, req.SetupRequest)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	collectionDir := filepath.Dir(req.CollectionPath)
@@ -157,4 +167,26 @@ func Execute(ctx context.Context, req Request, exec runner.ExecuteFunc) (*Result
 		return res, runErr
 	}
 	return res, nil
+}
+
+// SelectSetupRequest keeps setup dependencies through the named step, excluding all other phases.
+func SelectSetupRequest(collection *parser.Collection, name string) (*parser.Collection, error) {
+	selected := -1
+	for index, item := range collection.Setup.Items {
+		if item.Name != name {
+			continue
+		}
+		if selected >= 0 {
+			return nil, fmt.Errorf("setup request %q is ambiguous", name)
+		}
+		selected = index
+	}
+	if selected < 0 {
+		return nil, fmt.Errorf("no setup request named %q", name)
+	}
+	result := *collection
+	result.Setup.Items = collection.Setup.Items[:selected+1]
+	result.Requests = parser.Section{}
+	result.Teardown = parser.Section{}
+	return &result, nil
 }

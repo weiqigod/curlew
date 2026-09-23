@@ -2,7 +2,9 @@ package vault
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -38,7 +40,9 @@ func (p *GCPProvider) Fetch(ctx context.Context, path string) (string, error) {
 		"gcloud secrets versions access latest --secret=%s --project=%s",
 		shellQuote(path), shellQuote(p.project),
 	)
-	out, err := p.execute(ctx, cmd)
+	out, err := executeProvider(ctx, p.execute, cmd, "gcloud", []string{
+		"secrets", "versions", "access", "latest", "--secret=" + path, "--project=" + p.project,
+	}, nil)
 	if err != nil {
 		return "", p.classifyError(err, path)
 	}
@@ -60,7 +64,7 @@ func (p *GCPProvider) BulkFetch(ctx context.Context, paths []string) (map[string
 
 // ValidateConfig checks that the gcloud CLI is available and credentials are valid.
 func (p *GCPProvider) ValidateConfig() error {
-	_, err := p.execute(context.Background(), "gcloud config get-value project")
+	_, err := executeProvider(context.Background(), p.execute, "gcloud config get-value project", "gcloud", []string{"config", "get-value", "project"}, nil)
 	if err != nil {
 		return p.classifyError(err, "")
 	}
@@ -68,17 +72,20 @@ func (p *GCPProvider) ValidateConfig() error {
 }
 
 func (p *GCPProvider) classifyError(err error, path string) error {
-	msg := err.Error()
+	msg := providerDiagnostic(err)
+	if errors.Is(err, exec.ErrNotFound) {
+		return fmt.Errorf("%w: gcloud CLI not installed: %w. %s", ErrProviderAuth, err, gcpInstallHint)
+	}
 	if strings.Contains(msg, "command not found") || strings.Contains(msg, "gcloud: not found") {
-		return fmt.Errorf("%w: gcloud CLI not installed. %s", ErrProviderAuth, gcpInstallHint)
+		return classifiedProviderError(err, ErrProviderAuth, "gcloud CLI not installed", ". "+gcpInstallHint)
 	}
 	for _, pattern := range gcpAuthErrorPatterns {
 		if strings.Contains(msg, pattern) {
-			return fmt.Errorf("%w: %s. %s", ErrProviderAuth, msg, gcpAuthHint)
+			return classifiedProviderError(err, ErrProviderAuth, err.Error(), ". "+gcpAuthHint)
 		}
 	}
 	if strings.Contains(msg, "NOT_FOUND") || strings.Contains(msg, "not found") {
-		return fmt.Errorf("%w: %s", ErrSecretNotFound, path)
+		return classifiedProviderError(err, ErrSecretNotFound, path, "")
 	}
 	return fmt.Errorf("gcp secret manager: %w", err)
 }

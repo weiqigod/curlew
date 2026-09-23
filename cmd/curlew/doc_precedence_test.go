@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -153,6 +154,10 @@ func stubAWS(t *testing.T, dir, value string) string {
 	}
 	script := "#!/bin/sh\nprintf %s " + shellSingleQuote(value) + "\n"
 	path := filepath.Join(binDir, "aws")
+	if runtime.GOOS == "windows" {
+		path += ".cmd"
+		script = "@echo off\r\necho " + value + "\r\n"
+	}
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
 		t.Fatalf("write stub aws: %v", err)
 	}
@@ -219,8 +224,11 @@ func (f *ladderFixture) run(t *testing.T, bin string) string {
 	collection := "name: ladder\n"
 	switch {
 	case f.fromCommand != "":
-		collection += fmt.Sprintf("variables:\n  %s:\n    from_command: \"printf %%s %s\"\n",
-			f.name, shellSingleQuote(f.fromCommand))
+		command := "printf %s " + shellSingleQuote(f.fromCommand)
+		if runtime.GOOS == "windows" {
+			command = "[Console]::Write('" + strings.ReplaceAll(f.fromCommand, "'", "''") + "')"
+		}
+		collection += fmt.Sprintf("variables:\n  %s:\n    from_command: %q\n", f.name, command)
 	case f.collection != "":
 		collection += fmt.Sprintf("variables:\n  %s: %q\n", f.name, f.collection)
 	}

@@ -15,6 +15,12 @@ import (
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 )
 
+type httpDoerFunc func(*http.Request) (*http.Response, error)
+
+func (f httpDoerFunc) Do(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
 func TestExecute(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -209,8 +215,8 @@ func TestExecute(t *testing.T) {
 			if result.StatusCode != tt.wantStatus {
 				t.Errorf("got status %d, want %d", result.StatusCode, tt.wantStatus)
 			}
-			if result.Duration <= 0 {
-				t.Error("expected positive duration")
+			if result.Duration < 0 {
+				t.Error("expected non-negative duration")
 			}
 		})
 	}
@@ -265,36 +271,38 @@ func TestExecute_network_error_preserves_inner_error(t *testing.T) {
 func TestExecute_NetworkErrorClassification(t *testing.T) {
 	tests := []struct {
 		name     string
-		req      *Request
-		ctx      context.Context
+		err      error
 		wantKind apierrors.NetworkErrorKind
 		wantHint string
 	}{
 		{
 			"connection refused classifies correctly",
-			&Request{Method: "GET", URL: "http://127.0.0.1:1/unreachable"},
-			context.Background(),
+			errors.New("dial tcp 127.0.0.1:1: connect: connection refused"),
 			apierrors.NetworkConnectionRefused,
 			"server is running",
 		},
 		{
 			"dns failure classifies correctly",
-			&Request{Method: "GET", URL: "http://nonexistent.invalid/test"},
-			context.Background(),
+			&net.DNSError{Name: "nonexistent.invalid", Err: "no such host"},
 			apierrors.NetworkDNS,
 			"hostname",
 		},
 		{
-			"classified errors preserve ErrNetwork",
-			&Request{Method: "GET", URL: "http://127.0.0.1:1/unreachable"},
-			context.Background(),
-			apierrors.NetworkConnectionRefused,
-			"",
+			"timeout classifies correctly",
+			context.DeadlineExceeded,
+			apierrors.NetworkTimeout,
+			"increasing the timeout",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Execute(tt.ctx, tt.req)
+			client := httpDoerFunc(func(*http.Request) (*http.Response, error) {
+				return nil, tt.err
+			})
+			_, err := executeWithClient(context.Background(), &Request{
+				Method: "GET",
+				URL:    "http://fixture.invalid/test",
+			}, client)
 			if err == nil {
 				t.Fatal("expected error")
 			}

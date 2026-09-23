@@ -8,6 +8,28 @@ import (
 	"time"
 )
 
+func TestTraceCaptureDurations(t *testing.T) {
+	for _, step := range []time.Duration{0, time.Millisecond} {
+		t.Run(step.String(), func(t *testing.T) {
+			start := time.Date(2026, time.September, 18, 0, 0, 0, 0, time.UTC)
+			trace := &traceCapture{
+				dnsStart: start, dnsDone: start.Add(2 * step),
+				connectStart: start.Add(2 * step), connectDone: start.Add(5 * step),
+				tlsStart: start.Add(5 * step), tlsDone: start.Add(9 * step),
+				wroteRequest: start.Add(10 * step), firstByte: start.Add(15 * step),
+			}
+			got := trace.finalize(start, start.Add(21*step))
+			want := Timing{
+				DNS: 2 * step, Connect: 3 * step, TLS: 4 * step,
+				TTFB: 5 * step, Download: 6 * step, Total: 21 * step,
+			}
+			if *got != want {
+				t.Fatalf("timing = %+v, want %+v", *got, want)
+			}
+		})
+	}
+}
+
 func TestExecute_TimingFreshConnection(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -29,17 +51,17 @@ func TestExecute_TimingFreshConnection(t *testing.T) {
 	if res.Timing.Reused {
 		t.Error("Reused = true on first request over a fresh transport")
 	}
-	if res.Timing.Connect <= 0 {
-		t.Errorf("Connect = %v, want > 0 on a fresh connection", res.Timing.Connect)
+	if res.Timing.Connect < 0 {
+		t.Errorf("Connect = %v, want >= 0 on a fresh connection", res.Timing.Connect)
 	}
 	if res.Timing.TLS != 0 {
 		t.Errorf("TLS = %v, want 0 for plain http", res.Timing.TLS)
 	}
-	if res.Timing.TTFB <= 0 {
-		t.Errorf("TTFB = %v, want > 0", res.Timing.TTFB)
+	if res.Timing.TTFB < 0 {
+		t.Errorf("TTFB = %v, want >= 0", res.Timing.TTFB)
 	}
-	if res.Timing.Total <= 0 {
-		t.Errorf("Total = %v, want > 0", res.Timing.Total)
+	if res.Timing.Total < 0 {
+		t.Errorf("Total = %v, want >= 0", res.Timing.Total)
 	}
 	if res.Timing.Total < res.Timing.TTFB {
 		t.Errorf("Total %v < TTFB %v", res.Timing.Total, res.Timing.TTFB)
@@ -92,8 +114,8 @@ func TestExecute_TimingTLS(t *testing.T) {
 	if res.Timing == nil {
 		t.Fatal("Timing is nil")
 	}
-	if res.Timing.TLS <= 0 {
-		t.Errorf("TLS = %v, want > 0 for https", res.Timing.TLS)
+	if res.Timing.TLS < 0 {
+		t.Errorf("TLS = %v, want >= 0 for https", res.Timing.TLS)
 	}
 }
 

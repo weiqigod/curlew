@@ -7,7 +7,7 @@ JSON-RPC 2.0 on stdin/stdout. Plugins can be written in any language.
 
 The external-process model means:
 
-- Plugins are ordinary executables — Go, Python, Bash, Rust, whatever.
+- Plugins are external programs written in any language that implements the wire protocol.
 - No shared library ABI concerns.
 - OS-level sandboxing is possible (future work; see Security below).
 - Language-agnostic: any runtime that can read stdin and write stdout works.
@@ -62,16 +62,18 @@ CURLEW_PLUGINS=/path/to/specific-plugin:/path/to/plugin-dir
 
 ### Directory expansion
 
-When an entry is a directory, every **regular file** with the execute bit set
-inside that directory (non-recursive, alphabetical order) becomes a plugin
-candidate. Subdirectories and non-executable files are silently skipped.
+On POSIX, a candidate must be a regular file with an execute bit set. On Windows,
+plugin candidates must be regular `.exe` files; extensionless files and script wrappers
+such as `.cmd`, `.bat`, and `.ps1` are not plugin executables. Directory expansion
+is non-recursive and alphabetical. Unsupported files and subdirectories found in
+a directory are silently skipped.
 
 ### Error handling
 
 | Situation | Behaviour |
 |-----------|-----------|
 | Entry not found | `error: plugin <path> not found` to stderr; exit 2 |
-| Regular file without execute bit | `error: plugin <path> is not executable` to stderr; exit 2 |
+| Explicit path is not executable on the current platform | `error: plugin <path> is not executable` to stderr; exit 2 |
 | Handshake timeout (> 5 s) | `warning: plugin <path> handshake timeout` to stderr; skipped; exit 0 |
 | Two plugins with same `name` | `error: duplicate plugin name <name>` to stderr; exit 2 |
 | Unknown hook in response | `warning: plugin <name>: unknown hook <hook> ignored` to stderr; loading continues |

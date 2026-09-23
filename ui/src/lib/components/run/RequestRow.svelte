@@ -4,7 +4,7 @@
   // duration + Code. Clickable only when terminal (skipped included).
   import { createEventDispatcher } from 'svelte';
   import type { LiveRequest } from '../../event-reducer';
-  import { fmtMs } from '../../format';
+  import { fileBasename, fmtMs } from '../../format';
   import Code from '../atoms/Code.svelte';
   import Dot from '../atoms/Dot.svelte';
   import Method from '../atoms/Method.svelte';
@@ -32,7 +32,7 @@
     row.iteration !== undefined
       ? `${row.iteration.base_name} ${row.iteration.index + 1}/${row.iteration.total}`
       : row.name;
-  $: basename = row.source_file.split('/').pop() ?? row.source_file;
+  $: basename = fileBasename(row.source_file);
 
   function open(): void {
     if (terminal) dispatch('open', row.request_id);

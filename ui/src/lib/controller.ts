@@ -5,6 +5,7 @@
 import { get, writable } from 'svelte/store';
 import { ApiError } from './api/client';
 import { cancelRun, getCurrentRun, getRun, getRunRequests, startRun as postRun } from './api/runs';
+import { fileBasename } from './format';
 import { navigate } from './router';
 import { WsClient } from './ws';
 import { environments, loadEnvironments, selectedEnv } from './stores/environments';
@@ -117,7 +118,7 @@ function handleFrame(frame: WsFrame): void {
 
 function pulseWatch(paths: string[]): void {
   if (paths.length === 0) return;
-  const base = paths[0].split('/').pop() ?? paths[0];
+  const base = fileBasename(paths[0]);
   const extra = paths.length > 1 ? ` +${paths.length - 1}` : '';
   watchSeq++;
   watchEvent.set({ label: `${base}${extra} changed · tree reloaded`, seq: watchSeq });
@@ -131,7 +132,7 @@ function pulseWatch(paths: string[]): void {
 let reconciledFor: string | null = null;
 
 /** POST /runs with the full §10.3.2 outcome handling. */
-export async function startRun(params: StartParams): Promise<void> {
+export async function startRun(params: StartParams, options: { navigate?: boolean } = {}): Promise<void> {
   const s = get(runState);
   if (s === 'starting' || s === 'running' || s === 'cancelling') return;
   dispatchRun({ type: 'run_click' }); // optimistic: button → "Starting…"
@@ -140,7 +141,7 @@ export async function startRun(params: StartParams): Promise<void> {
     reconciledFor = null;
     resetRun(res.run_id, params);
     dispatchRun({ type: 'start_ok' });
-    navigate({ name: 'run' });
+    if (options.navigate !== false) navigate({ name: 'run' });
     const list = await getRunRequests(res.run_id);
     seedRequests(list.requests);
     ws?.subscribe(res.run_id, 0);
@@ -232,15 +233,16 @@ export async function cancelActiveRun(): Promise<void> {
 /** Reconciliation after run end (§10.3.4) — idempotent per run id. */
 export async function reconcile(runId: string): Promise<void> {
   if (reconciledFor === runId) return;
-  reconciledFor = runId;
   try {
     const [info, list] = await Promise.all([getRun(runId), getRunRequests(runId)]);
     if (get(runMeta).run_id !== runId) return; // a new run took focus meanwhile
+    if (info.state === 'running' || info.state === 'cancelling' || reconciledFor === runId) return;
+    reconciledFor = runId;
     lastRunInfo.set(info);
     reconciledSummary.set(info.summary);
     seedRequests(list.requests);
   } catch {
-    reconciledFor = null; // allow a retry on the next terminal frame
+    return;
   }
   const m = get(meta);
   if (m !== null && m.history.enabled) {

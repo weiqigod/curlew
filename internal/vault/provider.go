@@ -3,6 +3,9 @@ package vault
 import (
 	"context"
 	"errors"
+	"fmt"
+
+	"github.com/weiqigod/curlew/internal/variable"
 )
 
 // ErrSecretNotFound is returned when a requested secret path does not exist.
@@ -31,3 +34,27 @@ type Provider interface {
 // CommandExecutor runs a shell command and returns stdout.
 // Injected for testability (avoids real CLI calls in tests).
 type CommandExecutor func(ctx context.Context, command string) (string, error)
+
+func executeProvider(ctx context.Context, legacy CommandExecutor, command, program string, args, env []string) (string, error) {
+	if legacy != nil {
+		return legacy(ctx, command)
+	}
+	return variable.ExecuteProgram(ctx, program, args, env)
+}
+
+func providerDiagnostic(err error) string {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return ""
+	}
+	if diagnostic := variable.CommandDiagnostic(err); diagnostic != "" {
+		return diagnostic
+	}
+	return err.Error()
+}
+
+func classifiedProviderError(err, kind error, legacyDetail, hint string) error {
+	if errors.Is(err, variable.ErrCommandFailed) {
+		return fmt.Errorf("%w: %w%s", kind, err, hint)
+	}
+	return fmt.Errorf("%w: %s%s", kind, legacyDetail, hint)
+}

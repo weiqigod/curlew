@@ -304,7 +304,11 @@ func TestRun_mixed_network_error_and_assertion_failure(t *testing.T) {
 
 func TestRun_total_duration_is_positive(t *testing.T) {
 	col := makeCollection([]string{"A"}, false)
-	_, summary, _ := Run(context.Background(), col, successExecutor, VarSources{})
+	delayedExecutor := func(ctx context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+		time.Sleep(time.Millisecond)
+		return successExecutor(ctx, req)
+	}
+	_, summary, _ := Run(context.Background(), col, delayedExecutor, VarSources{})
 	if summary.Duration <= 0 {
 		t.Errorf("duration = %v, want > 0", summary.Duration)
 	}
@@ -2631,6 +2635,44 @@ func TestRunFromCommand(t *testing.T) {
 	})
 }
 
+func TestResolvedSecretsSurviveScopeFailure(t *testing.T) {
+	for _, supplied := range []bool{false, true} {
+		t.Run(fmt.Sprintf("supplied_set_%t", supplied), func(t *testing.T) {
+			var sensitive *variable.SensitiveSet
+			if supplied {
+				sensitive = variable.NewSensitiveSet()
+			}
+			explicit := variable.NewSensitiveSet()
+			explicit.Add("opaque")
+			col := &parser.Collection{
+				Name: "pre-execution failure",
+				Variables: parser.SensitiveVars{
+					Values:    map[string]string{"broken": "{{missing}}"},
+					Commands:  map[string]parser.CommandVar{"opaque": {Command: "echo command-private-value", Sensitive: true}},
+					Sensitive: explicit,
+				},
+			}
+			_, summary, err := Run(context.Background(), col, func(context.Context, *httpexec.Request) (*httpexec.Result, error) {
+				t.Fatal("HTTP must not run after scope failure")
+				return nil, nil
+			}, VarSources{
+				RuntimeSensitive: sensitive,
+				Secrets:          &vault.SecretsConfig{Provider: vault.ProviderAWS, Region: "local", Keys: map[string]string{"opaque_vault": "local-only"}},
+				VaultExecutor:    func(context.Context, string) (string, error) { return "vault-private-value", nil },
+			})
+			if err == nil || summary == nil || summary.RuntimeSensitive == nil {
+				t.Fatalf("error=%v summary=%+v", err, summary)
+			}
+			if supplied && summary.RuntimeSensitive != sensitive {
+				t.Fatal("caller sensitive set replaced")
+			}
+			if got := variable.RedactBody("command-private-value vault-private-value", summary.RuntimeSensitive, false); got != "[REDACTED] [REDACTED]" {
+				t.Fatalf("early summary did not retain resolved values: %q", got)
+			}
+		})
+	}
+}
+
 func TestRun_VaultResolution(t *testing.T) {
 	t.Run("vault_secrets_resolved_and_available_as_variables", func(t *testing.T) {
 		mockExec := func(ctx context.Context, command string) (string, error) {
@@ -4518,7 +4560,7 @@ func TestRun_DataDriven_ExtractionAccumulates(t *testing.T) {
 	writeCSVFile(t, dir, "data.csv", "val\na\nb\nc")
 
 	callNum := 0
-	exec := func(_ context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+	exec := func(_ context.Context, _ *httpexec.Request) (*httpexec.Result, error) {
 		callNum++
 		body := fmt.Sprintf(`{"id":"user_%d"}`, callNum)
 		return &httpexec.Result{
@@ -5368,7 +5410,7 @@ func TestRun_DataDriven_ParallelExtractionAccumulates(t *testing.T) {
 	writeCSVFile(t, dir, "data.csv", "val\na\nb\nc")
 
 	callNum := int32(0)
-	exec := func(_ context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+	exec := func(_ context.Context, _ *httpexec.Request) (*httpexec.Result, error) {
 		n := atomic.AddInt32(&callNum, 1)
 		body := fmt.Sprintf(`{"id":"user_%d"}`, n)
 		return &httpexec.Result{
@@ -7001,7 +7043,7 @@ func nilExec(_ context.Context, _ *httpexec.Request) (*httpexec.Result, error) {
 
 // --- GraphQL Error Handling Mode Tests (M2-031) ---
 
-func makeGraphQLCollection(body, globalMode, perReqMode string) (*parser.Collection, VarSources) {
+func makeGraphQLCollection(globalMode, perReqMode string) (*parser.Collection, VarSources) {
 	var gqlCfg *parser.GraphQLConfig
 	if perReqMode != "" {
 		gqlCfg = &parser.GraphQLConfig{
@@ -7079,7 +7121,7 @@ func TestRun_graphql_mode_matrix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			col, vars := makeGraphQLCollection(tt.body, tt.globalMode, tt.perReqMode)
+			col, vars := makeGraphQLCollection(tt.globalMode, tt.perReqMode)
 			results, summary, err := Run(context.Background(), col, makeGraphQLExecutor(tt.body), vars)
 			if err != nil {
 				t.Fatalf("Run() error: %v", err)
@@ -7103,7 +7145,7 @@ func TestRun_graphql_mode_matrix(t *testing.T) {
 func TestRun_graphql_warn_mode_updates_existing_test_behaviour(t *testing.T) {
 	// Verify existing warn test: partial success + warn → passes AND has warnings
 	exec := makeGraphQLExecutor(`{"errors":[{"message":"deprecated field"}],"data":{"user":{"name":"Alice"}}}`)
-	col, vars := makeGraphQLCollection("", "", "warn")
+	col, vars := makeGraphQLCollection("", "warn")
 
 	results, summary, err := Run(context.Background(), col, exec, vars)
 	if err != nil {

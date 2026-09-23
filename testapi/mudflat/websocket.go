@@ -234,7 +234,7 @@ func (s *Server) handleWSPing(w http.ResponseWriter, r *http.Request) {
 
 	c.SetDeadline(time.Now().Add(hardResponseCeiling))
 	for i := range count {
-		if err := c.WriteFrame(opPing, true, []byte(fmt.Sprintf("mudflat-ping-%d", i+1))); err != nil {
+		if err := c.WriteFrame(opPing, true, fmt.Appendf(nil, "mudflat-ping-%d", i+1)); err != nil {
 			return
 		}
 		time.Sleep(time.Duration(gap) * time.Millisecond)

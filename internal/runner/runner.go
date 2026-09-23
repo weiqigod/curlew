@@ -329,7 +329,7 @@ type VarSources struct {
 	CLI                 map[string]string       // --var variables (precedence 10)
 	Seed                *int64                  // nil = real randomness; non-nil = deterministic seed
 	Secrets             *vault.SecretsConfig    // vault provider config from curlew.yaml (nil = no vault)
-	VaultExecutor       vault.CommandExecutor   // nil = use variable.ExecuteCommand
+	VaultExecutor       vault.CommandExecutor   // nil = use structured provider execution
 	AuthProfiles        []auth.Profile          // from curlew.yaml auth_profiles: block
 	ProjectRoot         string                  // directory containing curlew.yaml (for resolving relative paths)
 	AuthExecuteFunc     auth.ExecuteFunc        // nil = use RunForExtraction; non-nil = use directly (for tests)
@@ -568,6 +568,14 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 	}
 	emptySummary.RunID = runID
 
+	runtimeSensitive := vars.RuntimeSensitive
+	if runtimeSensitive == nil {
+		runtimeSensitive = variable.NewSensitiveSet()
+	}
+	vars.RuntimeSensitive = runtimeSensitive
+	emptySummary.RuntimeSensitive = runtimeSensitive
+	runtimeSensitive.Merge(col.Variables.Sensitive)
+
 	scope, sharedSecretsResolved, err := buildScope(ctx, col, vars)
 	if err != nil {
 		return nil, emptySummary, err
@@ -578,10 +586,6 @@ func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars Var
 	// credential-bearing argument (e.g. the key of $hmacSha256) resolves from
 	// a sensitive source. The set is exposed on the summary so cmd/curlew can
 	// merge it into the post-run redaction set.
-	runtimeSensitive := vars.RuntimeSensitive
-	if runtimeSensitive == nil {
-		runtimeSensitive = variable.NewSensitiveSet()
-	}
 	scope = scope.WithRuntimeSensitive(runtimeSensitive)
 
 	// Build the shared global limiter and wrap exec so every HTTP dispatch
@@ -1171,21 +1175,26 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 				cache.Set(name, val, cmd.Cache)
 			}
 			merged[name] = val
+			if vars.RuntimeSensitive != nil && (vars.RuntimeSensitive.IsSensitive(name) || variable.IsSensitiveName(name)) {
+				vars.RuntimeSensitive.Add(name)
+				vars.RuntimeSensitive.AddValue(val)
+			}
 		}
 	}
 
 	// Resolve vault secrets (precedence 6)
 	if vars.Secrets != nil {
 		vaultExec := vars.VaultExecutor
-		if vaultExec == nil {
-			vaultExec = variable.ExecuteCommand
-		}
 		result, err := vault.Resolve(ctx, vars.Secrets, vaultExec)
 		if err != nil {
 			return nil, 0, err
 		}
 		for k, v := range result.Variables {
 			merged[k] = v
+			if vars.RuntimeSensitive != nil {
+				vars.RuntimeSensitive.Add(k)
+				vars.RuntimeSensitive.AddValue(v)
+			}
 		}
 	}
 
@@ -1269,6 +1278,12 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 			}
 
 			scope = scope.WithSecrets(resolved)
+			for name, value := range resolved {
+				if vars.RuntimeSensitive != nil {
+					vars.RuntimeSensitive.Add("secrets." + name)
+					vars.RuntimeSensitive.AddValue(value)
+				}
+			}
 			sharedSecretsResolved = resolver.Count()
 		}
 	}
@@ -1355,9 +1370,6 @@ func stubTeamProviderFactory() func(*teamtemplate.ResolvedEnv) (vault.Provider, 
 // realTeamProviderFactory returns a provider factory that dispatches on
 // env.Provider and constructs the appropriate real vault provider.
 func realTeamProviderFactory(exec vault.CommandExecutor) func(*teamtemplate.ResolvedEnv) (vault.Provider, error) {
-	if exec == nil {
-		exec = variable.ExecuteCommand
-	}
 	return func(env *teamtemplate.ResolvedEnv) (vault.Provider, error) {
 		switch env.Provider {
 		case vault.ProviderAWS:
@@ -2705,7 +2717,7 @@ func executeDataDriven(
 
 	// Parallel data-driven execution
 	if item.DataDriven.Parallel {
-		return executeDataDrivenParallel(ctx, col, item, scope, exec, vars, phase, checkRequired, stopOnFailure, counter, maxRequests, collectionRetry, sectionRetry, globalRetry, ds)
+		return executeDataDrivenParallel(ctx, col, item, scope, exec, vars, phase, checkRequired, stopOnFailure, counter, collectionRetry, sectionRetry, globalRetry, ds)
 	}
 
 	// Execute iterations sequentially
@@ -2937,7 +2949,6 @@ func executeDataDrivenParallel(
 	checkRequired bool,
 	stopOnFailure bool,
 	counter *int,
-	maxRequests int,
 	collectionRetry *retry.FullConfig,
 	sectionRetry *retry.FullConfig,
 	globalRetry *retry.FullConfig,

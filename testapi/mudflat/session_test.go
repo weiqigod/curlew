@@ -320,7 +320,7 @@ func TestSession_ListResourcesIsOrderedByCreation(t *testing.T) {
 	sess, _ := s.Get("abc")
 
 	for i := range 5 {
-		if _, err := sess.CreateResource([]byte(fmt.Sprintf(`{"n":%d}`, i))); err != nil {
+		if _, err := sess.CreateResource(fmt.Appendf(nil, `{"n":%d}`, i)); err != nil {
 			t.Fatalf("CreateResource: %v", err)
 		}
 	}

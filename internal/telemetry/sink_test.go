@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -119,6 +120,9 @@ func TestFileSink_Emit(t *testing.T) {
 	})
 
 	t.Run("file_is_owner_only", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("POSIX mode bits do not represent Windows ACLs")
+		}
 		path := filepath.Join(t.TempDir(), "telemetry.ndjson")
 		sink := telemetry.NewFileSink(path)
 

@@ -506,7 +506,7 @@ No `{{...}}` inside the file is touched. The payload is sent byte-for-byte.
 | `.yaml`, `.yml` | `application/yaml` — supplied by Curlew where the host's database has no entry |
 | `.txt` | `text/plain; charset=utf-8` |
 | `.html` | `text/html; charset=utf-8` |
-| `.csv` | `text/csv; charset=utf-8` |
+| `.csv` | `text/csv; charset=utf-8` or `application/vnd.ms-excel` |
 | `.pdf` | `application/pdf` |
 | `.png`, `.jpg`, `.gif` | `image/png`, `image/jpeg`, `image/gif` |
 | unknown (text variant) | *none — user sets header* |
@@ -3023,17 +3023,52 @@ variables:
 
 Semantics:
 
-- The command runs via `/bin/sh -c`, so shell features work (pipes, subshells, `&&`).
-- Trailing newline is stripped from stdout.
-- Non-zero exit terminates the run and includes stderr in the error.
+- POSIX commands run via `/bin/sh -c` (pipes, subshells, `&&`). Windows commands
+  run in system Windows PowerShell with no profile and non-interactive input;
+  Bash syntax is not translated.
+- Both output streams must be UTF-8. PowerShell is configured accordingly;
+  external programs must also emit UTF-8. Trailing LF is stripped on POSIX;
+  trailing LF/CRLF sequences are stripped on Windows. Spaces and interior line
+  endings are preserved.
+- Each command has a 30-second cap, or an earlier caller deadline. Descendants
+  are terminated when the command finishes or is cancelled. POSIX containment
+  covers the process group, not children that deliberately leave it.
+- Non-zero exit terminates the run with exit 5. Diagnostics include the failure
+  kind/exit code, but omit command text and captured output to protect secrets.
 - `sensitive: true` redacts the value in all output.
 - `cache: N` — memoize for N seconds within the run scope.
 
 The command runs through the same redaction and `sensitive: true` machinery as every other variable source.
 
+For a quoted Windows executable path, use PowerShell's call operator:
+
+```yaml
+variables:
+  session_token:
+    from_command: '& "C:\Tools With Spaces\token-helper.exe" --issue'
+    sensitive: true
+```
+
 ### 6.4 Vault providers
 
 For each supported vault, Curlew expects the provider's CLI to be installed and authenticated. Curlew does not embed SDKs; it shells out.
+
+Providers use structured program arguments; HashiCorp credentials are passed in
+the child environment without changing the parent. The same UTF-8 and 30-second
+limits apply. On Windows, native `.exe` files support literal argument quoting.
+
+Windows `.cmd` and `.bat` provider launchers always preserve quoted arguments and
+shell metacharacters without executing them as commands. Native tests cover Azure CLI
+2.90.0 MSI/ZIP forwarding and Google Cloud CLI 585.0.0 forwarding, including
+Google's delayed-expansion bootstrap, using local modules and a real Python
+interpreter. No provider account is used for those tests.
+
+Batch arguments cannot contain NUL, CR, or LF: NUL terminates Windows command
+strings, and CR/LF terminate batch command lines. Encoded batch invocations and
+environment entries are capped at 8000 UTF-16 units to stay below CMD's line
+limit. These checks prevent truncation. Custom scripts retain their own semantics:
+a script that explicitly expands an argument a second time can change its value.
+See [Windows command details](WINDOWS.md#windows-command-contract).
 
 **AWS Secrets Manager:**
 

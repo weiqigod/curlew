@@ -24,7 +24,7 @@ func ListCollections(baseDir string) []string {
 		}
 		ext := filepath.Ext(e.Name())
 		if ext == ".yaml" || ext == ".yml" {
-			paths = append(paths, filepath.Join("collections", e.Name()))
+			paths = append(paths, filepath.ToSlash(filepath.Join("collections", e.Name())))
 		}
 	}
 	sort.Strings(paths)

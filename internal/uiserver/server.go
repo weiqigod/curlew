@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -82,6 +83,7 @@ func NewServer(opts Options) (*Server, error) {
 	if opts.Diagnostics == nil {
 		opts.Diagnostics = func(string, ...any) {}
 	}
+	opts.CollectionFilter = filepath.ToSlash(opts.CollectionFilter)
 	s := &Server{
 		opts:      opts,
 		startedAt: time.Now().UTC(),

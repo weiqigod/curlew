@@ -4,10 +4,10 @@
   // base_slug), selection mode scoped to one collection, read-only footer.
   import { onDestroy, onMount } from 'svelte';
   import type { LiveStatus } from '../../event-reducer';
+  import { fileBasename } from '../../format';
   import { pushEscFallback, registerKey } from '../../keyboard';
   import { navigate, route } from '../../router';
-  import { focusedRequests, routeRunId } from '../../stores/focused-run';
-  import { runMeta } from '../../stores/run';
+  import { focusedRequests } from '../../stores/focused-run';
   import { toast } from '../../stores/toast';
   import { tree } from '../../stores/tree';
   import { clearSelection, sidebarSelection } from '../../stores/ui';
@@ -107,23 +107,6 @@
   }
 
   function clickRequest(c: TreeCollection, r: TreeRequest): void {
-    // → inspector when the request has a result in the focused run.
-    const runId = $routeRunId ?? $runMeta.run_id;
-    if (runId !== null) {
-      const row = $focusedRequests.find(
-        (x) =>
-          x.source_file === c.path &&
-          (x.iteration?.base_slug ?? x.slug) === r.slug &&
-          x.status !== 'pending' &&
-          x.status !== 'running',
-      );
-      if (row !== undefined) {
-        navigate({ name: 'inspector', runId, requestId: row.request_id });
-        return;
-      }
-    }
-    // No result to inspect — land on the request definition instead of a
-    // dead click (the old footer hint was invisible in practice).
     navigate({ name: 'definition', path: c.path, slug: r.slug });
   }
 
@@ -134,7 +117,7 @@
   function toggleSelect(c: TreeCollection, r: TreeRequest, checked: boolean): void {
     sidebarSelection.update((sel) => {
       if (sel.collection !== null && sel.collection !== c.path && checked) {
-        toast(`selection moved to ${c.path.split('/').pop() ?? c.path}`);
+        toast(`selection moved to ${fileBasename(c.path)}`);
         return { collection: c.path, names: [r.name] };
       }
       const names = checked
@@ -224,7 +207,7 @@
             <span class="chev">
               {#if c.valid}<Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />{/if}
             </span>
-            <span class="cpath at-mono">{c.path.replace(/^collections\//, '')}</span>
+            <span class="cpath at-mono">{c.path.replace(/^collections[\\/]/, '')}</span>
             {#if !c.valid}
               <span class="invalid"><Icon name="warn" size={13} /> invalid</span>
             {:else}

@@ -62,6 +62,11 @@ func TestClassifyNetworkError(t *testing.T) {
 			NetworkConnectionRefused,
 		},
 		{
+			"Windows connection actively refused",
+			errors.New("connectex: No connection could be made because the target machine actively refused it"),
+			NetworkConnectionRefused,
+		},
+		{
 			"tls certificate error",
 			&x509.UnknownAuthorityError{},
 			NetworkTLS,

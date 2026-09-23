@@ -2,7 +2,9 @@ package vault
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -41,12 +43,15 @@ func (p *OnePasswordProvider) Name() string { return Provider1Password }
 // Paths prefixed with "op://" use `op read`; plain item names use `op item get`.
 func (p *OnePasswordProvider) Fetch(ctx context.Context, path string) (string, error) {
 	var cmd string
+	var args []string
 	if strings.HasPrefix(path, "op://") {
 		cmd = fmt.Sprintf("op read %s", shellQuote(path))
+		args = []string{"read", path}
 	} else {
 		cmd = fmt.Sprintf("op item get %s --format json", shellQuote(path))
+		args = []string{"item", "get", path, "--format", "json"}
 	}
-	out, err := p.execute(ctx, cmd)
+	out, err := executeProvider(ctx, p.execute, cmd, "op", args, nil)
 	if err != nil {
 		return "", p.classifyError(err, path)
 	}
@@ -68,7 +73,7 @@ func (p *OnePasswordProvider) BulkFetch(ctx context.Context, paths []string) (ma
 
 // ValidateConfig checks that the op CLI is installed and the user is signed in.
 func (p *OnePasswordProvider) ValidateConfig() error {
-	_, err := p.execute(context.Background(), "op whoami")
+	_, err := executeProvider(context.Background(), p.execute, "op whoami", "op", []string{"whoami"}, nil)
 	if err != nil {
 		return p.classifyError(err, "")
 	}
@@ -76,19 +81,22 @@ func (p *OnePasswordProvider) ValidateConfig() error {
 }
 
 func (p *OnePasswordProvider) classifyError(err error, path string) error {
-	msg := err.Error()
+	msg := providerDiagnostic(err)
+	if errors.Is(err, exec.ErrNotFound) {
+		return fmt.Errorf("%w: op CLI not installed: %w. %s", ErrProviderAuth, err, onePasswordInstallHint)
+	}
 	// CLI not installed — surface install URL (behavior 4).
 	if strings.Contains(msg, "command not found") || strings.Contains(msg, "op: not found") {
-		return fmt.Errorf("%w: op CLI not installed. %s", ErrProviderAuth, onePasswordInstallHint)
+		return classifiedProviderError(err, ErrProviderAuth, "op CLI not installed", ". "+onePasswordInstallHint)
 	}
 	for _, pattern := range onePasswordNotFoundPatterns {
 		if strings.Contains(msg, pattern) {
-			return fmt.Errorf("%w: %s", ErrSecretNotFound, path)
+			return classifiedProviderError(err, ErrSecretNotFound, path, "")
 		}
 	}
 	for _, pattern := range onePasswordAuthErrorPatterns {
 		if strings.Contains(msg, pattern) {
-			return fmt.Errorf("%w: %s. %s", ErrProviderAuth, msg, onePasswordAuthHint)
+			return classifiedProviderError(err, ErrProviderAuth, err.Error(), ". "+onePasswordAuthHint)
 		}
 	}
 	return fmt.Errorf("1password: %w", err)

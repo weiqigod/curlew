@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -72,7 +73,8 @@ func TestExecuteProfiles(t *testing.T) {
 			},
 			projectRoot: "/project",
 			execute: func(_ context.Context, path string) (map[string]string, error) {
-				if path != "/project/auth/login.yaml" {
+				want := filepath.Join("/project", filepath.FromSlash("auth/login.yaml"))
+				if path != want {
 					return nil, fmt.Errorf("unexpected path: %s", path)
 				}
 				return map[string]string{"token": "x"}, nil

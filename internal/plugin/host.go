@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"sync"
 	"time"
 )
@@ -32,34 +31,7 @@ type execSpawner struct {
 }
 
 func (s execSpawner) Spawn(_ context.Context, path string) (io.WriteCloser, io.ReadCloser, func(), error) {
-	// Use context.Background() so the process lifetime is not tied to the
-	// caller's context (which is a handshake-scoped timeout context).
-	// Process termination is handled exclusively by the returned kill func.
-	cmd := exec.CommandContext(context.Background(), path)
-	cmd.Stderr = s.stderr // forward plugin subprocess stderr to the host's writer
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("stdin pipe: %w", err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("stdout pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, nil, nil, fmt.Errorf("start: %w", err)
-	}
-	kill := func() {
-		_ = cmd.Process.Signal(interruptSignal())
-		done := make(chan struct{})
-		go func() { _ = cmd.Wait(); close(done) }()
-		select {
-		case <-done:
-		case <-time.After(500 * time.Millisecond):
-			_ = cmd.Process.Kill()
-			<-done
-		}
-	}
-	return stdin, stdout, kill, nil
+	return spawnPlugin(path, s.stderr)
 }
 
 // Host is the plugin loader and lifecycle manager.
