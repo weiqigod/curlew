@@ -11,7 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   values in the OS keychain, so later CLI and `curlew ui` runs reuse them until
   they expire instead of asking the provider (for example 1Password) every run.
   `curlew vault clear-cache` removes them. A run now fetches only the secret keys
-  its collection can reference (M30-007).
+  used by requests that run: a request skipped by `if:` or `--only` never asks the
+  provider. Provider CLI calls wait up to 2 minutes, enough to approve a
+  1Password prompt (M30-007).
 - **Native Windows development foundations.** Added fail-closed PowerShell
   verification and loopback smoke scripts, native plugin discovery and process
   cleanup, quoted editor and batch-wrapper launch, stable API path labels,

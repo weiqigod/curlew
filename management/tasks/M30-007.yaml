@@ -20,6 +20,8 @@ behaviors:
   - Expired or unreadable entries are misses and are removed; an unavailable keychain never fails a run.
   - A run fetches only keys referenced by the collection, its external files, reachable variable values or CEL vars, and skips keys overridden by collection values, --env-var or --var.
   - "`curlew vault clear-cache` removes every cached value and is listed in help and README."
+  - Requests skipped by if: or left out by --only never fetch a secret; any other secret is fetched on first use.
+  - Provider CLI calls wait up to 2 minutes so the user can answer an approval prompt.
 scope: |
   internal/vault (SecretStore, KeyringStore, ResolveWith), internal/runner
   (used-key selection, store wiring), cmd/curlew (vault clear-cache), MANUAL,

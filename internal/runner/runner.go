@@ -1184,14 +1184,16 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 	}
 
 	// Resolve vault secrets (precedence 6)
+	var deferredSecrets *variable.Deferred
 	if vars.Secrets != nil {
 		vaultExec := vars.VaultExecutor
 		store := vars.SecretStore
 		if store == nil && vars.Secrets.CacheTTL > 0 {
 			store = &vault.KeyringStore{}
 		}
+		upFront, later := planSecretKeys(col, vars, merged)
 		result, err := vault.ResolveWith(ctx, vars.Secrets, vaultExec, vault.ResolveOptions{
-			Only:  usedSecretKeys(col, vars, merged),
+			Only:  upFront,
 			Store: store,
 		})
 		if err != nil {
@@ -1204,6 +1206,25 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 				vars.RuntimeSensitive.AddValue(v)
 			}
 		}
+		if len(later) > 0 {
+			names := make([]string, 0, len(later))
+			for name := range later {
+				names = append(names, name)
+			}
+			secrets, sensitive := vars.Secrets, vars.RuntimeSensitive
+			deferredSecrets = variable.NewDeferred(names, func(name string) (string, error) {
+				r, err := vault.ResolveWith(ctx, secrets, vaultExec, vault.ResolveOptions{Only: map[string]bool{name: true}, Store: store})
+				if err != nil {
+					return "", err
+				}
+				v := r.Variables[name]
+				if sensitive != nil {
+					sensitive.Add(name)
+					sensitive.AddValue(v)
+				}
+				return v, nil
+			})
+		}
 	}
 
 	for k, v := range col.Variables.Values {
@@ -1212,6 +1233,9 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 
 	// Variable resolution (before any HTTP execution)
 	scope := variable.NewScope(merged)
+	if deferredSecrets != nil {
+		scope = scope.WithDeferred(deferredSecrets)
+	}
 	if err := scope.Resolve(); err != nil {
 		return nil, 0, err
 	}

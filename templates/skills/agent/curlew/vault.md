@@ -21,7 +21,8 @@ secrets:
 
 Use `{{api_key}}` in a request for this project-level configuration.
 `cache_ttl` keeps fetched values in the OS keychain across runs; after rotating a
-secret, run `curlew vault clear-cache`. A run fetches only the keys it references.
+secret, run `curlew vault clear-cache`. A run fetches only the keys that running
+requests use; requests skipped by `if:` or `--only` never fetch.
 The `{{secrets.name}}` syntax belongs to shared team templates, which require
 the corresponding team configuration and selected environment. Vault-resolved values are sensitive.
 Keep redaction enabled and review artifacts before sharing; arbitrary response

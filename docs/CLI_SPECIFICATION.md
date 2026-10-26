@@ -1476,11 +1476,14 @@ auth:
 **The `#field` suffix** extracts one field from a structured secret (AWS,
 1Password, HashiCorp). Without it, the value is expected to be a plain string.
 
-**Fetching.** A run fetches only the keys it can reference: from the collection,
-its external files (fragments, body files), variable values that lead to a key,
-and CEL `vars.<name>` uses. A key overridden by collection variables, `--env-var`
-or `--var` is not fetched. All misses of one run are fetched by the same Curlew
-process.
+**Fetching.** Before the first request a run fetches the keys referenced by the
+requests that can run: setup, teardown and the `--only` selection, including keys
+reached through variable values and CEL `vars.<name>` uses. A request whose `if:`
+is already false from the starting variables does not count. Every other key is
+fetched when a request first uses it, so a skipped or unselected request never
+calls the provider. A key overridden by collection variables, `--env-var` or
+`--var` is not fetched. Each provider CLI call may take up to 2 minutes, long
+enough to answer an approval prompt such as 1Password's.
 
 **Caching.** With `cache_ttl` (seconds) above 0, fetched values are kept in the OS
 keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service) and

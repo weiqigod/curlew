@@ -1,10 +1,12 @@
 package runner
 
 import (
-	"os"
+	"errors"
 	"reflect"
 	"regexp"
+	"strings"
 
+	apicel "github.com/weiqigod/curlew/internal/cel"
 	"github.com/weiqigod/curlew/internal/parser"
 	"github.com/weiqigod/curlew/internal/variable"
 )
@@ -12,12 +14,19 @@ import (
 // celVarPattern matches CEL references to the vars map: vars.name and vars["name"].
 var celVarPattern = regexp.MustCompile(`\bvars(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*["']([^"']+)["']\s*\])`)
 
-// usedSecretKeys returns the secret key names the run can reference, so only
-// those are fetched. It is deliberately generous: every string in the parsed
-// collection and its external files counts, plus everything reachable through
-// variable values. Keys overridden by a higher-precedence source (collection
-// values, --env-var, --var) are left out because their secret value is unused.
-func usedSecretKeys(col *parser.Collection, vars VarSources, merged map[string]string) map[string]bool {
+// runtimeCELPattern matches CEL inputs that only exist once requests have run.
+var runtimeCELPattern = regexp.MustCompile(`\b(previous|response|row)\b`)
+
+var errUnfetchedSecret = errors.New("secret not fetched while planning the run")
+
+// planSecretKeys splits the secret keys into those fetched before the first
+// request and those fetched on first use. Up front are keys referenced by
+// requests that can run: setup, teardown and the --only selection, minus
+// requests whose if: is already false from the starting variables. Every other
+// key is deferred, so a guarded or unselected request never asks the provider,
+// and a key the scan missed is still fetched when a request uses it. Keys
+// overridden by collection values, --env-var or --var are neither.
+func planSecretKeys(col *parser.Collection, vars VarSources, merged map[string]string) (upFront, deferred map[string]bool) {
 	referenced := map[string]bool{}
 	var pending []string
 	add := func(text string) {
@@ -36,12 +45,12 @@ func usedSecretKeys(col *parser.Collection, vars VarSources, merged map[string]s
 		}
 	}
 
-	visitStrings(reflect.ValueOf(col), add, 0)
-	for _, path := range col.ExternalFiles {
-		if data, err := os.ReadFile(path); err == nil {
-			add(string(data))
-		}
-	}
+	runnable := runnableItemFilter(col, vars, merged)
+	view := *col
+	view.Setup.Items = runnable(col.Setup.Items)
+	view.Requests.Items = runnable(selectedMainItems(col.Requests.Items, vars.Selection))
+	view.Teardown.Items = runnable(col.Teardown.Items)
+	visitStrings(reflect.ValueOf(&view), add, 0)
 
 	sources := []map[string]string{vars.Project, vars.EnvFile, vars.DotEnv, merged, col.Variables.Values, vars.EnvVar, vars.CLI}
 	for len(pending) > 0 {
@@ -54,11 +63,8 @@ func usedSecretKeys(col *parser.Collection, vars VarSources, merged map[string]s
 		}
 	}
 
-	used := map[string]bool{}
+	upFront, deferred = map[string]bool{}, map[string]bool{}
 	for name := range vars.Secrets.Keys {
-		if !referenced[name] {
-			continue
-		}
 		if _, ok := col.Variables.Values[name]; ok {
 			continue
 		}
@@ -68,9 +74,89 @@ func usedSecretKeys(col *parser.Collection, vars VarSources, merged map[string]s
 		if _, ok := vars.CLI[name]; ok {
 			continue
 		}
-		used[name] = true
+		if referenced[name] {
+			upFront[name] = true
+		} else {
+			deferred[name] = true
+		}
 	}
-	return used
+	return upFront, deferred
+}
+
+func selectedMainItems(items []parser.RequestItem, selection []string) []parser.RequestItem {
+	if len(selection) == 0 {
+		return items
+	}
+	filtered, err := filterMainItemsBySelection(items, selection)
+	if err != nil {
+		return items
+	}
+	return filtered
+}
+
+// runnableItemFilter drops items whose if: is false from the starting
+// variables. Expressions that use previous, response, a secret, or that do not
+// evaluate cleanly are kept: they can only be decided during the run.
+func runnableItemFilter(col *parser.Collection, vars VarSources, merged map[string]string) func([]parser.RequestItem) []parser.RequestItem {
+	keepAll := func(items []parser.RequestItem) []parser.RequestItem { return items }
+	if !collectionHasIf(col) {
+		return keepAll
+	}
+	start := map[string]string{}
+	for _, src := range []map[string]string{merged, col.Variables.Values, vars.EnvVar, vars.CLI} {
+		for k, v := range src {
+			start[k] = v
+		}
+	}
+	names := make([]string, 0, len(vars.Secrets.Keys))
+	for name := range vars.Secrets.Keys {
+		names = append(names, name)
+	}
+	placeholders := variable.NewDeferred(names, func(string) (string, error) { return "", errUnfetchedSecret })
+	scope := variable.NewScope(start).WithDeferred(placeholders)
+	if err := scope.Resolve(); err != nil {
+		return keepAll
+	}
+	resolved := scope.Resolved()
+	varsAny := make(map[string]any, len(resolved))
+	for k, v := range resolved {
+		varsAny[k] = v
+	}
+	ev, err := vars.ensureCelEvaluator()
+	if err != nil {
+		return keepAll
+	}
+	cache := map[string]apicel.Program{}
+	skips := func(expr string) bool {
+		if expr == "" || runtimeCELPattern.MatchString(expr) {
+			return false
+		}
+		for _, m := range celVarPattern.FindAllStringSubmatch(expr, -1) {
+			name := m[1] + m[2]
+			if vars.Secrets.Keys[name] != "" || strings.Contains(resolved[name], "{{") {
+				return false
+			}
+		}
+		prog, err := compileIfProgram(cache, ev, expr)
+		if err != nil {
+			return false
+		}
+		out, err := prog.Eval(apicel.StandardActivation{Vars: varsAny, Env: vars.EnvVar}, apicel.EvalOptions{})
+		if err != nil {
+			return false
+		}
+		open, ok := out.(bool)
+		return ok && !open
+	}
+	return func(items []parser.RequestItem) []parser.RequestItem {
+		kept := make([]parser.RequestItem, 0, len(items))
+		for _, item := range items {
+			if !skips(item.If) {
+				kept = append(kept, item)
+			}
+		}
+		return kept
+	}
 }
 
 // visitStrings calls visit for every string reachable from v.
