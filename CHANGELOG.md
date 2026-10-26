@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Vault secrets cached across runs.** `secrets.cache_ttl` now keeps fetched
+  values in the OS keychain, so later CLI and `curlew ui` runs reuse them until
+  they expire instead of asking the provider (for example 1Password) every run.
+  `curlew vault clear-cache` removes them. A run now fetches only the secret keys
+  its collection can reference (M30-007).
 - **Native Windows development foundations.** Added fail-closed PowerShell
   verification and loopback smoke scripts, native plugin discovery and process
   cleanup, quoted editor and batch-wrapper launch, stable API path labels,

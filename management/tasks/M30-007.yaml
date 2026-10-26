@@ -1,0 +1,35 @@
+id: M30-007
+title: "Cache vault secrets across runs and fetch only used keys"
+status: in_progress
+planned_date: 2026-10-26
+started_date: 2026-10-26
+branch: feature/M30-007-secret-cache
+priority: 1
+created: 2026-10-26
+phase: "M30: Local product usability"
+dependencies: []
+observable: |
+  With `secrets.cache_ttl` set, a second `curlew run` (or a second Run in
+  `curlew ui`) reuses secrets from the OS keychain without calling the provider
+  CLI, so 1Password asks for approval once instead of on every run. A run fetches
+  only the secret keys its collection can reference, and `curlew vault
+  clear-cache` removes the cached values.
+behaviors:
+  - "`cache_ttl` above 0 stores fetched provider values in the OS keychain, keyed by a hash of provider settings and path."
+  - Later runs, CLI or UI, read unexpired values from the keychain and fetch only misses.
+  - Expired or unreadable entries are misses and are removed; an unavailable keychain never fails a run.
+  - A run fetches only keys referenced by the collection, its external files, reachable variable values or CEL vars, and skips keys overridden by collection values, --env-var or --var.
+  - "`curlew vault clear-cache` removes every cached value and is listed in help and README."
+scope: |
+  internal/vault (SecretStore, KeyringStore, ResolveWith), internal/runner
+  (used-key selection, store wiring), cmd/curlew (vault clear-cache), MANUAL,
+  CLI specification, README, CHANGELOG and the bundled agent skill. Uses the
+  existing zalando/go-keyring dependency. No change to auth profile caching or
+  shared team templates.
+definition_of_done:
+  - Unit tests for the store, resolver cache and used-key selection pass
+  - CLI test for vault clear-cache passes, with documentation claims bound by docs.Prose
+  - Full repository tests pass on native Windows
+  - Real-binary check with a stub provider shows one provider call across two runs
+  - Review, verification report and CHANGELOG are updated
+complexity: medium

@@ -3149,7 +3149,9 @@ Requires: `op` CLI, signed in (`eval $(op signin)`).
 
 **The `#field` suffix.** For providers whose secrets are structured (AWS, 1Password, HashiCorp), `path#field` extracts a single field; without `#field`, Curlew expects the value to be a plain string.
 
-**Caching.** `cache_ttl` is a per-run cache. Subsequent requests in the same run reuse the fetched value. Set `refresh_on_failure: true` to re-fetch once on retrieval errors rather than aborting the run.
+**Only used keys are fetched.** A run asks the provider only for keys the collection can reference: directly, through fragments and body files, through other variables (for example an environment variable set to `"{{dev_token}}"`), or as `vars.<name>` in CEL. Keys overridden by collection variables, `--env-var` or `--var` are not fetched.
+
+**Caching.** Set `cache_ttl` (seconds) to keep fetched values in the OS keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service). Later runs, including runs from `curlew ui`, reuse them until they expire, so a provider such as 1Password is asked once instead of every run. Without a usable keychain the value is fetched every run. After rotating a secret, run `curlew vault clear-cache`. Set `refresh_on_failure: true` to re-fetch once on retrieval errors rather than aborting the run.
 
 ### 6.5 Dynamic auth profiles
 

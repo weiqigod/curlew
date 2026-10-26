@@ -1476,9 +1476,19 @@ auth:
 **The `#field` suffix** extracts one field from a structured secret (AWS,
 1Password, HashiCorp). Without it, the value is expected to be a plain string.
 
-**Caching.** `cache_ttl` is a per-run cache: later requests in the same run reuse
-the fetched value. `refresh_on_failure: true` re-fetches once on a retrieval
-error instead of aborting.
+**Fetching.** A run fetches only the keys it can reference: from the collection,
+its external files (fragments, body files), variable values that lead to a key,
+and CEL `vars.<name>` uses. A key overridden by collection variables, `--env-var`
+or `--var` is not fetched. All misses of one run are fetched by the same Curlew
+process.
+
+**Caching.** With `cache_ttl` (seconds) above 0, fetched values are kept in the OS
+keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service) and
+reused by later runs, including `curlew ui` runs, until they expire. The entry key
+is a hash of the provider settings and path. Without a usable keychain, or for a
+value too large for it, the value is fetched every run. `cache_ttl: 0` (default)
+keeps no cache. `curlew vault clear-cache` removes every cached value.
+`refresh_on_failure: true` re-fetches once on a retrieval error instead of aborting.
 
 All vault-resolved values are unconditionally sensitive.
 

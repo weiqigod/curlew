@@ -35,6 +35,7 @@ import (
 	"github.com/weiqigod/curlew/internal/telemetry"
 	"github.com/weiqigod/curlew/internal/validator"
 	"github.com/weiqigod/curlew/internal/variable"
+	"github.com/weiqigod/curlew/internal/vault"
 	teamtmpl "github.com/weiqigod/curlew/internal/vault/teamtemplate"
 	"github.com/weiqigod/curlew/internal/watch"
 	"github.com/weiqigod/curlew/templates"
@@ -65,7 +66,8 @@ func runWithWriters(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(args) == 3 && (args[2] == "--help" || args[2] == "-h") {
 		if (args[0] == "import" && args[1] == "openapi") ||
-			((args[0] == "vault" || args[0] == "plugins") && args[1] == "list") {
+			((args[0] == "vault" || args[0] == "plugins") && args[1] == "list") ||
+			(args[0] == "vault" && args[1] == "clear-cache") {
 			printCommandHelp(args[0], stdout)
 			return 0
 		}
@@ -3239,6 +3241,13 @@ func vaultCmdOut(args []string, stdout, stderr io.Writer) int {
 	switch subcommand {
 	case "list":
 		return vaultListCmdOut(format, stdout, stderr)
+	case "clear-cache":
+		if err := vault.ClearSecretCache(); err != nil {
+			_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+		_, _ = fmt.Fprintln(stdout, "Cleared cached vault secrets from the OS keychain.")
+		return 0
 	default:
 		printVaultHelpTo(stdout)
 		return 0
@@ -3316,6 +3325,7 @@ func printVaultHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Subcommands:")
 	_, _ = fmt.Fprintln(w, "  vault list      List configured vault provider profiles")
+	_, _ = fmt.Fprintln(w, "  vault clear-cache  Remove secrets cached by secrets.cache_ttl from the OS keychain")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Options:")
 	_, _ = fmt.Fprintln(w, "  --format json   Output in JSON format")
@@ -3335,11 +3345,11 @@ func parseVaultArgs(args []string) (subcommand, format string, noColor bool, err
 			format = args[i]
 		case "--no-color":
 			noColor = true
-		case "list":
+		case "list", "clear-cache":
 			if subcommand != "" {
 				return "", "", false, fmt.Errorf("unexpected argument: %s", args[i])
 			}
-			subcommand = "list"
+			subcommand = args[i]
 		default:
 			return "", "", false, fmt.Errorf("unknown argument: %s", args[i])
 		}
@@ -3405,6 +3415,7 @@ func printHelpTo(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  watch <file>    Watch collection and re-run on file changes")
 	_, _ = fmt.Fprintln(w, "  vault           Manage vault provider profiles")
 	_, _ = fmt.Fprintln(w, "  vault list      List configured vault provider profiles")
+	_, _ = fmt.Fprintln(w, "  vault clear-cache  Remove cached vault secrets from the OS keychain")
 	_, _ = fmt.Fprintln(w, "  import openapi  Import OpenAPI 3.x spec into a collection with headers, request bodies, and status assertions")
 	_, _ = fmt.Fprintln(w, "  pr-check        Gate CI on a run's results file (exit 1 on failures)")
 	_, _ = fmt.Fprintln(w, "  ui              Start the local web UI (runner & inspector)")

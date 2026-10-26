@@ -329,6 +329,7 @@ type VarSources struct {
 	CLI                 map[string]string       // --var variables (precedence 10)
 	Seed                *int64                  // nil = real randomness; non-nil = deterministic seed
 	Secrets             *vault.SecretsConfig    // vault provider config from curlew.yaml (nil = no vault)
+	SecretStore         vault.SecretStore       // nil = OS keychain when Secrets.CacheTTL > 0; non-nil for test injection
 	VaultExecutor       vault.CommandExecutor   // nil = use structured provider execution
 	AuthProfiles        []auth.Profile          // from curlew.yaml auth_profiles: block
 	ProjectRoot         string                  // directory containing curlew.yaml (for resolving relative paths)
@@ -1185,7 +1186,14 @@ func buildScope(ctx context.Context, col *parser.Collection, vars VarSources) (*
 	// Resolve vault secrets (precedence 6)
 	if vars.Secrets != nil {
 		vaultExec := vars.VaultExecutor
-		result, err := vault.Resolve(ctx, vars.Secrets, vaultExec)
+		store := vars.SecretStore
+		if store == nil && vars.Secrets.CacheTTL > 0 {
+			store = &vault.KeyringStore{}
+		}
+		result, err := vault.ResolveWith(ctx, vars.Secrets, vaultExec, vault.ResolveOptions{
+			Only:  usedSecretKeys(col, vars, merged),
+			Store: store,
+		})
 		if err != nil {
 			return nil, 0, err
 		}

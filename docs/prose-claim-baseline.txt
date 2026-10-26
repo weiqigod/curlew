@@ -109,7 +109,6 @@ CLI_SPECIFICATION.md	9.3 Backoff Algorithms	Every result is clamped to `max_dela
 CLI_SPECIFICATION.md	11.2 Analysis Algorithm	Parse the collection, resolve `include:` and every external `path:` file, and flatten to a single ordered list of reques
 CLI_SPECIFICATION.md	11.2 Analysis Algorithm	*referenced* — every `{{name}}` occurrence in the URL, headers, query, body, assertions, and extraction paths, excludi
 CLI_SPECIFICATION.md	12.3 WebSocket	With `message:` set it sends a data frame and matches the reply against `expect:` assertions.
-CLI_SPECIFICATION.md	13.3 Vault Providers	`cache_ttl` is a per-run cache: later requests in the same run reuse the fetched value.
 CLI_SPECIFICATION.md	15.2 Handshake	Curlew sends a `curlew/hello` request;
 CLI_SPECIFICATION.md	16.2 Stream Discipline	`--no-color` is `--color=never`.
 CLI_SPECIFICATION.md	16.4 Markdown Reports	`run.md` carries the run summary and links to every per-request file;
