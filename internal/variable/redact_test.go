@@ -84,6 +84,52 @@ func TestRedactBody(t *testing.T) {
 	}
 }
 
+// Redaction changes only the secret. A JSON body keeps its key order, spacing
+// and literal spelling, so the printed body is the body that was sent.
+func TestRedactBody_JSONKeepsLayout(t *testing.T) {
+	s := NewSensitiveSet()
+	s.AddValue("hunter2")
+
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			"key_order",
+			`{"z":"hunter2","a":{"yes":1,"no":2}}`,
+			`{"z":"` + Redacted + `","a":{"yes":1,"no":2}}`,
+		},
+		{
+			"spacing",
+			"{\n  \"z\": \"hunter2\",\n  \"a\": [1, 2]\n}\n",
+			"{\n  \"z\": \"" + Redacted + "\",\n  \"a\": [1, 2]\n}\n",
+		},
+		{
+			"no_secret_untouched",
+			`{"b":"x\u00e9 <&>","a":1.50,"c":1e3}`,
+			`{"b":"x\u00e9 <&>","a":1.50,"c":1e3}`,
+		},
+		{
+			"escaped_secret",
+			`{"t":"hunt\u0065r2"}`,
+			`{"t":"` + Redacted + `"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := RedactBody(tt.body, s, false); got != tt.want {
+				t.Errorf("string: got %q, want %q", got, tt.want)
+			}
+			got, _ := RedactBody([]byte(tt.body), s, false).([]byte)
+			if string(got) != tt.want {
+				t.Errorf("bytes: got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRedactBody_EmptySet(t *testing.T) {
 	s := NewSensitiveSet()
 	got := RedactBody("hunter2", s, false)

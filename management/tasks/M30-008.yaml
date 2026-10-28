@@ -1,0 +1,30 @@
+id: M30-008
+title: "Keep JSON body layout when redacting secrets"
+status: in_progress
+planned_date: 2026-10-28
+started_date: 2026-10-28
+branch: fix/M30-008-redaction-key-order
+priority: 1
+created: 2026-10-28
+phase: "M30: Local product usability"
+dependencies: [M30-007]
+observable: |
+  With a sensitive value in the run (for example a bearer token from
+  `from_command`), `curlew run -vv` prints `{"z":1,"a":{"yes":1,"no":2}}` as
+  written instead of `{"a":{"no":2,"yes":1},"z":1}`. Key order matters to APIs
+  that read option order, and the output must show what was sent.
+behaviors:
+  - Redacting a JSON body rewrites only string literals whose decoded text holds a sensitive value.
+  - Key order, spacing, number spelling and escapes of all other bytes are kept.
+  - A secret written with JSON escapes is still redacted.
+  - The bytes sent on the wire are unchanged (they never went through redaction).
+scope: |
+  internal/variable/redact.go (redactJSONString), its unit tests, one CLI test
+  in cmd/curlew/redaction_response_test.go, MANUAL §4.4, CLI specification §6.5
+  and CHANGELOG. No change to which values are sensitive.
+definition_of_done:
+  - Unit tests for key order, spacing, untouched bodies and escaped secrets pass
+  - CLI test checks -vv output, JSON output and the received body, with the MANUAL claim bound by docs.Prose
+  - Existing redaction tests pass
+  - Real-binary check against a local echo server shows the body printed as sent
+complexity: small

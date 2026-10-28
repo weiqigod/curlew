@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **Redaction no longer re-sorts JSON bodies.** When a run used a sensitive
+  value, printed request and response bodies (`-vv`, JSON, reports, events, UI)
+  were re-encoded with keys in alphabetical order and numbers normalised. Only the
+  string literals holding a secret are now rewritten; the rest of the body is shown
+  as sent. What was sent on the wire was never affected (M30-008).
 - **Manual request runs stay in one view.** The selected request and its Run
   control remain above inline response, assertion and error tabs. Repeated runs,
   cancellation and tab changes no longer require leaving the request. The toolbar

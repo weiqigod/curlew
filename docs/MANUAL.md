@@ -2267,6 +2267,8 @@ By default, Curlew aggressively hides values that look sensitive:
 
 Redaction shows up as `[REDACTED]` in terminal output, JSON output, TAP output, JUnit, HTML, Markdown, event streams, and JSONL logs.
 
+Redaction changes only the secret: a printed JSON body always keeps the key order, spacing and number spelling it was sent with, in `-vv` and `--format json` alike.
+
 **It does not matter which direction the value travelled.** A secret is hidden where you sent it *and* where the server sent it back — in the request URL, in request and response headers, in either body, and in the failure message of an assertion:
 
 ```

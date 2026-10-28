@@ -714,6 +714,10 @@ sensitive at every higher precedence level and through every interpolation that
 consumes it. Setting `sensitive: false` on a name that inherited sensitivity is
 an error, not an override.
 
+**Redaction changes only the secret.** In a JSON body only the string literals
+that contain a sensitive value are rewritten; key order, spacing and number
+spelling are kept, so the printed body is the body that was sent or received.
+
 **Redaction** replaces the value with `[REDACTED]` in terminal output, JSON, TAP,
 JUnit, HTML, Markdown, event streams, and JSONL logs. Auth-profile variables are
 always sensitive with no opt-out.
