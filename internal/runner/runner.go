@@ -324,6 +324,7 @@ type Summary struct {
 type VarSources struct {
 	Project             map[string]string       // curlew.yaml global variables (precedence 2)
 	EnvFile             map[string]string       // --env file variables (precedence 3)
+	EnvironmentHeaders  map[string]string       // --env file headers: block, added to requests that do not set them
 	DotEnv              map[string]string       // .env variables (precedence 4)
 	EnvVar              map[string]string       // --env-var OS imports (precedence 9)
 	CLI                 map[string]string       // --var variables (precedence 10)

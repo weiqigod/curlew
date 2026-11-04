@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,6 +108,75 @@ config:
 	}
 	if got.Config.Locale != "de-DE" {
 		t.Errorf("Config.Locale = %q, want de-DE", got.Config.Locale)
+	}
+}
+
+func TestParseEnvironmentConfigFile_ReturnsHeaders(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mock.yaml")
+	if err := os.WriteFile(path, []byte(`variables:
+  run_id: demo-1
+headers:
+  X-Mock-Run: "{{run_id}}"
+  X-Mock-Api: quiddly
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ParseEnvironmentConfigFile(path)
+	if err != nil {
+		t.Fatalf("ParseEnvironmentConfigFile: %v", err)
+	}
+	want := map[string]string{"X-Mock-Run": "{{run_id}}", "X-Mock-Api": "quiddly"}
+	if len(got.Headers) != len(want) {
+		t.Fatalf("Headers = %v, want %v", got.Headers, want)
+	}
+	for name, value := range want {
+		if got.Headers[name] != value {
+			t.Errorf("Headers[%q] = %q, want %q", name, got.Headers[name], value)
+		}
+	}
+	if _, ok := got.Variables["X-Mock-Run"]; ok {
+		t.Error("headers must not become variables")
+	}
+}
+
+func TestParseEnvironmentConfigFile_WithoutHeadersHasNone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dev.yaml")
+	if err := os.WriteFile(path, []byte("variables:\n  base_url: http://localhost\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ParseEnvironmentConfigFile(path)
+	if err != nil {
+		t.Fatalf("ParseEnvironmentConfigFile: %v", err)
+	}
+	if len(got.Headers) != 0 {
+		t.Errorf("Headers = %v, want none", got.Headers)
+	}
+}
+
+func TestParseEnvironmentConfigFile_RejectsHeadersThatAreNotText(t *testing.T) {
+	cases := map[string]string{
+		"list":       "headers:\n  - X-Mock-Run\n",
+		"nested map": "headers:\n  X-Mock-Run:\n    value: demo-1\n",
+		"list value": "headers:\n  X-Mock-Run: [a, b]\n",
+		"empty name": "headers:\n  \"\": demo-1\n",
+	}
+	for name, content := range cases {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "bad.yaml")
+			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := ParseEnvironmentConfigFile(path)
+			if !errors.Is(err, ErrInvalidEnvironment) {
+				t.Fatalf("err = %v, want ErrInvalidEnvironment", err)
+			}
+			if !strings.Contains(err.Error(), "headers") {
+				t.Errorf("error %q does not name the headers block", err)
+			}
+		})
 	}
 }
 

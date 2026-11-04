@@ -28,6 +28,7 @@ type envFile struct {
 // flattened variables and cross-cutting config values such as locale.
 type EnvironmentConfig struct {
 	Variables map[string]string
+	Headers   map[string]string
 	Config    ConfigBlock
 }
 
