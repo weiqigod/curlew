@@ -951,6 +951,27 @@ variables:
 
 Environment files may contain nested maps; nested keys are flattened with underscores (`database.host` becomes `database_host`), and all values are converted to strings. Keep environment values simple — use collections or the project config for structure.
 
+#### Headers from the environment
+
+An environment file can also have a `headers:` block, for headers that only this environment needs, such as routing headers for a mock that stands in for the real API. The collection stays as it is:
+
+```yaml
+# environments/mock.yaml
+variables:
+  base_url: "http://localhost:5080"
+  mock_run_id: "demo-1"
+headers:
+  X-Mock-Run: "{{mock_run_id}}"
+  X-Mock-Api: "quiddly"
+```
+
+With `--env mock`, curlew sends them on every request of the run: setup, main requests and teardown, including requests from `include:` and `path:` files. The same collection run with an environment that has no `headers:` block sends none of them.
+
+- Values are templated like request headers, so they can use variables and secrets.
+- A header that the request sets itself is kept; names are compared ignoring case.
+- Login requests of an auth profile run on their own and do not get these headers.
+- A `headers:` block must map each name to one text value and list each name once; otherwise the environment file is invalid and the run stops with exit code 3 before any request is sent.
+
 ### 3.4 `.env` files
 
 `.env` files are for **local** secrets and config that should never be committed. The scaffold from `curlew init` already adds `.env` to `.gitignore`.
@@ -3950,6 +3971,8 @@ Same shape as a collection's `RequestItem`. Top level: `name`, `request`, `asser
 ```yaml
 variables:
   key: scalar                           # nested maps are flattened with underscores
+headers:
+  Header-Name: string                   # sent on every request that does not set it (§3.3)
 ```
 
 #### C.4 Project config (`curlew.yaml`)

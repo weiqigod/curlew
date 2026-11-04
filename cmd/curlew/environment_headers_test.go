@@ -19,6 +19,9 @@ func TestEnvironmentHeaders_SentOnEveryRequest(t *testing.T) {
 	if _, err := docs.Prose("MANUAL.md", "sends them on every request of the run"); err != nil {
 		t.Fatalf("documented claim: %v", err)
 	}
+	if _, err := docs.Prose("MANUAL.md", "block sends none of them"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
 
 	var (
 		mu       sync.Mutex
@@ -113,6 +116,10 @@ teardown:
 // TestEnvironmentHeaders_InvalidBlockIsAConfigError: a headers: block that is
 // not a map of names to text stops the run before any request, with exit 3.
 func TestEnvironmentHeaders_InvalidBlockIsAConfigError(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "must map each name to one text value and list each name once"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
 	sent := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		sent = true

@@ -21,11 +21,14 @@ var (
 // envFile is the internal representation of an environment YAML file.
 type envFile struct {
 	Variables map[string]any `yaml:"variables"`
+	Headers   yaml.Node      `yaml:"headers,omitempty"`
 	Config    ConfigBlock    `yaml:"config,omitempty"`
 }
 
 // EnvironmentConfig is the parsed environment file, including both its
 // flattened variables and cross-cutting config values such as locale.
+// Headers holds the headers: block as written; values are templated at
+// request time.
 type EnvironmentConfig struct {
 	Variables map[string]string
 	Headers   map[string]string
@@ -43,8 +46,8 @@ func ParseEnvironmentFile(path string) (map[string]string, error) {
 	return env.Variables, nil
 }
 
-// ParseEnvironmentConfigFile reads variables and the optional config: block
-// from an environment YAML file.
+// ParseEnvironmentConfigFile reads variables, the optional headers: block and
+// the optional config: block from an environment YAML file.
 func ParseEnvironmentConfigFile(path string) (*EnvironmentConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -56,9 +59,43 @@ func ParseEnvironmentConfigFile(path string) (*EnvironmentConfig, error) {
 		return nil, fmt.Errorf("%w: %s: %w", ErrInvalidEnvironment, path, err)
 	}
 
+	headers, err := parseEnvironmentHeaders(&ef.Headers)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrInvalidEnvironment, path, err)
+	}
+
 	result := make(map[string]string)
 	flatten("", ef.Variables, result)
-	return &EnvironmentConfig{Variables: result, Config: ef.Config}, nil
+	return &EnvironmentConfig{Variables: result, Headers: headers, Config: ef.Config}, nil
+}
+
+// parseEnvironmentHeaders reads a headers: block, which must map header names
+// to single text values.
+func parseEnvironmentHeaders(node *yaml.Node) (map[string]string, error) {
+	if node.Kind == 0 {
+		return nil, nil
+	}
+	if node.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("line %d: headers: must be a map of header names to values", node.Line)
+	}
+	headers := make(map[string]string, len(node.Content)/2)
+	seen := make(map[string]bool, len(node.Content)/2)
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		name, value := node.Content[i], node.Content[i+1]
+		if name.Kind != yaml.ScalarNode || name.Value == "" {
+			return nil, fmt.Errorf("line %d: headers: every header needs a name", name.Line)
+		}
+		if value.Kind != yaml.ScalarNode || value.Tag == "!!null" {
+			return nil, fmt.Errorf("line %d: headers: %s must have a single text value", value.Line, name.Value)
+		}
+		folded := strings.ToLower(name.Value)
+		if seen[folded] {
+			return nil, fmt.Errorf("line %d: headers: %s is listed twice (header names ignore case)", name.Line, name.Value)
+		}
+		seen[folded] = true
+		headers[name.Value] = value.Value
+	}
+	return headers, nil
 }
 
 // flatten recursively flattens a nested map into underscore-separated keys.

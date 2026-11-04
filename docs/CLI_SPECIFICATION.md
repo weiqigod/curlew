@@ -485,11 +485,15 @@ supplied by the project, the environment, the referencing collection, or the CLI
 ```yaml
 variables:
   key: scalar                     # nested maps are flattened with underscores
+headers:
+  Header-Name: string             # templated; added to every request that does not set it
 config:
   locale: string
 ```
 
 Nested maps flatten: `db: { host: x }` becomes `db_host`.
+
+`headers:` applies to setup, main and teardown requests, including included and external request files, but not to auth profile login collections. A request's own header of the same name, compared case-insensitively, is kept. A block that is not a map of names to single values, or that lists a name twice ignoring case, is an invalid environment (exit 3).
 
 ### 5.4 Project Config (`curlew.yaml`)
 

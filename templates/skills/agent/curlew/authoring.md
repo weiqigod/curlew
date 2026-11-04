@@ -25,6 +25,9 @@ project configuration. Do not guess flags or mix the two schemas.
 - Put commit-safe addresses and options in environment files. Use existing secret
   providers or ignored local files for credentials; do not put secrets into
   generated collections or shell history. Keep redaction enabled.
+- When only one environment needs extra headers (for example routing headers
+  for a mock), put them in that environment file's `headers:` block instead of
+  editing every request.
 - Assert contractual status, required fields, values and relevant headers. Avoid
   timing limits without a stated requirement. An empty assertions block is not a
   meaningful API test.

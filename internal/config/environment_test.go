@@ -161,6 +161,7 @@ func TestParseEnvironmentConfigFile_RejectsHeadersThatAreNotText(t *testing.T) {
 		"nested map": "headers:\n  X-Mock-Run:\n    value: demo-1\n",
 		"list value": "headers:\n  X-Mock-Run: [a, b]\n",
 		"empty name": "headers:\n  \"\": demo-1\n",
+		"same name":  "headers:\n  X-Mock-Run: a\n  x-mock-run: b\n",
 	}
 	for name, content := range cases {
 		t.Run(name, func(t *testing.T) {
