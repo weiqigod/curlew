@@ -4,22 +4,23 @@ name: M19-001 if conditional smoke
 # for the condition — making the smoke deterministic and offline-friendly.
 variables:
   status: pending
+  base_url: http://127.0.0.1:1
 
 requests:
   - name: seed
     request:
       method: GET
-      url: https://httpbin.org/get
+      url: "{{base_url}}/get"
 
   - name: confirm-pending-order
     # status is "pending", but we check for "cancelled" → always false → SKIPPED
     if: 'vars.status == "cancelled"'
     request:
       method: POST
-      url: https://httpbin.org/post
+      url: "{{base_url}}/post"
 
   - name: notify
     depends_on: [confirm-pending-order]
     request:
       method: POST
-      url: https://httpbin.org/post
+      url: "{{base_url}}/post"

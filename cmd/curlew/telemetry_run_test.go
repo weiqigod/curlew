@@ -3,9 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -46,6 +50,39 @@ func collectedEvents(t *testing.T, path string) []map[string]any {
 	return out
 }
 
+func telemetryCollection(t *testing.T) (string, *atomic.Int32) {
+	t.Helper()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	collection := fmt.Sprintf(`name: Telemetry Test
+requests:
+  - name: loopback
+    request:
+      method: GET
+      url: %q
+    assertions:
+      status: 200
+`, server.URL)
+	return writeCollection(t, t.TempDir(), "telemetry.yaml", collection), &requests
+}
+
+func requireSuccessfulTelemetryRun(t *testing.T, configDir, eventsFile string) {
+	t.Helper()
+	collection, requests := telemetryCollection(t)
+	_, stderr, exit := runWithTelemetry(t, configDir, eventsFile, collection)
+	if exit != 0 {
+		t.Fatalf("run exit = %d, want 0; stderr=%q", exit, stderr)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("loopback requests = %d, want 1", got)
+	}
+}
+
 func TestRunRecordsTelemetryWhenEnabled(t *testing.T) {
 	configDir := t.TempDir()
 	events := filepath.Join(t.TempDir(), "telemetry.ndjson")
@@ -59,10 +96,10 @@ func TestRunRecordsTelemetryWhenEnabled(t *testing.T) {
 		t.Fatalf("could not enable telemetry, stdout=%q", stdoutBuf.String())
 	}
 
-	// Run a minimal collection. emitTelemetryRunCompleted is called synchronously
+	// Run a loopback collection. emitTelemetryRunCompleted is called synchronously
 	// in the deferred end-of-run block, so the event is on disk by the time
 	// runWithTelemetry returns.
-	_, _, _ = runWithTelemetry(t, configDir, events, "testdata/minimal.yaml")
+	requireSuccessfulTelemetryRun(t, configDir, events)
 
 	var found map[string]any
 	recs := collectedEvents(t, events)
@@ -100,7 +137,7 @@ func TestRunWritesNothingWhenDisabled(t *testing.T) {
 	events := filepath.Join(t.TempDir(), "telemetry.ndjson")
 
 	// telemetry never enabled
-	_, _, _ = runWithTelemetry(t, configDir, events, "testdata/minimal.yaml")
+	requireSuccessfulTelemetryRun(t, configDir, events)
 
 	if recs := collectedEvents(t, events); len(recs) != 0 {
 		t.Errorf("expected 0 telemetry events when disabled, got %d: %v", len(recs), recs)
@@ -123,11 +160,14 @@ func TestRunDoesNotFailOnTelemetryError(t *testing.T) {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_ = runWithWriters([]string{"telemetry", "enable"}, &stdoutBuf, &stderrBuf)
 
+	collection, requests := telemetryCollection(t)
 	var out, errOut bytes.Buffer
-	exit := runWithWriters([]string{"run", "testdata/minimal.yaml"}, &out, &errOut)
-	// Exit must be normal (0 or 1 from collection); no telemetry noise anywhere.
-	if exit > 2 {
-		t.Errorf("exit = %d; an unwritable telemetry sink must not affect run exit code", exit)
+	exit := runWithWriters([]string{"run", collection}, &out, &errOut)
+	if exit != 0 {
+		t.Errorf("exit = %d, want 0; an unwritable telemetry sink must not affect run exit code", exit)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Errorf("loopback requests = %d, want 1", got)
 	}
 	if bytes.Contains(out.Bytes(), []byte("telemetry")) {
 		t.Errorf("stdout contains telemetry noise: %s", out.String())

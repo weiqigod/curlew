@@ -61,7 +61,7 @@ export interface StartParams {
   collection: string | null;
   env: string;
   parallel: boolean;
-  mode: 'all' | 'selection' | 'rerun_failed';
+  mode: 'all' | 'selection' | 'setup' | 'rerun_failed';
   selection: string[] | null;
   rerun_of: string | null;
 }
@@ -187,7 +187,7 @@ export interface BodyPayload {
 export interface SourceRef {
   file: string;
   line: number;
-  snippet: string[];
+  snippet: string[] | null;
   snippet_start_line: number;
 }
 

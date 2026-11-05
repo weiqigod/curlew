@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -215,6 +218,172 @@ func TestRun_FullLifecycle(t *testing.T) {
 	_ = resp.Body.Close()
 	if !strings.Contains(evBody.String(), `"kind":"run.start"`) || !strings.Contains(evBody.String(), `"kind":"run.end"`) {
 		t.Errorf("events stream incomplete:\n%s", evBody.String())
+	}
+}
+
+func TestRun_SetupTokenIsSentUnmodified(t *testing.T) {
+	var tokenCalls atomic.Int32
+	received := make(chan string, 2)
+	service := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/token":
+			if err := request.ParseForm(); err != nil || request.Form.Get("client_secret") != "local-client-secret" {
+				response.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			token := "local-issued-token-" + strconv.Itoa(int(tokenCalls.Add(1)))
+			_ = json.NewEncoder(response).Encode(map[string]string{"access_token": token, "token_type": "bearer"})
+		case "/invoice":
+			received <- request.Header.Get("Authorization")
+			response.WriteHeader(http.StatusAccepted)
+			_, _ = response.Write([]byte(`{"accepted":true}`))
+		default:
+			response.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer service.Close()
+	server, root := newTestServer(t)
+	writeFile(t, root, "curlew.yaml", "project_name: auth-check\nvariables:\n  base_url: "+service.URL+"\n  manual_client_secret: local-client-secret\n")
+	writeFile(t, root, "auth/token.yaml", `name: Get token
+required: true
+request:
+  method: POST
+  url: "{{base_url}}/token"
+  headers:
+    Content-Type: application/x-www-form-urlencoded
+  body: "grant_type=client_credentials&client_secret={{$urlEncode('{{manual_client_secret}}')}}"
+assertions:
+  status: 200
+extract:
+  access_token:
+    path: "$.access_token"
+    sensitive: true
+`)
+	writeFile(t, root, "data/invoice.json", `{"id":"local-only"}`)
+	writeFile(t, root, "collections/invoice.yaml", `name: Authenticated invoice
+setup:
+  - path: "../auth/token.yaml"
+requests:
+  - name: Submit invoice
+    request:
+      method: POST
+      url: "{{base_url}}/invoice"
+      headers:
+        Authorization: "Bearer {{access_token}}"
+      body_file: "../data/invoice.json"
+    assertions:
+      status: 202
+`)
+	for attempt := 1; attempt <= 2; attempt++ {
+		runID := startRun(t, server, map[string]any{
+			"collection": "collections/invoice.yaml", "mode": "selection", "selection": []string{"Submit invoice"},
+		})
+		final := waitTerminal(t, server, runID)
+		summary := final["summary"].(map[string]any)
+		if final["exit_status"] != "passed" || summary["passed"] != float64(2) {
+			t.Fatalf("token and invoice did not both pass: %v", final)
+		}
+		select {
+		case header := <-received:
+			if header != "Bearer local-issued-token-"+strconv.Itoa(attempt) {
+				t.Fatalf("wire Authorization = %q, want this run's unmodified extracted token", header)
+			}
+		default:
+			t.Fatal("invoice did not reach the loopback server")
+		}
+		response := apiGet(t, server, "/api/v1/runs/"+runID+"/requests/req-2")
+		detail := decodeJSON[struct {
+			Request struct {
+				Headers map[string]string `json:"headers"`
+			} `json:"request"`
+		}](t, response.Body)
+		_ = response.Body.Close()
+		if detail.Request.Headers["Authorization"] != "[REDACTED]" {
+			t.Fatal("inspector must redact Authorization without changing the transmitted header")
+		}
+	}
+}
+
+func TestRun_SetupOnlyPreservesOrderAndExcludesMain(t *testing.T) {
+	server, root := newTestServer(t, func(options *uiserver.Options) { options.Exec = fakeExec })
+	writeFile(t, root, "auth/token.yaml", `name: Get token
+required: true
+request: {method: POST, url: "http://t.test/{{seed}}"}
+assertions: {status: 200}
+extract:
+  access_token:
+    path: "$.secret"
+    sensitive: true
+`)
+	writeFile(t, root, "collections/auth.yaml", `name: Setup only
+setup:
+  - name: Prepare
+    request: {method: GET, url: "http://t.test/ok"}
+    extract: {seed: "$.ok"}
+  - path: "../auth/token.yaml"
+  - name: Later setup
+    request: {method: POST, url: "http://t.test/fail"}
+requests:
+  - name: Get token
+    request: {method: POST, url: "http://t.test/fail"}
+teardown:
+  - name: Cleanup
+    request: {method: DELETE, url: "http://t.test/fail"}
+`)
+	runID := startRun(t, server, map[string]any{
+		"collection": "collections/auth.yaml", "mode": "setup", "selection": []string{"Get token"},
+	})
+	final := waitTerminal(t, server, runID)
+	summary := final["summary"].(map[string]any)
+	if final["exit_status"] != "passed" || summary["total"] != float64(2) || summary["passed"] != float64(2) {
+		t.Fatalf("setup-only result = %v", final)
+	}
+	response := apiGet(t, server, "/api/v1/runs/"+runID+"/requests")
+	list := decodeJSON[struct {
+		Requests []struct{ Name, Phase string } `json:"requests"`
+	}](t, response.Body)
+	_ = response.Body.Close()
+	if len(list.Requests) != 2 || list.Requests[0].Name != "Prepare" || list.Requests[1].Name != "Get token" {
+		t.Fatalf("unexpected setup-only requests: %+v", list.Requests)
+	}
+	for _, request := range list.Requests {
+		if request.Phase != "setup" {
+			t.Fatalf("setup-only mode executed %s phase", request.Phase)
+		}
+	}
+	response = apiGet(t, server, "/api/v1/runs/"+runID+"/requests/req-2")
+	body, _ := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if strings.Contains(string(body), "tok-12345") || !strings.Contains(string(body), "[REDACTED]") {
+		t.Fatal("setup-only result must preserve token redaction")
+	}
+}
+
+func TestRun_SetupOnlyRejectsInvalidSelections(t *testing.T) {
+	var executed atomic.Int32
+	server, root := newTestServer(t, func(options *uiserver.Options) {
+		options.Exec = func(ctx context.Context, request *httpexec.Request) (*httpexec.Result, error) {
+			executed.Add(1)
+			return fakeExec(ctx, request)
+		}
+	})
+	writeFile(t, root, "collections/auth.yaml", "name: Auth\nsetup:\n  - name: Token\n    request: {method: POST, url: http://t.test/ok}\nrequests: []\n")
+	for _, params := range []map[string]any{
+		{"mode": "setup", "selection": []string{"Token"}},
+		{"mode": "setup", "collection": "collections/auth.yaml"},
+		{"mode": "setup", "collection": "collections/auth.yaml", "selection": []string{"Token", "Other"}},
+		{"mode": "setup", "collection": "collections/auth.yaml", "selection": []string{"Missing"}},
+		{"mode": "setup", "collection": "collections/auth.yaml", "selection": []string{"Token"}, "parallel": true},
+	} {
+		response := apiPost(t, server, "/api/v1/runs", params)
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusBadRequest {
+			t.Fatalf("invalid setup-only parameters accepted: %v, status %d", params, response.StatusCode)
+		}
+	}
+	if executed.Load() != 0 {
+		t.Fatalf("invalid setup selection executed %d HTTP calls", executed.Load())
 	}
 }
 
@@ -665,8 +834,17 @@ func TestHistory_PersistListDeleteCompare(t *testing.T) {
 }
 
 func TestOpen_NoEditor409AndLaunch(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	if err := listener.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CURLEW_TEST_EDITOR_ADDRESS", listener.Addr().String())
 	ts, root := newTestServer(t, func(o *uiserver.Options) {
-		o.EditorCommand = "true {file}:{line}" // /usr/bin/true: succeeds, ignores args
+		o.EditorCommand = `"` + os.Args[0] + `" -test.run=^TestOpenEditorHelper$ -- "{file}:{line}"`
 	})
 	writeFile(t, root, "collections/c.yaml", validCollection)
 
@@ -675,11 +853,44 @@ func TestOpen_NoEditor409AndLaunch(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Errorf("open = %d, want 204", resp.StatusCode)
 	}
+	connection, err := listener.AcceptTCP()
+	if err != nil {
+		t.Fatalf("editor helper did not release its working directory: %v", err)
+	}
+	defer func() { _ = connection.Close() }()
+	if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var location string
+	if err := json.NewDecoder(connection).Decode(&location); err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(root, "collections", "c.yaml") + ":3"; location != want {
+		t.Fatalf("editor location = %q, want %q", location, want)
+	}
 
 	// Outside root → 400.
 	resp = apiPost(t, ts, "/api/v1/open", map[string]any{"file": "../etc/passwd", "line": 1})
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("open escape = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestOpenEditorHelper(t *testing.T) {
+	address := os.Getenv("CURLEW_TEST_EDITOR_ADDRESS")
+	if address == "" {
+		return
+	}
+	if err := os.Chdir(os.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	connection, err := net.DialTimeout("tcp4", address, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = connection.Close() }()
+	if err := json.NewEncoder(connection).Encode(os.Args[len(os.Args)-1]); err != nil {
+		t.Fatal(err)
 	}
 }

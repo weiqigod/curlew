@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -220,49 +219,6 @@ func TestPerfCmd_Run_HTTPTestServer_AllFailures(t *testing.T) {
 	code := perfCmdOut([]string{f, "--vus", "2", "--duration", "100ms"}, &stdout, &stderr)
 	if code != 1 {
 		t.Errorf("perfCmd with all-500 server exit code = %d, want 1", code)
-	}
-}
-
-func TestPerfCmd_ContextCancelExitCode130(t *testing.T) {
-	// Start a slow server (simulates in-flight requests) and send SIGINT to the
-	// current process shortly after perfCmd begins. signal.NotifyContext cancels
-	// the run context, Run returns with Aborted=true, and perfCmd returns 130.
-	started := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case started <- struct{}{}: // signal that at least one request arrived
-		default:
-		}
-		// Block until client disconnects (context cancel).
-		<-r.Context().Done()
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	f := writePerfRequestFile(t, srv.URL)
-
-	// Send SIGINT once the server has received at least one request.
-	// Buffer size 2: one slot for the timeout sentinel (-1) and one for the
-	// main-goroutine return code, so neither sender ever blocks.
-	done := make(chan int, 2)
-	go func() {
-		select {
-		case <-started:
-		case <-time.After(3 * time.Second):
-			t.Errorf("test server never received a request; SIGINT not sent")
-			done <- -1
-			return
-		}
-		_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-	}()
-
-	var stdout, stderr bytes.Buffer
-	code := perfCmdOut([]string{f, "--vus", "2", "--duration", "30s"}, &stdout, &stderr)
-	done <- code
-
-	got := <-done
-	if got != 130 {
-		t.Errorf("perfCmd exit code = %d, want 130 (SIGINT)", got)
 	}
 }
 

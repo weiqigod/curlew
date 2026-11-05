@@ -5,13 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
-// ErrCommandFailed indicates a from_command execution returned a non-zero exit code.
+// ErrCommandFailed indicates command validation, execution, or output validation failed.
 var ErrCommandFailed = errors.New("from_command execution failed")
 
 // CommandCache stores command output values with expiration.
@@ -58,23 +60,142 @@ func (c *CommandCache) Set(key, value string, ttlSeconds int) {
 	}
 }
 
-// ExecuteCommand runs a shell command via /bin/sh -c and returns stdout
-// with trailing newlines trimmed. Returns ErrCommandFailed on non-zero exit
-// with the command, exit code, and stderr in the error message.
+type commandFailure struct {
+	stdout string
+	stderr string
+	cause  error
+	reason string
+}
+
+func (failure *commandFailure) Error() string {
+	return ErrCommandFailed.Error() + ": " + failure.reason
+}
+
+func (failure *commandFailure) Is(target error) bool {
+	return target == ErrCommandFailed
+}
+
+func (failure *commandFailure) Unwrap() error {
+	return failure.cause
+}
+
+// CommandDiagnostic returns captured UTF-8 stderr from a command failure.
+// WARNING: This may contain secrets. Use only for internal classification; never render it.
+func CommandDiagnostic(err error) string {
+	var failure *commandFailure
+	if errors.As(err, &failure) && utf8.ValidString(failure.stderr) {
+		return failure.stderr
+	}
+	return ""
+}
+
+// ExecuteCommand runs a platform shell script and returns UTF-8 stdout with
+// trailing newlines trimmed. Failure messages omit scripts and captured output.
+// Execution is capped at 30 seconds, or the caller's earlier deadline.
 func ExecuteCommand(ctx context.Context, command string) (string, error) {
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return "", &commandFailure{cause: err, reason: err.Error()}
+	}
+	cmd := shellCommand(ctx, command)
+	return executeCapturedCommand(ctx, cmd)
+}
+
+// ExecuteProgram runs a program with structured arguments and child environment overrides.
+// Overrides inherit the parent environment; later values win (case-insensitively on Windows).
+// Execution is capped at 30 seconds, or the caller's earlier deadline. Output must be UTF-8.
+// Windows batch files preserve quotes and metacharacters through cmd.exe and %* forwarding.
+// NUL and batch line terminators (CR/LF) are invalid arguments. CMD invocations
+// (including transport overhead) and environment entries are limited to 8000 UTF-16 units.
+func ExecuteProgram(ctx context.Context, program string, args, env []string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return "", &commandFailure{cause: err, reason: err.Error()}
+	}
+	if program == "" || !validProgramString(program) {
+		return "", &commandFailure{reason: "invalid program name"}
+	}
+	for _, arg := range args {
+		if !validProgramString(arg) {
+			return "", &commandFailure{reason: "invalid program argument"}
+		}
+	}
+	for _, entry := range env {
+		name, _, found := strings.Cut(entry, "=")
+		if !found || name == "" || !validProgramString(entry) {
+			return "", &commandFailure{reason: "invalid program environment override"}
+		}
+	}
+	cmd, err := programCommand(ctx, program, args, mergeProgramEnvironment(os.Environ(), env))
+	if err != nil {
+		return "", &commandFailure{cause: err, reason: "program could not be prepared: " + programPreparationReason(err)}
+	}
+	return executeCapturedCommand(ctx, cmd)
+}
+
+func validProgramString(value string) bool {
+	return utf8.ValidString(value) && !strings.ContainsRune(value, 0)
+}
+
+func programPreparationReason(err error) string {
+	var failure *commandFailure
+	if errors.As(err, &failure) {
+		return failure.reason
+	}
+	return "executable lookup failed"
+}
+
+func mergeProgramEnvironment(inherited, overrides []string) []string {
+	merged := make([]string, 0, len(inherited)+len(overrides))
+	positions := make(map[string]int, len(inherited)+len(overrides))
+	for _, entries := range [][]string{inherited, overrides} {
+		for _, entry := range entries {
+			separator := strings.IndexByte(entry, '=')
+			if separator == 0 {
+				separator = strings.IndexByte(entry[1:], '=') + 1
+			}
+			if separator < 1 {
+				continue
+			}
+			key := programEnvironmentKey(entry[:separator])
+			if position, found := positions[key]; found {
+				merged[position] = entry
+			} else {
+				positions[key] = len(merged)
+				merged = append(merged, entry)
+			}
+		}
+	}
+	return merged
+}
+
+func executeCapturedCommand(ctx context.Context, cmd *exec.Cmd) (string, error) {
+	cmd.WaitDelay = time.Second
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
+	err := runContainedCommand(cmd)
+	if err != nil || !utf8.Valid(stdout.Bytes()) || !utf8.Valid(stderr.Bytes()) {
+		failure := &commandFailure{
+			stdout: stdout.String(), stderr: stderr.String(), cause: err,
+			reason: "process could not start or complete",
+		}
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			return "", fmt.Errorf("%w: command %q exited with code %d: %s",
-				ErrCommandFailed, command, exitErr.ExitCode(), strings.TrimSpace(stderr.String()))
+			failure.reason = fmt.Sprintf("process exited with code %d", exitErr.ExitCode())
 		}
-		return "", fmt.Errorf("%w: command %q: %w", ErrCommandFailed, command, err)
+		if !utf8.Valid(stdout.Bytes()) || !utf8.Valid(stderr.Bytes()) {
+			failure.reason = "process output is not valid UTF-8"
+		}
+		if err != nil && ctx.Err() != nil {
+			failure.cause = errors.Join(err, ctx.Err())
+			failure.reason = ctx.Err().Error()
+		}
+		return "", failure
 	}
 
-	return strings.TrimRight(stdout.String(), "\n"), nil
+	return trimCommandOutput(stdout.String()), nil
 }

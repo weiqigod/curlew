@@ -166,7 +166,20 @@ func TestFilterDataDrivenResults_failedOnlyKeepsFailingIterationsWhole(t *testin
 func TestFilterDataDrivenResults_allIsUnchanged(t *testing.T) {
 	in := fullResult()
 	out := filterDataDrivenResults([]RequestResult{in}, "all")
-	if !reflect.DeepEqual(out[0], in) {
-		t.Error("store_results: all is no longer the identity")
+	if len(out) != 1 {
+		t.Fatalf("filter returned %d results, want 1", len(out))
+	}
+	if out[0].Err != in.Err {
+		t.Error("store_results: all changed the error")
+	}
+	actual, expected := reflect.ValueOf(out[0]), reflect.ValueOf(in)
+	for index := 0; index < expected.NumField(); index++ {
+		name := expected.Type().Field(index).Name
+		if name == "Err" {
+			continue
+		}
+		if !reflect.DeepEqual(actual.Field(index).Interface(), expected.Field(index).Interface()) {
+			t.Errorf("store_results: all changed %s", name)
+		}
 	}
 }

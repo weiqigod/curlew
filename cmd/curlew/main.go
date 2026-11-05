@@ -1033,7 +1033,8 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 		return 0, nil
 	}
 
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
 	// Build plugin hook dispatcher (nil when CURLEW_PLUGINS is empty).
 	hookDispatcher, closeHooks, hookErr := buildHookDispatcher(ctx, stderr)

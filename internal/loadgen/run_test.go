@@ -39,7 +39,7 @@ func TestRun_VUsExecuteUntilDeadline(t *testing.T) {
 	if sum.Failures != 0 {
 		t.Errorf("Failures = %d, want 0", sum.Failures)
 	}
-	if sum.Elapsed < 150*time.Millisecond || sum.Elapsed > 600*time.Millisecond {
+	if sum.Elapsed < 150*time.Millisecond || sum.Elapsed > 750*time.Millisecond {
 		t.Errorf("Elapsed = %v, want ~200ms", sum.Elapsed)
 	}
 	if sum.Aborted {

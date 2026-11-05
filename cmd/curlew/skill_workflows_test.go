@@ -26,7 +26,7 @@ func TestSkillAuthoringRecipe(t *testing.T) {
 	if len(blocks) != 1 || blocks[0].lang != "bash" {
 		t.Fatal("missing executable authoring recipe")
 	}
-	cmd := exec.CommandContext(ctx, "bash", "-euo", "pipefail", "-c", blocks[0].body)
+	cmd := exec.CommandContext(ctx, testBash(t), "-euo", "pipefail", "-c", blocks[0].body)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"), "BASE_URL="+base, "CURLEW_CONFIG_DIR="+t.TempDir(), "CURLEW_PLUGINS=")
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -43,7 +43,7 @@ func TestSkillAuthoringRecipe(t *testing.T) {
 
 func skillFixture(t *testing.T, ctx context.Context, script string) string {
 	t.Helper()
-	cmd := exec.CommandContext(ctx, "python3", filepath.Join(readmeRepoRoot(t), script), "--port", "0")
+	cmd := testPythonCommand(t, ctx, filepath.Join(readmeRepoRoot(t), script), "--port", "0")
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestSkillEvaluationFixtures(t *testing.T) {
 	defer cancel()
 	base := skillFixture(t, ctx, "testdata/skill-evals/server.py")
 	root := filepath.Join(t.TempDir(), "evaluation")
-	cmd := exec.CommandContext(ctx, "python3", filepath.Join(readmeRepoRoot(t), "testdata/skill-evals/prepare.py"), "--curlew", binary, "--base-url", base, "--output", root)
+	cmd := testPythonCommand(t, ctx, filepath.Join(readmeRepoRoot(t), "testdata/skill-evals/prepare.py"), "--curlew", binary, "--base-url", base, "--output", root)
 	cmd.Env = append(os.Environ(), "CURLEW_CONFIG_DIR="+t.TempDir(), "CURLEW_PLUGINS=")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("prepare: %v\n%s", err, out)
@@ -114,7 +114,7 @@ func TestSkillEvaluationFixtures(t *testing.T) {
 		})
 	}
 	// Preparation never overwrites an evaluation the user might have completed.
-	cmd = exec.CommandContext(ctx, "python3", filepath.Join(readmeRepoRoot(t), "testdata/skill-evals/prepare.py"), "--curlew", binary, "--base-url", base, "--output", root)
+	cmd = testPythonCommand(t, ctx, filepath.Join(readmeRepoRoot(t), "testdata/skill-evals/prepare.py"), "--curlew", binary, "--base-url", base, "--output", root)
 	if err := cmd.Run(); err == nil {
 		t.Fatal("preparation overwrote existing evaluation")
 	}

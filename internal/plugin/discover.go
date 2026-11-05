@@ -70,7 +70,7 @@ func discover(env string) (candidates []string, errs []LoadError) {
 				// shared directory (e.g. README, Makefile) would be an unusable UX.
 				// The behavior for explicitly-named non-executable files is unchanged and
 				// tested in TestDiscover/"non-executable file produces fatal error".
-				if !isExecutable(de2.Mode()) {
+				if !isExecutable(full, de2.Mode()) {
 					continue
 				}
 				found = append(found, full)
@@ -87,7 +87,7 @@ func discover(env string) (candidates []string, errs []LoadError) {
 			})
 			continue
 		}
-		if !isExecutable(info.Mode()) {
+		if !isExecutable(entry, info.Mode()) {
 			errs = append(errs, LoadError{
 				Path:    entry,
 				Message: fmt.Sprintf("plugin %s is not executable", entry),
@@ -98,11 +98,4 @@ func discover(env string) (candidates []string, errs []LoadError) {
 		candidates = append(candidates, entry)
 	}
 	return candidates, errs
-}
-
-// isExecutable reports whether any user-execute bit is set in mode.
-// On Windows, the concept of execute bits differs; file is considered executable
-// if it is a regular file (the OS decides at exec.Command time).
-func isExecutable(m os.FileMode) bool {
-	return m&0o111 != 0
 }

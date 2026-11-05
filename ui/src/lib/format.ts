@@ -1,5 +1,10 @@
 // Display formatting helpers (UI_SPECIFICATION.md §10.2).
 
+/** Last path segment for display, accepting API paths and native Windows paths. */
+export function fileBasename(path: string): string {
+  return path.split(/[\\/]/).pop() ?? '';
+}
+
 /** Milliseconds: "412 ms", "4.8 s", "1m 23s". */
 export function fmtMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)} ms`;

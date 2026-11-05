@@ -44,11 +44,12 @@ only enables the plugin; no Datadog account is needed.
 ```bash
 example_bin=$(mktemp -d)
 trap 'rm -rf "$example_bin"' EXIT
-(cd examples/plugins/datadog-metrics && go build -o "$example_bin/datadog-metrics" .)
-"$example_bin/datadog-metrics" --help
+plugin="$example_bin/datadog-metrics$(go env GOEXE)"
+(cd examples/plugins/datadog-metrics && go build -o "$plugin" .)
+"$plugin" --help
 DD_API_URL="${EXAMPLE_URL:-http://127.0.0.1:18081}" \
 DATADOG_API_KEY=local-example-key \
-CURLEW_PLUGINS="$example_bin/datadog-metrics" \
+CURLEW_PLUGINS="$plugin" \
   curlew run examples/plugins/datadog-metrics/collection.yaml \
     --var "base_url=${EXAMPLE_URL:-http://127.0.0.1:18081}"
 ```

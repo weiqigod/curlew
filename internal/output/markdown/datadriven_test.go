@@ -27,7 +27,7 @@ func makeDataDrivenReport(iterCount, total int) *Report {
 			RespHeaders: http.Header{
 				"Content-Type": {"application/json"},
 			},
-			RespBody: []byte(fmt.Sprintf(`{"id":%d}`, i+1)),
+			RespBody: fmt.Appendf(nil, `{"id":%d}`, i+1),
 			Assertions: &assertion.Results{
 				Passed: true,
 				Items: []assertion.Result{

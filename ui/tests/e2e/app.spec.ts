@@ -42,10 +42,7 @@ test('run all: batch across collections, live rows, summary reconciles', async (
   // (basic.yaml, parallel.yaml, retried.yaml — broken.yaml is excluded).
   // The setup/teardown phase headers share the class, so filter on ".yaml".
   const groups = page.locator('.at-group-h', { hasText: '.yaml' });
-  await expect(groups).toHaveCount(3);
-  await expect(page.locator('.at-group-h', { hasText: 'basic.yaml' })).toBeVisible();
-  await expect(page.locator('.at-group-h', { hasText: 'parallel.yaml' })).toBeVisible();
-  await expect(page.locator('.at-group-h', { hasText: 'retried.yaml' })).toBeVisible();
+  await expect(groups).toHaveText(['basic.yaml', 'parallel.yaml', 'retried.yaml']);
   // basic.yaml: 6 passed / 1 failed / 1 error / 1 skipped (9 rows);
   // parallel.yaml: 3 passed; retried.yaml: 1 passed → 13 total, 10 passed.
   await expect(page.locator('span[aria-label="10 passed"]')).toBeVisible();
@@ -214,12 +211,28 @@ test('request definition panel: deep link renders the raw template and can run o
   // Raw template, never resolved values.
   await expect(page.getByRole('main').locator('.turl')).toContainText('{{base_url}}');
   await expect(page.getByRole('main').getByText(/collections\/basic\.yaml:\d+/)).toBeVisible();
-  // Run just this request from the panel.
+  const started = page.waitForResponse((response) =>
+    response.request().method() === 'POST' && response.url().endsWith('/api/v1/runs'),
+  );
   await page.getByRole('button', { name: /run this request/i }).click();
-  await expectRunDone(page);
-  // Selection of one main request still runs setup + teardown (pure seeders).
-  await expect(page.locator('.rr')).toHaveCount(3);
-  await expect(row(page, 'Get json ok')).toBeVisible();
+  const { run_id: runId } = await (await started).json() as { run_id: string };
+  await expect(page.getByRole('button', { name: /run this request/i })).toBeEnabled();
+  await expect(page).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/get-json-ok$/);
+  await expect(page.getByRole('tab', { name: 'Body', exact: true })).toBeVisible();
+  const results = await page.request.get(`${server().origin}/api/v1/runs/${runId}/requests`, {
+    headers: { 'X-Curlew-UI-Token': server().token },
+  });
+  const body = await results.json() as { requests: Array<{ name: string; outcome: string }> };
+  expect(body.requests.map((entry) => [entry.name, entry.outcome])).toEqual([
+    ['Setup ping', 'passed'], ['Get json ok', 'passed'], ['Teardown ping', 'passed'],
+  ]);
+  const steps = page.getByRole('group', { name: 'Run steps' });
+  await expect(steps.getByRole('button', { name: /setup.*Setup ping.*passed.*200/i })).toBeVisible();
+  await steps.getByRole('button', { name: /setup.*Setup ping/i }).click();
+  await expect(page.getByRole('main').locator('.response')).toContainText('Setup ping');
+  await steps.getByRole('button', { name: /main.*Get json ok/i }).click();
+  await expect(page.getByRole('main').locator('.response')).toContainText('Get json ok');
+  await expect(page).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/get-json-ok$/);
 
   // Sidebar click on a request with NO result in the focused run → definition
   // panel (the fallback that replaced the invisible footer hint).
@@ -227,7 +240,119 @@ test('request definition panel: deep link renders the raw template and can run o
   await expect(page.getByRole('main').getByText('Create alpha')).toBeVisible();
   await expect(page.getByRole('main').locator('.turl')).toContainText('{{base_url}}');
 
-  // Sidebar click on a request WITH a result in the focused run → inspector.
+  // Completed requests stay in the same workspace with inline results.
   await page.locator('.rrow').filter({ hasText: 'Get json ok' }).click();
   await expect(page.getByRole('tab', { name: 'Body' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/get-json-ok$/);
+  await expect(page.getByRole('button', { name: /run this request/i })).toBeEnabled();
+});
+
+test('setup runs independently from panel toolbar and keyboard without navigation', async ({ page: definitionPage }, testInfo) => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 960, height: 844 }]) {
+    await definitionPage.setViewportSize(viewport);
+    await gotoApp(definitionPage, '#/def/collections%2Fbasic.yaml/setup-ping');
+    const runRequest = definitionPage.getByRole('main').getByRole('button', { name: /run this request/i });
+    await expect(runRequest).toBeEnabled();
+    await expect(runButton(definitionPage)).toBeEnabled();
+    for (const action of ['request', 'toolbar', 'keyboard']) {
+      const started = definitionPage.waitForResponse((response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/api/v1/runs'),
+      );
+      if (action === 'request') await runRequest.click();
+      else if (action === 'toolbar') await runButton(definitionPage).click();
+      else await definitionPage.keyboard.press('r');
+      const response = await started;
+      expect(response.request().postDataJSON()).toMatchObject({
+        mode: 'setup', collection: 'collections/basic.yaml', selection: ['Setup ping'], parallel: false,
+      });
+      const { run_id: runId } = await response.json() as { run_id: string };
+      await expect(runRequest).toBeEnabled();
+      await expect(definitionPage.getByRole('group', { name: 'Run steps' })).toContainText('passed');
+      await expect(definitionPage.getByRole('tab', { name: 'Body', exact: true })).toBeVisible();
+      await expect(definitionPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/setup-ping$/);
+      const results = await definitionPage.request.get(`${server().origin}/api/v1/runs/${runId}/requests`, {
+        headers: { 'X-Curlew-UI-Token': server().token },
+      });
+      const body = await results.json() as { requests: Array<{ name: string; phase: string; outcome: string }> };
+      expect(body.requests.map((entry) => [entry.name, entry.phase, entry.outcome])).toEqual([
+        ['Setup ping', 'setup', 'passed'],
+      ]);
+    }
+    await definitionPage.screenshot({ path: testInfo.outputPath(`setup-${viewport.width}.png`), fullPage: true });
+    await definitionPage.goto(appUrl('#/def/collections%2Fbasic.yaml/teardown-ping'));
+    await expect(definitionPage.getByRole('button', { name: /run this request/i })).toHaveCount(0);
+    await expect(runButton(definitionPage)).toBeDisabled();
+  }
+  await definitionPage.setViewportSize({ width: 390, height: 844 });
+  await expect(definitionPage.getByText('curlew ui needs more room')).toBeVisible();
+  await definitionPage.screenshot({ path: testInfo.outputPath('minimum-width-390.png'), fullPage: true });
+});
+
+test('manual request workspace shows network errors and cancellation in place', async ({ page: requestPage }, testInfo) => {
+  await gotoApp(requestPage, '#/def/collections%2Fbasic.yaml/network-error');
+  const runRequest = requestPage.getByRole('main').getByRole('button', { name: /run this request/i });
+  await runRequest.click();
+  await expect(requestPage.getByRole('tab', { name: 'Error', exact: true })).toBeVisible();
+  await expect(runRequest).toBeEnabled();
+  await expect(requestPage.locator('.msg')).toContainText('Connection refused');
+  await expect(requestPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/network-error$/);
+  await requestPage.screenshot({ path: testInfo.outputPath('inline-network-error.png'), fullPage: true });
+
+  await requestPage.locator('.rrow').filter({ hasText: 'Slow request' }).click();
+  await runRequest.click();
+  await expect(runRequest).toBeDisabled();
+  await requestPage.getByRole('main').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(runRequest).toBeEnabled();
+  await expect(requestPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/slow-request$/);
+  await runRequest.click();
+  await expect(requestPage.getByRole('tab', { name: 'Body', exact: true })).toBeVisible();
+  await expect(runRequest).toBeEnabled();
+  await expect(requestPage.getByRole('main').locator('.response')).toContainText('slow');
+  await expect(requestPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/slow-request$/);
+});
+
+test('manual request workspace keeps repeated runs and results in place', async ({ page: requestPage }, testInfo) => {
+  requestPage.on('pageerror', (error) => {
+    throw error;
+  });
+  for (const width of [1280, 960]) {
+    await requestPage.setViewportSize({ width, height: 900 });
+    await gotoApp(requestPage, '#/def/collections%2Fbasic.yaml/failing-assertion');
+    const runRequest = requestPage.getByRole('main').getByRole('button', { name: /run this request/i });
+    const runIds: string[] = [];
+    for (const action of ['request', 'toolbar', 'keyboard']) {
+      const started = requestPage.waitForResponse((response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/api/v1/runs'),
+      );
+      if (action === 'request') await runRequest.click();
+      else if (action === 'toolbar') await runButton(requestPage).click();
+      else await requestPage.keyboard.press('r');
+      const response = await started;
+      expect(response.request().postDataJSON()).toMatchObject({
+        collection: 'collections/basic.yaml', mode: 'selection',
+        selection: ['Failing assertion'], env: 'dev',
+      });
+      const { run_id: runId } = await response.json() as { run_id: string };
+      expect(runIds).not.toContain(runId);
+      runIds.push(runId);
+      await expect(runRequest).toBeEnabled();
+      await expect(requestPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/failing-assertion$/);
+      await requestPage.getByRole('tab', { name: /Assertions/ }).click();
+      await expect(requestPage.getByRole('main')).toContainText('nope');
+      await expect(requestPage.getByRole('main')).toContainText('yes');
+      await requestPage.getByRole('tab', { name: 'Request', exact: true }).click();
+      await expect(requestPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/failing-assertion$/);
+      const results = await requestPage.request.get(`${server().origin}/api/v1/runs/${runId}/requests`, {
+        headers: { 'X-Curlew-UI-Token': server().token },
+      });
+      const body = await results.json() as { requests: Array<{ name: string; phase: string }> };
+      expect(body.requests.map((entry) => entry.name)).toEqual(['Setup ping', 'Failing assertion', 'Teardown ping']);
+    }
+    await requestPage.locator('.rrow').filter({ hasText: 'Get json ok' }).click();
+    await requestPage.locator('.rrow').filter({ hasText: 'Failing assertion' }).click();
+    await expect(requestPage).toHaveURL(/#\/def\/collections%2Fbasic.yaml\/failing-assertion$/);
+    await expect(runRequest).toBeEnabled();
+    await expect(requestPage.getByRole('tab', { name: /Assertions/ })).toBeVisible();
+    await requestPage.screenshot({ path: testInfo.outputPath(`request-workspace-${width}.png`), fullPage: true });
+  }
 });

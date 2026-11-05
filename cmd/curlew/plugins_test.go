@@ -108,7 +108,7 @@ func defaultHelloHandler(_ testRPCRequest) testRPCResponse {
 
 func TestPluginsList_HappyPath(t *testing.T) {
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "hello")
+	pluginPath := testExecutablePath(tmp, "hello")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestPluginsList_EmptyEnv(t *testing.T) {
 
 func TestPluginsList_UnknownHookWarning(t *testing.T) {
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "plug")
+	pluginPath := testExecutablePath(tmp, "plug")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +304,7 @@ func TestPluginsList_UnknownFlag(t *testing.T) {
 // produces a non-fatal warning on stderr and exits 0 (behavior 2).
 func TestPluginsList_TimeoutWarning(t *testing.T) {
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "stall")
+	pluginPath := testExecutablePath(tmp, "stall")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -348,8 +348,8 @@ func TestPluginsList_TimeoutWarning(t *testing.T) {
 // (behavior 3).
 func TestPluginsList_Directory(t *testing.T) {
 	tmp := t.TempDir()
-	pathA := filepath.Join(tmp, "aplug")
-	pathB := filepath.Join(tmp, "zplug")
+	pathA := testExecutablePath(tmp, "aplug")
+	pathB := testExecutablePath(tmp, "zplug")
 	for _, p := range []string{pathA, pathB} {
 		if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 			t.Fatal(err)
@@ -400,7 +400,7 @@ func TestPluginsList_Directory(t *testing.T) {
 // CURLEW_PLUGINS set lists the configured plugin.
 func TestPluginsList_ListsConfiguredPlugin(t *testing.T) {
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "hello")
+	pluginPath := testExecutablePath(tmp, "hello")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -591,7 +591,7 @@ func TestRun_HookPlugin_OnRequestReceivesRequest(t *testing.T) {
 	defer srv.Close()
 
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "hookplugin")
+	pluginPath := testExecutablePath(tmp, "hookplugin")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -650,7 +650,7 @@ func TestRun_HookPlugin_OnResponseReceivesResponse(t *testing.T) {
 	defer srv.Close()
 
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "respplugin")
+	pluginPath := testExecutablePath(tmp, "respplugin")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -718,7 +718,7 @@ func TestRun_HookPlugin_OnResultReceivesSummary(t *testing.T) {
 	defer srv.Close()
 
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "resultplugin")
+	pluginPath := testExecutablePath(tmp, "resultplugin")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -774,7 +774,7 @@ func TestRun_HookPlugin_TimeoutEmitsWarning(t *testing.T) {
 	defer srv.Close()
 
 	tmp := t.TempDir()
-	pluginPath := filepath.Join(tmp, "stallplugin")
+	pluginPath := testExecutablePath(tmp, "stallplugin")
 	if err := os.WriteFile(pluginPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -822,8 +822,8 @@ func TestRun_HookPlugin_TwoPluginsChainInOrder(t *testing.T) {
 	defer srv.Close()
 
 	tmp := t.TempDir()
-	pathA := filepath.Join(tmp, "aplug")
-	pathB := filepath.Join(tmp, "bplug")
+	pathA := testExecutablePath(tmp, "aplug")
+	pathB := testExecutablePath(tmp, "bplug")
 	for _, p := range []string{pathA, pathB} {
 		if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 			t.Fatal(err)

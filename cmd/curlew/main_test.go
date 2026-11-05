@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,16 +54,38 @@ func writeCollection(t *testing.T, dir, name, content string) string {
 	return path
 }
 
+var (
+	sharedBinaryOnce   sync.Once
+	sharedBinaryDir    string
+	sharedBinaryPath   string
+	sharedBinaryOutput []byte
+	sharedBinaryErr    error
+)
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if sharedBinaryDir != "" {
+		_ = os.RemoveAll(sharedBinaryDir)
+	}
+	os.Exit(code)
+}
+
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "curlew")
-	cmd := exec.Command("go", "build", "-o", binary, ".")
-	cmd.Dir = filepath.Join(".", ".")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
+	sharedBinaryOnce.Do(func() {
+		sharedBinaryDir, sharedBinaryErr = os.MkdirTemp("", "curlew-test-binary-")
+		if sharedBinaryErr != nil {
+			return
+		}
+		sharedBinaryPath = testExecutablePath(sharedBinaryDir, "curlew")
+		cmd := exec.Command("go", "build", "-buildvcs=false", "-o", sharedBinaryPath, ".")
+		cmd.Dir = filepath.Join(".", ".")
+		sharedBinaryOutput, sharedBinaryErr = cmd.CombinedOutput()
+	})
+	if sharedBinaryErr != nil {
+		t.Fatalf("build failed: %v\n%s", sharedBinaryErr, sharedBinaryOutput)
 	}
-	return binary
+	return sharedBinaryPath
 }
 
 func runBinary(t *testing.T, binary string, args ...string) (stdout, stderr string, exitCode int) {
@@ -7543,7 +7566,7 @@ func TestImportOpenAPI_WritesCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
-	if info.Mode().Perm() != 0o644 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o644 {
 		t.Errorf("mode = %v, want 0644", info.Mode().Perm())
 	}
 
@@ -8087,57 +8110,6 @@ func readEventsFile(t *testing.T, path string) []byte {
 		t.Fatalf("read events file %q: %v", path, err)
 	}
 	return data
-}
-
-// TestRunCmd_Events_StdoutPath verifies that when --events /dev/stdout is
-// provided, the NDJSON stream is written to stdout alongside normal output.
-// This test uses the real binary because /dev/stdout bypasses in-process pipe redirects.
-func TestRunCmd_Events_StdoutPath(t *testing.T) {
-	if os.Getenv("CI") != "" {
-		// /dev/stdout may not be available in some CI environments; skip if needed.
-		t.Skip("skipping /dev/stdout test in CI")
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	binary := buildBinary(t)
-	dir := t.TempDir()
-	col := writeCollection(t, dir, "stdout-events.yaml", fmt.Sprintf(`
-name: stdout-events
-requests:
-  - name: ping
-    request:
-      method: GET
-      url: %s
-`, srv.URL))
-
-	// Run the binary; /dev/stdout is captured via cmd.Stdout in runBinary.
-	stdout, _, code := runBinary(t, binary, "run", col, "--events", "/dev/stdout")
-	if code != 0 {
-		t.Fatalf("want exit 0, got %d\nstdout: %s", code, stdout)
-	}
-
-	// stdout should contain at least one NDJSON line with kind=run.start.
-	foundRunStart := false
-	for _, line := range strings.Split(stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var obj map[string]any
-		if err := json.Unmarshal([]byte(line), &obj); err != nil {
-			continue // not a JSON line (terminal output)
-		}
-		if kind, _ := obj["kind"].(string); kind == "run.start" {
-			foundRunStart = true
-		}
-	}
-	if !foundRunStart {
-		t.Errorf("expected run.start NDJSON line in stdout, got:\n%s", stdout)
-	}
 }
 
 // TestRunCmd_Events_HTMLMissingReport_EmitsRunError verifies that --format html

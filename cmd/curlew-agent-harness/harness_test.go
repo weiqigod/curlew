@@ -18,7 +18,11 @@ import (
 // stale-build flakiness.
 func buildCurlewBinary(t *testing.T) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "curlew")
+	name := "curlew"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	binary := filepath.Join(t.TempDir(), name)
 	// Locate the cmd/curlew package relative to this file.
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {

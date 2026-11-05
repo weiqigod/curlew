@@ -1,7 +1,9 @@
 <script lang="ts">
   // Collection section header for batch runs (§10.6.2.3).
+  import { fileBasename } from '../../format';
+
   export let file: string;
-  $: basename = file.split('/').pop() ?? file;
+  $: basename = fileBasename(file);
 </script>
 
 <div class="at-group-h" role="presentation">

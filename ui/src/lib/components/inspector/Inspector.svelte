@@ -10,6 +10,7 @@
   import { fmtMs } from '../../format';
   import { navigate, route, type InspectorTab } from '../../router';
   import { focusedRequests } from '../../stores/focused-run';
+  import { lastRunInfo } from '../../stores/run';
   import { tree } from '../../stores/tree';
   import { returnRoute } from '../../stores/ui';
   import type { RequestDetail } from '../../types/run';
@@ -30,10 +31,12 @@
   export let runId: string;
   export let requestId: string;
   export let tab: InspectorTab | undefined = undefined;
+  export let embedded = false;
 
   let detail: RequestDetail | null = null;
   let loadError: string | null = null;
   let backBtn: HTMLButtonElement;
+  let embeddedTab: InspectorTab | undefined = undefined;
 
   // Header renders immediately from list-store data while detail loads.
   $: liveRow = $focusedRequests.find((r) => r.request_id === requestId);
@@ -44,15 +47,25 @@
     lastKey = key;
     detail = null;
     loadError = null;
-    void load(runId, requestId);
+    embeddedTab = undefined;
   }
 
-  async function load(rid: string, reqId: string): Promise<void> {
+  let lastLoadedVersion = '';
+  $: detailVersion = `${key}/${$lastRunInfo?.run_id === runId ? 'final' : 'live'}`;
+  $: if (detailVersion !== lastLoadedVersion) {
+    lastLoadedVersion = detailVersion;
+    void load(runId, requestId, detailVersion);
+  }
+
+  async function load(rid: string, reqId: string, version: string): Promise<void> {
     try {
       const d = await getRequestDetail(rid, reqId);
-      if (`${rid}/${reqId}` === lastKey) detail = d;
+      if (version === lastLoadedVersion) {
+        detail = d;
+        loadError = null;
+      }
     } catch {
-      if (`${rid}/${reqId}` === lastKey) loadError = 'request detail not available';
+      if (version === lastLoadedVersion) loadError = 'request detail not available';
     }
   }
 
@@ -133,11 +146,12 @@
     return defs;
   }
 
-  $: activeTab = tab ?? (isError ? 'error' : isSkipped ? 'skipped' : 'body');
+  $: activeTab = (embedded ? embeddedTab : tab) ?? (isError ? 'error' : isSkipped ? 'skipped' : 'body');
 
   function selectTab(id: string): void {
     const t = id === 'skipped' ? undefined : (id as InspectorTab);
-    navigate({ name: 'inspector', runId, requestId, ...(t !== undefined ? { tab: t } : {}) });
+    if (embedded) embeddedTab = t;
+    else navigate({ name: 'inspector', runId, requestId, ...(t !== undefined ? { tab: t } : {}) });
   }
 
   function selectTabByIndex(n: number): void {
@@ -182,21 +196,27 @@
   let unregister: Array<() => void> = [];
   onMount(() => {
     unregister = [
-      registerKey('inspectorBack', back),
-      registerKey('inspectorNav', (d) => nav(d ?? 1)),
       registerKey('selectTab', (n) => selectTabByIndex(n ?? 1)),
       registerKey('openEditor', openEditor),
     ];
-    void tick().then(() => backBtn?.focus());
+    if (!embedded) {
+      unregister.push(
+        registerKey('inspectorBack', back),
+        registerKey('inspectorNav', (d) => nav(d ?? 1)),
+      );
+      void tick().then(() => backBtn?.focus());
+    }
   });
   onDestroy(() => unregister.forEach((u) => u()));
 </script>
 
 <div class="insp">
   <div class="head">
-    <button class="at-btn ghost sm backbtn" aria-label="back to run view" bind:this={backBtn} on:click={back}>
-      <Icon name="back" size={13} />
-    </button>
+    {#if !embedded}
+      <button class="at-btn ghost sm backbtn" aria-label="back to run view" bind:this={backBtn} on:click={back}>
+        <Icon name="back" size={13} />
+      </button>
+    {/if}
     {#if outcome !== null}
       <Dot state={outcome} />
     {/if}
@@ -271,6 +291,7 @@
   }
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     padding: var(--pad-sm) var(--pad);
@@ -284,7 +305,8 @@
   .name {
     font-weight: 600;
     font-size: var(--fs-md);
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
   .urlbit {
     font-size: var(--fs-xs);

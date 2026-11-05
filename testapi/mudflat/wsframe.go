@@ -159,9 +159,13 @@ func wsUpgrade(w http.ResponseWriter, r *http.Request, opts wsHandshakeOptions) 
 	resp.WriteString("HTTP/1.1 101 Switching Protocols\r\n")
 	resp.WriteString("Upgrade: websocket\r\n")
 	resp.WriteString("Connection: Upgrade\r\n")
-	resp.WriteString("Sec-WebSocket-Accept: " + wsAccept(key) + "\r\n")
+	resp.WriteString("Sec-WebSocket-Accept: ")
+	resp.WriteString(wsAccept(key))
+	resp.WriteString("\r\n")
 	if chosen != "" {
-		resp.WriteString("Sec-WebSocket-Protocol: " + chosen + "\r\n")
+		resp.WriteString("Sec-WebSocket-Protocol: ")
+		resp.WriteString(chosen)
+		resp.WriteString("\r\n")
 	}
 	resp.WriteString("\r\n")
 	if _, err := conn.Write([]byte(resp.String())); err != nil {

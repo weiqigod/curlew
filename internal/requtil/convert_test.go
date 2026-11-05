@@ -408,6 +408,58 @@ func TestToBodyInputs_InterpolatesExpectedValues(t *testing.T) {
 	}
 }
 
+func TestInterpolateRequest_DynamicCacheCoversAssertionsAndResets(t *testing.T) {
+	scope := resolvedScope(t, map[string]string{"request_id": "{{$uuid}}"}).WithDynamic(variable.NewRegistry(nil))
+	template := &parser.Request{
+		Method:  "POST",
+		URL:     "http://localhost/{{request_id}}",
+		Headers: map[string]string{"X-Request-ID": "{{request_id}}"},
+		Body:    "{{request_id}}",
+	}
+	previousID := ""
+	for range 2 {
+		request, err := InterpolateRequest(scope, template)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requestID := request.Headers["X-Request-ID"]
+		if requestID == "" || requestID == previousID || strings.Contains(requestID, "{{") {
+			t.Fatalf("request ID = %q, previous = %q; want a fresh resolved value", requestID, previousID)
+		}
+		if request.URL != "http://localhost/"+requestID || request.Body != requestID {
+			t.Fatalf("request fields disagree: %+v", request)
+		}
+		headers, err := ToHeaderInputs(scope, []parser.HeaderAssertion{
+			{Name: "X-Request-ID", Operator: "equals", Value: "{{request_id}}"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := ToBodyInputs(scope, []parser.BodyAssertion{
+			{Path: "$.id", Operator: "equals", Value: "{{request_id}}"},
+			{Path: "$.direct", Operator: "equals", Value: "{{$uuid}}"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if headers[0].Value != requestID || body[0].Value != requestID || body[1].Value != requestID {
+			t.Fatalf("assertions lost request ID %q: headers=%+v body=%+v", requestID, headers, body)
+		}
+		independent, err := InterpolateRequest(scope.Snapshot(), template)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if independent.Headers["X-Request-ID"] == requestID {
+			t.Fatal("independent request reused another request's cache")
+		}
+		retained, err := scope.Interpolate("{{request_id}}")
+		if err != nil || retained != requestID {
+			t.Fatalf("independent request changed the original cache: %q, %v", retained, err)
+		}
+		previousID = requestID
+	}
+}
+
 func TestToBodyInputs_LeavesNonStringValuesAlone(t *testing.T) {
 	// Numbers, booleans and nested structures must survive untouched. The
 	// bignum case matters: routing an integer through a string round trip is

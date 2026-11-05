@@ -26,7 +26,7 @@ func TestCookbookRecipes(t *testing.T) {
 	binary := buildBinary(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	base := strings.TrimSuffix(quickstartServer(ctx, t), "/anything")
+	base := strings.TrimSuffix(quickstartServer(t), "/anything")
 	marker := regexp.MustCompile(`<!-- cookbook-source: ([a-zA-Z0-9_./-]+) -->`)
 	for _, path := range pages {
 		t.Run(filepath.Base(path), func(t *testing.T) {
@@ -74,7 +74,7 @@ func TestCookbookRecipes(t *testing.T) {
 
 func executeDocScript(t *testing.T, ctx context.Context, binary, dir, base, script string) string {
 	t.Helper()
-	cmd := exec.CommandContext(ctx, "bash", "-euo", "pipefail", "-c", script)
+	cmd := exec.CommandContext(ctx, testBash(t), "-euo", "pipefail", "-c", script)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"),
@@ -93,7 +93,7 @@ func TestAgentGuideRecipes(t *testing.T) {
 	binary := buildBinary(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	base := strings.TrimSuffix(quickstartServer(ctx, t), "/anything")
+	base := strings.TrimSuffix(quickstartServer(t), "/anything")
 	dir := t.TempDir()
 	for _, heading := range []string{"A complete local workflow", "JSON and one-shot requests"} {
 		blocks := readmeSectionBlocks(doc, heading)
@@ -142,7 +142,7 @@ func TestAgentReferenceRecipes(t *testing.T) {
 	binary := buildBinary(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	base := strings.TrimSuffix(quickstartServer(ctx, t), "/anything")
+	base := strings.TrimSuffix(quickstartServer(t), "/anything")
 	marker := regexp.MustCompile(`<!-- agent-source: ([a-zA-Z0-9_./-]+) -->`)
 	for _, topic := range []string{"assertions", "expressions", "parallel", "retry", "signing", "variables", "vault"} {
 		t.Run(topic, func(t *testing.T) {

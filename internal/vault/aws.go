@@ -45,7 +45,10 @@ func (p *AWSProvider) Fetch(ctx context.Context, path string) (string, error) {
 		"aws secretsmanager get-secret-value --secret-id %s --region %s --query SecretString --output text",
 		shellQuote(path), shellQuote(p.region),
 	)
-	out, err := p.execute(ctx, cmd)
+	out, err := executeProvider(ctx, p.execute, cmd, "aws", []string{
+		"secretsmanager", "get-secret-value", "--secret-id", path, "--region", p.region,
+		"--query", "SecretString", "--output", "text",
+	}, nil)
 	if err != nil {
 		return "", p.classifyError(err, path)
 	}
@@ -68,7 +71,9 @@ func (p *AWSProvider) BulkFetch(ctx context.Context, paths []string) (map[string
 // ValidateConfig checks that the AWS CLI is available and credentials are valid.
 func (p *AWSProvider) ValidateConfig() error {
 	cmd := fmt.Sprintf("aws sts get-caller-identity --region %s", shellQuote(p.region))
-	_, err := p.execute(context.Background(), cmd)
+	_, err := executeProvider(context.Background(), p.execute, cmd, "aws", []string{
+		"sts", "get-caller-identity", "--region", p.region,
+	}, nil)
 	if err != nil {
 		return p.classifyError(err, "")
 	}
@@ -77,15 +82,15 @@ func (p *AWSProvider) ValidateConfig() error {
 
 // classifyError inspects the error message for known AWS error patterns.
 func (p *AWSProvider) classifyError(err error, path string) error {
-	msg := err.Error()
+	msg := providerDiagnostic(err)
 
 	if strings.Contains(msg, "ResourceNotFoundException") {
-		return fmt.Errorf("%w: %s", ErrSecretNotFound, path)
+		return classifiedProviderError(err, ErrSecretNotFound, path, "")
 	}
 
 	for _, pattern := range awsAuthErrorPatterns {
 		if strings.Contains(msg, pattern) {
-			return fmt.Errorf("%w: %s. %s", ErrProviderAuth, msg, awsAuthHint)
+			return classifiedProviderError(err, ErrProviderAuth, err.Error(), ". "+awsAuthHint)
 		}
 	}
 

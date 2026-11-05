@@ -3,9 +3,17 @@ package plugin
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func discoveryExecutableName(base string) string {
+	if runtime.GOOS == "windows" {
+		return base + ".exe"
+	}
+	return base
+}
 
 func TestDiscover(t *testing.T) {
 	// Helper: make a temp file with the given mode.
@@ -27,7 +35,7 @@ func TestDiscover(t *testing.T) {
 
 	t.Run("single executable file", func(t *testing.T) {
 		dir := t.TempDir()
-		p := mk(t, dir, "plug", 0o755)
+		p := mk(t, dir, discoveryExecutableName("plug"), 0o755)
 		cands, errs := discover(p)
 		if len(cands) != 1 || cands[0] != p {
 			t.Errorf("cands=%v", cands)
@@ -39,7 +47,11 @@ func TestDiscover(t *testing.T) {
 
 	t.Run("non-executable file produces fatal error", func(t *testing.T) {
 		dir := t.TempDir()
-		p := mk(t, dir, "plug", 0o644)
+		name := "plug"
+		if runtime.GOOS == "windows" {
+			name = "plug.cmd"
+		}
+		p := mk(t, dir, name, 0o644)
 		cands, errs := discover(p)
 		if len(cands) != 0 || len(errs) != 1 || !errs[0].Fatal ||
 			!strings.Contains(errs[0].Message, "is not executable") {
@@ -57,14 +69,14 @@ func TestDiscover(t *testing.T) {
 
 	t.Run("directory expands to sorted executables", func(t *testing.T) {
 		dir := t.TempDir()
-		_ = mk(t, dir, "zplug", 0o755)
-		_ = mk(t, dir, "aplug", 0o755)
+		_ = mk(t, dir, discoveryExecutableName("zplug"), 0o755)
+		_ = mk(t, dir, discoveryExecutableName("aplug"), 0o755)
 		_ = mk(t, dir, "readme.txt", 0o644) // ignored: not executable
 		cands, errs := discover(dir)
 		if len(cands) != 2 {
 			t.Fatalf("cands=%v", cands)
 		}
-		if filepath.Base(cands[0]) != "aplug" || filepath.Base(cands[1]) != "zplug" {
+		if filepath.Base(cands[0]) != discoveryExecutableName("aplug") || filepath.Base(cands[1]) != discoveryExecutableName("zplug") {
 			t.Errorf("not sorted: %v", cands)
 		}
 		if len(errs) != 0 {
@@ -77,7 +89,7 @@ func TestDiscover(t *testing.T) {
 		// executable files become plugin candidates. The user did not explicitly
 		// name the non-executable file, so no error is emitted.
 		dir := t.TempDir()
-		_ = mk(t, dir, "good", 0o755)
+		_ = mk(t, dir, discoveryExecutableName("good"), 0o755)
 		_ = mk(t, dir, "bad", 0o644)
 		cands, errs := discover(dir)
 		if len(cands) != 1 {
@@ -90,8 +102,8 @@ func TestDiscover(t *testing.T) {
 
 	t.Run("list separator splits entries", func(t *testing.T) {
 		dir := t.TempDir()
-		a := mk(t, dir, "a", 0o755)
-		b := mk(t, dir, "b", 0o755)
+		a := mk(t, dir, discoveryExecutableName("a"), 0o755)
+		b := mk(t, dir, discoveryExecutableName("b"), 0o755)
 		env := a + string(filepath.ListSeparator) + b
 		cands, _ := discover(env)
 		if len(cands) != 2 {

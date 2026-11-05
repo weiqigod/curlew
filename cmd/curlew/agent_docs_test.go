@@ -70,10 +70,10 @@ func TestAgentManualRecipe(t *testing.T) {
 	if strings.Count(script, "curlew ") < 4 {
 		t.Fatal("agent recipe lost an execution step")
 	}
+	binary := buildBinary(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	base := quickstartServer(ctx, t)
-	binary := buildBinary(t)
+	base := quickstartServer(t)
 	dir := t.TempDir()
 	stdout, stderr, code := runBinaryInDir(t, binary, dir, "init")
 	if code != 0 {
@@ -92,7 +92,7 @@ func TestAgentManualRecipe(t *testing.T) {
 	if err := os.Remove(sample); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(ctx, "bash", "-euo", "pipefail", "-c", script)
+	cmd := exec.CommandContext(ctx, testBash(t), "-euo", "pipefail", "-c", script)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+os.Getenv("PATH"))
 	out, err := cmd.CombinedOutput()

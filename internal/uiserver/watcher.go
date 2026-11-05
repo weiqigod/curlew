@@ -69,7 +69,7 @@ func (w *Watcher) loop() {
 				continue
 			}
 			w.mu.Lock()
-			w.pending[rel] = struct{}{}
+			w.pending[filepath.ToSlash(rel)] = struct{}{}
 			if w.timer == nil {
 				w.timer = time.AfterFunc(w.debounce, w.flush)
 			} else {

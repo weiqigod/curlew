@@ -609,6 +609,13 @@ Nested references resolve to a depth of 10. A reference cycle
 (`a` → `b` → `a`) is a variable resolution error (exit 5). An undefined
 reference with no default is also exit 5.
 
+Dynamic functions in named variable values must be evaluated when those variables
+are interpolated into a request, including `body_file` contents. For example,
+`invoice_id: "{{$timestampMs}}"` can be referenced as `{{invoice_id}}`.
+Dependent date expressions may reference other named variables. They share the
+existing per-request function cache; results are not fixed at project load time.
+No wrapper script is required, and explicit CLI overrides still take precedence.
+
 ### 6.2 Precedence
 
 Ten sources, lowest to highest. When a name is defined more than once, the
@@ -653,6 +660,32 @@ variables:
 
 The command runs once (or once per cache window) and its stdout, trimmed, becomes
 the value. A non-zero exit is a variable resolution error (exit 5).
+
+On POSIX the shell is `/bin/sh -c`. On Windows it is system Windows PowerShell
+with profiles disabled and non-interactive encoded scripts; Bash syntax is not
+translated. Both use a 30-second execution cap (an earlier caller deadline wins).
+Commands must finish their work before returning: remaining descendants are
+terminated. Windows uses a Job Object; POSIX uses a process group. A POSIX child
+that deliberately creates another process group is outside that containment.
+
+Captured stdout and stderr must be UTF-8. Windows PowerShell output is configured
+as UTF-8; external programs must emit it themselves. Trailing LF is removed on
+POSIX; trailing LF/CRLF sequences are removed on Windows. Spaces, interior line
+endings, and a standalone trailing CR are preserved. Failure messages include
+the failure kind/exit code, not command text or captured output that may contain
+credentials. Resolved sensitive command values and all vault values are registered
+before request/event output.
+
+Vault providers invoke programs with argv and child-only environment overrides,
+not user-shell strings. Windows `.exe` arguments support literal quotes and
+metacharacters. Batch quoting preserves those values through CMD and provider
+forwarding, including Azure CLI MSI/ZIP and Google Cloud CLI launcher patterns.
+NUL and batch line terminators (CR/LF) are rejected before launch. Encoded batch
+invocations and environment entries are capped at 8000 UTF-16 units below CMD's
+line limit. Custom batch code is still executed as written; deliberate additional
+argument expansion inside a script is not undone. See [Windows notes](WINDOWS.md)
+for verification scope; Windows arm64 and the full repository gate remain separate
+checks.
 
 ### 6.5 Sensitivity and Redaction
 
@@ -1544,6 +1577,8 @@ space.
 
 `CURLEW_PLUGINS` holds a colon-separated (semicolon on Windows) list of plugin
 executables or directories. Directories expand to their executable entries.
+POSIX plugin candidates must be regular files with an execute bit. Windows plugin
+candidates must be regular `.exe` files; script wrappers are not accepted as plugins.
 
 ```bash
 export CURLEW_PLUGINS=/usr/local/lib/curlew-plugins:/home/me/my-plugin

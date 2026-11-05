@@ -85,7 +85,7 @@ func TestPaths_Dirs(t *testing.T) {
 				ExternalFiles: []string{"/proj/req/a.yaml"},
 				EnvFile:       "/proj/env/dev.yaml",
 			},
-			want: []string{"/proj", "/proj/env", "/proj/req"},
+			want: []string{filepath.FromSlash("/proj"), filepath.FromSlash("/proj/env"), filepath.FromSlash("/proj/req")},
 		},
 		{
 			name: "single directory",
@@ -93,7 +93,7 @@ func TestPaths_Dirs(t *testing.T) {
 				Collection:    "/proj/col.yaml",
 				ExternalFiles: []string{"/proj/ext.yaml"},
 			},
-			want: []string{"/proj"},
+			want: []string{filepath.FromSlash("/proj")},
 		},
 	}
 	for _, tt := range tests {

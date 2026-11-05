@@ -136,37 +136,26 @@ func TestMarkdown_WriteAtomic_CreateTempError(t *testing.T) {
 }
 
 // TestMarkdown_WriteAtomic_RenameError verifies that writeAtomic returns an
-// error and cleans up the temp file when os.Rename fails (destination
-// directory is made read-only after CreateTemp succeeds).
+// error and cleans up the temp file when the destination is a directory.
 func TestMarkdown_WriteAtomic_RenameError(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("cannot test chmod restriction as root")
-	}
 	dir := t.TempDir()
-	// Make the directory read-only so CreateTemp into it fails.
-	roDir := filepath.Join(dir, "ro")
-	if err := os.MkdirAll(roDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
+	path := filepath.Join(dir, "target.md")
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatalf("create destination directory: %v", err)
 	}
-	// Place the target under the read-only dir.
-	path := filepath.Join(roDir, "target.md")
-	// Remove write permission so CreateTemp fails immediately.
-	if err := os.Chmod(roDir, 0o444); err != nil {
-		t.Fatalf("Chmod: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(roDir, 0o755) })
 
 	err := writeAtomic(path, []byte("data"))
 	if err == nil {
-		t.Fatal("expected error when directory is read-only, got nil")
+		t.Fatal("expected error when destination is a directory, got nil")
 	}
-	// The error should be a create temp file error (since the dir is not writable).
-	if !strings.Contains(err.Error(), "create temp file") {
-		t.Errorf("expected 'create temp file' in error, got: %v", err)
+	if !strings.Contains(err.Error(), "rename temp file") {
+		t.Errorf("expected 'rename temp file' in error, got: %v", err)
 	}
-	// The temp file must not remain (cleanup must have run).
-	entries, _ := os.ReadDir(roDir)
-	if len(entries) != 0 {
-		t.Errorf("expected no files left in ro dir after error, found: %v", entries)
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		t.Fatalf("read output directory: %v", readErr)
+	}
+	if len(entries) != 1 || entries[0].Name() != "target.md" || !entries[0].IsDir() {
+		t.Errorf("temporary file was not cleaned up: %v", entries)
 	}
 }

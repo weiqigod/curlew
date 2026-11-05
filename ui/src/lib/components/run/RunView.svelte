@@ -9,7 +9,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import { registerKey } from '../../keyboard';
   import type { LiveRequest } from '../../event-reducer';
-  import { relTime } from '../../format';
+  import { fileBasename, relTime } from '../../format';
   import { navigate, route } from '../../router';
   import {
     focusedRequests,
@@ -257,7 +257,7 @@
     {#if fileFilter !== null}
       <div class="chiprow">
         <span class="at-chip filterchip">
-          filtered: {fileFilter.split('/').pop()}
+          filtered: {fileBasename(fileFilter)}
           <button class="chipx" aria-label="clear filter" on:click={() => navigate({ name: 'run' })}>
             <Icon name="x" size={11} />
           </button>
@@ -316,7 +316,7 @@
           {/if}
           <div class="col">
             {#if g.file !== null && (gi === 0 || waveGroups[gi - 1].file !== g.file)}
-              <div class="colfile at-mono">{g.file.split('/').pop()}</div>
+              <div class="colfile at-mono">{fileBasename(g.file)}</div>
             {/if}
             <div class="collabel">
               <span class="wl">Wave {g.wave + 1}</span>
@@ -334,7 +334,7 @@
           <div class="lane">
             <div class="lanelabel">
               {#if g.file !== null && (gi === 0 || waveGroups[gi - 1].file !== g.file)}
-                <div class="colfile at-mono">{g.file.split('/').pop()}</div>
+                <div class="colfile at-mono">{fileBasename(g.file)}</div>
               {/if}
               <span class="wl">Wave {g.wave + 1}</span>
               <span class="wn at-mono">{g.rows.length} req</span>

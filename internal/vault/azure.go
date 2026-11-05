@@ -38,7 +38,10 @@ func (p *AzureProvider) Fetch(ctx context.Context, path string) (string, error) 
 		"az keyvault secret show --name %s --vault-name %s --query value -o tsv",
 		shellQuote(path), shellQuote(p.vaultName),
 	)
-	out, err := p.execute(ctx, cmd)
+	out, err := executeProvider(ctx, p.execute, cmd, "az", []string{
+		"keyvault", "secret", "show", "--name", path, "--vault-name", p.vaultName,
+		"--query", "value", "-o", "tsv",
+	}, nil)
 	if err != nil {
 		return "", p.classifyError(err, path)
 	}
@@ -60,7 +63,7 @@ func (p *AzureProvider) BulkFetch(ctx context.Context, paths []string) (map[stri
 
 // ValidateConfig checks that the Azure CLI is available and credentials are valid.
 func (p *AzureProvider) ValidateConfig() error {
-	_, err := p.execute(context.Background(), "az account show")
+	_, err := executeProvider(context.Background(), p.execute, "az account show", "az", []string{"account", "show"}, nil)
 	if err != nil {
 		return p.classifyError(err, "")
 	}
@@ -69,15 +72,15 @@ func (p *AzureProvider) ValidateConfig() error {
 
 // classifyError inspects the error message for known Azure error patterns.
 func (p *AzureProvider) classifyError(err error, path string) error {
-	msg := err.Error()
+	msg := providerDiagnostic(err)
 
 	if strings.Contains(msg, "SecretNotFound") || strings.Contains(msg, "ResourceNotFound") {
-		return fmt.Errorf("%w: %s", ErrSecretNotFound, path)
+		return classifiedProviderError(err, ErrSecretNotFound, path, "")
 	}
 
 	for _, pattern := range azureAuthErrorPatterns {
 		if strings.Contains(msg, pattern) {
-			return fmt.Errorf("%w: %s. %s", ErrProviderAuth, msg, azureAuthHint)
+			return classifiedProviderError(err, ErrProviderAuth, err.Error(), ". "+azureAuthHint)
 		}
 	}
 

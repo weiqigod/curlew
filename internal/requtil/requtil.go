@@ -17,10 +17,10 @@ import (
 type ExecuteFunc func(ctx context.Context, req *httpexec.Request) (*httpexec.Result, error)
 
 // InterpolateRequest applies variable interpolation to all string fields of a request.
-// BeginRequest/EndRequest bracket the operation to enable per-request function memoization.
+// It resets the dynamic cache for each request and retains it for response assertions
+// and extraction. The next request starts with a fresh cache.
 func InterpolateRequest(scope *variable.Scope, req *parser.Request) (*parser.Request, error) {
 	scope.BeginRequest()
-	defer scope.EndRequest()
 
 	out := *req // shallow copy
 
