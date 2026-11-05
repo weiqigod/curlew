@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/weiqigod/curlew/internal/variable"
 )
@@ -35,11 +36,17 @@ type Provider interface {
 // Injected for testability (avoids real CLI calls in tests).
 type CommandExecutor func(ctx context.Context, command string) (string, error)
 
+// ProviderCommandTimeout caps one provider CLI call. It is long enough for the
+// user to answer an approval prompt, such as 1Password's Windows Hello request.
+const ProviderCommandTimeout = 2 * time.Minute
+
+var runProgram = variable.ExecuteProgramWithTimeout
+
 func executeProvider(ctx context.Context, legacy CommandExecutor, command, program string, args, env []string) (string, error) {
 	if legacy != nil {
 		return legacy(ctx, command)
 	}
-	return variable.ExecuteProgram(ctx, program, args, env)
+	return runProgram(ctx, ProviderCommandTimeout, program, args, env)
 }
 
 func providerDiagnostic(err error) string {

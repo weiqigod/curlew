@@ -109,7 +109,13 @@ func ExecuteCommand(ctx context.Context, command string) (string, error) {
 // NUL and batch line terminators (CR/LF) are invalid arguments. CMD invocations
 // (including transport overhead) and environment entries are limited to 8000 UTF-16 units.
 func ExecuteProgram(ctx context.Context, program string, args, env []string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	return ExecuteProgramWithTimeout(ctx, 30*time.Second, program, args, env)
+}
+
+// ExecuteProgramWithTimeout is ExecuteProgram with a caller-chosen cap instead
+// of 30 seconds, for programs that may wait on the user (vault approval prompts).
+func ExecuteProgramWithTimeout(ctx context.Context, timeout time.Duration, program string, args, env []string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return "", &commandFailure{cause: err, reason: err.Error()}

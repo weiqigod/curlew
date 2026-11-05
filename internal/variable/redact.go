@@ -66,10 +66,11 @@ func redactString(s string, values []string) string {
 	return s
 }
 
-// redactJSONString attempts to parse s as JSON. If it parses and yields an
-// object, array, or string literal, walks it and returns the re-encoded JSON
-// with sensitive string leaves replaced. Returns ok=false if s is not valid
-// JSON or does not start with a JSON-initiating character.
+// redactJSONString redacts the string literals of s, which must be a JSON
+// object, array or string. Every other byte is copied, so key order, spacing
+// and number spelling survive. Literals are decoded before matching, so a
+// secret written with JSON escapes is still found. Returns ok=false if s is
+// not valid JSON or does not start with a JSON-initiating character.
 func redactJSONString(s string, values []string) (string, bool) {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
@@ -79,23 +80,50 @@ func redactJSONString(s string, values []string) (string, bool) {
 	if first != '{' && first != '[' && first != '"' {
 		return "", false
 	}
-	var parsed any
-	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+	if !json.Valid([]byte(trimmed)) {
 		return "", false
 	}
-	walked := redactStructured(parsed, values)
+
+	var out strings.Builder
+	out.Grow(len(s))
+	for i := 0; i < len(s); {
+		if s[i] != '"' {
+			out.WriteByte(s[i])
+			i++
+			continue
+		}
+		end := i + 1
+		for s[end] != '"' {
+			if s[end] == '\\' {
+				end++
+			}
+			end++
+		}
+		literal := s[i : end+1]
+		out.WriteString(redactJSONLiteral(literal, values))
+		i = end + 1
+	}
+	return out.String(), true
+}
+
+// redactJSONLiteral returns literal unchanged unless its decoded text holds a
+// sensitive value, in which case it returns the redacted text re-encoded.
+func redactJSONLiteral(literal string, values []string) string {
+	var text string
+	if err := json.Unmarshal([]byte(literal), &text); err != nil {
+		return literal
+	}
+	redacted := redactString(text, values)
+	if redacted == text {
+		return literal
+	}
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
-	// enc.Encode cannot fail for values produced by json.Unmarshal
-	// (map[string]any, []any, string, float64, bool, nil) — all are
-	// JSON-encodable. The error return is retained for future safety should
-	// the type set ever expand.
-	if err := enc.Encode(walked); err != nil {
-		return "", false
+	if err := enc.Encode(redacted); err != nil {
+		return literal
 	}
-	// json.Encoder appends a trailing newline; strip to preserve original shape.
-	return strings.TrimRight(buf.String(), "\n"), true
+	return strings.TrimRight(buf.String(), "\n")
 }
 
 // redactJSONBytes is the []byte twin of redactJSONString.

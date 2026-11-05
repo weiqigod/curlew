@@ -2267,6 +2267,8 @@ By default, Curlew aggressively hides values that look sensitive:
 
 Redaction shows up as `[REDACTED]` in terminal output, JSON output, TAP output, JUnit, HTML, Markdown, event streams, and JSONL logs.
 
+Redaction changes only the secret: a printed JSON body always keeps the key order, spacing and number spelling it was sent with, in `-vv` and `--format json` alike.
+
 **It does not matter which direction the value travelled.** A secret is hidden where you sent it *and* where the server sent it back — in the request URL, in request and response headers, in either body, and in the failure message of an assertion:
 
 ```
@@ -3149,7 +3151,9 @@ Requires: `op` CLI, signed in (`eval $(op signin)`).
 
 **The `#field` suffix.** For providers whose secrets are structured (AWS, 1Password, HashiCorp), `path#field` extracts a single field; without `#field`, Curlew expects the value to be a plain string.
 
-**Caching.** `cache_ttl` is a per-run cache. Subsequent requests in the same run reuse the fetched value. Set `refresh_on_failure: true` to re-fetch once on retrieval errors rather than aborting the run.
+**Only used keys are fetched.** A run asks the provider only for keys a request that runs actually uses: directly, through fragments and body files, through other variables (for example an environment variable set to `"{{dev_token}}"`), or as `vars.<name>` in CEL. A request skipped by its `if:` guard or left out by `--only` never triggers a fetch. Keys overridden by collection variables, `--env-var` or `--var` are not fetched. Curlew waits up to 2 minutes for each provider call, so there is time to approve a 1Password prompt.
+
+**Caching.** Set `cache_ttl` (seconds) to keep fetched values in the OS keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service). Later runs, including runs from `curlew ui`, reuse them until they expire, so a provider such as 1Password is asked once instead of every run. Without a usable keychain the value is fetched every run. After rotating a secret, run `curlew vault clear-cache`. Set `refresh_on_failure: true` to re-fetch once on retrieval errors rather than aborting the run.
 
 ### 6.5 Dynamic auth profiles
 

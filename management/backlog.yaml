@@ -2116,3 +2116,13 @@ capabilities:
         planned_date: 2026-09-17
         started_date: 2026-09-17
         branch: feature/M30-006-windows-foundation
+      - id: M30-007
+        status: in_progress
+        planned_date: 2026-10-26
+        started_date: 2026-10-26
+        branch: feature/M30-007-secret-cache
+      - id: M30-008
+        status: in_progress
+        planned_date: 2026-10-28
+        started_date: 2026-10-28
+        branch: fix/M30-008-redaction-key-order

@@ -85,6 +85,7 @@ platform directories have a separate scope; see the [documentation map](docs/REA
 | `schema` | Print the collection JSON Schema; `--project` for `curlew.yaml` |
 | `watch <file>` | Re-run on file changes |
 | `vault list` | List configured vault provider profiles |
+| `vault clear-cache` | Remove vault secrets cached by `cache_ttl` from the OS keychain |
 | `import openapi` | Import an OpenAPI 3.x spec into a collection |
 | `pr-check` | Gate CI on a run's results file |
 | `ui` | Start the local web UI |

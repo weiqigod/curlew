@@ -714,6 +714,10 @@ sensitive at every higher precedence level and through every interpolation that
 consumes it. Setting `sensitive: false` on a name that inherited sensitivity is
 an error, not an override.
 
+**Redaction changes only the secret.** In a JSON body only the string literals
+that contain a sensitive value are rewritten; key order, spacing and number
+spelling are kept, so the printed body is the body that was sent or received.
+
 **Redaction** replaces the value with `[REDACTED]` in terminal output, JSON, TAP,
 JUnit, HTML, Markdown, event streams, and JSONL logs. Auth-profile variables are
 always sensitive with no opt-out.
@@ -1476,9 +1480,22 @@ auth:
 **The `#field` suffix** extracts one field from a structured secret (AWS,
 1Password, HashiCorp). Without it, the value is expected to be a plain string.
 
-**Caching.** `cache_ttl` is a per-run cache: later requests in the same run reuse
-the fetched value. `refresh_on_failure: true` re-fetches once on a retrieval
-error instead of aborting.
+**Fetching.** Before the first request a run fetches the keys referenced by the
+requests that can run: setup, teardown and the `--only` selection, including keys
+reached through variable values and CEL `vars.<name>` uses. A request whose `if:`
+is already false from the starting variables does not count. Every other key is
+fetched when a request first uses it, so a skipped or unselected request never
+calls the provider. A key overridden by collection variables, `--env-var` or
+`--var` is not fetched. Each provider CLI call may take up to 2 minutes, long
+enough to answer an approval prompt such as 1Password's.
+
+**Caching.** With `cache_ttl` (seconds) above 0, fetched values are kept in the OS
+keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service) and
+reused by later runs, including `curlew ui` runs, until they expire. The entry key
+is a hash of the provider settings and path. Without a usable keychain, or for a
+value too large for it, the value is fetched every run. `cache_ttl: 0` (default)
+keeps no cache. `curlew vault clear-cache` removes every cached value.
+`refresh_on_failure: true` re-fetches once on a retrieval error instead of aborting.
 
 All vault-resolved values are unconditionally sensitive.
 

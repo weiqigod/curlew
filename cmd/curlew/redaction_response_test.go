@@ -1,11 +1,13 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/weiqigod/curlew/internal/docs"
@@ -218,5 +220,68 @@ func TestRedaction_ResponseHeadersAreRedacted(t *testing.T) {
 	}
 	if strings.Contains(stdout, leakCookie) {
 		t.Errorf("Set-Cookie value printed verbatim:\n%s", stdout)
+	}
+}
+
+// TestRedaction_JSONBodyKeepsKeyOrder: a sensitive value anywhere in the run
+// must not re-sort the printed JSON bodies. Key order can matter to the API
+// (option order in a list of choices), and the output must show what was sent.
+func TestRedaction_JSONBodyKeepsKeyOrder(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "Redaction changes only the secret"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+
+	const body = `{"z":"first","a":{"yes":1,"no":2}}`
+	var (
+		mu       sync.Mutex
+		received string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		received = string(raw)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	collPath := writeCollection(t, dir, "c.yaml", `name: key order
+variables:
+  my_api_token: "`+leakDeclared+`"
+requests:
+  - name: echo
+    request:
+      method: POST
+      url: "`+srv.URL+`/echo"
+      headers:
+        Authorization: "Bearer {{my_api_token}}"
+        Content-Type: application/json
+      body: '`+body+`'
+    assertions:
+      status: 200
+`)
+
+	stdout, stderr, code := captureRun(t, "run", collPath, "--format", "terminal", "--no-color", "-vv")
+	if code != 0 {
+		t.Fatalf("exit %d; stderr=%q", code, stderr)
+	}
+	mu.Lock()
+	got := received
+	mu.Unlock()
+	if got != body {
+		t.Errorf("server received %q, want %q", got, body)
+	}
+	if n := strings.Count(stdout, body); n != 2 {
+		t.Errorf("want the request and response body printed as sent (2 times), found %d:\n%s", n, stdout)
+	}
+
+	jsonOut, stderr, code := captureRun(t, "run", collPath, "--format", "json")
+	if code != 0 {
+		t.Fatalf("json exit %d; stderr=%q", code, stderr)
+	}
+	if strings.Contains(jsonOut, `{\"a\":`) || strings.Contains(jsonOut, `{"a":`) {
+		t.Errorf("json output re-sorted a body:\n%s", jsonOut)
 	}
 }

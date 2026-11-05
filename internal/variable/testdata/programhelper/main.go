@@ -36,6 +36,13 @@ func main() {
 		if err := os.WriteFile(os.Args[2], []byte("launched"), 0o600); err != nil {
 			os.Exit(2)
 		}
+	case "sleep":
+		d, err := time.ParseDuration(os.Args[2])
+		if err != nil {
+			os.Exit(2)
+		}
+		time.Sleep(d)
+		fmt.Print("slept")
 	default:
 		os.Exit(2)
 	}

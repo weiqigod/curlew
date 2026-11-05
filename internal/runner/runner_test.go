@@ -2647,7 +2647,7 @@ func TestResolvedSecretsSurviveScopeFailure(t *testing.T) {
 			col := &parser.Collection{
 				Name: "pre-execution failure",
 				Variables: parser.SensitiveVars{
-					Values:    map[string]string{"broken": "{{missing}}"},
+					Values:    map[string]string{"broken": "{{missing}}", "uses_vault": "{{opaque_vault}}"},
 					Commands:  map[string]parser.CommandVar{"opaque": {Command: "echo command-private-value", Sensitive: true}},
 					Sensitive: explicit,
 				},
@@ -2782,7 +2782,7 @@ func TestRun_VaultResolution(t *testing.T) {
 		col := &parser.Collection{
 			Name: "Test",
 			Requests: parser.Section{Items: []parser.RequestItem{
-				{Name: "A", Request: parser.Request{Method: "GET", URL: "https://example.com"}},
+				{Name: "A", Request: parser.Request{Method: "GET", URL: "https://example.com/{{k}}"}},
 			}},
 		}
 		_, _, err := Run(context.Background(), col, successExecutor, VarSources{

@@ -221,6 +221,7 @@ type Scope struct {
 	funcCache        map[string]string // per-request memoization; nil outside a request
 	secrets          map[string]string // nil when no team template is active
 	runtimeSensitive *SensitiveSet     // nil = no runtime tracking; mutated by dynamic-fn dispatch when a credential-bearing arg resolves from a sensitive source
+	deferred         *Deferred         // nil = no fetch-on-use variables
 }
 
 // WithSecrets returns a shallow copy of the scope with the given secrets map
@@ -494,6 +495,13 @@ func (s *Scope) interpolate(input string, depth int) (string, error) {
 			val, retErr = s.interpolateVariable(sub[1], val, depth)
 			return val
 		}
+		if s.deferred.has(sub[1]) {
+			val, err := s.deferred.get(sub[1])
+			if err != nil {
+				retErr = err
+			}
+			return val
+		}
 		return sub[2]
 	})
 
@@ -503,6 +511,10 @@ func (s *Scope) interpolate(input string, depth int) (string, error) {
 		}
 		name := match[2 : len(match)-2]
 		val, ok := s.resolved[name]
+		if !ok && s.deferred.has(name) {
+			val, retErr = s.deferred.get(name)
+			return val
+		}
 		if !ok {
 			retErr = &apierrors.Structured{
 				Category: apierrors.CategoryInput,
@@ -514,6 +526,9 @@ func (s *Scope) interpolate(input string, depth int) (string, error) {
 			return match
 		}
 		val, retErr = s.interpolateVariable(name, val, depth)
+		if retErr == nil && s.deferred.referencedIn(val) {
+			val, retErr = s.interpolate(val, depth+1)
+		}
 		return val
 	})
 	if retErr != nil {
@@ -603,6 +618,7 @@ func (s *Scope) WithOverrides(overrides map[string]string) (*Scope, error) {
 	child := NewScope(merged)
 	child.registry = s.registry
 	child.runtimeSensitive = s.runtimeSensitive
+	child.deferred = s.deferred
 	if err := child.Resolve(); err != nil {
 		return nil, err
 	}
@@ -634,6 +650,7 @@ func (s *Scope) Snapshot() *Scope {
 		registry:         s.registry,
 		secrets:          secrets,
 		runtimeSensitive: s.runtimeSensitive,
+		deferred:         s.deferred,
 		// funcCache left nil — will be initialised by BeginRequest()
 	}
 }
@@ -674,6 +691,9 @@ func (s *Scope) resolveVar(name string, stack []string, depth int) (string, erro
 	}
 
 	raw, ok := s.vars[name]
+	if !ok && s.deferred.has(name) {
+		return "{{" + name + "}}", nil
+	}
 	if !ok {
 		return "", &apierrors.Structured{
 			Category: apierrors.CategoryConfig,
