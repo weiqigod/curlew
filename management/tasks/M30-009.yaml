@@ -1,0 +1,37 @@
+id: M30-009
+title: "Send headers from the environment file on every request"
+status: in_progress
+planned_date: 2026-11-04
+started_date: 2026-11-04
+branch: feature/M30-009-environment-headers
+priority: 1
+created: 2026-11-04
+phase: "M30: Local product usability"
+dependencies: [M30-008]
+observable: |
+  An environment file with a `headers:` block, for example
+  `headers: { X-Mock-Run: "{{run_id}}" }`, makes `curlew run --env <name>` (and a
+  Run in `curlew ui`) send those headers on every request of the collection,
+  without editing the collection. The same collection run with another
+  environment sends none of them. This is how one set of checks can run against
+  a real API and, with one extra environment, against a mock that needs routing
+  headers.
+behaviors:
+  - "An environment file's `headers:` map is added to every request in setup, main requests and teardown, including included and external request files."
+  - Header values are templated like request headers, so they can use variables and secrets.
+  - A header the request sets itself wins over the environment's header with the same name, compared case-insensitively.
+  - Environments without `headers:` change nothing, and the loaded collection is not modified.
+  - "A `headers:` block that is not a map of names to text values is an invalid environment file."
+scope: |
+  internal/config (EnvironmentConfig.Headers), internal/runner (VarSources and
+  applying the headers to a copy of the collection), cmd/curlew and
+  internal/runservice (wiring), MANUAL §3.3 and §C.3, CLI specification §5.3,
+  CHANGELOG and the bundled agent skill. Auth profile login collections run on
+  their own and do not get the headers. No change to curlew.yaml `defaults`.
+definition_of_done:
+  - Unit tests for parsing and for applying the headers pass
+  - CLI test checks the headers a local server receives, with the MANUAL claim bound by docs.Prose
+  - Full repository tests pass on native Windows
+  - Real-binary check against a local echo server shows the headers sent
+  - CHANGELOG is updated
+complexity: small

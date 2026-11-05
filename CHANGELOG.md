@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Headers from the environment file.** An environment file can have a
+  `headers:` block. `curlew run --env <name>` and a Run in `curlew ui` send those
+  headers on every request, unless the request sets the same header itself, so
+  one collection can run against a real API and, with another environment,
+  against a mock that needs routing headers (M30-009).
 - **Vault secrets cached across runs.** `secrets.cache_ttl` now keeps fetched
   values in the OS keychain, so later CLI and `curlew ui` runs reuse them until
   they expire instead of asking the provider (for example 1Password) every run.

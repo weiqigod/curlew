@@ -153,6 +153,42 @@ func hasHeaderCaseInsensitive(headers map[string]string, name string) bool {
 	return false
 }
 
+// withEnvironmentHeaders returns a copy of col in which every request also
+// carries the environment's headers, unless it sets a header of the same name
+// itself (case-insensitive). The values stay templates and are interpolated
+// with the rest of the request. col itself is never modified.
+func withEnvironmentHeaders(col *parser.Collection, headers map[string]string) *parser.Collection {
+	if len(headers) == 0 {
+		return col
+	}
+	copied := *col
+	copied.Setup.Items = itemsWithHeaders(col.Setup.Items, headers)
+	copied.Requests.Items = itemsWithHeaders(col.Requests.Items, headers)
+	copied.Teardown.Items = itemsWithHeaders(col.Teardown.Items, headers)
+	return &copied
+}
+
+func itemsWithHeaders(items []parser.RequestItem, headers map[string]string) []parser.RequestItem {
+	if items == nil {
+		return nil
+	}
+	out := make([]parser.RequestItem, len(items))
+	for i, item := range items {
+		merged := make(map[string]string, len(item.Request.Headers)+len(headers))
+		for name, value := range item.Request.Headers {
+			merged[name] = value
+		}
+		for name, value := range headers {
+			if !hasHeaderCaseInsensitive(item.Request.Headers, name) {
+				merged[name] = value
+			}
+		}
+		item.Request.Headers = merged
+		out[i] = item
+	}
+	return out
+}
+
 // MaxRequests is the guard rail limit for abuse prevention.
 // Tests may override this value; restore via t.Cleanup.
 var MaxRequests = 1000
@@ -324,6 +360,7 @@ type Summary struct {
 type VarSources struct {
 	Project             map[string]string       // curlew.yaml global variables (precedence 2)
 	EnvFile             map[string]string       // --env file variables (precedence 3)
+	EnvironmentHeaders  map[string]string       // --env file headers: block, added to requests that do not set them
 	DotEnv              map[string]string       // .env variables (precedence 4)
 	EnvVar              map[string]string       // --env-var OS imports (precedence 9)
 	CLI                 map[string]string       // --var variables (precedence 10)
@@ -553,6 +590,7 @@ func NewRunID() string {
 // Precedence: Project (2) < EnvFile (3) < DotEnv (4) < collection (7) < EnvVar (9) < CLI (10).
 // Execution order: auth profiles → setup → main → teardown (teardown always runs).
 func Run(ctx context.Context, col *parser.Collection, exec ExecuteFunc, vars VarSources) ([]RequestResult, *Summary, error) {
+	col = withEnvironmentHeaders(col, vars.EnvironmentHeaders)
 	total := len(col.Setup.Items) + len(col.Requests.Items) + len(col.Teardown.Items)
 	emptySummary := &Summary{Total: total}
 

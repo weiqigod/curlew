@@ -82,6 +82,7 @@ func Execute(ctx context.Context, req Request, exec runner.ExecuteFunc) (*Result
 	}
 
 	var envVars map[string]string
+	var environmentHeaders map[string]string
 	var environmentLocale string
 	if req.EnvName != "" {
 		var environment *config.EnvironmentConfig
@@ -95,6 +96,7 @@ func Execute(ctx context.Context, req Request, exec runner.ExecuteFunc) (*Result
 			return nil, err
 		}
 		envVars = environment.Variables
+		environmentHeaders = environment.Headers
 		environmentLocale = environment.Config.Locale
 	}
 
@@ -127,21 +129,22 @@ func Execute(ctx context.Context, req Request, exec runner.ExecuteFunc) (*Result
 	}
 
 	results, summary, runErr := runner.Run(ctx, col, exec, runner.VarSources{
-		Project:           projectCfg.Variables,
-		EnvFile:           envVars,
-		DotEnv:            dotenvVars,
-		Seed:              req.Seed,
-		ProjectLocale:     projectCfg.Config.Locale,
-		EnvironmentLocale: environmentLocale,
-		CollectionLocale:  col.Config.Locale,
-		Secrets:           projectCfg.Secrets,
-		AuthProfiles:      projectCfg.AuthProfiles,
-		ProjectRoot:       projectRoot,
-		GlobalRetry:       projectCfg.Defaults.Retry,
-		GlobalGraphQL:     projectCfg.Defaults.GraphQL,
-		Parallel:          req.Parallel,
-		CollectionDir:     collectionDir,
-		OnEvent:           sink,
+		Project:            projectCfg.Variables,
+		EnvFile:            envVars,
+		EnvironmentHeaders: environmentHeaders,
+		DotEnv:             dotenvVars,
+		Seed:               req.Seed,
+		ProjectLocale:      projectCfg.Config.Locale,
+		EnvironmentLocale:  environmentLocale,
+		CollectionLocale:   col.Config.Locale,
+		Secrets:            projectCfg.Secrets,
+		AuthProfiles:       projectCfg.AuthProfiles,
+		ProjectRoot:        projectRoot,
+		GlobalRetry:        projectCfg.Defaults.Retry,
+		GlobalGraphQL:      projectCfg.Defaults.GraphQL,
+		Parallel:           req.Parallel,
+		CollectionDir:      collectionDir,
+		OnEvent:            sink,
 		// The sinks above redact with preSensitive as the run proceeds, so
 		// the runner registers mid-run discoveries into that same set — an
 		// extracted token must be known before the event carrying it is

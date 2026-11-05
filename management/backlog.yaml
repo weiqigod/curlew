@@ -2126,3 +2126,8 @@ capabilities:
         planned_date: 2026-10-28
         started_date: 2026-10-28
         branch: fix/M30-008-redaction-key-order
+      - id: M30-009
+        status: in_progress
+        planned_date: 2026-11-04
+        started_date: 2026-11-04
+        branch: feature/M30-009-environment-headers

@@ -780,6 +780,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	// When CURLEW_TEAM_CONFIG is set, ErrEnvironmentNotFound is tolerated:
 	// --env selects the team template environment even if no env file exists.
 	var envVars map[string]string
+	var environmentHeaders map[string]string
 	var environmentLocale string
 	if envName != "" {
 		var environment *config.EnvironmentConfig
@@ -819,6 +820,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 			}
 		} else {
 			envVars = environment.Variables
+			environmentHeaders = environment.Headers
 			environmentLocale = environment.Config.Locale
 		}
 	}
@@ -1092,6 +1094,7 @@ func runCmdInner(args []string, stdout, stderr io.Writer) (int, *runner.Summary)
 	results, summary, varErr := runner.Run(ctx, col, httpexec.Execute, runner.VarSources{
 		Project:             projectCfg.Variables,
 		EnvFile:             envVars,
+		EnvironmentHeaders:  environmentHeaders,
 		DotEnv:              dotenvVars,
 		EnvVar:              envVarVars,
 		CLI:                 cliVars,

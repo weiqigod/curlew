@@ -128,6 +128,43 @@ config:
 	}
 }
 
+func TestExecute_SendsEnvironmentHeaders(t *testing.T) {
+	colPath := writeProject(t, `name: T
+requests:
+  - name: Ping
+    request: {method: GET, url: "http://x.test/ping"}
+`)
+	root := filepath.Dir(filepath.Dir(colPath))
+	envDir := filepath.Join(root, "environments")
+	if err := os.MkdirAll(envDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(envDir, "mock.yaml"), []byte(`variables:
+  mock_run_id: demo-1
+headers:
+  X-Mock-Run: "{{mock_run_id}}"
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var sent map[string]string
+	capture := func(ctx context.Context, req *httpexec.Request) (*httpexec.Result, error) {
+		sent = req.Headers
+		return okExec(ctx, req)
+	}
+	_, err := runservice.Execute(context.Background(), runservice.Request{
+		CollectionPath: colPath,
+		EnvName:        "mock",
+		RunID:          runner.NewRunID(),
+	}, capture)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if sent["X-Mock-Run"] != "demo-1" {
+		t.Errorf("X-Mock-Run = %q, want demo-1 from the environment's headers", sent["X-Mock-Run"])
+	}
+}
+
 func TestExecute_SelectionNoMatch_PassesThroughSentinel(t *testing.T) {
 	colPath := writeProject(t, `name: T
 requests:
