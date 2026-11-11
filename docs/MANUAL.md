@@ -1855,7 +1855,7 @@ Every CEL expression evaluates against the same four bindings:
 | Binding    | Type                          | Description                                                                             |
 | ---------- | ----------------------------- | --------------------------------------------------------------------------------------- |
 | `response` | `map(string, dyn)`            | Current request's response; fields `status` (int), `headers` (map), `body` (dyn).      |
-| `previous` | `map(string, dyn)`            | The previous request's response, same shape as `response`.                              |
+| `previous` | `map(string, dyn)`            | The previous request's response, same shape as `response`. Under `--parallel`, using it runs the requests phase sequentially (§5.6). |
 | `vars`     | `map(string, dyn)`            | All variables in scope at the request site (collection, env, CLI).                      |
 | `env`      | `map(string, string)`         | Process environment variables.                                                          |
 
@@ -2930,6 +2930,14 @@ Wave 2: Place order                         (waits for both of Wave 1)
 Variables extracted in Wave 1 propagate to Wave 2. Cycles (A depends on B, B depends on A) are detected during dependency analysis and rejected with a clear error before any request executes.
 
 **When a request fails, what depends on it is skipped.** A request has failed when it got no response, when one of its assertions failed, or, only if it has no assertions, when its status is 400 or higher. A request that asserts `status: 404` and gets 404 has passed, so the requests that depend on it run. This rule is the same with and without `--parallel`.
+
+**`if:` and `cel:` in waves.** Both are evaluated inside the waves, with `response`, `vars` and `env`. An `if:` is checked when its wave starts, so it sees the variables that earlier waves extracted; a request it skips also skips the requests that depend on it. A `vars.<name>` that an `if:` or `cel:` reads counts as a reference, like `{{name}}`, so the request waits for the one that extracts it. `previous` means the response before this one in file order, which waves do not have. When an `if:` or `cel:` expression in the requests phase uses `previous`, Curlew runs the requests phase sequentially and says so on stderr:
+
+```
+curlew: if: on "notify" uses previous; falling back to sequential main phase
+```
+
+Setup and teardown are sequential anyway, so `previous` there changes nothing.
 
 **Preview without executing:**
 

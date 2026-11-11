@@ -28,7 +28,8 @@ type CELContext struct {
 	Evaluator apicel.Evaluator
 	// ProgCache is a per-run cache of compiled programs keyed by expression
 	// source. Multiple assertions with the same expression share one compile.
-	ProgCache map[string]apicel.Program
+	// It is safe for concurrent use, so parallel requests can share it.
+	ProgCache *apicel.ProgramCache
 	// Response is the CEL-typed representation of the HTTP response.
 	Response *apicel.Response
 	// Previous is the previous request's response (or nil).
@@ -112,18 +113,14 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 // compileCELAssertion retrieves a compiled program from the cache or compiles
 // and caches a new one. Expects the expression to produce a bool.
 func compileCELAssertion(ctx CELContext, src string) (apicel.Program, error) {
-	if ctx.ProgCache != nil {
-		if p, ok := ctx.ProgCache[src]; ok {
-			return p, nil
-		}
+	if p, ok := ctx.ProgCache.Load(src); ok {
+		return p, nil
 	}
 	p, err := ctx.Evaluator.Compile(src, celgo.BoolType)
 	if err != nil {
 		return nil, err
 	}
-	if ctx.ProgCache != nil {
-		ctx.ProgCache[src] = p
-	}
+	ctx.ProgCache.Store(src, p)
 	return p, nil
 }
 

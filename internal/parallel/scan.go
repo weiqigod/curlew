@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	apicel "github.com/weiqigod/curlew/internal/cel"
 	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/parser"
 )
@@ -96,6 +97,27 @@ func ScanRequestFields(item *parser.RequestItem, preExecVars map[string]bool) ma
 	for _, ha := range item.Assertions.Headers.Items {
 		if s, ok := ha.Value.(string); ok {
 			merge(ScanVariables(s, preExecVars))
+		}
+	}
+
+	// vars.<name> in if: and cel: expressions. An expression that does not
+	// parse adds nothing; it fails where it is evaluated.
+	exprs := make([]string, 0, 1+len(item.Assertions.CEL.Items))
+	if item.If != "" {
+		exprs = append(exprs, item.If)
+	}
+	for _, c := range item.Assertions.CEL.Items {
+		exprs = append(exprs, c.Source)
+	}
+	for _, src := range exprs {
+		names, err := apicel.VarsReferences(src)
+		if err != nil {
+			continue
+		}
+		for _, name := range names {
+			if !preExecVars[name] {
+				result[name] = true
+			}
 		}
 	}
 

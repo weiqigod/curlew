@@ -30,6 +30,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **`--parallel` keeps its waves with `if:` and `cel:`.** Any `if:` guard or
+  `cel:` assertion made `--parallel` run the main phase sequentially. Only an
+  expression that reads `previous` does so now, with a stderr line naming it;
+  every other `if:` and `cel:` is evaluated inside the waves, and one that reads
+  `vars.<name>` waits for the request that extracts it (M30-010).
 - **A request that expected an error status no longer skips its dependents.**
   A request that asserted `status: 404` and got 404 passed, but requests that
   depended on it were skipped as if it had failed. A status of 400 or higher now

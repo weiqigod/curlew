@@ -17,7 +17,7 @@ func testCELContext(t *testing.T) CELContext {
 	}
 	return CELContext{
 		Evaluator: ev,
-		ProgCache: make(map[string]apicel.Program),
+		ProgCache: apicel.NewProgramCache(),
 		Response:  &apicel.Response{Status: 200, Body: map[string]any{}},
 		Previous:  nil,
 		Vars:      map[string]any{},

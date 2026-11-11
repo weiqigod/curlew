@@ -220,7 +220,8 @@ may reference:
 - `vars.<name>` — the resolved variable scope
 - `env.<name>` — environment variables
 - `previous.status`, `previous.headers`, `previous.body` — the last non-skipped
-  response in the run
+  response in the run. Under `--parallel`, an `if:` or `cel:` expression that
+  reads `previous` runs the requests phase sequentially (§11).
 
 ```yaml
 - name: notify
@@ -1206,6 +1207,10 @@ scan (for example, a server-side side effect).
   assertions, and extraction paths, excluding names that start with `$` (dynamic
   functions) and names already resolvable before execution (project,
   environment, `.env`, collection, and CLI variables).
+- *read by expressions* — the `vars.<name>` fields an `if:` guard or a `cel:`
+  assertion reads, taken from the parsed expression, with the same exclusions;
+  they join the referenced set, so an expression waits for the item that
+  extracts what it reads.
 
 Nested references resolve to depth 10; exceeding it produces a warning.
 
@@ -1237,6 +1242,16 @@ Wave 2: Place order                      (waits for both)
 ```
 
 Setup and teardown act as implicit barriers around the whole wave sequence.
+
+**Conditions and CEL assertions in waves.** `if:` guards and `cel:` assertions
+are evaluated within the waves, with `response`, `vars` and `env` bound. An
+item's `if:` is evaluated when its wave starts, against the variables extracted
+by earlier waves; an item it skips also skips the items that depend on it, with
+the reason `parent skipped: <name>`. `previous` is defined by file order, which
+waves do not have: when any `if:` or `cel:` expression of the requests phase
+reads `previous` (determined from the parsed expression, not its text), the
+requests phase runs sequentially and stderr carries
+`curlew: <if:|cel:> on "<name>" uses previous; falling back to sequential main phase`.
 
 `--show-dependencies` prints the graph in DOT format without executing;
 adding `--dry-run` prints the wave assignment instead.
