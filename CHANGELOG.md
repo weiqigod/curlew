@@ -30,6 +30,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **A request that expected an error status no longer skips its dependents.**
+  A request that asserted `status: 404` and got 404 passed, but requests that
+  depended on it were skipped as if it had failed. A status of 400 or higher now
+  counts as a failure only for a request without assertions, in sequential and
+  `--parallel` runs alike (M30-010).
 - **Redaction no longer re-sorts JSON bodies.** When a run used a sensitive
   value, printed request and response bodies (`-vv`, JSON, reports, events, UI)
   were re-encoded with keys in alphabetical order and numbers normalised. Only the

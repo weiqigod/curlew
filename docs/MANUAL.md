@@ -2911,6 +2911,8 @@ Wave 2: Place order                         (waits for both of Wave 1)
 
 Variables extracted in Wave 1 propagate to Wave 2. Cycles (A depends on B, B depends on A) are detected during dependency analysis and rejected with a clear error before any request executes.
 
+**When a request fails, what depends on it is skipped.** A request has failed when it got no response, when one of its assertions failed, or, only if it has no assertions, when its status is 400 or higher. A request that asserts `status: 404` and gets 404 has passed, so the requests that depend on it run. This rule is the same with and without `--parallel`.
+
 **Preview without executing:**
 
 ```bash

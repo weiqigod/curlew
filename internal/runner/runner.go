@@ -1948,7 +1948,9 @@ func executePhase(
 			failedIdx[idx] = true
 		case rr.Result == nil && rr.Err != nil:
 			failedIdx[idx] = true // never got a response
-		case rr.Result != nil && rr.Result.StatusCode >= 400:
+		case parallel.UnassertedErrorStatus(rr.Result, rr.AssertionResults):
+			// An item with assertions failed exactly when one of them did;
+			// a 404 it expected is a success.
 			failedIdx[idx] = true
 		case rr.AssertionResults != nil && !rr.AssertionResults.Passed:
 			failedIdx[idx] = true

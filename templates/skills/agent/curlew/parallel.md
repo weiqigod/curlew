@@ -11,6 +11,11 @@ not guaranteed. Keep dependent or stateful operations ordered explicitly.
 Setup and teardown retain their phase semantics. Event `wave_index` and Markdown
 wave headings describe the computed schedule; they are output, not inputs.
 
+A request that depends on a failed request is skipped. A request with
+assertions fails only when an assertion fails, so one that asserts `status: 404`
+and gets 404 lets its dependents run; a request without assertions fails on a
+status of 400 or higher. Sequential runs use the same rule.
+
 ## Run the example
 
 Start Mudflat using the repository's `site/README.md` setup. Save the complete

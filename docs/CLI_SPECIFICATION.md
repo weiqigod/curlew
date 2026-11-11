@@ -1248,6 +1248,11 @@ skipped, and the skip reason names the variable and the producing item:
    Reason: depends on 'user_id' from 'Create User', which failed
 ```
 
+An item has *failed* when it got no response, when one of its assertions
+failed, or — only when it declares no assertions — when its status is 400 or
+higher. An item that asserts `status: 404` and receives 404 has succeeded, and
+its dependents run. Sequential and parallel runs apply the same rule.
+
 A dependent whose reference supplies a `|default:` fallback is still skipped when
 its producer *failed*. The default covers the narrower case where the producer
 succeeded but its JSONPath did not resolve:

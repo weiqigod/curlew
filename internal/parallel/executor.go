@@ -312,7 +312,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 		// Process regular outcomes: record failures and extract variables (sequentially).
 		for _, outcome := range outcomes {
 			wr.Outcomes = append(wr.Outcomes, outcome)
-			if outcome.Err != nil || (outcome.AssertionResults != nil && !outcome.AssertionResults.Passed) {
+			if outcomeFailed(outcome) {
 				failedIndices[outcome.Index] = true
 			}
 		}
@@ -326,7 +326,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 			anyFailed := false
 			for _, outcome := range ddOut.Outcomes {
 				wr.Outcomes = append(wr.Outcomes, outcome)
-				if outcome.Err != nil || (outcome.AssertionResults != nil && !outcome.AssertionResults.Passed) {
+				if outcomeFailed(outcome) {
 					anyFailed = true
 				}
 			}
@@ -342,7 +342,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 		// Process WebSocket outcomes: record outcome and mark failures.
 		for i, outcome := range wsOutcomes {
 			wr.Outcomes = append(wr.Outcomes, outcome)
-			if outcome.Err != nil || (outcome.AssertionResults != nil && !outcome.AssertionResults.Passed) {
+			if outcomeFailed(outcome) {
 				failedIndices[wsReady[i].index] = true
 			}
 		}
@@ -657,4 +657,22 @@ func computeImpact(graph *DependencyGraph, failedIndices map[int]bool, waves []W
 // or not its reference carries a |default: fallback.
 func DependencyFailure(graph *DependencyGraph, idx int, failedIndices map[int]bool) (bool, string) {
 	return checkDependencyFailure(graph, idx, failedIndices)
+}
+
+// UnassertedErrorStatus reports whether a response counts as a failed producer
+// only because of its status: a status of 400 or more on an item that asserts
+// nothing. An item with assertions failed exactly when one of them did, so a
+// 404 it expected is a success and what depends on it runs (§11.5).
+func UnassertedErrorStatus(result *httpexec.Result, ar *assertion.Results) bool {
+	if result == nil || result.StatusCode < 400 {
+		return false
+	}
+	return ar == nil || len(ar.Items) == 0
+}
+
+// outcomeFailed is the producer-failure rule for one outcome of a wave.
+func outcomeFailed(o RequestOutcome) bool {
+	return o.Err != nil ||
+		(o.AssertionResults != nil && !o.AssertionResults.Passed) ||
+		UnassertedErrorStatus(o.Result, o.AssertionResults)
 }
