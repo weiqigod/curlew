@@ -946,8 +946,10 @@ assertions:
 
 Each list entry is either a plain string (the expression) or a mapping with a
 single `cel:` key. A mapping that carries `cel:` alongside any other operator key
-is rejected at parse time. A failing expression reports its source text in the
-failure message.
+is rejected at parse time. A false expression reports its source text as the
+expectation and `false` as the actual value — `expected <source> to be true, got
+false` — followed by the value of each top-level reference. An expression that
+cannot be evaluated reports the evaluation error as the actual value.
 
 ### 7.7 Failure Reporting
 

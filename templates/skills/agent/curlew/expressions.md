@@ -14,6 +14,8 @@ successful first request. Use `timing.max_duration_ms` for duration assertions;
 `curlew validate` catches CEL parse/type errors as `ERR_CEL_PARSE` or
 `ERR_CEL_TYPE` (exit code 3). Expressions must return bool. `now()` and zero-argument
 `timestamp()` are unavailable; supply time explicitly as a variable when needed.
+A false `cel:` assertion reports `expected <expression> to be true, got false`
+and the value of each top-level reference, such as `response.status = 200`.
 
 Variables are exposed as strings; convert with `int(vars.minimum)` for numeric comparisons.
 

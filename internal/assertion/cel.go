@@ -100,13 +100,13 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 	}
 
 	if b {
-		return id.with(in.Source, "true", true)
+		return id.with(in.Source+" to be true", "true", true)
 	}
 
-	// Assertion failed: build a failure message that includes the literal
-	// expression source and the resolved value of each top-level named ref.
+	// Assertion failed: "got false", followed by the resolved value of each
+	// top-level named ref so the reader can see why.
 	msg := buildCELFailureMessage(in.Source, ctx)
-	return id.with(in.Source, redactSensitive(msg, ctx.SensitiveValues), false)
+	return id.with(in.Source+" to be true", redactSensitive(msg, ctx.SensitiveValues), false)
 }
 
 // compileCELAssertion retrieves a compiled program from the cache or compiles
@@ -127,24 +127,24 @@ func compileCELAssertion(ctx CELContext, src string) (apicel.Program, error) {
 	return p, nil
 }
 
-// buildCELFailureMessage constructs the human-readable failure message for a
-// failed CEL assertion. It includes the literal expression source and, for
-// each top-level named reference (e.g. response.body.total), the resolved
-// value from the activation.
+// buildCELFailureMessage constructs the "got" side of a failed CEL assertion:
+// false, then, for each top-level named reference (e.g. response.body.total),
+// the resolved value from the activation. The expression itself is on the
+// "expected" side, so it is not repeated here.
 //
 // Output shape:
 //
-//	<source>
+//	false
 //	  response.body.total = 9.5
 //	  response.body.items.map(i, i.price).sum() = 10.5
 func buildCELFailureMessage(src string, ctx CELContext) string {
 	refs := apicel.CollectTopLevelRefs(src, ctx.Evaluator)
 	if len(refs) == 0 {
-		return src
+		return "false"
 	}
 
 	var b strings.Builder
-	b.WriteString(src)
+	b.WriteString("false")
 
 	for _, ref := range refs {
 		val, err := evaluateSubexpression(ref, ctx)

@@ -1830,6 +1830,17 @@ CEL appears at two sites:
 
 `extract:` intentionally remains JSONPath-only — there is exactly one extraction language.
 
+#### When a `cel:` assertion fails
+
+A false assertion is reported as `expected <expression> to be true, got false`, followed by the value of each top-level reference in the expression:
+
+```
+✗ assertions[0].cel: expected response.status == 201 || response.status == 202 to be true, got false
+  response.status = 200
+```
+
+An expression that cannot be evaluated (for example a missing key) reports the evaluation error instead of `false`.
+
 #### Standard activation
 
 Every CEL expression evaluates against the same four bindings:
