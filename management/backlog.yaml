@@ -2131,3 +2131,8 @@ capabilities:
         planned_date: 2026-11-04
         started_date: 2026-11-04
         branch: feature/M30-009-environment-headers
+      - id: M30-010
+        status: in_progress
+        planned_date: 2026-11-11
+        started_date: 2026-11-11
+        branch: fix/M30-010-dogfood-defects

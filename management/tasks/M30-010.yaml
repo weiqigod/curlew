@@ -1,0 +1,39 @@
+id: M30-010
+title: "Fix defects found dogfooding a mock API"
+status: in_progress
+planned_date: 2026-11-11
+started_date: 2026-11-11
+branch: fix/M30-010-dogfood-defects
+priority: 1
+created: 2026-11-11
+phase: "M30: Local product usability"
+dependencies: [M30-009]
+observable: |
+  One collection run against a local echo server, with and without
+  `--parallel`, shows all six fixes: a request that depends on a step that
+  expected and got 404 runs; `--parallel` runs the main phase in waves even
+  with `cel:` assertions; a failed `cel:` assertion says `got false`; the body
+  assertion on `$.headers['X-Mock-Run']` passes; the server sees the header
+  names `x-tenant` and `X-API-KEY` as written; and the raw body arrives as
+  `{"zeta":1,"alpha":2}`.
+behaviors:
+  - "A request whose assertions all passed counts as a success for its dependents, even with a status of 400 or higher; a status of 400 or higher fails a request only when it has no assertions, with and without `--parallel`."
+  - "`--parallel` runs the main phase in waves when `if:` or `cel:` expressions do not use `previous`, and evaluates them there; it falls back to sequential, with a diagnostic naming `previous`, only when one does."
+  - "A failed `cel:` assertion reports `expected <expression> to be true, got false`; an evaluation error keeps its error text."
+  - "JSONPath accepts quoted name selectors in brackets (`['key']` and `[\"key\"]`), including keys with hyphens, dots, spaces and escaped quotes, in assertions and extraction."
+  - "Request header names are sent exactly as written in the collection, and only one header per name is sent when Curlew adds a header the request also sets."
+  - "JSON request bodies written as YAML maps are sent with keys in the order written, at every nesting level, after interpolation."
+scope: |
+  internal/runner and internal/parallel (dependency failure rule, CEL and if:
+  in parallel waves, the `previous` fallback), internal/cel (finding
+  `previous` in a compiled expression), internal/assertion (CEL failure
+  message), internal/jsonpath (name selectors), internal/httpexec and the
+  places Curlew adds headers (header casing), internal/parser and request
+  body encoding (key order). MANUAL, CLI specification §3.4, §11 and §11.5,
+  CHANGELOG and the bundled agent skill.
+definition_of_done:
+  - Each defect has a test that failed before the fix and passes after it
+  - Full repository tests, go build and go vet pass on native Windows
+  - Real-binary run of the repro collection against a local echo server shows all six fixes
+  - CHANGELOG, MANUAL, CLI specification and agent skill describe the new behaviour
+complexity: medium
