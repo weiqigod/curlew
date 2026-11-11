@@ -421,6 +421,9 @@ request:
 `body`, `body_file`, and `body_binary_file` are mutually exclusive; setting more
 than one is a parse error.
 
+**A mapping `body`** is sent as JSON with its keys in the order written, at every
+nesting level, after interpolation.
+
 **Body file semantics.** `body_file` reads a text file, interpolates `{{...}}`
 placeholders at request time, and auto-detects `Content-Type` from the file
 extension. `body_binary_file` ships the file's bytes verbatim with no

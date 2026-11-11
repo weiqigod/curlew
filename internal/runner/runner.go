@@ -23,6 +23,7 @@ import (
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 	"github.com/weiqigod/curlew/internal/graphql"
 	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/output/ids"
 	"github.com/weiqigod/curlew/internal/parallel"
 	"github.com/weiqigod/curlew/internal/parser"
@@ -1417,6 +1418,10 @@ func visitBody(body any, visit func(string)) {
 		visit(v)
 	case map[string]any:
 		for _, val := range v {
+			visitBody(val, visit)
+		}
+	case orderedjson.Object:
+		for _, val := range v.Values {
 			visitBody(val, visit)
 		}
 	case map[string]string:

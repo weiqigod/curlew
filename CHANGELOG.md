@@ -43,6 +43,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   rejected as an invalid array index. Body assertions and `extract:` now accept
   `['key']` and `["key"]` for keys with hyphens, dots, spaces or escaped quotes
   (M30-010).
+- **Request bodies keep the key order you wrote.** A body written as a YAML map
+  was sent with its keys sorted alphabetically. It is now sent, and shown in
+  `-vv` output and reports, with its keys in the order written, at every nesting
+  level and after variable interpolation (M30-010).
 - **Redaction no longer re-sorts JSON bodies.** When a run used a sensitive
   value, printed request and response bodies (`-vv`, JSON, reports, events, UI)
   were re-encoded with keys in alphabetical order and numbers normalised. Only the

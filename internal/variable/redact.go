@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"strings"
+
+	"github.com/weiqigod/curlew/internal/orderedjson"
 )
 
 // RedactBody returns a copy of body with every occurrence of any registered
@@ -143,6 +145,12 @@ func redactStructured(v any, values []string) any {
 		out := make(map[string]any, len(t))
 		for k, child := range t {
 			out[k] = redactStructured(child, values)
+		}
+		return out
+	case orderedjson.Object:
+		out := orderedjson.Object{Keys: append([]string(nil), t.Keys...), Values: make(map[string]any, len(t.Values))}
+		for _, k := range t.Keys {
+			out.Values[k] = redactStructured(t.Values[k], values)
 		}
 		return out
 	case map[string]string:

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/orderedjson"
 )
 
 // ErrUnknownSecret is returned when {{secrets.NAME}} references an alias that
@@ -755,6 +756,16 @@ func (s *Scope) interpolateValue(v any) (any, error) {
 				return nil, err
 			}
 			out[k] = resolved
+		}
+		return out, nil
+	case orderedjson.Object:
+		out := orderedjson.Object{Keys: append([]string(nil), val.Keys...), Values: make(map[string]any, len(val.Values))}
+		for _, k := range val.Keys {
+			resolved, err := s.interpolateValue(val.Values[k])
+			if err != nil {
+				return nil, err
+			}
+			out.Values[k] = resolved
 		}
 		return out, nil
 	case []interface{}:

@@ -417,7 +417,7 @@ Under the hood:
 
 - `headers` is a map. Values are always strings; Curlew sets the `Content-Type` to `application/json` automatically when `body` is a YAML map.
 - `query` is a map, appended to the URL as `?source=curlew&debug=true`. Order is not guaranteed.
-- `body` can be either a YAML map (serialized as JSON) **or** a raw string:
+- `body` can be either a YAML map (serialized as JSON) **or** a raw string. Curlew keeps the keys of a `body` map in the order you wrote them, at every nesting level, so `{zeta: 1, alpha: 2}` is sent as `{"zeta":1,"alpha":2}`:
 
 ```yaml
     request:

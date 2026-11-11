@@ -8,6 +8,7 @@ import (
 
 	"github.com/weiqigod/curlew/internal/assertion"
 	"github.com/weiqigod/curlew/internal/datadriven"
+	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/output"
 	"github.com/weiqigod/curlew/internal/retry"
 	"github.com/weiqigod/curlew/internal/variable"
@@ -352,6 +353,40 @@ func (r *RequestItem) UnmarshalYAML(node *yaml.Node) error {
 // Defaults to false when not explicitly set.
 func (ri *RequestItem) IsRequired() bool {
 	return ri.Required != nil && *ri.Required
+}
+
+// UnmarshalYAML decodes a request and keeps the key order of a body written as
+// a YAML map: such a body decodes into orderedjson.Object, at every nesting
+// level, so it is sent with its keys in the order written.
+func (r *Request) UnmarshalYAML(node *yaml.Node) error {
+	type requestRaw Request
+	var raw requestRaw
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	*r = Request(raw)
+	if node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value != "body" {
+			continue
+		}
+		bodyNode := node.Content[i+1]
+		if bodyNode.Kind == yaml.AliasNode {
+			bodyNode = bodyNode.Alias
+		}
+		if bodyNode.Kind != yaml.MappingNode && bodyNode.Kind != yaml.SequenceNode {
+			return nil
+		}
+		body, err := orderedjson.FromYAML(bodyNode)
+		if err != nil {
+			return fmt.Errorf("body: %w", err)
+		}
+		r.Body = body
+		return nil
+	}
+	return nil
 }
 
 // ExtractSpec is an `extract:` block: variable name to JSONPath. Both forms

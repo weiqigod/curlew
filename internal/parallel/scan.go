@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/parser"
 )
 
@@ -110,6 +111,10 @@ func scanBody(body any, preExecVars, result map[string]bool) {
 		}
 	case map[string]any:
 		for _, val := range v {
+			scanBody(val, preExecVars, result)
+		}
+	case orderedjson.Object:
+		for _, val := range v.Values {
 			scanBody(val, preExecVars, result)
 		}
 	case map[string]string:
