@@ -175,10 +175,10 @@ func (s *sigV4Signer) Sign(ctx context.Context, req *httpexec.Request, sensitive
 	}
 
 	// Inject signing headers in the order specified by the task scope.
-	req.Headers["x-amz-date"] = amzDate
-	req.Headers["x-amz-content-sha256"] = bodyHash
+	httpexec.SetHeader(req.Headers, "x-amz-date", amzDate)
+	httpexec.SetHeader(req.Headers, "x-amz-content-sha256", bodyHash)
 	if sessionToken != "" {
-		req.Headers["x-amz-security-token"] = sessionToken
+		httpexec.SetHeader(req.Headers, "x-amz-security-token", sessionToken)
 	}
 
 	// Compute canonical request. hasBody drives whether x-amz-content-sha256
@@ -189,10 +189,10 @@ func (s *sigV4Signer) Sign(ctx context.Context, req *httpexec.Request, sensitive
 	key := deriveSigningKey(secretKey, dateStamp, region, service)
 	sig := hmacHex(key, sts)
 
-	req.Headers["Authorization"] = fmt.Sprintf(
+	httpexec.SetHeader(req.Headers, "Authorization", fmt.Sprintf(
 		"AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
 		accessKey, credScope, signedHeaders, sig,
-	)
+	))
 	return nil
 }
 

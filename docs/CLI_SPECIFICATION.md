@@ -421,6 +421,15 @@ request:
 `body`, `body_file`, and `body_binary_file` are mutually exclusive; setting more
 than one is a parse error.
 
+**Header names** are sent exactly as written; Curlew does not re-case them.
+Names that differ only in case are one header: a header Curlew adds itself — the
+JSON `Content-Type`, an auth profile header, an environment header (§5.3) or a
+signing header — is not added when the request already sets that name in any
+case, and a signer that must replace a value replaces it under the request's
+spelling. HTTP/2 sends all names in lower case. The headers Go's HTTP client
+manages itself (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`,
+`Trailer`, `Accept-Encoding`, `Range`, `Expect`) are sent in canonical form.
+
 **A mapping `body`** is sent as JSON with its keys in the order written, at every
 nesting level, after interpolation.
 

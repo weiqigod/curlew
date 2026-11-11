@@ -235,7 +235,7 @@ func (s *oauth1Signer) Sign(ctx context.Context, req *httpexec.Request, sensitiv
 	if req.Headers == nil {
 		req.Headers = make(map[string]string)
 	}
-	req.Headers["Authorization"] = buildAuthHeader(realm, protoParams)
+	httpexec.SetHeader(req.Headers, "Authorization", buildAuthHeader(realm, protoParams))
 	return nil
 }
 
@@ -434,7 +434,12 @@ func buildAuthHeader(realm string, protoParams map[string]string) string {
 // isFormBody returns true when the request's Content-Type is
 // application/x-www-form-urlencoded (case-insensitive; charset params tolerated).
 func isFormBody(req *httpexec.Request) bool {
-	ct := strings.ToLower(req.Headers["Content-Type"])
+	ct := ""
+	for k, v := range req.Headers {
+		if strings.EqualFold(k, "Content-Type") {
+			ct = strings.ToLower(v)
+		}
+	}
 	return strings.HasPrefix(ct, "application/x-www-form-urlencoded")
 }
 

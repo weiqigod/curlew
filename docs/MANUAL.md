@@ -415,7 +415,7 @@ requests:
 
 Under the hood:
 
-- `headers` is a map. Values are always strings; Curlew sets the `Content-Type` to `application/json` automatically when `body` is a YAML map.
+- `headers` is a map. Values are always strings; Curlew sets the `Content-Type` to `application/json` automatically when `body` is a YAML map. Curlew sends header names exactly as you write them: `x-tenant` stays `x-tenant` and `X-API-KEY` stays `X-API-KEY`. Names that differ only in case are the same header, so a header Curlew adds itself (`Content-Type`, an auth profile's header, an environment header, a signing header) is never sent a second time; the request's own spelling is kept. Over HTTP/2 the protocol sends all names in lower case, and Go's HTTP client sends the few headers it manages itself (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Accept-Encoding`, `Range`, `Expect`, `Trailer`) in their usual capitalised form.
 - `query` is a map, appended to the URL as `?source=curlew&debug=true`. Order is not guaranteed.
 - `body` can be either a YAML map (serialized as JSON) **or** a raw string. Curlew keeps the keys of a `body` map in the order you wrote them, at every nesting level, so `{zeta: 1, alpha: 2}` is sent as `{"zeta":1,"alpha":2}`:
 

@@ -2376,7 +2376,7 @@ func executePhase(
 					retryInterpolated, retryErr := requtil.InterpolateRequest(reqScope, &retryReq)
 					if retryErr == nil {
 						retryReq = *retryInterpolated
-						if headerName, headerValue, hErr := resolveAuthProfile(item.Auth, vars.AuthProfiles, reqScope); hErr == nil && headerName != "" {
+						if headerName, headerValue, hErr := resolveAuthProfile(item.Auth, vars.AuthProfiles, reqScope); hErr == nil && headerName != "" && !hasHeaderCaseInsensitive(retryReq.Headers, headerName) {
 							if retryReq.Headers == nil {
 								retryReq.Headers = make(map[string]string)
 							}

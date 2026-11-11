@@ -562,3 +562,38 @@ func TestSigV4_SerializeBodyError(t *testing.T) {
 		t.Errorf("error must mention 'serializing body'; got: %v", signErr)
 	}
 }
+
+// TestSigV4_SigningHeadersKeepTheRequestSpelling: a signing header the request
+// already sets in another case is replaced in place, so only one goes out and
+// it keeps the request's spelling.
+func TestSigV4_SigningHeadersKeepTheRequestSpelling(t *testing.T) {
+	s, err := NewSigner(defaultParams(), WithClock(frozenClock()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := &httpexec.Request{
+		Method:  "GET",
+		URL:     "http://example.amazonaws.com/",
+		Headers: map[string]string{"authorization": "Bearer stale", "X-Amz-Date": "old"},
+	}
+	if err := s.Sign(context.Background(), req, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"authorization", "X-Amz-Date"} {
+		var spelled []string
+		for k := range req.Headers {
+			if strings.EqualFold(k, want) {
+				spelled = append(spelled, k)
+			}
+		}
+		if len(spelled) != 1 || spelled[0] != want {
+			t.Errorf("%s: headers %v, want exactly one spelled %q", want, spelled, want)
+		}
+	}
+	if !strings.HasPrefix(req.Headers["authorization"], "AWS4-HMAC-SHA256 ") {
+		t.Errorf("authorization = %q, want the signature", req.Headers["authorization"])
+	}
+	if req.Headers["X-Amz-Date"] != "20150830T123600Z" {
+		t.Errorf("X-Amz-Date = %q, want the signing time", req.Headers["X-Amz-Date"])
+	}
+}

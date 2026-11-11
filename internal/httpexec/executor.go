@@ -83,11 +83,9 @@ func executeWithClient(ctx context.Context, req *Request, client requestDoer) (*
 		return nil, fmt.Errorf("%w: %w", ErrNetwork, err)
 	}
 
-	for k, v := range req.Headers {
-		httpReq.Header.Set(k, v)
-	}
+	setRequestHeaders(httpReq.Header, req.Headers)
 
-	if contentType != "" && httpReq.Header.Get("Content-Type") == "" {
+	if contentType != "" && !HasHeader(req.Headers, "Content-Type") {
 		httpReq.Header.Set("Content-Type", contentType)
 	}
 
