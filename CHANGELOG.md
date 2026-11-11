@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   expression as the value it got. It now reads `expected <expression> to be
   true, got false`, followed by the value of each reference in the expression
   (M30-010).
+- **JSONPath accepts quoted keys in brackets.** `$.headers['X-Mock-Run']` was
+  rejected as an invalid array index. Body assertions and `extract:` now accept
+  `['key']` and `["key"]` for keys with hyphens, dots, spaces or escaped quotes
+  (M30-010).
 - **Redaction no longer re-sorts JSON bodies.** When a run used a sensitive
   value, printed request and response bodies (`-vv`, JSON, reports, events, UI)
   were re-encoded with keys in alphabetical order and numbers normalised. Only the

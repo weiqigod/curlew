@@ -869,7 +869,8 @@ Header names are case-insensitive. Three operators:
 ### 7.3 Body
 
 The response body is parsed as JSON and each assertion targets a JSONPath
-expression. Fourteen operators:
+expression: `$`, `.field`, `[N]` array indexes, and quoted name selectors
+`['field']` / `["field"]` for keys with hyphens, dots or spaces. Fourteen operators:
 
 | Operator | Applies to | Meaning |
 |---|---|---|

@@ -716,6 +716,7 @@ Given this response body:
 {
   "id": "widget-42",
   "name": "Demo",
+  "x-request-id": "r-7",
   "tags": ["urgent", "review"],
   "owner": { "email": "alice@example.com" },
   "items": [
@@ -735,12 +736,18 @@ The expressions you will use most:
 | `$.tags` | `["urgent", "review"]` |
 | `$.tags[0]` | `"urgent"` |
 | `$.items[0].sku` | `"A"` |
+| `$['x-request-id']` | `"r-7"` |
 | `$.items.length` | use the `length:` operator instead |
 
 Two pieces of JSONPath that other tools support are **not** implemented:
 `$.items[*].sku` (wildcard across an array) and `$..sku` (recursive descent).
 Both are rejected as invalid paths. Address elements by index — `$.items[0].sku`
 — or assert on the array itself with `length:`, `contains:` or `contains_all:`.
+
+A key with a hyphen, dot or space goes in brackets, in single or double quotes:
+`$['x-request-id']` or `$["x-request-id"]`. Inside the quotes, `\'`, `\"` and `\\`,
+as well as JSON escapes such as `\n` and `\u0041`, are decoded. Name selectors work
+in body assertions and in `extract:`.
 
 Three worked assertions against the response above:
 
