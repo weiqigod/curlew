@@ -220,7 +220,8 @@ may reference:
 - `vars.<name>` — the resolved variable scope
 - `env.<name>` — environment variables
 - `previous.status`, `previous.headers`, `previous.body` — the last non-skipped
-  response in the run
+  response in the run. Under `--parallel`, an `if:` or `cel:` expression that
+  reads `previous` runs the requests phase sequentially (§11).
 
 ```yaml
 - name: notify
@@ -420,6 +421,18 @@ request:
 
 `body`, `body_file`, and `body_binary_file` are mutually exclusive; setting more
 than one is a parse error.
+
+**Header names** are sent exactly as written; Curlew does not re-case them.
+Names that differ only in case are one header: a header Curlew adds itself — the
+JSON `Content-Type`, an auth profile header, an environment header (§5.3) or a
+signing header — is not added when the request already sets that name in any
+case, and a signer that must replace a value replaces it under the request's
+spelling. HTTP/2 sends all names in lower case. The headers Go's HTTP client
+manages itself (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`,
+`Trailer`, `Accept-Encoding`, `Range`, `Expect`) are sent in canonical form.
+
+**A mapping `body`** is sent as JSON with its keys in the order written, at every
+nesting level, after interpolation.
 
 **Body file semantics.** `body_file` reads a text file, interpolates `{{...}}`
 placeholders at request time, and auto-detects `Content-Type` from the file
@@ -869,7 +882,8 @@ Header names are case-insensitive. Three operators:
 ### 7.3 Body
 
 The response body is parsed as JSON and each assertion targets a JSONPath
-expression. Fourteen operators:
+expression: `$`, `.field`, `[N]` array indexes, and quoted name selectors
+`['field']` / `["field"]` for keys with hyphens, dots or spaces. Fourteen operators:
 
 | Operator | Applies to | Meaning |
 |---|---|---|
@@ -946,8 +960,10 @@ assertions:
 
 Each list entry is either a plain string (the expression) or a mapping with a
 single `cel:` key. A mapping that carries `cel:` alongside any other operator key
-is rejected at parse time. A failing expression reports its source text in the
-failure message.
+is rejected at parse time. A false expression reports its source text as the
+expectation and `false` as the actual value — `expected <source> to be true, got
+false` — followed by the value of each top-level reference. An expression that
+cannot be evaluated reports the evaluation error as the actual value.
 
 ### 7.7 Failure Reporting
 
@@ -1191,6 +1207,10 @@ scan (for example, a server-side side effect).
   assertions, and extraction paths, excluding names that start with `$` (dynamic
   functions) and names already resolvable before execution (project,
   environment, `.env`, collection, and CLI variables).
+- *read by expressions* — the `vars.<name>` fields an `if:` guard or a `cel:`
+  assertion reads, taken from the parsed expression, with the same exclusions;
+  they join the referenced set, so an expression waits for the item that
+  extracts what it reads.
 
 Nested references resolve to depth 10; exceeding it produces a warning.
 
@@ -1223,6 +1243,16 @@ Wave 2: Place order                      (waits for both)
 
 Setup and teardown act as implicit barriers around the whole wave sequence.
 
+**Conditions and CEL assertions in waves.** `if:` guards and `cel:` assertions
+are evaluated within the waves, with `response`, `vars` and `env` bound. An
+item's `if:` is evaluated when its wave starts, against the variables extracted
+by earlier waves; an item it skips also skips the items that depend on it, with
+the reason `parent skipped: <name>`. `previous` is defined by file order, which
+waves do not have: when any `if:` or `cel:` expression of the requests phase
+reads `previous` (determined from the parsed expression, not its text), the
+requests phase runs sequentially and stderr carries
+`curlew: <if:|cel:> on "<name>" uses previous; falling back to sequential main phase`.
+
 `--show-dependencies` prints the graph in DOT format without executing;
 adding `--dry-run` prints the wave assignment instead.
 
@@ -1247,6 +1277,11 @@ skipped, and the skip reason names the variable and the producing item:
 ⊘ Get User (skipped)
    Reason: depends on 'user_id' from 'Create User', which failed
 ```
+
+An item has *failed* when it got no response, when one of its assertions
+failed, or — only when it declares no assertions — when its status is 400 or
+higher. An item that asserts `status: 404` and receives 404 has succeeded, and
+its dependents run. Sequential and parallel runs apply the same rule.
 
 A dependent whose reference supplies a `|default:` fallback is still skipped when
 its producer *failed*. The default covers the narrower case where the producer

@@ -23,6 +23,7 @@ import (
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 	"github.com/weiqigod/curlew/internal/graphql"
 	"github.com/weiqigod/curlew/internal/httpexec"
+	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/output/ids"
 	"github.com/weiqigod/curlew/internal/parallel"
 	"github.com/weiqigod/curlew/internal/parser"
@@ -498,12 +499,12 @@ type VarSources struct {
 	// ifProgCache caches compiled CEL programs keyed by expression source string.
 	// Lazily initialised on first if: evaluation. Per-VarSources (per-run) so
 	// two runs get independent caches and concurrency is simple.
-	ifProgCache map[string]apicel.Program
+	ifProgCache *apicel.ProgramCache
 
 	// assertProgCache caches compiled CEL programs for cel: assertions keyed
 	// by expression source string. Shares the same lifecycle and lazy-init
 	// pattern as ifProgCache. Nil until runPhases detects cel: assertions.
-	assertProgCache map[string]apicel.Program
+	assertProgCache *apicel.ProgramCache
 }
 
 // resolveLocale applies the locale precedence chain and validates the winner.
@@ -555,9 +556,9 @@ func (v *VarSources) ensureCelEvaluator() (apicel.Evaluator, error) {
 }
 
 // ensureIfProgCache lazily initialises the if-expression compile cache.
-func (v *VarSources) ensureIfProgCache() map[string]apicel.Program {
+func (v *VarSources) ensureIfProgCache() *apicel.ProgramCache {
 	if v.ifProgCache == nil {
-		v.ifProgCache = make(map[string]apicel.Program)
+		v.ifProgCache = apicel.NewProgramCache()
 	}
 	return v.ifProgCache
 }
@@ -565,16 +566,91 @@ func (v *VarSources) ensureIfProgCache() map[string]apicel.Program {
 // compileIfProgram looks up src in the cache; if absent, compiles it with the
 // evaluator and stores the result. Returned programs are shared across uses of
 // the same source expression within a run (safe because Programs are immutable).
-func compileIfProgram(cache map[string]apicel.Program, ev apicel.Evaluator, src string) (apicel.Program, error) {
-	if p, ok := cache[src]; ok {
+func compileIfProgram(cache *apicel.ProgramCache, ev apicel.Evaluator, src string) (apicel.Program, error) {
+	if p, ok := cache.Load(src); ok {
 		return p, nil
 	}
 	p, err := ev.Compile(src, celgo.BoolType)
 	if err != nil {
 		return nil, err
 	}
-	cache[src] = p
+	cache.Store(src, p)
 	return p, nil
+}
+
+// evalIf evaluates item's if: guard against scope, with previous as the
+// `previous` binding (nil under --parallel, where no guard reads it). It
+// returns true when the item should run; any result other than true skips it.
+// vars.CelEvaluator is non-nil here: runPhases sets it whenever an item has if:.
+func evalIf(col *parser.Collection, item parser.RequestItem, scope *variable.Scope, vars VarSources, previous *apicel.Response, phase Phase) (bool, error) {
+	prog, err := compileIfProgram(vars.ifProgCache, vars.CelEvaluator, item.If)
+	if err != nil {
+		var cerr *apicel.CelError
+		if errors.As(err, &cerr) {
+			cerr.FieldPath = fmt.Sprintf("%s[%s].if", phase, item.Name)
+		}
+		return false, err
+	}
+
+	resolvedVars := scope.Resolved()
+	varsAny := make(map[string]any, len(resolvedVars))
+	for k, v := range resolvedVars {
+		varsAny[k] = v
+	}
+	// env.<name> reads the --env-var OS imports.
+	var envMap map[string]string
+	if len(vars.EnvVar) > 0 {
+		envMap = vars.EnvVar
+	}
+	act := apicel.StandardActivation{
+		Previous: previous,
+		Vars:     varsAny,
+		Env:      envMap,
+	}
+
+	sensNames := make(map[string]struct{})
+	for _, name := range col.Variables.Sensitive.Names() {
+		sensNames[name] = struct{}{}
+	}
+	for _, name := range item.Variables.Sensitive.Names() {
+		sensNames[name] = struct{}{}
+	}
+	rts := scope.RuntimeSensitiveSet()
+
+	out, err := prog.Eval(act, apicel.EvalOptions{
+		SensitiveNames: sensNames,
+		SensitiveObserver: func(_, value string) {
+			if rts != nil {
+				rts.AddValue(value)
+			}
+		},
+	})
+	if err != nil {
+		return false, err
+	}
+	open, _ := out.(bool)
+	return open, nil
+}
+
+// mainPhasePreviousUse names the first if: or cel: expression in the main
+// phase that reads `previous`, or returns "" when none does. `previous` is the
+// last response in file order, so such an expression only has a meaning when
+// the main phase runs sequentially. An expression that does not parse is left
+// to fail where it is evaluated, in either mode.
+func mainPhasePreviousUse(col *parser.Collection) string {
+	for _, item := range col.Requests.Items {
+		if item.If != "" {
+			if uses, err := apicel.UsesPrevious(item.If); err == nil && uses {
+				return fmt.Sprintf("if: on %q", item.Name)
+			}
+		}
+		for _, c := range item.Assertions.CEL.Items {
+			if uses, err := apicel.UsesPrevious(c.Source); err == nil && uses {
+				return fmt.Sprintf("cel: on %q", item.Name)
+			}
+		}
+	}
+	return ""
 }
 
 // NewRunID produces a 32-char lowercase hex identifier. Exposed so cmd/curlew
@@ -959,9 +1035,9 @@ func flattenHeader(h http.Header) map[string]string {
 }
 
 // ensureAssertProgCache lazily initialises the cel: assertion compile cache.
-func (v *VarSources) ensureAssertProgCache() map[string]apicel.Program {
+func (v *VarSources) ensureAssertProgCache() *apicel.ProgramCache {
 	if v.assertProgCache == nil {
-		v.assertProgCache = make(map[string]apicel.Program)
+		v.assertProgCache = apicel.NewProgramCache()
 	}
 	return v.assertProgCache
 }
@@ -1419,6 +1495,10 @@ func visitBody(body any, visit func(string)) {
 		for _, val := range v {
 			visitBody(val, visit)
 		}
+	case orderedjson.Object:
+		for _, val := range v.Values {
+			visitBody(val, visit)
+		}
 	case map[string]string:
 		for _, val := range v {
 			visit(val)
@@ -1473,19 +1553,17 @@ func runPhases(ctx context.Context, col *parser.Collection, exec ExecuteFunc, sc
 		vars.ifProgCache = vars.ensureIfProgCache()
 		vars.assertProgCache = vars.ensureAssertProgCache()
 
-		// Parallel fallback: both `if:` and `cel:` assertions require sequential
-		// execution because `previous` is updated in sequential order and CEL
-		// evaluation may depend on it. When Parallel=true, fall back to sequential
-		// main phase and emit a diagnostics line.
+		// Parallel fallback: `previous` is the last response in file order, so
+		// an if: or cel: expression that reads it only has a meaning when the
+		// main phase runs sequentially. Every other expression runs in waves
+		// with response, vars and env.
 		if vars.Parallel {
-			if vars.Diagnostics != nil {
-				if collectionHasIf(col) {
-					_, _ = fmt.Fprintln(vars.Diagnostics, "curlew: if: gate active; falling back to sequential main phase")
-				} else {
-					_, _ = fmt.Fprintln(vars.Diagnostics, "curlew: cel: gate active; falling back to sequential main phase")
+			if where := mainPhasePreviousUse(col); where != "" {
+				if vars.Diagnostics != nil {
+					_, _ = fmt.Fprintf(vars.Diagnostics, "curlew: %s uses previous; falling back to sequential main phase\n", where)
 				}
+				vars.Parallel = false
 			}
-			vars.Parallel = false
 		}
 	}
 
@@ -1673,6 +1751,21 @@ func executeParallelMain(ctx context.Context, col *parser.Collection, scope *var
 		}
 	}
 
+	// if: and cel: run in waves only when none of them reads `previous`
+	// (runPhases falls back otherwise), so both are evaluated without it.
+	var ifFunc func(parser.RequestItem, *variable.Scope) (bool, error)
+	if collectionHasIf(col) {
+		ifFunc = func(item parser.RequestItem, s *variable.Scope) (bool, error) {
+			return evalIf(col, item, s, vars, nil, PhaseMain)
+		}
+	}
+	var celFunc func(parser.RequestItem, *variable.Scope, *httpexec.Result) ([]assertion.CELInput, assertion.CELContext)
+	if vars.CelEvaluator != nil {
+		celFunc = func(item parser.RequestItem, s *variable.Scope, result *httpexec.Result) ([]assertion.CELInput, assertion.CELContext) {
+			return toCELInputs(item.Assertions.CEL.Items), buildCELCtxForItem(item, col, s, buildCelResponse(result), nil, vars)
+		}
+	}
+
 	execResult, err := parallel.ExecuteWaves(ctx, parallel.Config{
 		Graph:           graph,
 		Items:           col.Requests.Items,
@@ -1685,6 +1778,8 @@ func executeParallelMain(ctx context.Context, col *parser.Collection, scope *var
 		EventSink:       pSink,
 		NextRequestID:   vars.nextRequestID,
 		PreExec:         pPreExec,
+		If:              ifFunc,
+		CEL:             celFunc,
 	})
 	if err != nil {
 		return nil, 0, nil, 0, 0, nil, fmt.Errorf("parallel execution: %w", err)
@@ -1948,7 +2043,9 @@ func executePhase(
 			failedIdx[idx] = true
 		case rr.Result == nil && rr.Err != nil:
 			failedIdx[idx] = true // never got a response
-		case rr.Result != nil && rr.Result.StatusCode >= 400:
+		case parallel.UnassertedErrorStatus(rr.Result, rr.AssertionResults):
+			// An item with assertions failed exactly when one of them did;
+			// a 404 it expected is a success.
 			failedIdx[idx] = true
 		case rr.AssertionResults != nil && !rr.AssertionResults.Passed:
 			failedIdx[idx] = true
@@ -2046,62 +2143,9 @@ func executePhase(
 		// set whenever collectionHasIf(col) returns true, which is the only path
 		// that sets item.If non-empty. The guard is therefore item.If != "" only.
 		if item.If != "" {
-			prog, compileErr := compileIfProgram(vars.ifProgCache, vars.CelEvaluator, item.If)
-			if compileErr != nil {
-				var cerr *apicel.CelError
-				if errors.As(compileErr, &cerr) {
-					cerr.FieldPath = fmt.Sprintf("%s[%s].if", phase, item.Name)
-				}
-				return results, requiredFailed, fmt.Errorf("request %q: if: %w", item.Name, compileErr)
-			}
-
-			// Build the activation. Vars are the resolved scope values as map[string]any.
-			resolvedVars := scope.Resolved()
-			varsAny := make(map[string]any, len(resolvedVars))
-			for k, v := range resolvedVars {
-				varsAny[k] = v
-			}
-			// Build env map from --env-var OS imports so that if: expressions
-			// can reference env.<name>. vars.EnvVar is already map[string]string
-			// and matches the StandardActivation.Env type exactly.
-			var envMap map[string]string
-			if len(vars.EnvVar) > 0 {
-				envMap = vars.EnvVar
-			}
-			act := apicel.StandardActivation{
-				Previous: previous,
-				Vars:     varsAny,
-				Env:      envMap,
-			}
-
-			// Build sensitive name set from collection + item sensitive vars.
-			sensNames := make(map[string]struct{})
-			for _, name := range col.Variables.Sensitive.Names() {
-				sensNames[name] = struct{}{}
-			}
-			for _, name := range item.Variables.Sensitive.Names() {
-				sensNames[name] = struct{}{}
-			}
-
-			// Build runtimeSensitive observer from scope.
-			rts := scope.RuntimeSensitiveSet()
-
-			out, evalErr := prog.Eval(act, apicel.EvalOptions{
-				SensitiveNames: sensNames,
-				SensitiveObserver: func(_, value string) {
-					if rts != nil {
-						rts.AddValue(value)
-					}
-				},
-			})
-			if evalErr != nil {
-				return results, requiredFailed, fmt.Errorf("request %q: if: %w", item.Name, evalErr)
-			}
-
-			// A falsy result (false bool or anything that is not true) skips the item.
-			gateOpen := false
-			if b, ok := out.(bool); ok {
-				gateOpen = b
+			gateOpen, ifErr := evalIf(col, item, scope, vars, previous, phase)
+			if ifErr != nil {
+				return results, requiredFailed, fmt.Errorf("request %q: if: %w", item.Name, ifErr)
 			}
 			if !gateOpen {
 				rr := RequestResult{
@@ -2369,7 +2413,7 @@ func executePhase(
 					retryInterpolated, retryErr := requtil.InterpolateRequest(reqScope, &retryReq)
 					if retryErr == nil {
 						retryReq = *retryInterpolated
-						if headerName, headerValue, hErr := resolveAuthProfile(item.Auth, vars.AuthProfiles, reqScope); hErr == nil && headerName != "" {
+						if headerName, headerValue, hErr := resolveAuthProfile(item.Auth, vars.AuthProfiles, reqScope); hErr == nil && headerName != "" && !hasHeaderCaseInsensitive(retryReq.Headers, headerName) {
 							if retryReq.Headers == nil {
 								retryReq.Headers = make(map[string]string)
 							}

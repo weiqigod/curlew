@@ -11,6 +11,7 @@ import (
 	apierrors "github.com/weiqigod/curlew/internal/errors"
 	graphqlfiles "github.com/weiqigod/curlew/internal/graphql/files"
 	"github.com/weiqigod/curlew/internal/httpbody"
+	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/variable"
 	"gopkg.in/yaml.v3"
 )
@@ -154,15 +155,18 @@ func TestParseFile_body_as_map(t *testing.T) {
 		t.Fatalf("got %d requests, want 1", len(col.Requests.Items))
 	}
 
-	body, ok := col.Requests.Items[0].Request.Body.(map[string]interface{})
+	body, ok := col.Requests.Items[0].Request.Body.(orderedjson.Object)
 	if !ok {
-		t.Fatalf("body is %T, want map[string]interface{}", col.Requests.Items[0].Request.Body)
+		t.Fatalf("body is %T, want orderedjson.Object", col.Requests.Items[0].Request.Body)
 	}
-	if body["email"] != "test@example.com" {
-		t.Errorf("body[email] = %v, want test@example.com", body["email"])
+	if !reflect.DeepEqual(body.Keys, []string{"email", "name"}) {
+		t.Errorf("body keys = %v, want [email name] in the order written", body.Keys)
 	}
-	if body["name"] != "Test" {
-		t.Errorf("body[name] = %v, want Test", body["name"])
+	if body.Values["email"] != "test@example.com" {
+		t.Errorf("body[email] = %v, want test@example.com", body.Values["email"])
+	}
+	if body.Values["name"] != "Test" {
+		t.Errorf("body[name] = %v, want Test", body.Values["name"])
 	}
 }
 

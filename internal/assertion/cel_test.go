@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	apicel "github.com/weiqigod/curlew/internal/cel"
+	"github.com/weiqigod/curlew/internal/docs"
 )
 
 // testCELContext creates a minimal CELContext for tests.
@@ -16,7 +17,7 @@ func testCELContext(t *testing.T) CELContext {
 	}
 	return CELContext{
 		Evaluator: ev,
-		ProgCache: make(map[string]apicel.Program),
+		ProgCache: apicel.NewProgramCache(),
 		Response:  &apicel.Response{Status: 200, Body: map[string]any{}},
 		Previous:  nil,
 		Vars:      map[string]any{},
@@ -59,6 +60,42 @@ func TestCelAssertion_FalseFails(t *testing.T) {
 	}
 }
 
+func TestCelAssertion_FailureSaysGotFalse(t *testing.T) {
+	ctx := testCELContext(t)
+	src := "response.status == 201 || response.status == 202"
+	results := CheckCEL([]CELInput{{Index: 0, Source: src}}, ctx)
+	if len(results) != 1 || results[0].Passed {
+		t.Fatalf("want one failed result, got %+v", results)
+	}
+	if want := src + " to be true"; results[0].Expected != want {
+		t.Errorf("Expected = %q, want %q", results[0].Expected, want)
+	}
+	if first, _, _ := strings.Cut(results[0].Actual, "\n"); first != "false" {
+		t.Errorf("Actual first line = %q, want false (full: %q)", first, results[0].Actual)
+	}
+	if !strings.Contains(results[0].Actual, "response.status = 200") {
+		t.Errorf("Actual = %q, want the resolved value of response.status", results[0].Actual)
+	}
+}
+
+func TestCelAssertion_EvalErrorKeepsErrorText(t *testing.T) {
+	if _, err := docs.Prose("MANUAL.md", "reports the evaluation error instead of `false`"); err != nil {
+		t.Fatalf("documented claim: %v", err)
+	}
+	ctx := testCELContext(t)
+	src := "response.body.missing == 1"
+	results := CheckCEL([]CELInput{{Index: 0, Source: src}}, ctx)
+	if len(results) != 1 || results[0].Passed {
+		t.Fatalf("want one failed result, got %+v", results)
+	}
+	if results[0].Expected != src {
+		t.Errorf("Expected = %q, want the source %q", results[0].Expected, src)
+	}
+	if !strings.Contains(results[0].Actual, "missing") || strings.HasPrefix(results[0].Actual, "false") {
+		t.Errorf("Actual = %q, want the evaluation error", results[0].Actual)
+	}
+}
+
 func TestCelAssertion_FailureMessageIncludesResolvedSubvalues(t *testing.T) {
 	ctx := testCELContext(t)
 	ctx.Response = &apicel.Response{Status: 200, Body: map[string]any{
@@ -84,8 +121,8 @@ func TestCelAssertion_FailureMessageIncludesResolvedSubvalues(t *testing.T) {
 	if !strings.Contains(results[0].Actual, "9.5") {
 		t.Errorf("missing resolved total value: %q", results[0].Actual)
 	}
-	if !strings.Contains(results[0].Actual, src) {
-		t.Errorf("failure message missing literal source: %q", results[0].Actual)
+	if !strings.Contains(results[0].Expected, src) {
+		t.Errorf("expected side missing literal source: %q", results[0].Expected)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	apicel "github.com/weiqigod/curlew/internal/cel"
 	"github.com/weiqigod/curlew/internal/config"
 	apierrors "github.com/weiqigod/curlew/internal/errors"
+	"github.com/weiqigod/curlew/internal/orderedjson"
 	"github.com/weiqigod/curlew/internal/parser"
 	"github.com/weiqigod/curlew/internal/retry"
 	"github.com/weiqigod/curlew/internal/variable"
@@ -458,6 +459,12 @@ func collectAllStringRefs(v any) []string {
 		var refs []string
 		for _, elem := range val {
 			refs = append(refs, collectAllStringRefs(elem)...)
+		}
+		return refs
+	case orderedjson.Object:
+		var refs []string
+		for _, k := range val.Keys {
+			refs = append(refs, collectAllStringRefs(val.Values[k])...)
 		}
 		return refs
 	case []interface{}:

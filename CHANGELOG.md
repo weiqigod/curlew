@@ -30,6 +30,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   scenarios with an explicit reviewer rubric (M30-003).
 
 ### Fixed
+- **`--parallel` keeps its waves with `if:` and `cel:`.** Any `if:` guard or
+  `cel:` assertion made `--parallel` run the main phase sequentially. Only an
+  expression that reads `previous` does so now, with a stderr line naming it;
+  every other `if:` and `cel:` is evaluated inside the waves, and one that reads
+  `vars.<name>` waits for the request that extracts it (M30-010).
+- **A request that expected an error status no longer skips its dependents.**
+  A request that asserted `status: 404` and got 404 passed, but requests that
+  depended on it were skipped as if it had failed. A status of 400 or higher now
+  counts as a failure only for a request without assertions, in sequential and
+  `--parallel` runs alike (M30-010).
+- **A failed `cel:` assertion says what happened.** The message repeated the
+  expression as the value it got. It now reads `expected <expression> to be
+  true, got false`, followed by the value of each reference in the expression
+  (M30-010).
+- **JSONPath accepts quoted keys in brackets.** `$.headers['X-Mock-Run']` was
+  rejected as an invalid array index. Body assertions and `extract:` now accept
+  `['key']` and `["key"]` for keys with hyphens, dots, spaces or escaped quotes
+  (M30-010).
+- **Request bodies keep the key order you wrote.** A body written as a YAML map
+  was sent with its keys sorted alphabetically. It is now sent, and shown in
+  `-vv` output and reports, with its keys in the order written, at every nesting
+  level and after variable interpolation (M30-010).
+- **Header names are sent as written.** Go re-cased them, so `x-tenant` went out
+  as `X-Tenant` and `X-API-KEY` as `X-Api-Key`. They are now sent exactly as the
+  collection writes them, and a header Curlew adds itself (`Content-Type`, auth
+  profile, environment or signing headers) is never sent a second time in
+  another case (M30-010).
 - **Redaction no longer re-sorts JSON bodies.** When a run used a sensitive
   value, printed request and response bodies (`-vv`, JSON, reports, events, UI)
   were re-encoded with keys in alphabetical order and numbers normalised. Only the

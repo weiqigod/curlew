@@ -2,7 +2,9 @@
 
 Use an `assertions:` **map**. `status` accepts an integer or list of integers.
 `headers` accepts `equals`, `exists`, and `matches`. Body operators target JSONPath
-expressions; they are not raw-body substring checks. Timing uses
+expressions; they are not raw-body substring checks. Address a key with a hyphen,
+dot or space with a quoted name selector, such as `$.headers['X-Request-Id']`;
+wildcards (`[*]`) and recursive descent (`..`) are not supported. Timing uses
 `timing: {max_duration_ms: 5000}`. Put CEL expressions in a `cel:` list alongside
 operator assertions in the same map; see `expressions.md`.
 

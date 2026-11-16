@@ -28,6 +28,8 @@ project configuration. Do not guess flags or mix the two schemas.
 - When only one environment needs extra headers (for example routing headers
   for a mock), put them in that environment file's `headers:` block instead of
   editing every request.
+- Curlew sends header names exactly as written and a YAML map `body` as JSON
+  with its keys in the written order, so write them the way the API expects.
 - Assert contractual status, required fields, values and relevant headers. Avoid
   timing limits without a stated requirement. An empty assertions block is not a
   meaningful API test.

@@ -126,7 +126,7 @@ func runnableItemFilter(col *parser.Collection, vars VarSources, merged map[stri
 	if err != nil {
 		return keepAll
 	}
-	cache := map[string]apicel.Program{}
+	cache := apicel.NewProgramCache()
 	skips := func(expr string) bool {
 		if expr == "" || runtimeCELPattern.MatchString(expr) {
 			return false

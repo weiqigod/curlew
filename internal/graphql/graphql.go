@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/weiqigod/curlew/internal/httpexec"
 	"github.com/weiqigod/curlew/internal/parser"
 )
 
@@ -56,7 +57,7 @@ func BuildRequest(req *parser.Request) (*parser.Request, error) {
 	for k, v := range out.Headers {
 		newHeaders[k] = v
 	}
-	if _, ok := newHeaders["Content-Type"]; !ok {
+	if !httpexec.HasHeader(newHeaders, "Content-Type") {
 		newHeaders["Content-Type"] = "application/json"
 	}
 	out.Headers = newHeaders

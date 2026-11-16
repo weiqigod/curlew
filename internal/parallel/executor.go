@@ -144,6 +144,17 @@ type Config struct {
 	// via signer.WithRequestSpec). When nil, the wave context is passed
 	// unchanged (zero overhead — no allocation for runs without signing).
 	PreExec func(ctx context.Context, item parser.RequestItem) context.Context
+
+	// If evaluates an item's if: guard before its wave starts, against the
+	// scope as that wave sees it. false skips the item, and what depends on it
+	// is skipped too. When nil, if: is not evaluated.
+	If func(item parser.RequestItem, scope *variable.Scope) (bool, error)
+
+	// CEL returns the inputs and context for an item's cel: assertions, given
+	// the scope its request used and its response. It is called from the
+	// goroutines of a wave, so it must be safe for concurrent use. When nil,
+	// cel: assertions are not evaluated.
+	CEL func(item parser.RequestItem, scope *variable.Scope, result *httpexec.Result) ([]assertion.CELInput, assertion.CELContext)
 }
 
 // ExecuteWaves runs requests in waves. Within each wave, requests execute
@@ -158,6 +169,10 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 	start := time.Now()
 	counter := 0
 	failedIndices := make(map[int]bool)
+	// skippedIndices holds items skipped by their if: guard, or because an
+	// item they depend on was. They did not fail, so they stay out of
+	// failedIndices and the impact analysis.
+	skippedIndices := make(map[int]bool)
 
 	for waveIdx, wave := range cfg.Graph.Waves {
 		if ctx.Err() != nil {
@@ -194,8 +209,8 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 		}
 		ready := make([]readyRequest, 0, len(wave))
 		for _, idx := range wave {
-			if shouldSkip, reason := checkDependencyFailure(cfg.Graph, idx, failedIndices); shouldSkip {
-				wr.Outcomes = append(wr.Outcomes, RequestOutcome{
+			skipOutcome := func(reason string) RequestOutcome {
+				return RequestOutcome{
 					Index:       idx,
 					Name:        cfg.Items[idx].Name,
 					RequestSlug: cfg.Items[idx].Slug,
@@ -204,9 +219,31 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 					WaveIndex:   waveIdx,
 					SourceFile:  cfg.Items[idx].SourceFile,
 					SourceLine:  cfg.Items[idx].SourceLine,
-				})
+				}
+			}
+			if parent, skipped := skippedDependency(cfg.Graph, idx, skippedIndices); skipped {
+				wr.Outcomes = append(wr.Outcomes, skipOutcome("parent skipped: "+parent))
+				skippedIndices[idx] = true
+				continue
+			}
+			if shouldSkip, reason := checkDependencyFailure(cfg.Graph, idx, failedIndices); shouldSkip {
+				wr.Outcomes = append(wr.Outcomes, skipOutcome(reason))
 				failedIndices[idx] = true
 				continue
+			}
+			// if: is evaluated before templating, as in a sequential run, and
+			// here, before the wave's goroutines start, so it sees the
+			// variables earlier waves extracted.
+			if cfg.If != nil && cfg.Items[idx].If != "" {
+				run, ifErr := cfg.If(cfg.Items[idx], cfg.Scope)
+				if ifErr != nil {
+					return nil, fmt.Errorf("request %q: if: %w", cfg.Items[idx].Name, ifErr)
+				}
+				if !run {
+					wr.Outcomes = append(wr.Outcomes, skipOutcome("if: false"))
+					skippedIndices[idx] = true
+					continue
+				}
 			}
 			if counter >= cfg.MaxRequests {
 				wr.Outcomes = append(wr.Outcomes, RequestOutcome{
@@ -312,7 +349,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 		// Process regular outcomes: record failures and extract variables (sequentially).
 		for _, outcome := range outcomes {
 			wr.Outcomes = append(wr.Outcomes, outcome)
-			if outcome.Err != nil || (outcome.AssertionResults != nil && !outcome.AssertionResults.Passed) {
+			if outcomeFailed(outcome) {
 				failedIndices[outcome.Index] = true
 			}
 		}
@@ -326,7 +363,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 			anyFailed := false
 			for _, outcome := range ddOut.Outcomes {
 				wr.Outcomes = append(wr.Outcomes, outcome)
-				if outcome.Err != nil || (outcome.AssertionResults != nil && !outcome.AssertionResults.Passed) {
+				if outcomeFailed(outcome) {
 					anyFailed = true
 				}
 			}
@@ -342,7 +379,7 @@ func ExecuteWaves(ctx context.Context, cfg Config) (*ExecutionResult, error) {
 		// Process WebSocket outcomes: record outcome and mark failures.
 		for i, outcome := range wsOutcomes {
 			wr.Outcomes = append(wr.Outcomes, outcome)
-			if outcome.Err != nil || (outcome.AssertionResults != nil && !outcome.AssertionResults.Passed) {
+			if outcomeFailed(outcome) {
 				failedIndices[wsReady[i].index] = true
 			}
 		}
@@ -476,6 +513,11 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 	}
 
 	// Evaluate assertions
+	var celInputs []assertion.CELInput
+	var celCtx assertion.CELContext
+	if cfg.CEL != nil && len(item.Assertions.CEL.Items) > 0 {
+		celInputs, celCtx = cfg.CEL(item, scope, result)
+	}
 	ar := assertion.Evaluate(assertion.EvalInput{
 		StatusCodes:      item.Assertions.Status.Codes,
 		ActualStatus:     result.StatusCode,
@@ -489,6 +531,8 @@ func executeOneRequest(ctx context.Context, cfg Config, idx, waveIdx int, scope 
 		StatusLine:       item.Assertions.Status.Line,
 		TimingLine:       item.Assertions.Timing.Line,
 		SchemaLine:       item.Assertions.SchemaLine,
+		CELInputs:        celInputs,
+		CELCtx:           celCtx,
 	})
 
 	// Emit assertion results and request.end.
@@ -567,6 +611,26 @@ func snapshotScope(base *variable.Scope, overrides map[string]string) (*variable
 		return base.WithOverrides(overrides)
 	}
 	return base.Snapshot(), nil
+}
+
+// skippedDependency reports whether an item idx depends on was skipped, and
+// that item's name. Dependencies are checked in index order so the name is
+// stable.
+func skippedDependency(graph *DependencyGraph, idx int, skippedIndices map[int]bool) (string, bool) {
+	if len(skippedIndices) == 0 || idx >= len(graph.Nodes) {
+		return "", false
+	}
+	deps := make([]int, 0, len(graph.Nodes[idx].Dependencies))
+	for dep := range graph.Nodes[idx].Dependencies {
+		deps = append(deps, dep)
+	}
+	sort.Ints(deps)
+	for _, dep := range deps {
+		if skippedIndices[dep] {
+			return graph.Nodes[dep].Name, true
+		}
+	}
+	return "", false
 }
 
 // checkDependencyFailure checks if any of the given request's dependencies have failed.
@@ -657,4 +721,22 @@ func computeImpact(graph *DependencyGraph, failedIndices map[int]bool, waves []W
 // or not its reference carries a |default: fallback.
 func DependencyFailure(graph *DependencyGraph, idx int, failedIndices map[int]bool) (bool, string) {
 	return checkDependencyFailure(graph, idx, failedIndices)
+}
+
+// UnassertedErrorStatus reports whether a response counts as a failed producer
+// only because of its status: a status of 400 or more on an item that asserts
+// nothing. An item with assertions failed exactly when one of them did, so a
+// 404 it expected is a success and what depends on it runs (§11.5).
+func UnassertedErrorStatus(result *httpexec.Result, ar *assertion.Results) bool {
+	if result == nil || result.StatusCode < 400 {
+		return false
+	}
+	return ar == nil || len(ar.Items) == 0
+}
+
+// outcomeFailed is the producer-failure rule for one outcome of a wave.
+func outcomeFailed(o RequestOutcome) bool {
+	return o.Err != nil ||
+		(o.AssertionResults != nil && !o.AssertionResults.Passed) ||
+		UnassertedErrorStatus(o.Result, o.AssertionResults)
 }

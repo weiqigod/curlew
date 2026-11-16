@@ -10697,15 +10697,15 @@ func TestIfConditional_PreviousIsLastNonSkipped(t *testing.T) {
 }
 
 // TestIfConditional_ParallelFallsBackToSequential verifies that when vars.Parallel
-// is true and any item has if:, the runner falls back to sequential execution and
-// emits a diagnostics line.
+// is true and an item's if: reads previous, the runner falls back to sequential
+// execution and emits a diagnostics line naming it.
 func TestIfConditional_ParallelFallsBackToSequential(t *testing.T) {
 	col := &parser.Collection{
 		Name: "parallel-fallback",
 		Requests: parser.Section{Items: []parser.RequestItem{
 			{
 				Name:    "A",
-				If:      "1 + 1 == 2",
+				If:      "previous.status == 200 || true",
 				Request: parser.Request{Method: "GET", URL: "https://example.com"},
 			},
 			{
@@ -10725,7 +10725,7 @@ func TestIfConditional_ParallelFallsBackToSequential(t *testing.T) {
 	if summary.IsParallel {
 		t.Error("IsParallel should be false after fallback")
 	}
-	if !strings.Contains(diagBuf.String(), "if: gate active") {
+	if !strings.Contains(diagBuf.String(), "if: on \"A\" uses previous") {
 		t.Errorf("diagnostics should mention fallback; got: %q", diagBuf.String())
 	}
 	if len(results) != 2 {
@@ -11158,8 +11158,9 @@ func TestCollectionHasCelAssertions(t *testing.T) {
 	}
 }
 
-// TestCelAssertion_ParallelFallback verifies that a collection with CEL
-// assertions and Parallel=true falls back to sequential execution.
+// TestCelAssertion_ParallelFallback verifies that a collection with a CEL
+// assertion that reads previous and Parallel=true falls back to sequential
+// execution.
 func TestCelAssertion_ParallelFallback(t *testing.T) {
 	col := &parser.Collection{
 		Name: "celtest",
@@ -11169,7 +11170,7 @@ func TestCelAssertion_ParallelFallback(t *testing.T) {
 				Request: parser.Request{Method: "GET", URL: "https://example.com"},
 				Assertions: parser.Assertions{
 					CEL: parser.CELAssertions{Items: []parser.CELAssertion{
-						{Source: "response.status == 200"},
+						{Source: "response.status == 200 && !has(previous.status)"},
 					}},
 				},
 			},

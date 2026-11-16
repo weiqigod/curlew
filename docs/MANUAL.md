@@ -415,9 +415,9 @@ requests:
 
 Under the hood:
 
-- `headers` is a map. Values are always strings; Curlew sets the `Content-Type` to `application/json` automatically when `body` is a YAML map.
+- `headers` is a map. Values are always strings; Curlew sets the `Content-Type` to `application/json` automatically when `body` is a YAML map. Curlew sends header names exactly as you write them: `x-tenant` stays `x-tenant` and `X-API-KEY` stays `X-API-KEY`. Names that differ only in case are the same header, so a header Curlew adds itself (`Content-Type`, an auth profile's header, an environment header, a signing header) is never sent a second time; the request's own spelling is kept. Over HTTP/2 the protocol sends all names in lower case, and Go's HTTP client sends the few headers it manages itself (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Accept-Encoding`, `Range`, `Expect`, `Trailer`) in their usual capitalised form.
 - `query` is a map, appended to the URL as `?source=curlew&debug=true`. Order is not guaranteed.
-- `body` can be either a YAML map (serialized as JSON) **or** a raw string:
+- `body` can be either a YAML map (serialized as JSON) **or** a raw string. Curlew keeps the keys of a `body` map in the order you wrote them, at every nesting level, so `{zeta: 1, alpha: 2}` is sent as `{"zeta":1,"alpha":2}`:
 
 ```yaml
     request:
@@ -716,6 +716,7 @@ Given this response body:
 {
   "id": "widget-42",
   "name": "Demo",
+  "x-request-id": "r-7",
   "tags": ["urgent", "review"],
   "owner": { "email": "alice@example.com" },
   "items": [
@@ -735,12 +736,18 @@ The expressions you will use most:
 | `$.tags` | `["urgent", "review"]` |
 | `$.tags[0]` | `"urgent"` |
 | `$.items[0].sku` | `"A"` |
+| `$['x-request-id']` | `"r-7"` |
 | `$.items.length` | use the `length:` operator instead |
 
 Two pieces of JSONPath that other tools support are **not** implemented:
 `$.items[*].sku` (wildcard across an array) and `$..sku` (recursive descent).
 Both are rejected as invalid paths. Address elements by index — `$.items[0].sku`
 — or assert on the array itself with `length:`, `contains:` or `contains_all:`.
+
+A key with a hyphen, dot or space goes in brackets, in single or double quotes:
+`$['x-request-id']` or `$["x-request-id"]`. Inside the quotes, `\'`, `\"` and `\\`,
+as well as JSON escapes such as `\n` and `\u0041`, are decoded. Name selectors work
+in body assertions and in `extract:`.
 
 Three worked assertions against the response above:
 
@@ -1830,6 +1837,17 @@ CEL appears at two sites:
 
 `extract:` intentionally remains JSONPath-only — there is exactly one extraction language.
 
+#### When a `cel:` assertion fails
+
+A false assertion is reported as `expected <expression> to be true, got false`, followed by the value of each top-level reference in the expression:
+
+```
+✗ assertions[0].cel: expected response.status == 201 || response.status == 202 to be true, got false
+  response.status = 200
+```
+
+An expression that cannot be evaluated (for example a missing key) reports the evaluation error instead of `false`.
+
 #### Standard activation
 
 Every CEL expression evaluates against the same four bindings:
@@ -1837,7 +1855,7 @@ Every CEL expression evaluates against the same four bindings:
 | Binding    | Type                          | Description                                                                             |
 | ---------- | ----------------------------- | --------------------------------------------------------------------------------------- |
 | `response` | `map(string, dyn)`            | Current request's response; fields `status` (int), `headers` (map), `body` (dyn).      |
-| `previous` | `map(string, dyn)`            | The previous request's response, same shape as `response`.                              |
+| `previous` | `map(string, dyn)`            | The previous request's response, same shape as `response`. Under `--parallel`, using it runs the requests phase sequentially (§5.6). |
 | `vars`     | `map(string, dyn)`            | All variables in scope at the request site (collection, env, CLI).                      |
 | `env`      | `map(string, string)`         | Process environment variables.                                                          |
 
@@ -2910,6 +2928,16 @@ Wave 2: Place order                         (waits for both of Wave 1)
 ```
 
 Variables extracted in Wave 1 propagate to Wave 2. Cycles (A depends on B, B depends on A) are detected during dependency analysis and rejected with a clear error before any request executes.
+
+**When a request fails, what depends on it is skipped.** A request has failed when it got no response, when one of its assertions failed, or, only if it has no assertions, when its status is 400 or higher. A request that asserts `status: 404` and gets 404 has passed, so the requests that depend on it run. This rule is the same with and without `--parallel`.
+
+**`if:` and `cel:` in waves.** Both are evaluated inside the waves, with `response`, `vars` and `env`. An `if:` is checked when its wave starts, so it sees the variables that earlier waves extracted; a request it skips also skips the requests that depend on it. A `vars.<name>` that an `if:` or `cel:` reads counts as a reference, like `{{name}}`, so the request waits for the one that extracts it. `previous` means the response before this one in file order, which waves do not have. When an `if:` or `cel:` expression in the requests phase uses `previous`, Curlew runs the requests phase sequentially and says so on stderr:
+
+```
+curlew: if: on "notify" uses previous; falling back to sequential main phase
+```
+
+Setup and teardown are sequential anyway, so `previous` there changes nothing.
 
 **Preview without executing:**
 

@@ -28,7 +28,8 @@ type CELContext struct {
 	Evaluator apicel.Evaluator
 	// ProgCache is a per-run cache of compiled programs keyed by expression
 	// source. Multiple assertions with the same expression share one compile.
-	ProgCache map[string]apicel.Program
+	// It is safe for concurrent use, so parallel requests can share it.
+	ProgCache *apicel.ProgramCache
 	// Response is the CEL-typed representation of the HTTP response.
 	Response *apicel.Response
 	// Previous is the previous request's response (or nil).
@@ -100,51 +101,47 @@ func evalCELAssertion(in CELInput, ctx CELContext) Result {
 	}
 
 	if b {
-		return id.with(in.Source, "true", true)
+		return id.with(in.Source+" to be true", "true", true)
 	}
 
-	// Assertion failed: build a failure message that includes the literal
-	// expression source and the resolved value of each top-level named ref.
+	// Assertion failed: "got false", followed by the resolved value of each
+	// top-level named ref so the reader can see why.
 	msg := buildCELFailureMessage(in.Source, ctx)
-	return id.with(in.Source, redactSensitive(msg, ctx.SensitiveValues), false)
+	return id.with(in.Source+" to be true", redactSensitive(msg, ctx.SensitiveValues), false)
 }
 
 // compileCELAssertion retrieves a compiled program from the cache or compiles
 // and caches a new one. Expects the expression to produce a bool.
 func compileCELAssertion(ctx CELContext, src string) (apicel.Program, error) {
-	if ctx.ProgCache != nil {
-		if p, ok := ctx.ProgCache[src]; ok {
-			return p, nil
-		}
+	if p, ok := ctx.ProgCache.Load(src); ok {
+		return p, nil
 	}
 	p, err := ctx.Evaluator.Compile(src, celgo.BoolType)
 	if err != nil {
 		return nil, err
 	}
-	if ctx.ProgCache != nil {
-		ctx.ProgCache[src] = p
-	}
+	ctx.ProgCache.Store(src, p)
 	return p, nil
 }
 
-// buildCELFailureMessage constructs the human-readable failure message for a
-// failed CEL assertion. It includes the literal expression source and, for
-// each top-level named reference (e.g. response.body.total), the resolved
-// value from the activation.
+// buildCELFailureMessage constructs the "got" side of a failed CEL assertion:
+// false, then, for each top-level named reference (e.g. response.body.total),
+// the resolved value from the activation. The expression itself is on the
+// "expected" side, so it is not repeated here.
 //
 // Output shape:
 //
-//	<source>
+//	false
 //	  response.body.total = 9.5
 //	  response.body.items.map(i, i.price).sum() = 10.5
 func buildCELFailureMessage(src string, ctx CELContext) string {
 	refs := apicel.CollectTopLevelRefs(src, ctx.Evaluator)
 	if len(refs) == 0 {
-		return src
+		return "false"
 	}
 
 	var b strings.Builder
-	b.WriteString(src)
+	b.WriteString("false")
 
 	for _, ref := range refs {
 		val, err := evaluateSubexpression(ref, ctx)

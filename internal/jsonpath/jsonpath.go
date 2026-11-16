@@ -3,6 +3,7 @@
 // Supported syntax:
 //   - $ (root reference)
 //   - .field (dot notation)
+//   - ['field'] and ["field"] (name selectors, for keys with hyphens, dots or spaces)
 //   - [N] (array index)
 //   - Chaining: $.data.items[0].name
 package jsonpath
@@ -12,6 +13,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf16"
 )
 
 // ErrNotFound indicates the path matched nothing in the document.
@@ -96,6 +99,19 @@ func parse(path string) ([]segment, error) {
 
 		case '[':
 			rest = rest[1:] // skip '['
+			if len(rest) > 0 && (rest[0] == '\'' || rest[0] == '"') {
+				name, n, err := parseQuotedName(rest)
+				if err != nil {
+					return nil, err
+				}
+				rest = rest[n:]
+				if len(rest) == 0 || rest[0] != ']' {
+					return nil, fmt.Errorf("%w: name selector must be closed by ] in %s", ErrInvalidPath, path)
+				}
+				segs = append(segs, segment{field: name, index: -1})
+				rest = rest[1:]
+				continue
+			}
 			closeBracket := strings.IndexByte(rest, ']')
 			if closeBracket == -1 {
 				return nil, fmt.Errorf("%w: unclosed bracket", ErrInvalidPath)
@@ -116,4 +132,83 @@ func parse(path string) ([]segment, error) {
 		}
 	}
 	return segs, nil
+}
+
+// parseQuotedName reads a quoted name selector (RFC 9535 §2.3.1) at the start
+// of s: 'name' or "name", with the escapes \' \" \\ \/ \b \f \n \r \t and
+// \uXXXX. It returns the decoded name and the number of bytes consumed,
+// including both quotes.
+func parseQuotedName(s string) (string, int, error) {
+	quote := s[0]
+	var b strings.Builder
+	i := 1
+	for i < len(s) {
+		c := s[i]
+		switch {
+		case c == quote:
+			return b.String(), i + 1, nil
+		case c == '\\':
+			if i+1 >= len(s) {
+				return "", 0, fmt.Errorf("%w: unterminated name selector", ErrInvalidPath)
+			}
+			esc := s[i+1]
+			i += 2
+			switch esc {
+			case '\'', '"', '\\', '/':
+				b.WriteByte(esc)
+			case 'b':
+				b.WriteByte('\b')
+			case 'f':
+				b.WriteByte('\f')
+			case 'n':
+				b.WriteByte('\n')
+			case 'r':
+				b.WriteByte('\r')
+			case 't':
+				b.WriteByte('\t')
+			case 'u':
+				r, n, err := parseUnicodeEscape(s[i:])
+				if err != nil {
+					return "", 0, err
+				}
+				b.WriteRune(r)
+				i += n
+			default:
+				return "", 0, fmt.Errorf("%w: invalid escape \\%c in name selector", ErrInvalidPath, esc)
+			}
+		default:
+			b.WriteByte(c)
+			i++
+		}
+	}
+	return "", 0, fmt.Errorf("%w: unterminated name selector", ErrInvalidPath)
+}
+
+// parseUnicodeEscape decodes the four hex digits after \u, and a following
+// \uXXXX low surrogate when the first is a high surrogate. It returns the
+// rune and the number of bytes consumed after the first "\u".
+func parseUnicodeEscape(s string) (rune, int, error) {
+	hex4 := func(h string) (rune, error) {
+		if len(h) < 4 {
+			return 0, fmt.Errorf("%w: short \\u escape in name selector", ErrInvalidPath)
+		}
+		v, err := strconv.ParseUint(h[:4], 16, 32)
+		if err != nil {
+			return 0, fmt.Errorf("%w: invalid \\u escape in name selector", ErrInvalidPath)
+		}
+		return rune(v), nil
+	}
+	r, err := hex4(s)
+	if err != nil {
+		return 0, 0, err
+	}
+	if utf16.IsSurrogate(r) && len(s) >= 10 && s[4] == '\\' && s[5] == 'u' {
+		low, err := hex4(s[6:])
+		if err == nil {
+			if pair := utf16.DecodeRune(r, low); pair != unicode.ReplacementChar {
+				return pair, 10, nil
+			}
+		}
+	}
+	return r, 4, nil
 }
